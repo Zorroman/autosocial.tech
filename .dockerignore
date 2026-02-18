@@ -1,0 +1,11 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.git/
+.pytest_cache/
+.vscode/
+node_modules/
+output/

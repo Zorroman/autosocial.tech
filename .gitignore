@@ -1,0 +1,37 @@
+﻿# secrets
+.env
+.env.*
+!.env.example
+
+# local runtime
+__pycache__/
+.pytest_cache/
+*.pyc
+logs/
+*.log
+ngrok.log
+
+# databases
+*.db
+
+# generated artifacts
+tests/reports/
+tests/artifacts/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# backups
+*.before_oauthfix
+*.bak
+*.bak2
+
+# local screenshots/docs
+ChatGPT Image *.png
+Новый документ*.png
+unnamed.png
+Autosocial openai.txt
+

@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# canonical host: www -> non-www
+RewriteCond %{HTTP_HOST} ^www\.autosocial\.tech$ [NC]
+RewriteRule ^(.*)$ https://autosocial.tech/$1 [R=301,L]
+
+# force HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://autosocial.tech/$1 [R=301,L]
+
+# SPA fallback (do not break real files/dirs)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]

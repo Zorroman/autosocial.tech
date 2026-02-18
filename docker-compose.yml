@@ -1,0 +1,59 @@
+﻿version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: autosocial-backend
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/autosocial.db
+      - REDIS_URL=redis://redis:6379/0
+      - SYNC_JOBS=false
+      - USE_MOCK_PROVIDERS=true
+    volumes:
+      - autosocial_data:/app/data
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: autosocial-worker
+    command: ["python", "worker.py"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/autosocial.db
+      - REDIS_URL=redis://redis:6379/0
+      - SYNC_JOBS=false
+      - USE_MOCK_PROVIDERS=true
+    volumes:
+      - autosocial_data:/app/data
+    depends_on:
+      - redis
+      - backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: autosocial-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: autosocial-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  autosocial_data:

@@ -1,0 +1,20 @@
+﻿import os
+
+import requests
+
+
+def get_pages(token: str):
+    url = f"https://graph.facebook.com/v19.0/me/accounts?access_token={token}"
+    response = requests.get(url, timeout=20)
+    return response.json()
+
+
+if __name__ == "__main__":
+    access_token = os.getenv("FB_ACCESS_TOKEN", "").strip()
+    if not access_token:
+        raise SystemExit("FB_ACCESS_TOKEN is required")
+
+    pages = get_pages(access_token)
+    print("\nДоступные Facebook-страницы:")
+    for page in pages.get("data", []):
+        print(f"- {page['name']} (ID: {page['id']})")

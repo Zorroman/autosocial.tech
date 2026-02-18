@@ -1,0 +1,30 @@
+<svg width="840" height="560" viewBox="0 0 840 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="760" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0.22"/>
+    </linearGradient>
+    <linearGradient id="card" x1="250" y1="120" x2="250" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+  </defs>
+  <rect width="840" height="560" rx="36" fill="#0F172A"/>
+  <circle cx="110" cy="95" r="180" fill="url(#bg)"/>
+  <circle cx="740" cy="500" r="220" fill="url(#bg)"/>
+  <rect x="62" y="70" width="716" height="420" rx="24" fill="#111B32" stroke="#334155"/>
+  <rect x="92" y="108" width="206" height="344" rx="16" fill="#0B1328" stroke="#243349"/>
+  <rect x="322" y="108" width="426" height="166" rx="16" fill="url(#card)"/>
+  <rect x="346" y="134" width="140" height="16" rx="8" fill="#3B82F6"/>
+  <rect x="346" y="162" width="300" height="12" rx="6" fill="#94A3B8"/>
+  <rect x="346" y="182" width="268" height="12" rx="6" fill="#CBD5E1"/>
+  <rect x="322" y="286" width="202" height="166" rx="16" fill="#111B32" stroke="#334155"/>
+  <rect x="546" y="286" width="202" height="166" rx="16" fill="#111B32" stroke="#334155"/>
+  <rect x="572" y="312" width="108" height="12" rx="6" fill="#22D3EE"/>
+  <path d="M112 188 H278" stroke="#1E293B" stroke-width="10" stroke-linecap="round"/>
+  <path d="M112 224 H258" stroke="#1E293B" stroke-width="10" stroke-linecap="round"/>
+  <path d="M112 260 H268" stroke="#1E293B" stroke-width="10" stroke-linecap="round"/>
+  <path d="M350 390 C390 350,430 430,470 360" stroke="#3B82F6" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <rect x="574" y="338" width="146" height="90" rx="12" fill="#0B1328"/>
+  <path d="M586 415 L612 388 L638 408 L667 372 L704 410" stroke="#8B5CF6" stroke-width="6" fill="none" stroke-linecap="round"/>
+</svg>

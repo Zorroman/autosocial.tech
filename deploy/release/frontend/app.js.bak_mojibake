@@ -1,0 +1,362 @@
+
+const API_BASE = localStorage.getItem('apiBase') || 'http://localhost:5000';
+const state = {
+  token: localStorage.getItem('token') || '',
+  theme: localStorage.getItem('theme') || 'light',
+  user: null,
+  billing: null,
+  projects: [],
+  connections: [],
+  posts: [],
+  plans: [],
+  blog: [],
+  adminUsers: [],
+  adminRevenue: null,
+  notice: null,
+  createWizard: {
+    step: 1,
+    projectId: '',
+    category: 'business',
+    topic: '',
+    tone: 'friendly',
+    language: 'ru',
+    mode: 'now',
+    scheduleAt: '',
+    platforms: { facebook: true, instagram: true },
+    mediaUrl: '',
+  },
+};
+
+const esc = (v) => String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const safeText = (v, fallback = '—') => {
+  const s = String(v ?? '').replace(/\uFFFD/g, '').trim();
+  return s ? s : fallback;
+};
+const isAuthRoute = (p) => p !== '/login';
+
+function setTheme(theme) {
+  state.theme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', state.theme);
+  localStorage.setItem('theme', state.theme);
+}
+setTheme(state.theme);
+
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const text = await res.text();
+  let payload;
+  try { payload = JSON.parse(text); } catch { payload = text; }
+  if (!res.ok) throw new Error(typeof payload === 'string' ? payload : payload.error || 'Ошибка запроса');
+  return payload;
+}
+
+function nav(path) {
+  history.pushState({}, '', path);
+  state.notice = null;
+  render();
+}
+
+function icon(name) {
+  const icons = {
+    dashboard: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/></svg>',
+    create: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
+    connections: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M7 7h.01"/><path d="M17 17h.01"/><path d="M13 5h4a2 2 0 0 1 2 2v4"/><path d="M11 19H7a2 2 0 0 1-2-2v-4"/></svg>',
+    history: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 3"/></svg>',
+    billing: '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/><path d="M7 15h4"/></svg>',
+    settings: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.02.02a2 2 0 0 1-2.83 2.83l-.02-.02A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.56V21a2 2 0 0 1-4 0v-.04A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.02.02a2 2 0 0 1-2.83-2.83l.02-.02A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 0 1 0-4h.04A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.02-.02a2 2 0 0 1 2.83-2.83l.02.02A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 0 1 4 0v.04A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.02-.02a2 2 0 1 1 2.83 2.83l-.02.02A1.7 1.7 0 0 0 19.4 9c.13.32.46.53.81.53H21a2 2 0 0 1 0 4h-.79c-.35 0-.68.21-.81.53z"/></svg>',
+    admin: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7l8-4z"/><path d="M9.5 12.5l1.7 1.7 3.6-3.6"/></svg>',
+    blog: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    contact: '<svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  };
+  return icons[name] || icons.dashboard;
+}
+
+function planBadge(plan) {
+  const p = String(plan || 'free').toLowerCase();
+  const cls = p === 'pro' ? 'badge-pro' : p === 'agency' ? 'badge-agency' : p === 'light' ? 'badge-light' : 'badge-free';
+  return `<span class="badge-plan ${cls}">${esc(p)}</span>`;
+}
+
+function statusBadge(status) {
+  const map = { done: 'success', published: 'success', connected: 'success', running: 'warning', failed: 'error', disconnected: 'error', queued: 'queued', scheduled: 'scheduled' };
+  const cls = map[String(status || '').toLowerCase()] || 'warning';
+  return `<span class="status ${cls}">${esc(status || 'неизвестно')}</span>`;
+}
+
+function field(id, label, type = 'text', value = '', placeholder = '') {
+  if (type === 'textarea') return `<div class="field"><label for="${id}">${esc(label)}</label><textarea id="${id}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></div>`;
+  return `<div class="field"><label for="${id}">${esc(label)}</label><input id="${id}" type="${esc(type)}" value="${esc(value)}" placeholder="${esc(placeholder)}"/></div>`;
+}
+function selectField(id, label, value, options) {
+  return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}">${options.map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>`;
+}
+function progressBar(value, max) {
+  const pct = max > 0 ? Math.max(2, Math.min(100, Math.round((value / max) * 100))) : 0;
+  return `<div class="progress"><span style="width:${pct}%;"></span></div>`;
+}
+function emptyState(title, text, buttonLabel, path) {
+  return `<div class="empty"><h3>${esc(title)}</h3><p class="small">${esc(text)}</p>${buttonLabel ? `<button class="btn btn-primary" data-link="${esc(path)}">${esc(buttonLabel)}</button>` : ''}</div>`;
+}
+
+function appLayout(path, title, body) {
+  const links = [
+    ['/dashboard', 'Панель', 'dashboard'],
+    ['/create', 'Создать', 'create'],
+    ['/connections', 'Подключения', 'connections'],
+    ['/history', 'История', 'history'],
+    ['/billing', 'Тарифы', 'billing'],
+    ['/settings', 'Настройки', 'settings'],
+    ['/blog', 'Блог', 'blog'],
+    ['/contact', 'Контакты', 'contact'],
+  ];
+  if (state.user?.role === 'admin') links.push(['/admin', 'Админ', 'admin']);
+  const navHtml = links.map(([p, l, i]) => `<a href="${p}" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></a>`).join('');
+  const footer = `<div class="footer-note"><div class="small">Без скрытых платежей. Прозрачные тарифы. AI-кредиты — внутренние единицы расхода.</div><div class="small">Stripe защищенные платежи · SSL защищено · GDPR совместимо</div></div>`;
+  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM Менеджер</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} · ${planBadge(state.user?.plan || 'free')}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button><button id="logoutBtn" class="btn btn-secondary">Выйти</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
+}
+function pageLogin() {
+  return `<div class="auth-wrap page"><div class="auth-shell reveal"><section class="auth-panel"><img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:16px;"/><h1>AI SMM-менеджер, который заменяет маркетинг-команду</h1><p class="muted">AutoSocial GPT анализирует нишу, строит стратегию, пишет посты, планирует и публикует в Facebook и Instagram.</p><div class="trust-row"><span class="trust-chip">Без скрытых платежей</span><span class="trust-chip">Безопасная оплата Stripe</span><span class="trust-chip">Соответствие GDPR</span></div><div class="hero-visual" style="margin-top:18px;"><img src="/assets/brand/hero-mockup.svg" alt="Предпросмотр"/></div></section><section class="auth-panel">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}<h2>Вход в аккаунт</h2>${field('loginEmail', 'Email')}${field('loginPassword', 'Пароль', 'password')}<button id="loginBtn" class="btn btn-primary" style="width:100%;margin-bottom:12px;">Войти</button><h3 style="margin-top:12px;">Создать аккаунт</h3>${field('regEmail', 'Email')}${field('regPassword', 'Пароль', 'password')}<button id="regBtn" class="btn btn-secondary" style="width:100%;">Создать аккаунт</button></section></div></div>`;
+}
+
+function pageDashboard() {
+  const b = state.billing || { usage: {}, limits: {}, credits_left: 0, approx_posts_left: 0, plan: 'free' };
+  const usedMonth = b.usage.posts_per_month || 0;
+  const limitMonth = b.limits.posts_per_month || 0;
+  const usedDaily = b.usage.daily_posts || 0;
+  const limitDaily = b.limits.daily_posts || 0;
+  const projectsHtml = state.projects.length
+    ? `<div class="grid-2">${state.projects.map((p) => `<article class="card"><h3>${esc(p.name)}</h3><div class="small">Постов: ${p.posts_count || 0}</div></article>`).join('')}</div>`
+    : emptyState('Пока нет проектов', 'Создайте первый проект для запуска AI-автоматизации.', 'Создать проект', '/create');
+
+  return appLayout('/dashboard', 'Панель', `<section class="hero reveal"><div class="hero-copy"><h1>Ведите соцсети на автопилоте.</h1><p>AutoSocial GPT сам создаёт стратегию, пишет посты и публикует.</p><div class="cta-row"><button id="goConnectionsBtn" class="btn btn-primary">Подключить Instagram/Facebook</button><button id="goCreateBtn" class="btn btn-secondary">Создать пост</button><button id="goBillingBtn" class="btn btn-ghost">Улучшить тариф</button></div></div><div class="hero-visual"><img src="/assets/brand/hero-mockup.svg" alt="Дашборд"/></div></section><section class="grid-3" style="margin-top:18px;"><article class="card"><h3>Тариф</h3>${planBadge(b.plan)}<p class="small">Кредиты в месяц: ${esc(b.limits.monthly_credits || 0)}</p></article><article class="card"><h3>Использовано постов</h3><p class="small">${usedMonth} / ${limitMonth}</p>${progressBar(usedMonth, limitMonth)}</article><article class="card"><h3>Осталось кредитов</h3><p class="small">${esc(b.credits_left)} кредитов · ~${esc(b.approx_posts_left)} постов</p>${progressBar(Math.max((b.limits.monthly_credits || 1) - (b.credits_left || 0), 0), b.limits.monthly_credits || 1)}</article></section><section class="card" style="margin-top:18px;"><h2>Запустить AI SMM Менеджер</h2><p class="small">Шаг 1: подключите соцсети. Шаг 2: задайте нишу и цель. Шаг 3: сгенерируйте стратегию на месяц.</p><div class="grid-2"><div>${selectField('managerProject', 'Проект', state.projects[0]?.id || '', state.projects.map((p) => ({ value: p.id, label: p.name })).concat([{ value: '', label: 'Проект по умолчанию' }]))}${field('managerBusiness', 'Тип бизнеса', 'text', '', 'например, салон красоты')}${field('managerNiche', 'Ниша', 'text', '', 'например, косметология')}${field('managerGoal', 'Цель', 'text', '', 'например, лиды и записи')}${selectField('managerLang', 'Язык', 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}<div class="cta-row"><button id="startManagerBtn" class="btn btn-primary">Запустить AI SMM Менеджер</button><button id="strategyBtn" class="btn btn-secondary">Сгенерировать стратегию на месяц</button></div></div><div><article class="card" style="height:100%;"><h3>Дневной лимит</h3><p class="small">${usedDaily} / ${limitDaily} постов сегодня</p>${progressBar(usedDaily, limitDaily)}<h3 style="margin-top:16px;">Быстрые действия</h3><div class="cta-row"><button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button><button id="scheduleWeekBtn" class="btn btn-ghost">План на неделю</button></div></article></div></div></section><section class="card" style="margin-top:18px;"><h2>Проекты</h2>${projectsHtml}</section>`);
+}
+
+function pageCreate() {
+  const w = state.createWizard;
+  const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
+  const step1 = `${selectField('wProject', 'Проект', w.projectId, options.length ? options : [{ value: '', label: 'Нет проектов' }])}`;
+  const step2 = `<div class="field"><label>Платформы</label><div class="row"><label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label><label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label></div></div>`;
+  const step3 = `${field('wCategory', 'Категория', 'text', w.category)}${field('wTopic', 'Тема', 'text', w.topic, 'Введите тему вручную')}${selectField('wTone', 'Тон', w.tone, [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }])}${selectField('wLang', 'Язык', w.language, [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}${field('wMedia', 'Ссылка на медиа', 'text', w.mediaUrl, 'Необязательная ссылка на изображение')}`;
+  const step4 = `<article class="card"><h3>Предпросмотр</h3><pre style="white-space:pre-wrap;font-family:Inter, sans-serif;">${esc(w.topic ? `HOOK: ${w.topic}\nVALUE: конкретные короткие советы\nCTA: понятный следующий шаг\n#хештеги` : 'Введите тему, чтобы увидеть предпросмотр поста.')}</pre></article>`;
+  const step5 = `${selectField('wMode', 'Режим публикации', w.mode, [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать' }])}${field('wSchedule', 'Дата и время', 'datetime-local', w.scheduleAt)}<p class="small">Free: без планирования. Платные тарифы: планирование доступно.</p>`;
+  const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
+  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Далее</button>':'<button id="wSubmit" class="btn btn-primary">Создать и опубликовать</button>'}</div></section>`);
+}
+
+function pageConnections() {
+  const table = state.connections.length ? `<div class="table-wrap"><table><thead><tr><th>Провайдер</th><th>Страница</th><th>Instagram</th><th>Статус</th><th>Действия</th></tr></thead><tbody>${state.connections.map((c)=>`<tr><td>${esc(c.provider)}</td><td>${esc(safeText(c.page_name))}</td><td>${esc(safeText(c.ig_user_id))}</td><td>${statusBadge(c.status)}</td><td><button class="btn btn-ghost" data-test="${c.id}">Тест публикации</button> <button class="btn btn-secondary" data-refresh="${c.id}">Обновить токен</button> <button class="btn btn-danger" data-disconnect="${c.id}">Отключить</button></td></tr>`).join('')}</tbody></table></div>` : emptyState('Нет подключенных аккаунтов','Подключите Facebook и Instagram Business, чтобы начать публикацию.','Подключить','/connections');
+  return appLayout('/connections','Подключения',`<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите один раз и публикуйте автоматически.</p><div class="cta-row" style="margin-bottom:12px;"><button id="connectMetaBtn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить демо-аккаунт</button></div>${table}</section>`);
+}
+function plansTable() {
+  const planMap = {};
+  (state.plans || []).forEach((p) => { planMap[p.name] = p; });
+  const f = (name, key, fallback = '-') => planMap[name]?.[key] ?? fallback;
+  const yesNo = (v) => (v ? 'Да' : 'Нет');
+  return `<div class="table-wrap"><table><thead><tr><th>Функция</th><th>Free</th><th>Light</th><th>Pro</th><th>Agency</th></tr></thead><tbody><tr><td>Постов/месяц</td><td>${f('free','max_posts_month',10)}</td><td>${f('light','max_posts_month',300)}</td><td>${f('pro','max_posts_month',1000)}</td><td>${f('agency','max_posts_month',5000)}</td></tr><tr><td>Проекты</td><td>${f('free','max_projects',1)}</td><td>${f('light','max_projects',3)}</td><td>${f('pro','max_projects',10)}</td><td>Без ограничений</td></tr><tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('light','can_schedule',true))}</td><td>${yesNo(f('pro','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr><tr><td>Автопубликация</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('light','can_autopublish',true))}</td><td>${yesNo(f('pro','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr></tbody></table></div>`;
+}
+
+function pageHistory() {
+  const table = state.posts.length ? `<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Платформа</th><th>Тема</th><th>Статус</th><th>ID публикации</th><th>Ошибка</th><th>Повтор</th></tr></thead><tbody>${state.posts.map((p)=>`<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${esc(p.platform)}</td><td>${esc(p.topic || '')}</td><td>${statusBadge(p.status)}</td><td>${esc(p.remote_id || '—')}</td><td>${esc(p.error_message || '—')}</td><td><button class="btn btn-ghost" data-retry="${p.id}">Повтор</button></td></tr>`).join('')}</tbody></table></div>` : emptyState('История пуста','Создайте первый пост и опубликуйте его.','Создать пост','/create');
+  return appLayout('/history','История',`<section class="card"><h2>История публикаций</h2>${table}</section>`);
+}
+
+function pageBilling() {
+  const b = state.billing || { plan: 'free', usage: {}, limits: {} };
+  return appLayout('/billing','Тарифы',`<section class="card"><h2>Тарифы и биллинг</h2><p class="small">Вы платите за автоматизацию и удобство. Кредиты — внутренняя метрика использования AI.</p>${plansTable()}<div class="cta-row" style="margin-top:12px;"><button id="upgradeLightBtn" class="btn btn-primary">Перейти на Light</button><button id="upgradeProBtn" class="btn btn-primary">Перейти на Pro</button><button id="upgradeAgencyBtn" class="btn btn-primary">Перейти на Agency</button></div><div class="cta-row" style="margin-top:10px;"><button id="packSBtn" class="btn btn-secondary">Купить 200k кредитов</button><button id="packMBtn" class="btn btn-secondary">Купить 450k кредитов</button><button id="packLBtn" class="btn btn-secondary">Купить 1M кредитов</button><button id="portalBtn" class="btn btn-ghost">Управление подпиской</button></div></section><section class="grid-2" style="margin-top:18px;"><article class="card"><h3>Текущий тариф</h3>${planBadge(b.plan)}<p class="small">Статус биллинга: ${esc(state.user?.billing_status || 'неизвестно')}</p></article><article class="card"><h3>спользование</h3><p class="small">Постов: ${b.usage.posts_per_month || 0}/${b.limits.posts_per_month || 0}</p><p class="small">День: ${b.usage.daily_posts || 0}/${b.limits.daily_posts || 0}</p><p class="small">Осталось кредитов: ${b.credits_left || 0}</p></article></section>`);
+}
+
+function pageSettings() {
+  return appLayout('/settings','Настройки',`<section class="grid-2"><article class="card"><h2>Профиль</h2>${field('profileEmail','Email','text',state.user?.email || '')}<button id="saveProfileBtn" class="btn btn-primary">Сохранить профиль</button></article><article class="card"><h2>Пароль</h2>${field('curPass','Текущий пароль','password')}${field('newPass','Новый пароль','password')}<button id="savePassBtn" class="btn btn-secondary">Обновить пароль</button></article></section>`);
+}
+
+function pageBlog() {
+  const items = state.blog.length ? `<div class="grid-2">${state.blog.map((b)=>`<article class="card"><h3>${esc(b.title)}</h3><div class="small">${new Date(b.published_at).toLocaleDateString()}</div><p class="small">${esc((b.meta_description || '').slice(0,220))}</p></article>`).join('')}</div>` : emptyState('Блог пока пуст','Ежедневные SEO-статьи будут появляться здесь автоматически.','','');
+  return appLayout('/blog','Блог',`<section class="card"><h2>SEO блог-движок</h2>${items}</section>`);
+}
+
+function pageContact() {
+  return appLayout('/contact','Контакты',`<section class="grid-2"><article class="card"><h2>Контакты</h2><p class="small">Нужна помощь с онбордингом, настройкой Meta или биллингом?</p><p><strong>Email:</strong> support@autosocial-gpt.local</p><p><strong>Компания:</strong> AutoSocial GPT SaaS</p><p><strong>Время работы:</strong> Пн-Пт 09:00-18:00 UTC</p></article><article class="card"><h2>Безопасность и соответствие</h2><ul class="small"><li>Безопасные платежи Stripe</li><li>SSL-шифрование соединений</li><li>Соответствие GDPR</li><li>Без скрытых платежей</li></ul></article></section>`);
+}
+
+function adminUsersTable() {
+  if (!state.adminUsers.length) return '<p class="small">Загрузите пользователей для просмотра.</p>';
+  return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Роль</th><th>Тариф</th><th>Кредиты</th><th>Биллинг</th><th>Создан</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || '—')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function pageAdmin() {
+  if (state.user?.role !== 'admin') return appLayout('/admin','Админ',emptyState('Доступ запрещен','Требуется роль администратора.','Назад на панель','/dashboard'));
+  const revenue = state.adminRevenue ? `<p class="small">Токены: ${state.adminRevenue.tokens_total} · OpenAI: €${state.adminRevenue.estimated_openai_cost_eur} · Stripe: €${state.adminRevenue.stripe_revenue_eur} · Маржа: ${state.adminRevenue.margin_percent}%</p>` : '<p class="small">Загрузите панель выручки.</p>';
+  return appLayout('/admin','Админ',`<section class="grid-2"><article class="card"><h2>Пользователи</h2><button id="adminUsersBtn" class="btn btn-primary">Загрузить пользователей</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>Тарифы и кредиты</h2>${field('adminUserId','ID пользователя')}${selectField('adminPlan','Тариф','free',[{value:'free',label:'Free'},{value:'light',label:'Light'},{value:'pro',label:'Pro'},{value:'agency',label:'Agency'}])}${field('adminDelta','зменение кредитов','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">Установить тариф</button><button id="adminCreditsBtn" class="btn btn-ghost">зменить кредиты</button></div></article><article class="card"><h2>Панель выручки</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">Обновить выручку</button></article><article class="card"><h2>Действия администратора</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">Сгенерировать статью</button><button id="adminRunPlanBtn" class="btn btn-ghost">Запустить контент-план</button></div></article></section>`);
+}
+
+function page(path) {
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact };
+  return (routes[path] || pageDashboard)();
+}
+
+async function preload(path) {
+  if (!state.token) return;
+  if (path === '/connections') state.connections = await api('/api/connections');
+  if (path === '/history') state.posts = await api('/api/posts');
+  if (path === '/billing' || path === '/dashboard') state.plans = await api('/api/plans');
+  if (path === '/blog') state.blog = await api('/api/blog/posts');
+  if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
+}
+async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.projects = await api('/api/projects'); }
+function bindCommon() {
+  document.querySelectorAll('[data-link]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); nav(a.getAttribute('data-link')); }; });
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
+  const themeToggle = document.getElementById('themeToggleBtn');
+  if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
+}
+
+async function bind() {
+  bindCommon();
+
+  const loginBtn = document.getElementById('loginBtn');
+  if (loginBtn) loginBtn.onclick = async () => {
+    try {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      state.token = data.token;
+      localStorage.setItem('token', data.token);
+      await loadBase();
+      state.notice = { type: 'ok', text: 'Вход выполнен успешно.' };
+      nav('/dashboard');
+    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+  };
+
+  const regBtn = document.getElementById('regBtn');
+  if (regBtn) regBtn.onclick = async () => {
+    try {
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const data = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
+      state.token = data.token;
+      localStorage.setItem('token', data.token);
+      await loadBase();
+      state.notice = { type: 'ok', text: 'Аккаунт создан.' };
+      nav('/dashboard');
+    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+  };
+
+  const startManagerBtn = document.getElementById('startManagerBtn');
+  if (startManagerBtn) startManagerBtn.onclick = async () => {
+    try {
+      const projectRaw = document.getElementById('managerProject').value;
+      const business_type = document.getElementById('managerBusiness').value.trim();
+      const niche = document.getElementById('managerNiche').value.trim();
+      const goal = document.getElementById('managerGoal').value.trim();
+      const language = document.getElementById('managerLang').value;
+      await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, business_type, niche, goal, language }) });
+      state.notice = { type: 'ok', text: 'Стратегия на 30 дней создана и запланирована.' };
+      nav('/history');
+    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+  };
+
+  const goConnectionsBtn = document.getElementById('goConnectionsBtn'); if (goConnectionsBtn) goConnectionsBtn.onclick = () => nav('/connections');
+  const goCreateBtn = document.getElementById('goCreateBtn'); if (goCreateBtn) goCreateBtn.onclick = () => nav('/create');
+  const goBillingBtn = document.getElementById('goBillingBtn'); if (goBillingBtn) goBillingBtn.onclick = () => nav('/billing');
+  const strategyBtn = document.getElementById('strategyBtn'); if (strategyBtn) strategyBtn.onclick = () => document.getElementById('startManagerBtn')?.click();
+  const postTodayBtn = document.getElementById('postTodayBtn'); if (postTodayBtn) postTodayBtn.onclick = () => nav('/create');
+  const scheduleWeekBtn = document.getElementById('scheduleWeekBtn'); if (scheduleWeekBtn) scheduleWeekBtn.onclick = async () => { await api('/api/content-plan/run-due', { method: 'POST', body: '{}' }); state.notice = { type: 'ok', text: 'Контент-план обработан.' }; nav('/history'); };
+
+  const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
+  const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
+    const w = state.createWizard;
+    if (w.step === 1) w.projectId = document.getElementById('wProject').value;
+    if (w.step === 2) {
+      w.platforms.facebook = !!document.getElementById('wFb')?.checked;
+      w.platforms.instagram = !!document.getElementById('wIg')?.checked;
+      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
+    }
+    if (w.step === 3) {
+      w.category = document.getElementById('wCategory').value.trim();
+      w.topic = document.getElementById('wTopic').value.trim();
+      w.tone = document.getElementById('wTone').value;
+      w.language = document.getElementById('wLang').value;
+      w.mediaUrl = document.getElementById('wMedia').value.trim();
+      if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна.' }; return render(); }
+    }
+    w.step = Math.min(5, w.step + 1);
+    render();
+  };
+
+  const wSubmit = document.getElementById('wSubmit');
+  if (wSubmit) wSubmit.onclick = async () => {
+    const w = state.createWizard;
+    const platform = w.platforms.instagram ? 'instagram' : 'facebook';
+    await api('/api/generate', { method: 'POST', body: JSON.stringify({ project_id: Number(w.projectId || state.projects[0]?.id || 0), topic: w.topic, category: w.category, tone: w.tone, language: w.language, platform }) });
+    state.notice = { type: 'ok', text: 'Пост создан и отправлен в очередь.' };
+    nav('/history');
+  };
+
+  const connectMetaBtn = document.getElementById('connectMetaBtn'); if (connectMetaBtn) connectMetaBtn.onclick = async () => { const r = await api('/api/connections/meta/start', { method: 'POST', body: '{}' }); location.href = r.oauth_url; };
+  const connectDemoBtn = document.getElementById('connectDemoBtn'); if (connectDemoBtn) connectDemoBtn.onclick = async () => { await api('/api/connections/meta/mock-connect', { method: 'POST', body: '{}' }); state.connections = await api('/api/connections'); render(); };
+  document.querySelectorAll('[data-disconnect]').forEach((b) => b.onclick = async () => { await api(`/api/connections/${b.dataset.disconnect}/disconnect`, { method: 'POST', body: '{}' }); state.connections = await api('/api/connections'); render(); });
+  document.querySelectorAll('[data-refresh]').forEach((b) => b.onclick = async () => { await api(`/api/connections/${b.dataset.refresh}/refresh-token`, { method: 'POST', body: '{}' }); state.connections = await api('/api/connections'); render(); });
+  document.querySelectorAll('[data-test]').forEach((b) => b.onclick = async () => { await api(`/api/connections/${b.dataset.test}/test-publish`, { method: 'POST', body: '{}' }); state.notice = { type: 'ok', text: 'Проверка подключения успешна.' }; render(); });
+  document.querySelectorAll('[data-retry]').forEach((b) => b.onclick = async () => { const p = state.posts.find((x) => x.id === Number(b.dataset.retry)); if (!p) return; await api('/api/generate', { method: 'POST', body: JSON.stringify({ project_id: p.project_id, topic: p.topic, category: p.category || 'business' }) }); state.posts = await api('/api/posts'); render(); });
+
+  const checkout = async (kind, value) => { const endpoint = kind === 'sub' ? '/api/billing/checkout/subscription' : '/api/billing/checkout/credits'; const body = kind === 'sub' ? { plan: value } : { pack: value }; const r = await api(endpoint, { method: 'POST', body: JSON.stringify(body) }); location.href = r.checkout_url; };
+  const upgradeLightBtn = document.getElementById('upgradeLightBtn'); if (upgradeLightBtn) upgradeLightBtn.onclick = () => checkout('sub', 'light');
+  const upgradeProBtn = document.getElementById('upgradeProBtn'); if (upgradeProBtn) upgradeProBtn.onclick = () => checkout('sub', 'pro');
+  const upgradeAgencyBtn = document.getElementById('upgradeAgencyBtn'); if (upgradeAgencyBtn) upgradeAgencyBtn.onclick = () => checkout('sub', 'agency');
+  const packSBtn = document.getElementById('packSBtn'); if (packSBtn) packSBtn.onclick = () => checkout('pack', 'pack_s');
+  const packMBtn = document.getElementById('packMBtn'); if (packMBtn) packMBtn.onclick = () => checkout('pack', 'pack_m');
+  const packLBtn = document.getElementById('packLBtn'); if (packLBtn) packLBtn.onclick = () => checkout('pack', 'pack_l');
+  const portalBtn = document.getElementById('portalBtn'); if (portalBtn) portalBtn.onclick = async () => { const r = await api('/api/billing/portal', { method: 'POST', body: '{}' }); location.href = r.portal_url; };
+
+  const saveProfileBtn = document.getElementById('saveProfileBtn'); if (saveProfileBtn) saveProfileBtn.onclick = async () => { await api('/api/settings/profile', { method: 'PATCH', body: JSON.stringify({ email: document.getElementById('profileEmail').value.trim() }) }); state.notice = { type: 'ok', text: 'Профиль обновлён.' }; await loadBase(); render(); };
+  const savePassBtn = document.getElementById('savePassBtn'); if (savePassBtn) savePassBtn.onclick = async () => { await api('/api/settings/password', { method: 'POST', body: JSON.stringify({ current_password: document.getElementById('curPass').value, new_password: document.getElementById('newPass').value }) }); state.notice = { type: 'ok', text: 'Пароль обновлён.' }; render(); };
+
+  const adminUsersBtn = document.getElementById('adminUsersBtn'); if (adminUsersBtn) adminUsersBtn.onclick = async () => { state.adminUsers = await api('/api/admin/users'); render(); };
+  const adminSetPlanBtn = document.getElementById('adminSetPlanBtn'); if (adminSetPlanBtn) adminSetPlanBtn.onclick = async () => { const uid = document.getElementById('adminUserId').value; await api(`/api/admin/users/${uid}/plan`, { method: 'PATCH', body: JSON.stringify({ plan: document.getElementById('adminPlan').value }) }); state.adminUsers = await api('/api/admin/users'); render(); };
+  const adminCreditsBtn = document.getElementById('adminCreditsBtn'); if (adminCreditsBtn) adminCreditsBtn.onclick = async () => { const uid = document.getElementById('adminUserId').value; await api(`/api/admin/users/${uid}/credits`, { method: 'PATCH', body: JSON.stringify({ delta: Number(document.getElementById('adminDelta').value || 0) }) }); state.adminUsers = await api('/api/admin/users'); render(); };
+  const adminRevenueBtn = document.getElementById('adminRevenueBtn'); if (adminRevenueBtn) adminRevenueBtn.onclick = async () => { state.adminRevenue = await api('/api/admin/revenue'); render(); };
+  const adminGenBlogBtn = document.getElementById('adminGenBlogBtn'); if (adminGenBlogBtn) adminGenBlogBtn.onclick = async () => { await api('/api/admin/blog/generate', { method: 'POST', body: '{}' }); render(); };
+  const adminRunPlanBtn = document.getElementById('adminRunPlanBtn'); if (adminRunPlanBtn) adminRunPlanBtn.onclick = async () => { await api('/api/content-plan/run-due', { method: 'POST', body: '{}' }); render(); };
+}
+
+async function render() {
+  let path = location.pathname.replace(/\/$/, '') || '/';
+  const query = new URLSearchParams(location.search);
+  if (path === '/') { history.replaceState({}, '', state.token ? '/dashboard' : '/login'); path = location.pathname.replace(/\/$/, '') || '/'; }
+  if (isAuthRoute(path) && !state.token) { history.replaceState({}, '', '/login'); path = '/login'; }
+    if (path === '/connections') {
+    const err = query.get('error');
+    if (query.get('connected') === '1') {
+      state.notice = { type: 'ok', text: '\u0410\u043a\u043a\u0430\u0443\u043d\u0442 Facebook/Instagram \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'state_invalid') {
+      state.notice = { type: 'error', text: '\u041e\u0448\u0438\u0431\u043a\u0430 OAuth state. \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0441\u043d\u043e\u0432\u0430 \u0438\u0437 \u043f\u0430\u043d\u0435\u043b\u0438.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'oauth_denied') {
+      state.notice = { type: 'error', text: '\u0412\u044b \u043e\u0442\u043c\u0435\u043d\u0438\u043b\u0438 \u0434\u043e\u0441\u0442\u0443\u043f Facebook. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'token_exchange_failed') {
+      state.notice = { type: 'error', text: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0442\u043e\u043a\u0435\u043d Facebook. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 FB_APP_ID/FB_APP_SECRET.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'no_pages') {
+      state.notice = { type: 'error', text: '\u0423 \u044d\u0442\u043e\u0433\u043e Facebook-\u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430 \u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0421\u0442\u0440\u0430\u043d\u0438\u0446. \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0430\u043a\u043a\u0430\u0443\u043d\u0442 \u0441 \u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0435\u0439.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'no_ig_business') {
+      state.notice = { type: 'error', text: '\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 Facebook \u043d\u0430\u0439\u0434\u0435\u043d\u0430, \u043d\u043e \u043d\u0435\u0442 Instagram Business. \u041f\u0440\u0438\u0432\u044f\u0436\u0438\u0442\u0435 IG Business \u043a \u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0435.' };
+      history.replaceState({}, '', '/connections');
+    } else if (err === 'meta_api_error') {
+      state.notice = { type: 'error', text: '\u041e\u0448\u0438\u0431\u043a\u0430 Meta API. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 permissions \u0432 Meta Developers.' };
+      history.replaceState({}, '', '/connections');
+    }
+  }
+  try { if (isAuthRoute(path)) { await loadBase(); await preload(path); } } catch { state.token = ''; localStorage.removeItem('token'); history.replaceState({}, '', '/login'); path = '/login'; state.notice = { type: 'error', text: 'Сессия истекла. Войдите снова.' }; }
+  document.getElementById('app').innerHTML = page(path);
+  await bind(path);
+}
+
+window.addEventListener('popstate', () => render());
+document.addEventListener('click', (e) => { const a = e.target.closest('a[data-link]'); if (!a) return; e.preventDefault(); nav(a.getAttribute('data-link')); });
+render();
