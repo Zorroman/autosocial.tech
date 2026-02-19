@@ -1086,7 +1086,14 @@ def publish_post(post_id: int):
                 post.error_message = "Не выбрана Facebook Page в подключении."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
-            result = publish_to_facebook(connection.page_id, access_token, image_url, caption)
+            page_access_token = _resolve_page_access_token(access_token, connection.page_id)
+            if not page_access_token:
+                _apply_meta_status(connection, "permissions_missing", "page_token_missing")
+                post.status = "failed"
+                post.error_message = "Meta не выдал page access token. Переподключите Facebook и подтвердите права для страницы."
+                db.commit()
+                return jsonify({"error": post.error_message, "status_reason_code": "page_token_missing"}), 400
+            result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
             remote_id = result.get("post_id") or result.get("id")
         else:
             # Instagram requires media URL via Graph API.
@@ -1095,10 +1102,15 @@ def publish_post(post_id: int):
                 post.error_message = "Нет связанного Instagram Business у выбранной страницы."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
-            result = publish_to_instagram(connection.ig_user_id, access_token, image_url, caption)
+            # For IG publish via linked Page it's more stable to use page access token.
+            page_access_token = _resolve_page_access_token(access_token, connection.page_id) if connection.page_id else ""
+            ig_token = page_access_token or access_token
+            result = publish_to_instagram(connection.ig_user_id, ig_token, image_url, caption)
             remote_id = result.get("id")
 
         if result.get("error") or not remote_id:
+            status_from_error, reason = _meta_error_to_status(result.get("error") or {})
+            _apply_meta_status(connection, status_from_error, reason)
             post.status = "failed"
             post.error_message = str(result.get("error") or result)
             db.commit()
@@ -1181,6 +1193,8 @@ def _status_help_text(reason_code: str, status: str) -> str:
         return "У выбранной Facebook Page не привязан Instagram Business."
     if reason == "permissions_revoked":
         return "Приложению не хватает разрешений. Переподключите аккаунт и подтвердите все запрошенные права."
+    if reason == "page_token_missing":
+        return "Для выбранной страницы не выдан page access token. Переподключите аккаунт и подтвердите права для страницы."
     if reason == "access_token_invalid":
         return "Токен недействителен или истёк. Выполните переподключение."
     if reason == "user_revoked_access":
@@ -1205,6 +1219,34 @@ def _meta_error_to_status(meta_error: dict):
     if "user_denied" in msg or "denied" in msg:
         return "disconnected", "user_revoked_access"
     return "error", "meta_api_error"
+
+
+def _extract_meta_error_text(payload) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    err = payload.get("error")
+    if isinstance(err, dict):
+        msg = str(err.get("message") or "").strip()
+        code = str(err.get("code") or "").strip()
+        if code and msg:
+            return f"[{code}] {msg}"
+        return msg
+    if isinstance(err, str):
+        return err.strip()
+    return ""
+
+
+def _resolve_page_access_token(user_access_token: str, page_id: str) -> str:
+    if not user_access_token or not page_id:
+        return ""
+    raw = list_pages(user_access_token, include_page_access_token=True)
+    pages = raw.get("data") if isinstance(raw, dict) else None
+    if not isinstance(pages, list):
+        return ""
+    selected = next((p for p in pages if str(p.get("id")) == str(page_id)), None)
+    if not isinstance(selected, dict):
+        return ""
+    return str(selected.get("access_token") or "").strip()
 
 
 def _apply_meta_status(row: SocialAccount, status: str, reason_code: str = None) -> None:
@@ -1849,20 +1891,36 @@ def test_publish_connection(connection_id: int):
             db.commit()
             return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook.", "status_reason_code": "access_token_invalid"}), 400
 
+        page_access_token = _resolve_page_access_token(access_token, row.page_id)
+        if not page_access_token:
+            _apply_meta_status(row, "permissions_missing", "page_token_missing")
+            db.commit()
+            return jsonify(
+                {
+                    "error": "Не удалось получить page access token. Переподключите Facebook и подтвердите права для страницы.",
+                    "status": row.status,
+                    "status_reason_code": row.status_reason_code,
+                }
+            ), 400
+
         caption = (
             "AutoSocial GPT: тестовая публикация\n"
             f"Connection #{row.id}, {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         )
-        result = publish_to_facebook(row.page_id, access_token, None, caption)
+        result = publish_to_facebook(row.page_id, page_access_token, None, caption)
         meta_error = result.get("error") if isinstance(result, dict) else None
         post_id = (result or {}).get("post_id") or (result or {}).get("id")
         if meta_error or not post_id:
             status_from_error, reason = _meta_error_to_status(meta_error or {})
             _apply_meta_status(row, status_from_error, reason)
             db.commit()
+            meta_text = _extract_meta_error_text(result)
+            full_error = "Ошибка тестовой публикации в Facebook"
+            if meta_text:
+                full_error = f"{full_error}: {meta_text}"
             return jsonify(
                 {
-                    "error": "Ошибка тестовой публикации в Facebook",
+                    "error": full_error,
                     "details": result,
                     "status": row.status,
                     "status_reason_code": row.status_reason_code,

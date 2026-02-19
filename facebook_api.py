@@ -20,16 +20,20 @@ def exchange_code_for_token(code, redirect_uri=None):
     data["_http_status"] = response.status_code
     return data
 
-def list_pages(access_token: str):
+def list_pages(access_token: str, include_page_access_token: bool = False):
     """
     List Facebook Pages available to the user token, including linked Instagram business account (if any).
     Requires: pages_show_list (and often business_management).
     """
     url = "https://graph.facebook.com/v20.0/me/accounts"
+    fields = "id,name,picture{url},instagram_business_account{id,username}"
+    if include_page_access_token:
+        fields = f"{fields},access_token,tasks"
+
     params = {
         "access_token": access_token,
         # "picture" is used for miniatures in UI.
-        "fields": "id,name,picture{url},instagram_business_account{id,username}",
+        "fields": fields,
     }
     res = requests.get(url, params=params, timeout=20).json()
     return res
