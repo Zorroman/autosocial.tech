@@ -140,7 +140,14 @@ async function api(path, options = {}) {
   const text = await res.text();
   let payload;
   try { payload = JSON.parse(text); } catch { payload = text; }
-  if (!res.ok) throw new Error(typeof payload === 'string' ? payload : payload.error || 'Ошибка запроса');
+  if (!res.ok) {
+    if (typeof payload === 'string') {
+      const htmlResponse = /<html|<!doctype/i.test(payload);
+      if (htmlResponse) throw new Error(`Ошибка сервера (${res.status}). Повторите позже.`);
+      throw new Error(payload || `Ошибка запроса (${res.status})`);
+    }
+    throw new Error(payload.error || `Ошибка запроса (${res.status})`);
+  }
   return payload;
 }
 

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import requests
-from flask import Blueprint, g, jsonify, redirect, request
+from flask import Blueprint, current_app, g, jsonify, redirect, request
 
 from database import SessionLocal
 from facebook_api import (
@@ -1204,6 +1204,16 @@ def publish_post(post_id: int):
         post.error_message = None
         db.commit()
         return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real"})
+    except Exception as exc:
+        db.rollback()
+        current_app.logger.exception("publish_post failed for post_id=%s user_id=%s", post_id, getattr(user, "id", None))
+        return jsonify(
+            {
+                "error": "Внутренняя ошибка публикации. Попробуйте снова или переподключите Meta.",
+                "details": str(exc),
+                "status_reason_code": "publish_internal_error",
+            }
+        ), 500
     finally:
         db.close()
 
