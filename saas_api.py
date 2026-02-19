@@ -1048,7 +1048,10 @@ def update_post(post_id: int):
             return jsonify({"error": "Пост не найден"}), 404
         if user.role != "admin" and post.user_id != user.id:
             return jsonify({"error": "Недостаточно прав"}), 403
-        if post.published_at or str(post.status or "").lower() == "done":
+        status_now = str(post.status or "").lower()
+        # Protect only truly published posts. Legacy rows may have status=done without remote_id.
+        is_published = bool(post.published_at) or (status_now == "done" and bool(post.remote_id))
+        if is_published:
             return jsonify({"error": "Опубликованный пост редактировать нельзя"}), 409
 
         if "topic" in data:
@@ -1176,15 +1179,14 @@ def publish_post(post_id: int):
             result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
             remote_id = result.get("post_id") or result.get("id")
         else:
-            # Instagram requires media URL via Graph API.
+            # Instagram publish should use USER access token.
+            # Using page token often fails with opaque OAuth errors during media create.
             if not connection.ig_user_id:
                 post.status = "failed"
                 post.error_message = "Нет связанного Instagram Business у выбранной страницы."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
-            # For IG publish via linked Page it's more stable to use page access token.
-            page_access_token = _resolve_page_access_token(access_token, connection.page_id) if connection.page_id else ""
-            ig_token = page_access_token or access_token
+            ig_token = access_token
             result = publish_to_instagram(connection.ig_user_id, ig_token, image_url, caption)
             remote_id = result.get("id")
 
@@ -1987,6 +1989,53 @@ def test_publish_connection(connection_id: int):
             "AutoSocial GPT: тестовая публикация\n"
             f"Connection #{row.id}, {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         )
+        requested = (request.get_json(silent=True) or {}).get("platform")
+        requested = (requested or "").strip().lower()
+
+        # If IG is linked, test Instagram by default (or when requested explicitly).
+        should_test_instagram = bool(row.ig_user_id) and requested in {"", "instagram"}
+        if should_test_instagram:
+            ig_image_url = (
+                (request.get_json(silent=True) or {}).get("image_url")
+                or os.getenv("DEFAULT_IG_IMAGE_URL")
+                or "https://dummyimage.com/1080x1080/0f172a/ffffff.jpg&text=AutoSocial+IG+Test"
+            ).strip()
+            # Instagram publish should use USER access token.
+            result = publish_to_instagram(row.ig_user_id, access_token, ig_image_url, caption)
+            meta_error = result.get("error") if isinstance(result, dict) else None
+            post_id = (result or {}).get("id")
+            if meta_error or not post_id:
+                status_from_error, reason = _meta_error_to_status(meta_error or {})
+                _apply_meta_status(row, status_from_error, reason)
+                db.commit()
+                meta_text = _extract_meta_error_text(result)
+                full_error = "Ошибка тестовой публикации в Instagram"
+                if meta_text:
+                    full_error = f"{full_error}: {meta_text}"
+                return jsonify(
+                    {
+                        "error": full_error,
+                        "details": result,
+                        "status": row.status,
+                        "status_reason_code": row.status_reason_code,
+                    }
+                ), 400
+
+            _apply_meta_status(row, "connected_ready")
+            db.commit()
+            return jsonify(
+                {
+                    "result": "ok",
+                    "mode": "real",
+                    "platform": "instagram",
+                    "message": "Тестовая публикация создана в Instagram",
+                    "status": row.status,
+                    "status_reason_code": row.status_reason_code,
+                    "post_id": str(post_id),
+                }
+            )
+
+        # Fallback Facebook test publish.
         result = publish_to_facebook(row.page_id, page_access_token, None, caption)
         meta_error = result.get("error") if isinstance(result, dict) else None
         post_id = (result or {}).get("post_id") or (result or {}).get("id")
@@ -2013,6 +2062,7 @@ def test_publish_connection(connection_id: int):
             {
                 "result": "ok",
                 "mode": "real",
+                "platform": "facebook",
                 "message": "Тестовая публикация создана в Facebook",
                 "status": row.status,
                 "status_reason_code": row.status_reason_code,

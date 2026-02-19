@@ -577,8 +577,9 @@ def create_post_and_charge(
             user.posts_used_month += 1
 
         final_text = (generated_text_override or "").strip() or structured_text
-        post_status = "scheduled" if schedule_at else ("queued" if save_as_draft else "done")
-        published_at = None if (schedule_at or save_as_draft) else datetime.utcnow()
+        # New posts should be queued first; real publish endpoint sets done/published_at.
+        post_status = "scheduled" if schedule_at else "queued"
+        published_at = None
 
         post = Post(
             user_id=user_id,

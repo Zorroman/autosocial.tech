@@ -77,7 +77,8 @@ def test_limit_free_plan(client):
     projects = client.get("/api/projects", headers=auth_headers(token)).get_json()
     project_id = projects[0]["id"]
 
-    for i in range(5):
+    # Free plan allows 10 posts/month; generation creates queued posts.
+    for i in range(10):
         resp = client.post(
             "/api/generate",
             json={"project_id": project_id, "topic": f"topic {i}", "category": "business"},
@@ -87,7 +88,7 @@ def test_limit_free_plan(client):
 
     blocked = client.post(
         "/api/generate",
-        json={"project_id": project_id, "topic": "topic 6", "category": "business"},
+        json={"project_id": project_id, "topic": "topic 11", "category": "business"},
         headers=auth_headers(token),
     )
     assert blocked.status_code == 429
@@ -207,3 +208,43 @@ def test_meta_refresh_without_token_sets_not_connected(client):
     payload = refreshed.get_json()
     assert payload["status"] == "not_connected"
     assert payload["status_reason_code"] in {"no_token", "user_disconnected"}
+
+
+def test_generate_creates_editable_post_until_published(client):
+    reg = register_user(client, "editable@test.local", "pass12345")
+    token = reg.get_json()["token"]
+    headers = auth_headers(token)
+
+    project_id = client.get("/api/projects", headers=headers).get_json()[0]["id"]
+    created = client.post(
+        "/api/generate",
+        json={
+            "project_id": project_id,
+            "topic": "Тест редактирования",
+            "category": "business",
+            "platform": "instagram",
+            "generated_text": "Черновой текст",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 202
+    post_id = created.get_json()["id"]
+
+    # Should be editable before publish.
+    patch_ok = client.patch(
+        f"/api/posts/{post_id}",
+        json={"generated_text": "Обновленный текст"},
+        headers=headers,
+    )
+    assert patch_ok.status_code == 200
+    assert patch_ok.get_json()["generated_text"] == "Обновленный текст"
+
+    # After publish (mock), editing should be blocked.
+    pub = client.post(f"/api/posts/{post_id}/publish", json={}, headers=headers)
+    assert pub.status_code == 200
+    patch_blocked = client.patch(
+        f"/api/posts/{post_id}",
+        json={"generated_text": "Попытка после публикации"},
+        headers=headers,
+    )
+    assert patch_blocked.status_code == 409
