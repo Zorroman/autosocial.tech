@@ -1326,6 +1326,7 @@ async function bind() {
         language: w.language,
         platform,
         media_url: w.mediaUrl || null,
+        generated_text: w.previewText,
       };
 
       wSubmit.disabled = true;
@@ -1336,9 +1337,6 @@ async function bind() {
         // datetime-local -> ISO (no timezone). Backend expects ISO.
         payload.schedule_at = new Date(w.scheduleAt).toISOString();
         const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-        if (created?.id) {
-          await api(`/api/posts/${created.id}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
-        }
         state.notice = { type: 'ok', text: 'Пост создан и запланирован.' };
         nav('/history');
         return;
@@ -1346,10 +1344,8 @@ async function bind() {
 
       // mode=draft: generate content only, without publishing.
       if (w.mode === 'draft') {
+        payload.save_as_draft = true;
         const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-        if (created?.id) {
-          await api(`/api/posts/${created.id}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
-        }
         state.notice = { type: 'ok', text: 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
         nav('/history');
         return;
@@ -1359,7 +1355,6 @@ async function bind() {
       const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
       const postId = created?.id;
       if (!postId) throw new Error('Не удалось создать пост.');
-      await api(`/api/posts/${postId}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
       await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
       state.notice = { type: 'ok', text: 'Пост опубликован.' };
       nav('/history');

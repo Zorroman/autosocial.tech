@@ -498,6 +498,8 @@ def create_post_and_charge(
     variant_count: int,
     translation: bool,
     long_post_mode: bool,
+    generated_text_override: Optional[str] = None,
+    save_as_draft: bool = False,
 ) -> Post:
     db = SessionLocal()
     try:
@@ -574,12 +576,16 @@ def create_post_and_charge(
             user.credits_left -= charged
             user.posts_used_month += 1
 
+        final_text = (generated_text_override or "").strip() or structured_text
+        post_status = "scheduled" if schedule_at else ("queued" if save_as_draft else "done")
+        published_at = None if (schedule_at or save_as_draft) else datetime.utcnow()
+
         post = Post(
             user_id=user_id,
             project_id=project_id,
             platform=platform,
             prompt_text=prompt_text,
-            generated_text=structured_text,
+            generated_text=final_text,
             topic=topic,
             category=category,
             language=language,
@@ -589,9 +595,9 @@ def create_post_and_charge(
             tokens_output=result.output_tokens,
             tokens_total=tokens_total,
             credits_charged=charged,
-            status="scheduled" if schedule_at else "done",
+            status=post_status,
             schedule_at=schedule_at,
-            published_at=None if schedule_at else datetime.utcnow(),
+            published_at=published_at,
         )
         db.add(post)
         db.flush()

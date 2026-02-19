@@ -689,6 +689,8 @@ def generate():
     tone = (data.get("tone") or "friendly").strip()
     prompt_text = (data.get("prompt_text") or "").strip()
     media_url = (data.get("media_url") or "").strip() or None
+    generated_text_override = (data.get("generated_text") or "").strip() or None
+    save_as_draft = bool(data.get("save_as_draft") or False)
 
     schedule_at_raw = (data.get("schedule_at") or "").strip()
     schedule_at = None
@@ -738,6 +740,8 @@ def generate():
             variant_count=variant_count,
             translation=translation,
             long_post_mode=long_post_mode,
+            generated_text_override=generated_text_override,
+            save_as_draft=save_as_draft,
         )
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 429
