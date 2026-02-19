@@ -1818,27 +1818,67 @@ def test_publish_connection(connection_id: int):
                     "status_reason_code": row.status_reason_code,
                 }
             ), 400
-        if not row.ig_user_id:
-            _apply_meta_status(row, "connected_need_page", "ig_not_linked")
+        if not row.page_id:
+            _apply_meta_status(row, "connected_need_page", "no_pages")
             db.commit()
-            return jsonify({"error": "Нужен Instagram Business, привязанный к странице", "status_reason_code": "ig_not_linked"}), 400
+            return jsonify({"error": "Выберите Facebook Page для публикации", "status_reason_code": "no_pages"}), 400
 
-        if not settings.USE_MOCK_PROVIDERS:
-            # Lightweight permission check against Graph API
-            if not row.page_id:
-                _apply_meta_status(row, "permissions_missing", "permissions_revoked")
-                db.commit()
-                return jsonify({"error": "Проверьте permissions и привязку страницы", "status_reason_code": "permissions_revoked"}), 400
+        if not row.token_encrypted:
+            _apply_meta_status(row, "token_expired", "access_token_invalid")
+            db.commit()
+            return jsonify({"error": "Токен подключения не найден. Переподключите Facebook.", "status_reason_code": "access_token_invalid"}), 400
+
+        if settings.USE_MOCK_PROVIDERS:
+            _apply_meta_status(row, "connected_ready")
+            db.commit()
+            return jsonify(
+                {
+                    "result": "ok",
+                    "mode": "mock",
+                    "message": "Mock тест публикации пройден",
+                    "status": row.status,
+                    "status_reason_code": row.status_reason_code,
+                    "post_id": f"mock_meta_test_{row.id}_{int(time.time())}",
+                }
+            )
+
+        try:
+            access_token = decrypt_meta_token(row.token_encrypted)
+        except Exception:
+            _apply_meta_status(row, "token_expired", "access_token_invalid")
+            db.commit()
+            return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook.", "status_reason_code": "access_token_invalid"}), 400
+
+        caption = (
+            "AutoSocial GPT: тестовая публикация\n"
+            f"Connection #{row.id}, {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        )
+        result = publish_to_facebook(row.page_id, access_token, None, caption)
+        meta_error = result.get("error") if isinstance(result, dict) else None
+        post_id = (result or {}).get("post_id") or (result or {}).get("id")
+        if meta_error or not post_id:
+            status_from_error, reason = _meta_error_to_status(meta_error or {})
+            _apply_meta_status(row, status_from_error, reason)
+            db.commit()
+            return jsonify(
+                {
+                    "error": "Ошибка тестовой публикации в Facebook",
+                    "details": result,
+                    "status": row.status,
+                    "status_reason_code": row.status_reason_code,
+                }
+            ), 400
 
         _apply_meta_status(row, "connected_ready")
         db.commit()
         return jsonify(
             {
                 "result": "ok",
-                "message": "Тест публикации пройден",
+                "mode": "real",
+                "message": "Тестовая публикация создана в Facebook",
                 "status": row.status,
                 "status_reason_code": row.status_reason_code,
-                "post_id": f"meta_test_{row.id}_{int(time.time())}",
+                "post_id": str(post_id),
             }
         )
     finally:

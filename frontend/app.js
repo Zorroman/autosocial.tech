@@ -6,13 +6,23 @@
 const _host = window.location.hostname || '';
 const _isLocal = _host === 'localhost' || _host === '127.0.0.1';
 const _rootHost = _host.replace(/^www\./, '');
-const _savedApiBase = localStorage.getItem('apiBase') || '';
+const _savedApiBaseRaw = (localStorage.getItem('apiBase') || '').trim();
+const _savedApiBase = _savedApiBaseRaw.replace(/\/+$/, '');
+const _savedApiHost = (() => {
+  if (!_savedApiBase) return '';
+  try {
+    return new URL(_savedApiBase).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+})();
+const _savedApiAllowed = _isLocal
+  ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(_savedApiBase)
+  : /^api(-dev)?\.autosocial\.tech$/i.test(_savedApiHost);
 const _defaultApiBase = _isLocal
   ? 'http://127.0.0.1:5000'
-  : `${window.location.protocol}//${_rootHost}`;
-const API_BASE = (!_isLocal && /api(-dev)?\.autosocial\.tech/i.test(_savedApiBase))
-  ? _defaultApiBase
-  : (_savedApiBase || _defaultApiBase);
+  : `${window.location.protocol}//api.${_rootHost}`;
+const API_BASE = _savedApiAllowed ? _savedApiBase : _defaultApiBase;
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
@@ -1215,9 +1225,14 @@ async function bind() {
         return;
       }
       if (action === 'test') {
-        await api(`/api/connections/${id}/test-publish`, { method: 'POST', body: '{}' });
+        const r = await api(`/api/connections/${id}/test-publish`, { method: 'POST', body: '{}' });
         state.connections = await api('/api/connections');
-        state.notice = { type: 'ok', text: 'Тест публикации пройден.' };
+        const mode = (r && r.mode) ? String(r.mode) : '';
+        const postId = (r && r.post_id) ? String(r.post_id) : '';
+        const text = postId
+          ? `Тестовая публикация отправлена (${mode || 'real'}). Post ID: ${postId}`
+          : 'Тест публикации пройден.';
+        state.notice = { type: 'ok', text };
         render();
         return;
       }
