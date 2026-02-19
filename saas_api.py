@@ -4,7 +4,7 @@ from urllib.parse import quote
 from urllib.parse import urlsplit
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import requests
@@ -181,6 +181,17 @@ def _meta_redirect_uri() -> str:
 
 def _oauth_redirect(params: dict):
     return redirect(f"{_frontend_base_url()}/login/?{urlencode(params)}")
+
+
+def _parse_iso_datetime(raw_value: str) -> datetime:
+    raw = (raw_value or "").strip()
+    if not raw:
+        raise ValueError("empty datetime")
+    normalized = raw.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(normalized)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def _store_oauth_state(provider: str) -> str:
@@ -1020,6 +1031,71 @@ def post_details(post_id: int):
         db.close()
 
 
+@saas_api.route("/posts/<int:post_id>", methods=["PATCH"])
+@require_auth
+def update_post(post_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+
+    db = SessionLocal()
+    try:
+        post = db.query(Post).filter_by(id=post_id).first()
+        if not post:
+            return jsonify({"error": "Пост не найден"}), 404
+        if user.role != "admin" and post.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        if post.published_at or str(post.status or "").lower() == "done":
+            return jsonify({"error": "Опубликованный пост редактировать нельзя"}), 409
+
+        if "topic" in data:
+            topic = (data.get("topic") or "").strip()
+            if not topic:
+                return jsonify({"error": "Тема поста не может быть пустой"}), 400
+            post.topic = topic
+
+        if "generated_text" in data:
+            post.generated_text = (data.get("generated_text") or "").strip() or None
+
+        if "platform" in data:
+            platform = (data.get("platform") or "").strip().lower()
+            if platform not in {"facebook", "instagram"}:
+                return jsonify({"error": "Платформа должна быть facebook или instagram"}), 400
+            post.platform = platform
+
+        if "media_url" in data:
+            media_url = (data.get("media_url") or "").strip()
+            post.media_url = media_url or None
+
+        if "schedule_at" in data:
+            schedule_raw = data.get("schedule_at")
+            if schedule_raw in (None, "", "null"):
+                post.schedule_at = None
+                if str(post.status or "").lower() not in {"done", "failed"}:
+                    post.status = "queued"
+            else:
+                try:
+                    post.schedule_at = _parse_iso_datetime(str(schedule_raw))
+                except Exception:
+                    return jsonify({"error": "schedule_at должен быть в ISO формате"}), 400
+                post.status = "scheduled"
+
+        db.commit()
+        return jsonify(
+            {
+                "id": post.id,
+                "status": post.status,
+                "topic": post.topic,
+                "platform": post.platform,
+                "generated_text": post.generated_text,
+                "media_url": post.media_url,
+                "schedule_at": post.schedule_at.isoformat() if post.schedule_at else None,
+                "published_at": post.published_at.isoformat() if post.published_at else None,
+            }
+        )
+    finally:
+        db.close()
+
+
 @saas_api.route("/generated-posts", methods=["GET"])
 @require_auth
 def legacy_generated_posts_alias():
@@ -1135,7 +1211,7 @@ def schedule_post(post_id: int):
     if not schedule_at_raw:
         return jsonify({"error": "РџРµСЂРµРґР°Р№С‚Рµ schedule_at"}), 400
     try:
-        schedule_at = datetime.fromisoformat(schedule_at_raw)
+        schedule_at = _parse_iso_datetime(schedule_at_raw)
     except Exception:
         return jsonify({"error": "schedule_at РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ ISO С„РѕСЂРјР°С‚Рµ"}), 400
 

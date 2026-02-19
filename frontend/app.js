@@ -55,6 +55,7 @@ const state = {
     topic: '',
     tone: 'friendly',
     language: 'ru',
+    previewText: '',
     mode: 'now',
     scheduleAt: '',
     platforms: { facebook: true, instagram: true },
@@ -187,6 +188,7 @@ function planBadge(plan) {
 function statusBadge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
+    draft: { cls: 'queued', label: 'Черновик' },
     done: { cls: 'success', label: 'Готово' },
     published: { cls: 'success', label: 'Опубликовано' },
     connected: { cls: 'success', label: 'Подключено' },
@@ -462,24 +464,120 @@ function pageDashboard() {
 function pageCreate() {
   const w = state.createWizard;
   const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
-  const step1 = `
-    ${selectField('wProject', 'РџСЂРѕРµРєС‚', w.projectId, options.length ? options : [{ value: '', label: 'РќРµС‚ РїСЂРѕРµРєС‚РѕРІ' }])}
-    <div class="field">
-      <label for="wNewProject">РќРѕРІС‹Р№ РїСЂРѕРµРєС‚</label>
-      <div class="cta-row">
-        <input id="wNewProject" type="text" placeholder="РќР°РїСЂРёРјРµСЂ, РЎР°Р»РѕРЅ РљРёРµРІ" />
-        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Р”РѕР±Р°РІРёС‚СЊ РїСЂРѕРµРєС‚</button>
-      </div>
-      <p class="small">РЎРѕР·РґР°Р№С‚Рµ РїСЂРѕРµРєС‚ РїСЂСЏРјРѕ Р·РґРµСЃСЊ, Р±РµР· РІС‹С…РѕРґР° РёР· РјР°СЃС‚РµСЂР°.</p>
-    </div>`;
-  const step2 = `<div class="field"><label>РџР»Р°С‚С„РѕСЂРјС‹</label><div class="row"><label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label><label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label></div></div>`;
-  const step3 = `${field('wCategory', 'РљР°С‚РµРіРѕСЂРёСЏ', 'text', w.category)}${field('wTopic', 'РўРµРјР°', 'text', w.topic, 'Р’РІРµРґРёС‚Рµ С‚РµРјСѓ РІСЂСѓС‡РЅСѓСЋ')}${selectField('wTone', 'РўРѕРЅ', w.tone, [{ value: 'friendly', label: 'Р”СЂСѓР¶РµР»СЋР±РЅС‹Р№' }, { value: 'expert', label: 'Р­РєСЃРїРµСЂС‚РЅС‹Р№' }, { value: 'sales', label: 'РџСЂРѕРґР°СЋС‰РёР№' }])}${selectField('wLang', 'РЇР·С‹Рє', w.language, [{ value: 'ru', label: 'Р СѓСЃСЃРєРёР№' }, { value: 'en', label: 'English' }])}${field('wMedia', 'РЎСЃС‹Р»РєР° РЅР° РјРµРґРёР°', 'text', w.mediaUrl, 'РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅР°СЏ СЃСЃС‹Р»РєР° РЅР° РёР·РѕР±СЂР°Р¶РµРЅРёРµ')}`;
-  const step4 = `<article class="card"><h3>РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</h3><pre style="white-space:pre-wrap;font-family:Inter, sans-serif;">${esc(w.topic ? `HOOK: ${w.topic}\nVALUE: РєРѕРЅРєСЂРµС‚РЅС‹Рµ РєРѕСЂРѕС‚РєРёРµ СЃРѕРІРµС‚С‹\nCTA: РїРѕРЅСЏС‚РЅС‹Р№ СЃР»РµРґСѓСЋС‰РёР№ С€Р°Рі\n#С…РµС€С‚РµРіРё` : 'Р’РІРµРґРёС‚Рµ С‚РµРјСѓ, С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РїРѕСЃС‚Р°.')}</pre></article>`;
-  const step5 = `${selectField('wMode', 'Р РµР¶РёРј РїСѓР±Р»РёРєР°С†РёРё', w.mode, [{ value: 'now', label: 'РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ СЃРµР№С‡Р°СЃ' }, { value: 'schedule', label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°С‚СЊ' }])}${field('wSchedule', 'Р”Р°С‚Р° Рё РІСЂРµРјСЏ', 'datetime-local', w.scheduleAt)}<p class="small">Free: Р±РµР· РїР»Р°РЅРёСЂРѕРІР°РЅРёСЏ. РџР»Р°С‚РЅС‹Рµ С‚Р°СЂРёС„С‹: РїР»Р°РЅРёСЂРѕРІР°РЅРёРµ РґРѕСЃС‚СѓРїРЅРѕ.</p>`;
-  const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
-  return appLayout('/create', 'РЎРѕР·РґР°С‚СЊ', `<section class="card"><h2>РњР°СЃС‚РµСЂ СЃРѕР·РґР°РЅРёСЏ РїРѕСЃС‚Р°</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. РџСЂРѕРµРєС‚</div><div class="step ${w.step===2?'active':''}">2. РџР»Р°С‚С„РѕСЂРјС‹</div><div class="step ${w.step===3?'active':''}">3. РљРѕРЅС‚РµРЅС‚</div><div class="step ${w.step===4?'active':''}">4. РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</div><div class="step ${w.step===5?'active':''}">5. РџСѓР±Р»РёРєР°С†РёСЏ</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">РќР°Р·Р°Рґ</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Р”Р°Р»РµРµ</button>':'<button id="wSubmit" class="btn btn-primary">РЎРѕР·РґР°С‚СЊ Рё РѕРїСѓР±Р»РёРєРѕРІР°С‚СЊ</button>'}</div></section>`);
-}
+  const categoryOptions = [
+    { value: 'business', label: 'Бизнес и услуги' },
+    { value: 'marketing', label: 'Маркетинг и продвижение' },
+    { value: 'fitness', label: 'Фитнес и здоровье' },
+    { value: 'ecommerce', label: 'Интернет-магазин' },
+    { value: 'beauty', label: 'Красота и уход' },
+    { value: 'auto', label: 'Авто и сервис' },
+    { value: 'fallback', label: 'Другое' },
+  ];
+  const categoryHints = {
+    business: 'Для экспертов, услуг, локального бизнеса и B2B.',
+    marketing: 'Для агентств, SMM, таргета и контент-маркетинга.',
+    fitness: 'Для тренеров, залов, wellness и нутрициологии.',
+    ecommerce: 'Для карточек товара, акций и прогрева к покупке.',
+    beauty: 'Для салонов, косметологии, мастеров красоты.',
+    auto: 'Для автосервисов, детейлинга, продажи авто.',
+    fallback: 'Универсальный режим, если ниша нестандартная.',
+  };
+  const topicTemplates = [
+    '3 частые ошибки клиентов в выборе услуги',
+    'Чек-лист: как подготовиться перед обращением',
+    'Кейс: как мы получили результат за 7 дней',
+    'Сравнение: 2 подхода и какой выбрать',
+    '5 советов, которые экономят бюджет клиенту',
+  ];
+  const toneOptions = [
+    { value: 'friendly', label: 'Дружелюбный', hint: 'Простой и живой язык, без давления.' },
+    { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
+    { value: 'sales', label: 'Продающий', hint: 'Фокус на выгоде и понятном призыве к действию.' },
+  ];
+  const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
+  const buildPreviewDraft = () => {
+    const topic = (w.topic || '').trim() || 'Польза для клиента';
+    return [
+      `${topic}: что важно знать перед выбором`,
+      '',
+      '1) Критерий №1: проверьте опыт и реальные кейсы.',
+      '2) Критерий №2: уточните сроки и зону ответственности.',
+      '3) Критерий №3: сравните не цену, а итоговую ценность.',
+      '',
+      'Сохраните пост, чтобы не потерять чек-лист.',
+      '#бизнес #маркетинг #продажи',
+    ].join('\n');
+  };
+  const normalizedPreview = (w.previewText || '').trim() || buildPreviewDraft();
+  const submitLabel = w.mode === 'schedule' ? 'Создать и запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
 
+  const step1 = `
+    ${selectField('wProject', 'Проект', w.projectId, options.length ? options : [{ value: '', label: 'Нет проектов' }])}
+    <div class="field">
+      <label for="wNewProject">Новый проект</label>
+      <div class="cta-row">
+        <input id="wNewProject" type="text" placeholder="Например, Салон Киев" />
+        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Добавить проект</button>
+      </div>
+      <p class="small">Создайте проект прямо здесь, без выхода из мастера.</p>
+    </div>`;
+
+  const step2 = `
+    <div class="field">
+      <label>Платформы</label>
+      <div class="row">
+        <label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label>
+        <label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label>
+      </div>
+    </div>`;
+
+  const step3 = `
+    <article class="wizard-help">
+      <h3>Что заполнить на этом шаге</h3>
+      <p class="small">1) Выберите категорию бизнеса. 2) Введите тему поста. 3) Выберите стиль текста (тон).</p>
+    </article>
+    ${selectField('wCategory', 'Категория бизнеса', w.category, categoryOptions)}
+    <p class="small wizard-inline-help">${esc(categoryHints[w.category] || categoryHints.business)}</p>
+    ${field('wTopic', 'Тема поста', 'text', w.topic, 'Например: 3 ошибки при выборе автосервиса')}
+    <div class="field">
+      <label>Быстрые темы</label>
+      <div class="topic-template-row">
+        ${topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('')}
+      </div>
+    </div>
+    ${selectField('wTone', 'Тон текста', w.tone, toneOptions.map((t) => ({ value: t.value, label: t.label })))}
+    <p class="small wizard-inline-help">${esc((toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).hint)}</p>
+    ${selectField('wLang', 'Язык', w.language, [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+    ${field('wMedia', 'Ссылка на изображение (необязательно)', 'text', w.mediaUrl, 'https://...')}`;
+
+  const step4 = `
+    <article class="wizard-help">
+      <h3>Предпросмотр перед публикацией</h3>
+      <p class="small">Проверьте и отредактируйте текст. Этот вариант отправится в публикацию.</p>
+    </article>
+    <div class="wizard-summary">
+      <span class="pill">Категория: ${esc((categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label)}</span>
+      <span class="pill">Тон: ${esc(toneLabel)}</span>
+      <span class="pill">Язык: ${esc(w.language === 'ru' ? 'Русский' : 'English')}</span>
+    </div>
+    ${field('wPreviewText', 'Текст поста (можно редактировать)', 'textarea', normalizedPreview, 'Введите текст публикации')}
+    <p class="small wizard-inline-help">Рекомендуем: 500-1200 символов, 3-5 хештегов, 1 чёткий призыв к действию.</p>
+  `;
+
+  const step5 = `
+    ${selectField('wMode', 'Режим публикации', w.mode, [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать на дату' }, { value: 'draft', label: 'Сохранить как черновик' }])}
+    ${w.mode === 'schedule' ? field('wSchedule', 'Дата и время публикации', 'datetime-local', w.scheduleAt) : ''}
+    <article class="wizard-help">
+      <h3>Итог перед запуском</h3>
+      <p class="small">Проект: <strong>${esc((state.projects.find((p) => String(p.id) === String(w.projectId)) || state.projects[0] || { name: 'Не выбран' }).name)}</strong> · Платформы: <strong>${esc([w.platforms.facebook ? 'Facebook' : null, w.platforms.instagram ? 'Instagram' : null].filter(Boolean).join(' + ') || 'Не выбрано')}</strong></p>
+      <p class="small">Тема: <strong>${esc(w.topic || '—')}</strong></p>
+    </article>
+    <p class="small">Планирование доступно на платных тарифах. В режиме черновика пост не публикуется.</p>
+  `;
+
+  const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
+  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Далее</button>':`<button id="wSubmit" class="btn btn-primary">${esc(submitLabel)}</button>`}</div></section>`);
+}
 function pageConnections() {
   const query = new URLSearchParams(location.search);
   const err = query.get('error');
@@ -697,6 +795,83 @@ function pricingCards() {
 
 function pageHistory() {
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
+  const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dayKeys = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start.getTime() + i * dayMs);
+    return d.toISOString().slice(0, 10);
+  });
+  const dateToKey = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return local.toISOString().slice(0, 10);
+  };
+  const toLocalInput = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const plannerStatus = (p) => ((p.published_at || String(p.status || '').toLowerCase() === 'done') ? 'published' : 'draft');
+  const plannerColumns = [{ key: 'draft', label: 'Черновики' }, ...dayKeys.map((k) => {
+    const d = new Date(`${k}T00:00:00`);
+    return { key: k, label: d.toLocaleDateString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit' }) };
+  })];
+  const grouped = Object.fromEntries(plannerColumns.map((c) => [c.key, []]));
+  for (const p of (state.posts || [])) {
+    const published = plannerStatus(p) === 'published';
+    const key = !published && p.schedule_at && dayKeys.includes(dateToKey(p.schedule_at)) ? dateToKey(p.schedule_at) : 'draft';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(p);
+  }
+  for (const key of Object.keys(grouped)) {
+    grouped[key].sort((a, b) => {
+      const da = new Date(a.schedule_at || a.created_at).getTime();
+      const db = new Date(b.schedule_at || b.created_at).getTime();
+      return da - db;
+    });
+  }
+
+  const plannerBoard = `<section class="card planner-card">
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">Календарь публикаций</h3>
+      <div class="small">Перетаскивайте посты по дням. В “Черновики” — без расписания.</div>
+    </div>
+    <div class="planner-grid">
+      ${plannerColumns.map((col) => {
+        const cards = (grouped[col.key] || []).map((p) => {
+          const status = plannerStatus(p);
+          const canDrag = status !== 'published';
+          const title = p.topic || p.title_preview || `Пост #${p.id}`;
+          return `<article class="planner-post ${canDrag ? '' : 'locked'}"
+              draggable="${canDrag ? 'true' : 'false'}"
+              data-post-card="${p.id}">
+              <div class="row" style="justify-content:space-between;align-items:flex-start;">
+                <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
+                ${statusBadge(status)}
+              </div>
+              <div class="small">${esc(p.platform || '—')}</div>
+              <div class="small">${p.schedule_at ? esc(new Date(p.schedule_at).toLocaleString()) : 'Без даты'}</div>
+              <div class="cta-row" style="margin-top:8px;">
+                <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
+                ${status === 'published' ? '' : `<button class="btn btn-secondary" data-publish-now="${p.id}">Опубликовать</button>`}
+              </div>
+            </article>`;
+        }).join('');
+        return `<div class="planner-column" data-drop-col="${col.key}">
+          <div class="planner-column-head">${esc(col.label)}</div>
+          <div class="planner-column-body">
+            ${cards || `<div class="small muted planner-empty">Нет постов</div>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </section>`;
 
   const table = state.posts.length
     ? `<div class="table-wrap"><table>
@@ -720,10 +895,11 @@ function pageHistory() {
               <td>${new Date(p.created_at).toLocaleString()}</td>
               <td>${esc(p.platform)}</td>
               <td class="truncate" title="${esc(title)}">${esc(title)}</td>
-              <td>${statusBadge(p.status)}</td>
+              <td>${statusBadge(plannerStatus(p))}</td>
               <td class="small">${esc(pub)}</td>
               <td>
                 <div class="cta-row" style="justify-content:flex-end;">
+                  <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
                   <button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>
                   <button class="btn btn-ghost" data-view-post="${p.id}">Открыть</button>
                   <button class="btn btn-ghost" data-retry="${p.id}" ${retryDisabled}>Повтор</button>
@@ -777,7 +953,33 @@ function pageHistory() {
     </div>
   </div>`;
 
-  return appLayout('/history','История',`<section class="card"><h2>История публикаций</h2>${table}</section>${modal}`);
+  const editorBody = editor.post ? `<div>
+    ${editor.error ? `<p class="small" style="color:var(--error);">${esc(editor.error)}</p>` : ''}
+    ${field('editTopic', 'Тема', 'text', editor.post.topic || '')}
+    ${field('editText', 'Текст', 'textarea', editor.post.generated_text || '')}
+    ${selectField('editPlatform', 'Платформа', editor.post.platform || 'instagram', [
+      { value: 'instagram', label: 'Instagram' },
+      { value: 'facebook', label: 'Facebook' },
+    ])}
+    ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
+    ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInput(editor.post.schedule_at))}
+    <div class="cta-row" style="justify-content:flex-end;margin-top:12px;">
+      <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>Снять с расписания</button>
+      <button id="savePostEditBtn" class="btn btn-primary" ${editor.saving ? 'disabled' : ''}>${editor.saving ? 'Сохраняю…' : 'Сохранить'}</button>
+    </div>
+  </div>` : `<p class="small muted">Пост не выбран.</p>`;
+
+  const editModal = `<div id="postEditBackdrop" class="modal-backdrop ${editor.open ? 'open' : ''}">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Редактирование перед публикацией</h3>
+        <button id="closePostEditBtn" class="btn btn-ghost">Закрыть</button>
+      </div>
+      <div class="modal-body">${editorBody}</div>
+    </div>
+  </div>`;
+
+  return appLayout('/history','История',`${plannerBoard}<section class="card"><h2>История публикаций</h2>${table}</section>${modal}${editModal}`);
 }
 
 function pageBilling() {
@@ -1052,6 +1254,21 @@ async function bind() {
       createProjectFromCreateBtn.disabled = false;
     }
   };
+  const wCategoryEl = document.getElementById('wCategory');
+  if (wCategoryEl) wCategoryEl.onchange = () => { state.createWizard.category = wCategoryEl.value; render(); };
+  const wToneEl = document.getElementById('wTone');
+  if (wToneEl) wToneEl.onchange = () => { state.createWizard.tone = wToneEl.value; render(); };
+  const wModeEl = document.getElementById('wMode');
+  if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; render(); };
+  document.querySelectorAll('[data-topic-template]').forEach((btn) => {
+    btn.onclick = () => {
+      const topic = (btn.getAttribute('data-topic-template') || '').trim();
+      const topicInput = document.getElementById('wTopic');
+      if (topicInput) topicInput.value = topic;
+      state.createWizard.topic = topic;
+      state.notice = null;
+    };
+  });
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
   const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
@@ -1060,7 +1277,7 @@ async function bind() {
     if (w.step === 2) {
       w.platforms.facebook = !!document.getElementById('wFb')?.checked;
       w.platforms.instagram = !!document.getElementById('wIg')?.checked;
-      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Р’С‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРЅСѓ РїР»Р°С‚С„РѕСЂРјСѓ.' }; return render(); }
+      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
     }
     if (w.step === 3) {
       w.category = document.getElementById('wCategory').value.trim();
@@ -1068,7 +1285,14 @@ async function bind() {
       w.tone = document.getElementById('wTone').value;
       w.language = document.getElementById('wLang').value;
       w.mediaUrl = document.getElementById('wMedia').value.trim();
-      if (!w.topic) { state.notice = { type: 'error', text: 'РўРµРјР° РѕР±СЏР·Р°С‚РµР»СЊРЅР°.' }; return render(); }
+      if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна.' }; return render(); }
+      if (!w.previewText) {
+        w.previewText = '';
+      }
+    }
+    if (w.step === 4) {
+      w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
+      if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
     }
     if (w.step === 5) {
       w.mode = document.getElementById('wMode')?.value || 'now';
@@ -1085,10 +1309,12 @@ async function bind() {
       // Persist step 5 fields on submit as well (in case user didn't hit Next).
       w.mode = document.getElementById('wMode')?.value || w.mode || 'now';
       w.scheduleAt = document.getElementById('wSchedule')?.value || w.scheduleAt || '';
+      w.previewText = (document.getElementById('wPreviewText')?.value || w.previewText || '').trim();
 
       const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
       if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
       if (!w.topic) throw new Error('Тема обязательна.');
+      if (!w.previewText) throw new Error('Добавьте текст в предпросмотре.');
 
       const platform = w.platforms.instagram ? 'instagram' : 'facebook';
       const project_id = Number(w.projectId || state.projects[0]?.id || 0) || null;
@@ -1110,15 +1336,30 @@ async function bind() {
         // datetime-local -> ISO (no timezone). Backend expects ISO.
         payload.schedule_at = new Date(w.scheduleAt).toISOString();
         const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        if (created?.id) {
+          await api(`/api/posts/${created.id}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
+        }
         state.notice = { type: 'ok', text: 'Пост создан и запланирован.' };
         nav('/history');
         return;
       }
 
-      // mode=now: generate content and then call publish endpoint (mock for now).
+      // mode=draft: generate content only, without publishing.
+      if (w.mode === 'draft') {
+        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        if (created?.id) {
+          await api(`/api/posts/${created.id}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
+        }
+        state.notice = { type: 'ok', text: 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
+        nav('/history');
+        return;
+      }
+
+      // mode=now: generate content and then call publish endpoint.
       const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
       const postId = created?.id;
       if (!postId) throw new Error('Не удалось создать пост.');
+      await api(`/api/posts/${postId}`, { method: 'PATCH', body: JSON.stringify({ generated_text: w.previewText }) });
       await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
       state.notice = { type: 'ok', text: 'Пост опубликован.' };
       nav('/history');
@@ -1130,7 +1371,11 @@ async function bind() {
       state.notice = { type: 'error', text };
       render();
     } finally {
-      try { wSubmit.disabled = false; wSubmit.textContent = 'Создать и опубликовать'; } catch {}
+      try {
+        const mode = document.getElementById('wMode')?.value || state.createWizard.mode || 'now';
+        wSubmit.disabled = false;
+        wSubmit.textContent = mode === 'schedule' ? 'Создать и запланировать' : (mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
+      } catch {}
     }
   };
 
@@ -1348,6 +1593,122 @@ async function bind() {
     }
   };
 
+  const openPostEditor = async (id) => {
+    if (!id) return;
+    state.postEditor = { open: true, saving: false, post: null, error: '', loading: true };
+    render();
+    try {
+      const post = await api(`/api/posts/${id}`);
+      state.postEditor = { open: true, saving: false, post, error: '', loading: false };
+      render();
+    } catch (e) {
+      state.postEditor = { open: true, saving: false, post: null, error: e.message || 'Не удалось загрузить пост.', loading: false };
+      render();
+    }
+  };
+  const closePostEditor = () => {
+    state.postEditor = { open: false, saving: false, post: null, error: '' };
+    render();
+  };
+
+  const postEditBackdrop = document.getElementById('postEditBackdrop');
+  if (postEditBackdrop) postEditBackdrop.onclick = (e) => { if (e.target && e.target.id === 'postEditBackdrop') closePostEditor(); };
+  const closePostEditBtn = document.getElementById('closePostEditBtn');
+  if (closePostEditBtn) closePostEditBtn.onclick = closePostEditor;
+
+  const clearScheduleBtn = document.getElementById('clearScheduleBtn');
+  if (clearScheduleBtn) clearScheduleBtn.onclick = () => {
+    const el = document.getElementById('editSchedule');
+    if (el) el.value = '';
+  };
+
+  const savePostEditBtn = document.getElementById('savePostEditBtn');
+  if (savePostEditBtn) savePostEditBtn.onclick = async () => {
+    const post = state.postEditor?.post;
+    if (!post?.id) return;
+    const topic = (document.getElementById('editTopic')?.value || '').trim();
+    if (!topic) {
+      state.postEditor = { ...state.postEditor, error: 'Введите тему поста.' };
+      render();
+      return;
+    }
+    const payload = {
+      topic,
+      generated_text: (document.getElementById('editText')?.value || '').trim(),
+      platform: (document.getElementById('editPlatform')?.value || 'instagram').trim(),
+      media_url: (document.getElementById('editMedia')?.value || '').trim(),
+      schedule_at: null,
+    };
+    const scheduleValue = (document.getElementById('editSchedule')?.value || '').trim();
+    if (scheduleValue) {
+      payload.schedule_at = new Date(scheduleValue).toISOString();
+    }
+    state.postEditor = { ...state.postEditor, saving: true, error: '' };
+    render();
+    try {
+      await api(`/api/posts/${post.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост обновлен.' };
+      state.postEditor = { open: false, saving: false, post: null, error: '' };
+      render();
+    } catch (e) {
+      state.postEditor = { ...state.postEditor, saving: false, error: e.message || 'Не удалось сохранить пост.' };
+      render();
+    }
+  };
+
+  document.querySelectorAll('[data-edit-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.editPost || b.getAttribute('data-edit-post'));
+    await openPostEditor(id);
+  });
+
+  const dropScheduleForColumn = (post, colKey) => {
+    if (!post || colKey === 'draft') return null;
+    const base = post.schedule_at ? new Date(post.schedule_at) : new Date(`${colKey}T12:00:00`);
+    const safeBase = Number.isNaN(base.getTime()) ? new Date(`${colKey}T12:00:00`) : base;
+    const t = new Date(`${colKey}T00:00:00`);
+    t.setHours(safeBase.getHours(), safeBase.getMinutes(), 0, 0);
+    return t.toISOString();
+  };
+
+  document.querySelectorAll('[data-post-card]').forEach((card) => {
+    card.ondragstart = (e) => {
+      const id = card.dataset.postCard;
+      if (!id) return;
+      e.dataTransfer.setData('text/plain', id);
+      card.classList.add('dragging');
+    };
+    card.ondragend = () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('[data-drop-col].drop-hover').forEach((x) => x.classList.remove('drop-hover'));
+    };
+  });
+
+  document.querySelectorAll('[data-drop-col]').forEach((col) => {
+    col.ondragover = (e) => { e.preventDefault(); col.classList.add('drop-hover'); };
+    col.ondragleave = () => col.classList.remove('drop-hover');
+    col.ondrop = async (e) => {
+      e.preventDefault();
+      col.classList.remove('drop-hover');
+      const id = Number(e.dataTransfer.getData('text/plain') || 0);
+      if (!id) return;
+      const post = (state.posts || []).find((p) => p.id === id);
+      if (!post || post.published_at || String(post.status || '').toLowerCase() === 'done') return;
+      const payload = {
+        schedule_at: dropScheduleForColumn(post, col.dataset.dropCol || 'draft'),
+      };
+      try {
+        await api(`/api/posts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        state.posts = await api('/api/posts');
+        state.notice = { type: 'ok', text: 'Планировщик обновлен.' };
+        render();
+      } catch (err) {
+        state.notice = { type: 'error', text: err.message || 'Не удалось перенести пост.' };
+        render();
+      }
+    };
+  });
+
   const closePostViewer = () => { state.postViewer = { open: false, loading: false, post: null, error: '' }; render(); };
   const closePostViewerBtn = document.getElementById('closePostViewerBtn');
   if (closePostViewerBtn) closePostViewerBtn.onclick = closePostViewer;
@@ -1509,6 +1870,7 @@ document.addEventListener('click', (e) => {
   nav(el.getAttribute('data-link'));
 });
 render();
+
 
 
 

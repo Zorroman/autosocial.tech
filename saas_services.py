@@ -293,6 +293,14 @@ def check_post_limits(user: AppUser) -> Dict[str, int]:
     db = SessionLocal()
     try:
         plan = get_plan(db, user)
+        if user.role == "admin":
+            # Admin can manage/test publishing without SaaS quota blocks.
+            return {
+                "monthly_used": 0,
+                "monthly_limit": 10**9,
+                "daily_used": 0,
+                "daily_limit": 10**9,
+            }
         monthly_used = (
             db.query(Post)
             .filter(
@@ -500,20 +508,21 @@ def create_post_and_charge(
         ensure_user_plan_and_credits(user.id)
         db.refresh(user)
         plan = get_plan(db, user)
+        enforce_limits = user.role != "admin"
 
         limits = check_post_limits(user)
-        if limits["monthly_used"] >= limits["monthly_limit"]:
+        if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
             raise RuntimeError("Месячный лимит постов исчерпан. Обновите тариф.")
         # Daily limit is enforced for "publish now". Scheduling drafts should not be blocked by daily caps.
-        if not schedule_at and limits["daily_used"] >= limits["daily_limit"]:
+        if enforce_limits and not schedule_at and limits["daily_used"] >= limits["daily_limit"]:
             raise RuntimeError("Дневной лимит публикаций исчерпан. Попробуйте завтра.")
-        if schedule_at and not plan.can_schedule:
+        if enforce_limits and schedule_at and not plan.can_schedule:
             raise RuntimeError("Планирование доступно только на платных тарифах")
 
         estimate = estimate_credits(topic, long_post_mode, variant_count, translation)
-        if user.credits_left < int(estimate * 1.2):
+        if enforce_limits and user.credits_left < int(estimate * 1.2):
             raise RuntimeError("Monthly limit reached. Upgrade or buy credits.")
-        if user.credits_left <= settings.OVERDRAFT_LIMIT:
+        if enforce_limits and user.credits_left <= settings.OVERDRAFT_LIMIT:
             raise RuntimeError("Credits limit exceeded. Buy credits or upgrade.")
 
         platform_cfg = _platform_rule(platform)
@@ -561,8 +570,9 @@ def create_post_and_charge(
         tokens_total = result.input_tokens + result.output_tokens
         charged = int(tokens_total * settings.CREDIT_MULTIPLIER * _multiplier(variant_count, translation))
 
-        user.credits_left -= charged
-        user.posts_used_month += 1
+        if enforce_limits:
+            user.credits_left -= charged
+            user.posts_used_month += 1
 
         post = Post(
             user_id=user_id,
@@ -586,23 +596,24 @@ def create_post_and_charge(
         db.add(post)
         db.flush()
 
-        db.add(
-            CreditLedger(
-                user_id=user.id,
-                type="usage",
-                delta_credits=-charged,
-                post_id=post.id,
-                meta_json=json.dumps(
-                    {
-                        "topic": topic,
-                        "tokens_total": tokens_total,
-                        "variant_count": variant_count,
-                        "translation": translation,
-                    },
-                    ensure_ascii=False,
-                ),
+        if enforce_limits:
+            db.add(
+                CreditLedger(
+                    user_id=user.id,
+                    type="usage",
+                    delta_credits=-charged,
+                    post_id=post.id,
+                    meta_json=json.dumps(
+                        {
+                            "topic": topic,
+                            "tokens_total": tokens_total,
+                            "variant_count": variant_count,
+                            "translation": translation,
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
             )
-        )
 
         suggestion = (
             db.query(TopicSuggestion)
@@ -1062,6 +1073,7 @@ def materialize_content_plan(
             raise RuntimeError("User not found")
         ensure_user_plan_and_credits(app_user.id)
         db.refresh(app_user)
+        enforce_limits = app_user.role != "admin"
 
         created_posts = 0
         post_ids: List[int] = []
@@ -1071,18 +1083,19 @@ def materialize_content_plan(
 
             # Monthly limits are enforced by counting Posts, so creating queued posts still consumes the quota.
             limits = check_post_limits(app_user)
-            if limits["monthly_used"] >= limits["monthly_limit"]:
+            if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
                 break
 
             # Reserve credits so users can't queue unlimited jobs with the same balance.
             reserve = estimate_credits(item.topic or "", long_post_mode=False, variant_count=1, translation=False)
-            if app_user.credits_left < int(reserve * 1.2):
+            if enforce_limits and app_user.credits_left < int(reserve * 1.2):
                 break
-            if app_user.credits_left <= settings.OVERDRAFT_LIMIT:
+            if enforce_limits and app_user.credits_left <= settings.OVERDRAFT_LIMIT:
                 break
 
-            app_user.credits_left -= reserve
-            app_user.posts_used_month += 1
+            if enforce_limits:
+                app_user.credits_left -= reserve
+                app_user.posts_used_month += 1
 
             post = Post(
                 user_id=app_user.id,
@@ -1106,15 +1119,16 @@ def materialize_content_plan(
             db.add(post)
             db.flush()
 
-            db.add(
-                CreditLedger(
-                    user_id=app_user.id,
-                    type="usage_reserve",
-                    delta_credits=-reserve,
-                    post_id=post.id,
-                    meta_json=json.dumps({"topic": item.topic, "reserve": reserve}, ensure_ascii=False),
+            if enforce_limits:
+                db.add(
+                    CreditLedger(
+                        user_id=app_user.id,
+                        type="usage_reserve",
+                        delta_credits=-reserve,
+                        post_id=post.id,
+                        meta_json=json.dumps({"topic": item.topic, "reserve": reserve}, ensure_ascii=False),
+                    )
                 )
-            )
 
             item.post_id = post.id
             item.caption = ""
