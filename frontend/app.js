@@ -65,6 +65,7 @@ const state = {
     platforms: { facebook: true, instagram: true },
     mediaUrl: '',
   },
+  aiWizard: null,
 };
 
 const CP1251_EXTRA_MAP = {
@@ -202,12 +203,12 @@ async function loadAuthProviders() {
   }
 }
 
-function nav(path) {
+function nav(path, opts = {}) {
   const current = location.pathname.replace(/\/$/, '') || '/';
   const target = String(path || '').replace(/\/$/, '') || '/';
   if (current === target) return;
   history.pushState({}, '', path);
-  state.notice = null;
+  if (!opts.keepNotice) state.notice = null;
   render();
 }
 
@@ -274,6 +275,271 @@ function progressBar(value, max) {
 }
 function emptyState(title, text, buttonLabel, path) {
   return `<div class="empty"><h3>${esc(title)}</h3><p class="small">${esc(text)}</p>${buttonLabel ? `<button class="btn btn-primary" data-link="${esc(path)}">${esc(buttonLabel)}</button>` : ''}</div>`;
+}
+
+const WizardUtils = (typeof window !== 'undefined' && window.WizardUtils) ? window.WizardUtils : {};
+const WIZARD_BUSINESS_TYPES = [
+  'SaaS / IT',
+  'Салон красоты',
+  'Интернет-магазин',
+  'Эксперт / консалтинг',
+  'Другое',
+];
+const WIZARD_GOALS = ['Лиды', 'Продажи', 'Охваты', 'Бренд'];
+const WIZARD_TONES = ['Экспертный', 'Дружелюбный', 'Продающий', 'Провокационный'];
+const WIZARD_NICHE_HINTS = [
+  'SMM и маркетинг', 'Косметология', 'Барбершоп', 'Автосервис', 'Детейлинг', 'Ремонт квартир',
+  'Психология', 'Консалтинг', 'Онлайн-курсы', 'Фитнес', 'Стоматология', 'Ресторан', 'Кафе',
+  'Интернет-магазин одежды', 'Недвижимость', 'Юридические услуги',
+];
+const WIZARD_OUTPUT_OPTIONS = [
+  { key: 'plan7', label: 'Контент-план на 7 дней' },
+  { key: 'posts10', label: '10 готовых постов' },
+  { key: 'reels5', label: '5 идей для Reels/Shorts' },
+  { key: 'funnel', label: 'Воронка прогрева (серия тем)' },
+  { key: 'hashtags', label: 'Хештеги и CTA' },
+  { key: 'bio', label: 'Описание профиля' },
+];
+
+function defaultAiWizardState() {
+  return {
+    step: 1,
+    status: 'idle', // idle | typing | analyzing | submitting
+    project_id: '',
+    business_type: '',
+    niche: '',
+    product_summary: '',
+    goal: '',
+    tone: '',
+    language: 'ru',
+    outputs: {
+      plan7: true,
+      posts10: true,
+      reels5: false,
+      funnel: false,
+      hashtags: true,
+      bio: false,
+    },
+  };
+}
+
+function ensureAiWizardState() {
+  if (!state.aiWizard) state.aiWizard = defaultAiWizardState();
+}
+
+function loadAiWizardDraft() {
+  ensureAiWizardState();
+  try {
+    const raw = localStorage.getItem('aiWizardDraftV2');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    state.aiWizard = {
+      ...defaultAiWizardState(),
+      ...parsed,
+      outputs: { ...defaultAiWizardState().outputs, ...(parsed.outputs || {}) },
+    };
+  } catch {}
+}
+
+function saveAiWizardDraft() {
+  try {
+    ensureAiWizardState();
+    localStorage.setItem('aiWizardDraftV2', JSON.stringify(state.aiWizard));
+  } catch {}
+}
+
+function mapWizardStateToExistingPayload(w) {
+  const mapper = WizardUtils.mapWizardStateToExistingPayload;
+  if (typeof mapper === 'function') return mapper(w);
+  return {
+    project_id: w.project_id ? Number(w.project_id) : null,
+    business_type: String(w.business_type || '').trim(),
+    niche: String(w.niche || '').trim(),
+    goal: String(w.goal || '').trim(),
+    language: String(w.language || 'ru').trim(),
+  };
+}
+
+function buildPreviewFromWizard(w) {
+  const fn = WizardUtils.generateWizardPreview;
+  if (typeof fn === 'function') return fn(w);
+  const niche = (w.niche || 'ваша ниша').trim();
+  const tone = (w.tone || 'Дружелюбный').toLowerCase();
+  const goal = (w.goal || 'Охваты').toLowerCase();
+  return {
+    weeklyTopic: `Неделя 1: «${niche} — практические советы и кейсы»`,
+    samplePost: `Как в нише «${niche}» получить ${goal}: 3 шага без лишних затрат. Сохраняйте пост и внедряйте сегодня.`,
+    strategyMix: { expert: 50, nurture: 30, sales: 20 },
+    focusHint: `Фокус: ${goal}. Тон: ${tone}. Давайте 1 конкретную пользу в каждом посте.`,
+  };
+}
+
+function getWizardValidationErrors(w, step) {
+  const errors = {};
+  if (step >= 1) {
+    if (!String(w.business_type || '').trim()) errors.business_type = 'Выберите тип бизнеса';
+    if (!String(w.niche || '').trim()) errors.niche = 'Укажите нишу';
+    if (!String(w.product_summary || '').trim()) errors.product_summary = 'Кратко опишите продукт/услугу';
+  }
+  if (step >= 2) {
+    if (!String(w.goal || '').trim()) errors.goal = 'Выберите цель';
+    if (!String(w.tone || '').trim()) errors.tone = 'Выберите стиль';
+  }
+  if (step >= 3) {
+    const selected = Object.values(w.outputs || {}).filter(Boolean).length;
+    if (!selected) errors.outputs = 'Выберите минимум один результат генерации';
+  }
+  return errors;
+}
+
+function wizardStatusLabel(status) {
+  const map = {
+    idle: 'Готово к запуску',
+    typing: 'Заполняем контекст',
+    analyzing: 'AI анализирует ввод',
+    submitting: 'Генерируем…',
+  };
+  return map[String(status || 'idle')] || 'Готово к запуску';
+}
+
+function chipsGroup(id, ariaLabel, values, selected, dataAttr) {
+  return `
+    <div id="${id}" class="wizard-chips" role="group" aria-label="${esc(ariaLabel)}">
+      ${values.map((v) => `<button type="button" class="wizard-chip ${String(v) === String(selected) ? 'active' : ''}" ${dataAttr}="${esc(v)}" aria-pressed="${String(v) === String(selected) ? 'true' : 'false'}">${esc(v)}</button>`).join('')}
+    </div>
+  `;
+}
+
+function Step1Business(w, projectOptions, errors) {
+  return `
+    <div class="wizard-step-block">
+      <h3>О бизнесе</h3>
+      ${selectField('wizardProject', 'Проект', w.project_id, projectOptions)}
+      <div class="field">
+        <label>Тип бизнеса</label>
+        ${chipsGroup('wizardBusinessType', 'Тип бизнеса', WIZARD_BUSINESS_TYPES, w.business_type, 'data-wizard-business')}
+        ${errors.business_type ? `<p class="small wizard-error">${esc(errors.business_type)}</p>` : ''}
+      </div>
+      <div class="field">
+        <label for="wizardNiche">Ниша</label>
+        <input id="wizardNiche" list="wizardNicheHints" value="${esc(w.niche)}" placeholder="Например, косметология, автосервис, онлайн-курсы" aria-describedby="wizardNicheHelp" />
+        <datalist id="wizardNicheHints">${WIZARD_NICHE_HINTS.map((i) => `<option value="${esc(i)}"></option>`).join('')}</datalist>
+        <p id="wizardNicheHelp" class="small wizard-inline-help">Можно выбрать подсказку или ввести вручную.</p>
+        ${errors.niche ? `<p class="small wizard-error">${esc(errors.niche)}</p>` : ''}
+      </div>
+      ${field('wizardProductSummary', 'Коротко о продукте/услуге', 'textarea', w.product_summary || '', '1–2 предложения: что продаёте и чем полезны клиенту')}
+      ${errors.product_summary ? `<p class="small wizard-error">${esc(errors.product_summary)}</p>` : ''}
+      <p class="small wizard-inline-help">AI использует это, чтобы настроить тон и темы контента.</p>
+    </div>
+  `;
+}
+
+function Step2GoalTone(w, errors) {
+  const preview = buildPreviewFromWizard(w);
+  return `
+    <div class="wizard-step-block">
+      <h3>Цель и стиль</h3>
+      <div class="field">
+        <label>Цель</label>
+        ${chipsGroup('wizardGoal', 'Цель', WIZARD_GOALS, w.goal, 'data-wizard-goal')}
+        ${errors.goal ? `<p class="small wizard-error">${esc(errors.goal)}</p>` : ''}
+      </div>
+      <div class="field">
+        <label>Стиль (тон)</label>
+        ${chipsGroup('wizardTone', 'Стиль', WIZARD_TONES, w.tone, 'data-wizard-tone')}
+        ${errors.tone ? `<p class="small wizard-error">${esc(errors.tone)}</p>` : ''}
+      </div>
+      ${selectField('wizardLang', 'Язык', w.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+      <article class="wizard-ai-hint" aria-live="polite">
+        <h4>AI подсказка</h4>
+        <p class="small">${esc(preview.focusHint)}</p>
+      </article>
+    </div>
+  `;
+}
+
+function PreviewCard(w) {
+  const p = buildPreviewFromWizard(w);
+  return `
+    <article class="wizard-preview card" aria-live="polite">
+      <h4>AI уже подготовил черновик</h4>
+      <div class="small"><strong>Тема недели:</strong> ${esc(p.weeklyTopic)}</div>
+      <div class="small" style="margin-top:8px;"><strong>Пример поста:</strong><br>${esc(p.samplePost)}</div>
+      <div class="small" style="margin-top:8px;">
+        <strong>Стратегия:</strong> экспертный ${Number(p.strategyMix.expert) || 0}% · прогрев ${Number(p.strategyMix.nurture) || 0}% · продажи ${Number(p.strategyMix.sales) || 0}%
+      </div>
+      <button id="wizardRefreshPreviewBtn" type="button" class="btn btn-ghost" style="margin-top:10px;">Обновить предпросмотр</button>
+    </article>
+  `;
+}
+
+function Step3GeneratePreview(w, errors) {
+  return `
+    <div class="wizard-step-block">
+      <h3>Генерация и предпросмотр</h3>
+      <p class="small">Вы получите план и черновики. Можно будет отредактировать перед публикацией.</p>
+      <div class="wizard-checks" role="group" aria-label="Что сгенерировать">
+        ${WIZARD_OUTPUT_OPTIONS.map((item) => `
+          <label class="wizard-check-item">
+            <input type="checkbox" data-wizard-output="${esc(item.key)}" ${w.outputs?.[item.key] ? 'checked' : ''} />
+            <span>${esc(item.label)}</span>
+          </label>
+        `).join('')}
+      </div>
+      ${errors.outputs ? `<p class="small wizard-error">${esc(errors.outputs)}</p>` : ''}
+      <div class="small wizard-plan-note">В бесплатной версии ограничено количество постов. В PRO — полный план на месяц и автопостинг.</div>
+    </div>
+  `;
+}
+
+// AI SMM Wizard v2: 3-step + preview
+// Files touched: frontend/app.js, frontend/styles.css, frontend/wizard_utils.js, tests/unit/wizard_utils.test.js
+// Why: replace long form with step-by-step UX while preserving legacy backend payload contract on submit.
+function WizardContainer(params) {
+  ensureAiWizardState();
+  const w = state.aiWizard;
+  const step = Number(w.step || 1);
+  const stepErrors = getWizardValidationErrors(w, step);
+  const canGoNext = Object.keys(getWizardValidationErrors(w, step)).length === 0;
+  const projectOptions = params.projectOptions.length ? params.projectOptions : [{ value: '', label: 'Проект по умолчанию' }];
+
+  let stepHtml = '';
+  if (step === 1) stepHtml = Step1Business(w, projectOptions, stepErrors);
+  if (step === 2) stepHtml = Step2GoalTone(w, stepErrors);
+  if (step === 3) stepHtml = Step3GeneratePreview(w, stepErrors);
+
+  return `
+    <section id="aiWizardBlock" class="card" style="margin-top:18px;">
+      <div class="wizard-head">
+        <h2>Создать стратегию и контент</h2>
+        <p class="small">3 шага — и AI подготовит план и примеры постов. Можно отредактировать перед запуском.</p>
+        <div class="wizard-meta-row">
+          <span class="small"><strong>Шаг ${step} из 3</strong></span>
+          <span class="small">${esc(wizardStatusLabel(w.status || 'idle'))}</span>
+        </div>
+        ${progressBar(step, 3)}
+      </div>
+
+      <div class="stepper wizard-stepper-3">
+        <div class="step ${step === 1 ? 'active' : ''}">1. О бизнесе</div>
+        <div class="step ${step === 2 ? 'active' : ''}">2. Цель и стиль</div>
+        <div class="step ${step === 3 ? 'active' : ''}">3. Генерация и предпросмотр</div>
+      </div>
+
+      <div class="wizard-grid">
+        <div>${stepHtml}</div>
+        ${step === 3 ? `<div>${PreviewCard(w)}</div>` : ''}
+      </div>
+
+      <div class="wizard-actions">
+        <button id="wizardPrevBtn" type="button" class="btn btn-ghost" ${step === 1 || w.status === 'submitting' ? 'disabled' : ''}>Назад</button>
+        ${step < 3
+          ? `<button id="wizardNextBtn" type="button" class="btn btn-secondary" ${(!canGoNext || w.status === 'submitting') ? 'disabled' : ''}>Далее</button>`
+          : `<button id="wizardSubmitBtn" type="button" class="btn btn-primary" ${(Object.keys(stepErrors).length > 0 || w.status === 'submitting') ? 'disabled' : ''}>${w.status === 'submitting' ? 'Генерируем…' : 'Создать план и черновики'}</button>`
+        }
+      </div>
+    </section>
+  `;
 }
 
 function appLayout(path, title, body) {
@@ -417,6 +683,12 @@ function pageDashboard() {
     <li class="${state.projects.length > 0 ? 'done' : ''}">2. Создайте проект</li>
     <li class="${hasPublishedPost ? 'done' : ''}">3. Опубликуйте первый пост</li>
   </ul>`;
+  ensureAiWizardState();
+  if (!state.aiWizard.project_id && state.projects[0]?.id) {
+    state.aiWizard.project_id = String(state.projects[0].id);
+  }
+  const wizardProjectOptions = state.projects.map((p) => ({ value: String(p.id), label: p.name }))
+    .concat([{ value: '', label: 'Проект по умолчанию' }]);
 
   return appLayout('/dashboard', 'Панель', `
     <section class="hero reveal">
@@ -468,49 +740,28 @@ function pageDashboard() {
       </article>
     </section>
 
+    ${WizardContainer({ projectOptions: wizardProjectOptions })}
+
     <section class="card" style="margin-top:18px;">
-      <h2>Запустить AI SMM Менеджер</h2>
-      <p class="small">Шаг 1: подключите соцсети. Шаг 2: заполните бизнес-контекст. Шаг 3: запустите генерацию и план.</p>
       <div class="grid-2">
-        <div>
-          ${selectField('managerProject', 'Проект', state.projects[0]?.id || '', state.projects.map((p) => ({ value: p.id, label: p.name })).concat([{ value: '', label: 'Проект по умолчанию' }]))}
-          <p class="small wizard-inline-help">Выберите проект, для которого генерировать стратегию и публикации.</p>
-          ${field('managerBusiness', 'Тип бизнеса', 'text', '', 'например, салон красоты')}
-          <p class="small wizard-inline-help">Кто вы: салон, магазин, эксперт, агентство и т.д.</p>
-          ${field('managerNiche', 'Ниша', 'text', '', 'например, косметология')}
-          <p class="small wizard-inline-help">О чем будет контент: тема/направление вашего бизнеса.</p>
-          ${field('managerGoal', 'Цель', 'text', '', 'например, лиды и записи')}
-          <p class="small wizard-inline-help">Какой результат нужен: заявки, продажи, охваты, записи.</p>
-          ${selectField('managerLang', 'Язык', 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
-          <div class="topic-template-row" style="margin:8px 0 12px;">
-            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="salon">Салон красоты</button>
-            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="shop">Интернет-магазин</button>
-            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="expert">Эксперт/консалтинг</button>
-          </div>
+        <article>
+          <h3>Дневной лимит</h3>
+          <p class="small">${dailyText} постов сегодня</p>
+          ${progressBar(usedDaily, dailyMax)}
+          <div class="small" style="margin-top:12px;">Статус подключения: ${hasConnectedAccount ? '<span class="status success">подключено</span>' : '<span class="status warning">не подключено</span>'}</div>
+        </article>
+        <article>
+          <h3>Быстрые действия</h3>
           <div class="cta-row">
-            <button id="startManagerBtn" class="btn btn-primary">Запустить AI SMM Менеджер</button>
-            <button id="strategyBtn" class="btn btn-secondary">Сгенерировать стратегию на месяц</button>
+            <button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button>
+            <button id="scheduleWeekBtn" class="btn btn-ghost" ${canSchedule ? '' : 'disabled'}>План на неделю</button>
           </div>
-          <p class="small" style="margin-top:8px;">Кнопка «Запустить» создаёт план + сразу готовит посты на ближайшую неделю. «Сгенерировать стратегию» создаёт только контент-план на 30 дней.</p>
-        </div>
-        <div>
-          <article class="card" style="height:100%;">
-            <h3>Дневной лимит</h3>
-            <p class="small">${dailyText} постов сегодня</p>
-            ${progressBar(usedDaily, dailyMax)}
-            <h3 style="margin-top:16px;">Быстрые действия</h3>
-            <div class="cta-row">
-              <button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button>
-              <button id="scheduleWeekBtn" class="btn btn-ghost" ${canSchedule ? '' : 'disabled'}>План на неделю</button>
-            </div>
-            ${canSchedule ? '' : '<div class="small" style="margin-top:8px;color:var(--warning);">Планирование доступно на платных тарифах.</div>'}
-            <div class="small" style="margin-top:12px;">Статус подключения: ${hasConnectedAccount ? '<span class="status success">подключено</span>' : '<span class="status warning">не подключено</span>'}</div>
-            <ul class="small" style="margin-top:10px; line-height:1.5;">
-              <li>«Пост на сегодня» — создаёт до 3 постов на текущую дату.</li>
-              <li>«План на неделю» — генерирует и ставит в очередь контент на 7 дней.</li>
-            </ul>
-          </article>
-        </div>
+          ${canSchedule ? '' : '<div class="small" style="margin-top:8px;color:var(--warning);">Планирование доступно на платных тарифах.</div>'}
+          <ul class="small" style="margin-top:10px; line-height:1.5;">
+            <li>«Пост на сегодня» — создаёт до 3 постов на текущую дату.</li>
+            <li>«План на неделю» — генерирует и ставит в очередь контент на 7 дней.</li>
+          </ul>
+        </article>
       </div>
     </section>
 
@@ -1227,7 +1478,7 @@ async function bind() {
       localStorage.setItem('token', data.token);
       await loadBase();
       state.notice = { type: 'ok', text: state.authMode === 'login' ? 'Вход выполнен успешно.' : 'Аккаунт создан. Подключите Facebook на следующем шаге.' };
-      nav('/connections');
+      nav('/connections', { keepNotice: true });
     } catch (e) {
       const raw = String(e.message || 'Ошибка авторизации');
       let text = 'Не удалось выполнить вход. Проверьте email и пароль.';
@@ -1243,49 +1494,12 @@ async function bind() {
     }
   };
 
-  const startManagerBtn = document.getElementById('startManagerBtn');
-  const managerProjectEl = document.getElementById('managerProject');
-  const managerBusinessEl = document.getElementById('managerBusiness');
-  const managerNicheEl = document.getElementById('managerNiche');
-  const managerGoalEl = document.getElementById('managerGoal');
-  const managerLangEl = document.getElementById('managerLang');
-  const strategyBtn = document.getElementById('strategyBtn');
-
-  const MANAGER_DRAFT_KEY = 'managerDraft';
-  const managerInputs = [managerProjectEl, managerBusinessEl, managerNicheEl, managerGoalEl, managerLangEl].filter(Boolean);
-  const managerPresetButtons = Array.from(document.querySelectorAll('[data-manager-preset]'));
-
-  const restoreManagerDraft = () => {
-    try {
-      const raw = localStorage.getItem(MANAGER_DRAFT_KEY);
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      if (managerProjectEl && d.project_id !== undefined) managerProjectEl.value = String(d.project_id ?? '');
-      if (managerBusinessEl && d.business_type) managerBusinessEl.value = String(d.business_type);
-      if (managerNicheEl && d.niche) managerNicheEl.value = String(d.niche);
-      if (managerGoalEl && d.goal) managerGoalEl.value = String(d.goal);
-      if (managerLangEl && d.language) managerLangEl.value = String(d.language);
-    } catch {}
-  };
-
-  const saveManagerDraft = () => {
-    try {
-      const payload = {
-        project_id: managerProjectEl?.value || '',
-        business_type: managerBusinessEl?.value?.trim() || '',
-        niche: managerNicheEl?.value?.trim() || '',
-        goal: managerGoalEl?.value?.trim() || '',
-        language: managerLangEl?.value || 'ru',
-      };
-      localStorage.setItem(MANAGER_DRAFT_KEY, JSON.stringify(payload));
-    } catch {}
-  };
+  ensureAiWizardState();
 
   const setManagerLoading = (isLoading) => {
-    if (startManagerBtn) startManagerBtn.disabled = !!isLoading;
-    if (strategyBtn) strategyBtn.disabled = !!isLoading;
-    if (startManagerBtn) startManagerBtn.textContent = isLoading ? 'Запуск...' : 'Запустить AI SMM Менеджер';
-    if (strategyBtn) strategyBtn.textContent = isLoading ? 'Генерация...' : 'Сгенерировать стратегию на месяц';
+    ensureAiWizardState();
+    state.aiWizard.status = isLoading ? 'submitting' : 'idle';
+    saveAiWizardDraft();
   };
 
   const setQuickLoading = (btn, loadingText, isLoading) => {
@@ -1295,110 +1509,185 @@ async function bind() {
     btn.textContent = isLoading ? loadingText : btn.dataset.defaultText;
   };
 
-  const setInputError = (el, hasError) => {
-    if (!el) return;
-    el.classList.toggle('input-error', !!hasError);
-  };
-
-  const readManagerPayload = ({ requireConnection }) => {
-    const projectRaw = managerProjectEl?.value || '';
-    const business_type = managerBusinessEl?.value?.trim() || '';
-    const niche = managerNicheEl?.value?.trim() || '';
-    const goal = managerGoalEl?.value?.trim() || '';
-    const language = managerLangEl?.value || 'ru';
-    setInputError(managerBusinessEl, !business_type);
-    setInputError(managerNicheEl, !niche);
-    setInputError(managerGoalEl, !goal);
+  const readManagerPayload = ({ requireConnection, requireStep = 2 }) => {
+    ensureAiWizardState();
+    const w = state.aiWizard;
+    const errors = getWizardValidationErrors(w, requireStep);
+    if (errors.business_type) throw new Error(errors.business_type);
+    if (errors.niche) throw new Error(errors.niche);
+    if (errors.product_summary) throw new Error(errors.product_summary);
+    if (errors.goal) throw new Error(errors.goal);
+    if (errors.tone) throw new Error(errors.tone);
     const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
     if (requireConnection && !hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
-    if (!business_type) throw new Error('Заполните поле "Тип бизнеса".');
-    if (!niche) throw new Error('Заполните поле "Ниша".');
-    if (!goal) throw new Error('Заполните поле "Цель".');
-    return { project_id: projectRaw ? Number(projectRaw) : null, business_type, niche, goal, language };
+    return mapWizardStateToExistingPayload(w);
   };
 
-  restoreManagerDraft();
-  managerInputs.forEach((el) => {
-    el.addEventListener('input', saveManagerDraft);
-    el.addEventListener('change', saveManagerDraft);
-    el.addEventListener('input', () => setInputError(el, false));
-    el.addEventListener('change', () => setInputError(el, false));
-  });
+  const updateWizard = (patch, status = 'typing') => {
+    ensureAiWizardState();
+    state.aiWizard = { ...state.aiWizard, ...patch };
+    state.aiWizard.status = status;
+    saveAiWizardDraft();
+  };
 
-  managerPresetButtons.forEach((btn) => {
+  const scheduleAnalyzeRender = () => {
+    ensureAiWizardState();
+    state.aiWizard.status = 'analyzing';
+    saveAiWizardDraft();
+    if (window.__wizardAnalyzeTimer) clearTimeout(window.__wizardAnalyzeTimer);
+    window.__wizardAnalyzeTimer = setTimeout(() => {
+      ensureAiWizardState();
+      if (state.aiWizard.status !== 'submitting') state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      render();
+    }, 260);
+    render();
+  };
+
+  const wizardBlock = document.getElementById('aiWizardBlock');
+  if (wizardBlock) {
+    wizardBlock.addEventListener('keydown', (e) => {
+      ensureAiWizardState();
+      if (e.key !== 'Enter') return;
+      if (state.aiWizard.step >= 3) return;
+      const tag = String(e.target?.tagName || '').toLowerCase();
+      if (tag === 'textarea') return;
+      e.preventDefault();
+    });
+  }
+
+  const wizardProjectEl = document.getElementById('wizardProject');
+  if (wizardProjectEl) wizardProjectEl.onchange = () => {
+    updateWizard({ project_id: wizardProjectEl.value }, 'typing');
+    render();
+  };
+  const wizardNicheEl = document.getElementById('wizardNiche');
+  if (wizardNicheEl) wizardNicheEl.oninput = () => {
+    updateWizard({ niche: wizardNicheEl.value }, 'typing');
+    scheduleAnalyzeRender();
+  };
+  const wizardProductSummaryEl = document.getElementById('wizardProductSummary');
+  if (wizardProductSummaryEl) wizardProductSummaryEl.oninput = () => {
+    updateWizard({ product_summary: wizardProductSummaryEl.value }, 'typing');
+    render();
+  };
+  const wizardLangEl = document.getElementById('wizardLang');
+  if (wizardLangEl) wizardLangEl.onchange = () => {
+    updateWizard({ language: wizardLangEl.value }, 'typing');
+    scheduleAnalyzeRender();
+  };
+
+  document.querySelectorAll('[data-wizard-business]').forEach((btn) => {
     btn.onclick = () => {
-      const preset = String(btn.getAttribute('data-manager-preset') || '').trim();
-      if (preset === 'salon') {
-        if (managerBusinessEl) managerBusinessEl.value = 'Салон красоты';
-        if (managerNicheEl) managerNicheEl.value = 'Косметология и уход';
-        if (managerGoalEl) managerGoalEl.value = 'Лиды и записи';
-      } else if (preset === 'shop') {
-        if (managerBusinessEl) managerBusinessEl.value = 'Интернет-магазин';
-        if (managerNicheEl) managerNicheEl.value = 'Товары для дома';
-        if (managerGoalEl) managerGoalEl.value = 'Продажи и повторные покупки';
-      } else if (preset === 'expert') {
-        if (managerBusinessEl) managerBusinessEl.value = 'Экспертный сервис';
-        if (managerNicheEl) managerNicheEl.value = 'Консалтинг / обучение';
-        if (managerGoalEl) managerGoalEl.value = 'Заявки на консультации';
-      }
-      saveManagerDraft();
-      state.notice = { type: 'ok', text: 'Поля заполнены примером. При необходимости отредактируйте и запускайте.' };
+      const value = String(btn.getAttribute('data-wizard-business') || '').trim();
+      updateWizard({ business_type: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-goal]').forEach((btn) => {
+    btn.onclick = () => {
+      const value = String(btn.getAttribute('data-wizard-goal') || '').trim();
+      updateWizard({ goal: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-tone]').forEach((btn) => {
+    btn.onclick = () => {
+      const value = String(btn.getAttribute('data-wizard-tone') || '').trim();
+      updateWizard({ tone: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-output]').forEach((el) => {
+    el.onchange = () => {
+      const key = String(el.getAttribute('data-wizard-output') || '').trim();
+      ensureAiWizardState();
+      state.aiWizard.outputs = { ...(state.aiWizard.outputs || {}), [key]: !!el.checked };
+      state.aiWizard.status = 'typing';
+      saveAiWizardDraft();
       render();
     };
   });
 
-  if (startManagerBtn) startManagerBtn.onclick = async () => {
+  const wizardPrevBtn = document.getElementById('wizardPrevBtn');
+  if (wizardPrevBtn) wizardPrevBtn.onclick = () => {
+    ensureAiWizardState();
+    state.aiWizard.step = Math.max(1, Number(state.aiWizard.step || 1) - 1);
+    state.aiWizard.status = 'idle';
+    saveAiWizardDraft();
+    render();
+  };
+  const wizardNextBtn = document.getElementById('wizardNextBtn');
+  if (wizardNextBtn) wizardNextBtn.onclick = () => {
+    ensureAiWizardState();
+    const step = Number(state.aiWizard.step || 1);
+    const errors = getWizardValidationErrors(state.aiWizard, step);
+    if (Object.keys(errors).length > 0) {
+      const firstError = errors.business_type || errors.niche || errors.product_summary || errors.goal || errors.tone || errors.outputs || 'Заполните обязательные поля шага.';
+      state.notice = { type: 'error', text: firstError };
+      return render();
+    }
+    state.aiWizard.step = Math.min(3, step + 1);
+    state.aiWizard.status = 'idle';
+    saveAiWizardDraft();
+    render();
+  };
+  const wizardRefreshPreviewBtn = document.getElementById('wizardRefreshPreviewBtn');
+  if (wizardRefreshPreviewBtn) wizardRefreshPreviewBtn.onclick = () => {
+    ensureAiWizardState();
+    state.aiWizard.status = 'analyzing';
+    saveAiWizardDraft();
+    render();
+    setTimeout(() => {
+      ensureAiWizardState();
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      render();
+    }, 220);
+  };
+  const wizardSubmitBtn = document.getElementById('wizardSubmitBtn');
+  if (wizardSubmitBtn) wizardSubmitBtn.onclick = async () => {
     try {
+      ensureAiWizardState();
+      const errors = getWizardValidationErrors(state.aiWizard, 3);
+      if (Object.keys(errors).length > 0) {
+        const firstError = errors.business_type || errors.niche || errors.product_summary || errors.goal || errors.tone || errors.outputs || 'Проверьте поля и попробуйте снова.';
+        throw new Error(firstError);
+      }
       setManagerLoading(true);
-      const payload = readManagerPayload({ requireConnection: true });
+      render();
+      const payload = readManagerPayload({ requireConnection: true, requireStep: 2 });
       const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
-      const projectId = payload.project_id;
+      const materializeDays = state.aiWizard.outputs?.plan7 ? 7 : 3;
+      const materializeLimit = state.aiWizard.outputs?.posts10 ? 10 : 5;
       const warmup = await api('/api/content-plan/materialize', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, days: 7, limit: 20 }),
+        body: JSON.stringify({ project_id: payload.project_id, days: materializeDays, limit: materializeLimit }),
       });
       const created = Number(r?.result?.created_plan_items || 0);
       const existing = Number(r?.result?.existing_future_items || 0);
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
       const skipped = Number(warmup?.result?.skipped || warmup?.skipped || 0);
       if (created === 0 && existing > 0) {
-        state.notice = { type: 'ok', text: `Контент-план уже был создан (будущих публикаций: ${existing}). На ближайшую неделю подготовлено: ${queued}.` };
+        state.notice = { type: 'ok', text: `Контент-план уже существует (будущих публикаций: ${existing}). Подготовлено черновиков: ${queued}.` };
       } else {
-        state.notice = { type: 'ok', text: `AI SMM Менеджер запущен: создан план на 30 дней, в очередь добавлено постов: ${queued}${skipped ? `, пропущено: ${skipped}` : ''}.` };
+        state.notice = { type: 'ok', text: `План и черновики готовы: создан план на 30 дней, добавлено постов: ${queued}${skipped ? `, пропущено: ${skipped}` : ''}.` };
       }
-      nav('/history');
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      nav('/history', { keepNotice: true });
     } catch (e) {
-      state.notice = { type: 'error', text: e.message };
+      state.notice = { type: 'error', text: e.message || 'Не удалось запустить генерацию.' };
+      ensureAiWizardState();
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
       render();
-    } finally {
-      setManagerLoading(false);
     }
   };
 
   const goConnectionsBtn = document.getElementById('goConnectionsBtn'); if (goConnectionsBtn) goConnectionsBtn.onclick = () => nav('/connections');
   const goCreateBtn = document.getElementById('goCreateBtn'); if (goCreateBtn) goCreateBtn.onclick = () => nav('/create');
   const goBillingBtn = document.getElementById('goBillingBtn'); if (goBillingBtn) goBillingBtn.onclick = () => nav('/billing');
-  if (strategyBtn) strategyBtn.onclick = async () => {
-    try {
-      setManagerLoading(true);
-      const payload = readManagerPayload({ requireConnection: false });
-      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
-      const created = Number(r?.result?.created_plan_items || 0);
-      const existing = Number(r?.result?.existing_future_items || 0);
-      if (!created && existing > 0) {
-        state.notice = { type: 'ok', text: `Стратегия уже существует: найдено ${existing} будущих публикаций. Откройте "История" для календаря.` };
-      } else {
-        state.notice = { type: 'ok', text: `Стратегия на месяц готова: создано ${created || 30} публикаций в контент-плане.` };
-      }
-      await loadBase();
-      render();
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message };
-      render();
-    } finally {
-      setManagerLoading(false);
-    }
-  };
   const postTodayBtn = document.getElementById('postTodayBtn');
   if (postTodayBtn) postTodayBtn.onclick = async () => {
     try {
@@ -1411,7 +1700,7 @@ async function bind() {
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
       state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «История».' };
-      nav('/history');
+      nav('/history', { keepNotice: true });
     } catch (e) {
       state.notice = { type: 'error', text: e.message };
       render();
@@ -1432,7 +1721,7 @@ async function bind() {
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
       state.notice = { type: 'ok', text: queued > 0 ? `План на неделю готов: в очередь добавлено ${queued} пост(ов).` : 'На ближайшую неделю контент уже подготовлен.' };
-      nav('/history');
+      nav('/history', { keepNotice: true });
     } catch (e) {
       state.notice = { type: 'error', text: e.message };
       render();
@@ -2186,6 +2475,7 @@ document.addEventListener('click', (e) => {
   e.stopPropagation();
   nav(el.getAttribute('data-link'));
 });
+loadAiWizardDraft();
 render();
 
 
