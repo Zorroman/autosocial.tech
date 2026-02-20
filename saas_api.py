@@ -1138,7 +1138,6 @@ def publish_post(post_id: int):
             .filter(
                 SocialAccount.user_id == post.user_id,
                 SocialAccount.provider == "meta",
-                SocialAccount.status == "connected_ready",
             )
             .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
             .first()
@@ -1159,7 +1158,11 @@ def publish_post(post_id: int):
 
         image_url = (post.media_url or "").strip() or None
         if post.platform == "instagram" and not image_url:
-            image_url = (os.getenv("DEFAULT_IG_IMAGE_URL") or "https://picsum.photos/seed/autosocial-gpt/1200/1200").strip()
+            default_media = os.getenv("DEFAULT_IG_IMAGE_URL", "").strip()
+            if not default_media:
+                base = (getattr(settings, "FRONTEND_BASE_URL", "") or "https://autosocial.tech").rstrip("/")
+                default_media = f"{base}/assets/brand/default-instagram.png"
+            image_url = default_media
         now = datetime.utcnow()
         post.retry_count += 1
 
@@ -1191,7 +1194,12 @@ def publish_post(post_id: int):
             remote_id = result.get("id")
 
         if result.get("error") or not remote_id:
-            status_from_error, reason = _meta_error_to_status(result.get("error") or {})
+            meta_error = result.get("error") or {}
+            if isinstance(meta_error, str):
+                details = result.get("details") if isinstance(result, dict) else None
+                if isinstance(details, dict) and isinstance(details.get("error"), dict):
+                    meta_error = details.get("error")
+            status_from_error, reason = _meta_error_to_status(meta_error)
             _apply_meta_status(connection, status_from_error, reason)
             post.status = "failed"
             post.error_message = str(result.get("error") or result)
@@ -1202,6 +1210,8 @@ def publish_post(post_id: int):
         post.published_at = now
         post.remote_id = str(remote_id)
         post.error_message = None
+        _apply_meta_status(connection, "connected_ready", None)
+        connection.last_success_at = now
         db.commit()
         return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real"})
     except Exception as exc:
@@ -1300,10 +1310,14 @@ def _status_help_text(reason_code: str, status: str) -> str:
     return "Проверьте детали подключения и попробуйте снова."
 
 
-def _meta_error_to_status(meta_error: dict):
-    err = meta_error or {}
-    msg = str(err.get("message") or "").lower()
-    code = str(err.get("code") or "")
+def _meta_error_to_status(meta_error):
+    if isinstance(meta_error, dict):
+        err = meta_error
+        msg = str(err.get("message") or "").lower()
+        code = str(err.get("code") or "")
+    else:
+        msg = str(meta_error or "").lower()
+        code = ""
     if code in {"190", "102"} or "access token" in msg or "oauth" in msg:
         return "token_expired", "access_token_invalid"
     if code in {"10", "200"} or "permission" in msg or "requires" in msg or "insufficient" in msg:
