@@ -775,7 +775,18 @@ def generate():
         return jsonify({"error": f"Ошибка генерации: {msg}"}), 500
 
     billing = get_billing_summary(_current_user_refetched())
-    return jsonify({"id": post.id, "status": post.status, "billing": billing}), 202
+    return (
+        jsonify(
+            {
+                "id": post.id,
+                "status": post.status,
+                "platform": post.platform,
+                "media_url": post.media_url,
+                "billing": billing,
+            }
+        ),
+        202,
+    )
 
 
 @saas_api.route("/ai-smm-manager/start", methods=["POST"])
@@ -1458,7 +1469,7 @@ def meta_start():
     # unless the corresponding products/use-cases are added and access is granted.
     scope_raw = os.getenv(
         "FB_OAUTH_SCOPE",
-        "pages_show_list,pages_read_engagement,instagram_basic,business_management",
+        "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,business_management",
     ).strip()
     scopes = [s.strip() for s in scope_raw.split(",") if s.strip()]
     # Deduplicate while preserving order.

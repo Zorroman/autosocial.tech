@@ -1325,15 +1325,18 @@ async function bind() {
       if (!w.topic) throw new Error('Тема обязательна.');
       if (!w.previewText) throw new Error('Добавьте текст в предпросмотре.');
 
-      const platform = w.platforms.instagram ? 'instagram' : 'facebook';
+      const selectedPlatforms = [
+        w.platforms.facebook ? 'facebook' : null,
+        w.platforms.instagram ? 'instagram' : null,
+      ].filter(Boolean);
+      if (!selectedPlatforms.length) throw new Error('Выберите хотя бы одну платформу.');
       const project_id = Number(w.projectId || state.projects[0]?.id || 0) || null;
-      const payload = {
+      const payloadBase = {
         project_id,
         topic: w.topic,
         category: w.category,
         tone: w.tone,
         language: w.language,
-        platform,
         media_url: w.mediaUrl || null,
         generated_text: w.previewText,
       };
@@ -1343,29 +1346,46 @@ async function bind() {
 
       if (w.mode === 'schedule') {
         if (!w.scheduleAt) throw new Error('Укажите дату и время для планирования.');
-        // datetime-local -> ISO (no timezone). Backend expects ISO.
-        payload.schedule_at = new Date(w.scheduleAt).toISOString();
-        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-        state.notice = { type: 'ok', text: 'Пост создан и запланирован.' };
+        const scheduleAtIso = new Date(w.scheduleAt).toISOString();
+        for (const platform of selectedPlatforms) {
+          const payload = { ...payloadBase, platform, schedule_at: scheduleAtIso };
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты созданы и запланированы для Facebook и Instagram.' : 'Пост создан и запланирован.' };
         nav('/history');
         return;
       }
 
       // mode=draft: generate content only, without publishing.
       if (w.mode === 'draft') {
-        payload.save_as_draft = true;
-        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-        state.notice = { type: 'ok', text: 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
+        for (const platform of selectedPlatforms) {
+          const payload = { ...payloadBase, platform, save_as_draft: true };
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Черновики созданы для Facebook и Instagram.' : 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
         nav('/history');
         return;
       }
 
       // mode=now: generate content and then call publish endpoint.
-      const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-      const postId = created?.id;
-      if (!postId) throw new Error('Не удалось создать пост.');
-      await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
-      state.notice = { type: 'ok', text: 'Пост опубликован.' };
+      let sharedMediaUrl = (w.mediaUrl || '').trim() || null;
+      const publishErrors = [];
+      for (const platform of selectedPlatforms) {
+        const payload = { ...payloadBase, platform, media_url: sharedMediaUrl };
+        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        const postId = created?.id;
+        if (!postId) throw new Error(`Не удалось создать пост для ${platform}.`);
+        if (!sharedMediaUrl && created?.media_url) sharedMediaUrl = created.media_url;
+        try {
+          await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
+        } catch (pubErr) {
+          publishErrors.push(`${platform === 'facebook' ? 'Facebook' : 'Instagram'}: ${pubErr?.message || 'ошибка публикации'}`);
+        }
+      }
+      if (publishErrors.length) {
+        throw new Error(`Часть публикаций не выполнена: ${publishErrors.join(' ; ')}`);
+      }
+      state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты опубликованы в Facebook и Instagram.' : 'Пост опубликован.' };
       nav('/history');
     } catch (e) {
       let text = e.message || 'Ошибка публикации.';
