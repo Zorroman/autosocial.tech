@@ -807,16 +807,19 @@ function pageHistory() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayMs = 24 * 60 * 60 * 1000;
+  const localDateKey = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
   const dayKeys = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start.getTime() + i * dayMs);
-    return d.toISOString().slice(0, 10);
+    return localDateKey(d);
   });
   const dateToKey = (value) => {
     if (!value) return '';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '';
-    const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    return local.toISOString().slice(0, 10);
+    return localDateKey(d);
   };
   const toLocalInput = (value) => {
     if (!value) return '';
