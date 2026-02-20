@@ -832,14 +832,16 @@ function pageHistory() {
   const grouped = Object.fromEntries(plannerColumns.map((c) => [c.key, []]));
   for (const p of (state.posts || [])) {
     const published = plannerStatus(p) === 'published';
-    const key = !published && p.schedule_at && dayKeys.includes(dateToKey(p.schedule_at)) ? dateToKey(p.schedule_at) : 'draft';
+    const calendarDate = published ? (p.published_at || p.schedule_at) : p.schedule_at;
+    const calendarKey = dateToKey(calendarDate);
+    const key = calendarKey && dayKeys.includes(calendarKey) ? calendarKey : 'draft';
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(p);
   }
   for (const key of Object.keys(grouped)) {
     grouped[key].sort((a, b) => {
-      const da = new Date(a.schedule_at || a.created_at).getTime();
-      const db = new Date(b.schedule_at || b.created_at).getTime();
+      const da = new Date(a.published_at || a.schedule_at || a.created_at).getTime();
+      const db = new Date(b.published_at || b.schedule_at || b.created_at).getTime();
       return da - db;
     });
   }
@@ -863,7 +865,7 @@ function pageHistory() {
                 ${statusBadge(status)}
               </div>
               <div class="small">${esc(p.platform || '—')}</div>
-              <div class="small">${p.schedule_at ? esc(new Date(p.schedule_at).toLocaleString()) : 'Без даты'}</div>
+              <div class="small">${p.published_at ? `Опубликовано: ${esc(new Date(p.published_at).toLocaleString())}` : (p.schedule_at ? `План: ${esc(new Date(p.schedule_at).toLocaleString())}` : 'Без даты')}</div>
               <div class="cta-row" style="margin-top:8px;">
                 <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
                 ${status === 'published' ? '' : `<button class="btn btn-secondary" data-publish-now="${p.id}">Опубликовать</button>`}

@@ -1,5 +1,6 @@
 ﻿import json
 import os
+from pathlib import Path
 from urllib.parse import quote
 from urllib.parse import urlsplit
 import secrets
@@ -8,7 +9,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import requests
-from flask import Blueprint, current_app, g, jsonify, redirect, request
+from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
 
 from database import SessionLocal
 from facebook_api import (
@@ -64,6 +65,8 @@ from stripe_service import (
 saas_api = Blueprint("saas_api", __name__, url_prefix="/api")
 OAUTH_STATES = {}
 OAUTH_STATE_TTL_SECONDS = 600
+MEDIA_DIR = Path(__file__).resolve().with_name("generated_media")
+MEDIA_DIR.mkdir(exist_ok=True)
 
 
 def _ip() -> str:
@@ -102,6 +105,16 @@ def _public_api_base_url() -> str:
             return f"{parts.scheme}://{parts.netloc}"
     return raw
 
+
+@saas_api.route('/media/<path:filename>', methods=['GET'])
+def serve_generated_media(filename: str):
+    safe_name = os.path.basename((filename or '').strip())
+    if not safe_name:
+        return jsonify({'error': 'file_not_found'}), 404
+    full_path = MEDIA_DIR / safe_name
+    if not full_path.exists():
+        return jsonify({'error': 'file_not_found'}), 404
+    return send_from_directory(MEDIA_DIR, safe_name)
 
 def _google_client_id() -> str:
     return (os.getenv("GOOGLE_CLIENT_ID") or "").strip()
@@ -2574,5 +2587,10 @@ def admin_niche_hooks():
         return jsonify([{"id": r.id, "niche": r.niche, "hook": r.hook} for r in rows])
     finally:
         db.close()
+
+
+
+
+
 
 

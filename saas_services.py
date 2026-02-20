@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import and_, desc, extract, func
 
 from database import SessionLocal
-from gpt_generator import generate_post_with_usage
+from gpt_generator import generate_image_url, generate_post_with_usage
 from saas_models import (
     AppUser,
     AuditLog,
@@ -577,6 +577,17 @@ def create_post_and_charge(
             user.posts_used_month += 1
 
         final_text = (generated_text_override or "").strip() or structured_text
+        resolved_media_url = (media_url or "").strip() or generate_image_url(
+            topic=topic,
+            category=category,
+            tone=tone,
+            language=language,
+        )
+        if not resolved_media_url:
+            resolved_media_url = (
+                os.getenv("DEFAULT_IG_IMAGE_URL", "").strip()
+                or f"{settings.FRONTEND_BASE_URL}/assets/brand/default-instagram.png"
+            )
         # New posts should be queued first; real publish endpoint sets done/published_at.
         post_status = "scheduled" if schedule_at else "queued"
         published_at = None
@@ -591,7 +602,7 @@ def create_post_and_charge(
             category=category,
             language=language,
             tone=tone,
-            media_url=media_url,
+            media_url=resolved_media_url or None,
             tokens_input=result.input_tokens,
             tokens_output=result.output_tokens,
             tokens_total=tokens_total,
@@ -744,6 +755,18 @@ def run_generation_job(post_id: int) -> None:
         user.credits_left -= delta  # may add credits back when delta < 0
 
         post.generated_text = structured_text
+        if not (post.media_url or "").strip():
+            post.media_url = generate_image_url(
+                topic=post.topic,
+                category=post.category,
+                tone=post.tone,
+                language=post.language,
+            )
+        if not (post.media_url or "").strip():
+            post.media_url = (
+                os.getenv("DEFAULT_IG_IMAGE_URL", "").strip()
+                or f"{settings.FRONTEND_BASE_URL}/assets/brand/default-instagram.png"
+            )
         post.tokens_input = result.input_tokens
         post.tokens_output = result.output_tokens
         post.tokens_total = tokens_total
