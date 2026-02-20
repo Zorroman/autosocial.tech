@@ -19,6 +19,7 @@ from facebook_api import (
     publish_to_facebook,
     publish_to_instagram,
 )
+from gpt_generator import build_semantic_fallback_image_url
 from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
 from saas_models import (
     AppUser,
@@ -1182,11 +1183,12 @@ def publish_post(post_id: int):
 
         image_url = (post.media_url or "").strip() or None
         if post.platform == "instagram" and not image_url:
-            default_media = os.getenv("DEFAULT_IG_IMAGE_URL", "").strip()
-            if not default_media:
-                base = (getattr(settings, "FRONTEND_BASE_URL", "") or "https://autosocial.tech").rstrip("/")
-                default_media = f"{base}/assets/brand/default-instagram.png"
-            image_url = default_media
+            image_url = build_semantic_fallback_image_url(
+                topic=post.topic or post.prompt_text or "social media",
+                category=getattr(post, "category", None),
+                tone=getattr(post, "tone", "friendly") or "friendly",
+                language=getattr(post, "language", "ru") or "ru",
+            )
         now = datetime.utcnow()
         post.retry_count += 1
 
@@ -2045,8 +2047,12 @@ def test_publish_connection(connection_id: int):
         if should_test_instagram:
             ig_image_url = (
                 (request.get_json(silent=True) or {}).get("image_url")
-                or os.getenv("DEFAULT_IG_IMAGE_URL")
-                or "https://dummyimage.com/1080x1080/0f172a/ffffff.jpg&text=AutoSocial+IG+Test"
+                or build_semantic_fallback_image_url(
+                    topic="Тест публикации для соцсетей",
+                    category="business",
+                    tone="friendly",
+                    language="ru",
+                )
             ).strip()
             # Instagram publish should use USER access token.
             result = publish_to_instagram(row.ig_user_id, access_token, ig_image_url, caption)

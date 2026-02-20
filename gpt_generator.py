@@ -1,8 +1,10 @@
-import base64
+﻿import base64
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote_plus
 from uuid import uuid4
 
 from openai import OpenAI
@@ -20,7 +22,7 @@ class GenerationResult:
     output_tokens: int
 
 
-SYSTEM_PROMPT = "Ты опытный Instagram/Facebook копирайтер. Пиши по делу, структурно и с сильным CTA."
+SYSTEM_PROMPT = "Ты опытный Instagram/Facebook копирайтер. Пиши структурно, конкретно и с сильным CTA."
 IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1").strip() or "gpt-image-1"
 MEDIA_DIR = Path(__file__).resolve().with_name("generated_media")
 MEDIA_DIR.mkdir(exist_ok=True)
@@ -65,8 +67,6 @@ def generate_post_with_usage(
             max_tokens=max_output_tokens,
         )
     except Exception as exc:
-        # Dev-friendly fallback: if OpenAI quota/rate issues happen, generate a structured mock
-        # so the product remains usable locally.
         msg = str(exc)
         if "insufficient_quota" in msg or "You exceeded your current quota" in msg or "Error code: 429" in msg:
             base = f"{topic}: практичный пост\n\n"
@@ -95,11 +95,33 @@ def generate_post(niche: str, topic: str | None = None) -> str:
 
 def _build_image_prompt(topic: str, category: str | None, tone: str, language: str) -> str:
     return (
-        "Создай фотореалистичную маркетинговую иллюстрацию для поста в соцсетях. "
-        f"Тема: {topic}. Категория: {category or 'general'}. "
-        f"Тональность: {tone}. Язык контекста: {language}. "
-        "Без текста, без логотипов, без водяных знаков. Сильный фокус на теме поста, формат 1:1."
+        "Create a photorealistic marketing image for social media post. "
+        f"Topic: {topic}. Category: {category or 'general'}. Tone: {tone}. Language context: {language}. "
+        "The main object must clearly match the topic meaning. "
+        "No text, no logos, no watermark, no flat single-color background. Square 1:1."
     )
+
+
+def build_semantic_fallback_image_url(
+    topic: str,
+    category: str | None = None,
+    tone: str = "friendly",
+    language: str = "ru",
+) -> str:
+    custom_default = (os.getenv("DEFAULT_IG_IMAGE_URL") or "").strip()
+    if custom_default:
+        return custom_default
+
+    safe_topic = re.sub(r"\s+", " ", (topic or "").strip())
+    safe_category = re.sub(r"\s+", " ", (category or "").strip())
+    prompt = (
+        f"{safe_topic or 'social media marketing'}, {safe_category or 'business'}, "
+        f"{tone} tone, {language} context, photorealistic scene, "
+        "no text, no logo, no watermark, no flat blue background"
+    )
+    encoded = quote_plus(prompt)
+    seed = random.randint(10000, 99999)
+    return f"https://image.pollinations.ai/prompt/{encoded}?width=1080&height=1080&seed={seed}&nologo=true"
 
 
 def generate_image_url(topic: str, category: str | None = None, tone: str = "friendly", language: str = "ru") -> str | None:
@@ -108,25 +130,28 @@ def generate_image_url(topic: str, category: str | None = None, tone: str = "fri
     served by our API (`/api/media/<file>`).
     """
     if settings.USE_MOCK_PROVIDERS or not Config.OPENAI_API_KEY:
-        return None
+        return build_semantic_fallback_image_url(topic=topic, category=category, tone=tone, language=language)
 
-    try:
-        response = client.images.generate(
-            model=IMAGE_MODEL,
-            prompt=_build_image_prompt(topic=topic, category=category, tone=tone, language=language),
-            size="1024x1024",
-        )
-        data = getattr(response, "data", None) or []
-        if not data:
-            return None
-        item = data[0]
-        b64 = getattr(item, "b64_json", None)
-        if not b64:
-            return None
+    for _ in range(2):
+        try:
+            response = client.images.generate(
+                model=IMAGE_MODEL,
+                prompt=_build_image_prompt(topic=topic, category=category, tone=tone, language=language),
+                size="1024x1024",
+            )
+            data = getattr(response, "data", None) or []
+            if not data:
+                continue
+            item = data[0]
+            b64 = getattr(item, "b64_json", None)
+            if not b64:
+                continue
 
-        image_bytes = base64.b64decode(b64)
-        filename = f"ai_{uuid4().hex}.png"
-        (MEDIA_DIR / filename).write_bytes(image_bytes)
-        return f"{settings.API_BASE_URL}/api/media/{filename}"
-    except Exception:
-        return None
+            image_bytes = base64.b64decode(b64)
+            filename = f"ai_{uuid4().hex}.png"
+            (MEDIA_DIR / filename).write_bytes(image_bytes)
+            return f"{settings.API_BASE_URL}/api/media/{filename}"
+        except Exception:
+            continue
+
+    return build_semantic_fallback_image_url(topic=topic, category=category, tone=tone, language=language)
