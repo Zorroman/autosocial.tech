@@ -577,15 +577,16 @@ def create_post_and_charge(
             user.posts_used_month += 1
 
         final_text = (generated_text_override or "").strip() or structured_text
+        image_context = f"{topic}. {final_text[:220]}".strip()
         resolved_media_url = (media_url or "").strip() or generate_image_url(
-            topic=topic,
+            topic=image_context,
             category=category,
             tone=tone,
             language=language,
         )
         if not resolved_media_url:
             resolved_media_url = build_semantic_fallback_image_url(
-                topic=topic,
+                topic=image_context,
                 category=category,
                 tone=tone,
                 language=language,
@@ -757,16 +758,17 @@ def run_generation_job(post_id: int) -> None:
         user.credits_left -= delta  # may add credits back when delta < 0
 
         post.generated_text = structured_text
+        image_context = f"{post.topic}. {structured_text[:220]}".strip()
         if not (post.media_url or "").strip():
             post.media_url = generate_image_url(
-                topic=post.topic,
+                topic=image_context,
                 category=post.category,
                 tone=post.tone,
                 language=post.language,
             )
         if not (post.media_url or "").strip():
             post.media_url = build_semantic_fallback_image_url(
-                topic=post.topic,
+                topic=image_context,
                 category=post.category,
                 tone=post.tone,
                 language=post.language,

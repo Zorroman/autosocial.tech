@@ -1183,8 +1183,9 @@ def publish_post(post_id: int):
 
         image_url = (post.media_url or "").strip() or None
         if post.platform == "instagram" and not image_url:
+            image_context = f"{post.topic or post.prompt_text or 'social media'}. {(post.generated_text or '')[:220]}".strip()
             image_url = build_semantic_fallback_image_url(
-                topic=post.topic or post.prompt_text or "social media",
+                topic=image_context,
                 category=getattr(post, "category", None),
                 tone=getattr(post, "tone", "friendly") or "friendly",
                 language=getattr(post, "language", "ru") or "ru",
