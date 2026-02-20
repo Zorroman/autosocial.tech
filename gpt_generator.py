@@ -47,11 +47,32 @@ def generate_post_with_usage(
     max_output_tokens: int = 400,
 ) -> GenerationResult:
     if settings.USE_MOCK_PROVIDERS or not Config.OPENAI_API_KEY:
-        base = f"{topic}: практичный пост\n\n"
+        hooks = [
+            f"{topic}: что важно учесть перед запуском",
+            f"{topic}: короткий разбор без воды",
+            f"{topic}: 3 рабочих шага на сегодня",
+            f"{topic}: как получить результат быстрее",
+        ]
+        values = [
+            "Покажите клиенту конкретную выгоду в первой строке.",
+            "Добавьте один понятный кейс, чтобы снять возражения.",
+            "Закончите пост четким действием: написать, оставить заявку, перейти по ссылке.",
+            "Избегайте общих фраз: дайте цифру, срок или пример.",
+        ]
+        ctas = [
+            "Напишите в директ — подберем формат под ваш бизнес.",
+            "Сохраните пост и протестируйте этот сценарий сегодня.",
+            "Нужен шаблон под вашу нишу? Ответьте в комментариях.",
+        ]
+        random.shuffle(values)
         body = (
-            base
-            + f"Категория: {category or 'general'}. Тон: {tone}. Язык: {language}.\n"
-            + "1) Хук в начале.\n2) Полезная мысль.\n3) Призыв к действию."
+            f"{random.choice(hooks)}\n\n"
+            f"Категория: {category or 'general'} • Тон: {tone} • Язык: {language}\n"
+            f"1) {values[0]}\n"
+            f"2) {values[1]}\n"
+            f"3) {values[2]}\n\n"
+            f"{random.choice(ctas)}\n"
+            "#маркетинг #smm #контент"
         )
         input_tokens = random.randint(80, 160)
         output_tokens = min(max_output_tokens, random.randint(220, 360))
@@ -70,11 +91,18 @@ def generate_post_with_usage(
     except Exception as exc:
         msg = str(exc)
         if "insufficient_quota" in msg or "You exceeded your current quota" in msg or "Error code: 429" in msg:
-            base = f"{topic}: практичный пост\n\n"
+            hooks = [
+                f"{topic}: краткий план действий",
+                f"{topic}: 3 шага для роста",
+                f"{topic}: как избежать типичных ошибок",
+            ]
             body = (
-                base
-                + f"Категория: {category or 'general'}. Тон: {tone}. Язык: {language}.\n"
-                + "1) Хук в начале.\n2) Полезная мысль.\n3) Призыв к действию."
+                f"{random.choice(hooks)}\n\n"
+                f"Категория: {category or 'general'} • Тон: {tone} • Язык: {language}\n"
+                "1) Дайте конкретику в заголовке.\n"
+                "2) Покажите пользу на примере.\n"
+                "3) Завершите пост четким CTA.\n\n"
+                "Напишите в директ, чтобы получить адаптированный шаблон."
             )
             input_tokens = random.randint(80, 160)
             output_tokens = min(max_output_tokens, random.randint(220, 360))

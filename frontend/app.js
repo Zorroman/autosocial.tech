@@ -210,6 +210,7 @@ function statusBadge(status) {
     failed: { cls: 'error', label: 'Ошибка' },
     queued: { cls: 'queued', label: 'В очереди' },
     scheduled: { cls: 'scheduled', label: 'Запланировано' },
+    hidden: { cls: 'warning', label: 'Скрыт' },
   };
   const item = map[key] || { cls: 'warning', label: status || 'неизвестно' };
   return `<span class="status ${item.cls}">${esc(item.label)}</span>`;
@@ -868,7 +869,8 @@ function pageHistory() {
               <div class="small">${p.published_at ? `Опубликовано: ${esc(new Date(p.published_at).toLocaleString())}` : (p.schedule_at ? `План: ${esc(new Date(p.schedule_at).toLocaleString())}` : 'Без даты')}</div>
               <div class="cta-row" style="margin-top:8px;">
                 <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
-                ${status === 'published' ? '' : `<button class="btn btn-secondary" data-publish-now="${p.id}">Опубликовать</button>`}
+                ${status === 'published' ? `<button class="btn btn-ghost" data-hide-post="${p.id}">Убрать с сайта</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}">Опубликовать</button>`}
+                ${status === 'published' ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">Удалить</button>`}
               </div>
             </article>`;
         }).join('');
@@ -900,6 +902,7 @@ function pageHistory() {
               ? p.title_preview
               : (p.topic || p.title_preview || '—');
             const publishDisabled = (p.status === 'done' || p.status === 'failed') ? 'disabled' : '';
+            const isPublished = plannerStatus(p) === 'published';
             return `<tr>
               <td>${new Date(p.created_at).toLocaleString()}</td>
               <td>${esc(p.platform)}</td>
@@ -909,7 +912,8 @@ function pageHistory() {
               <td>
                 <div class="cta-row" style="justify-content:flex-end;">
                   <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
-                  <button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>
+                  ${isPublished ? `<button class="btn btn-ghost" data-hide-post="${p.id}">Убрать с сайта</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>`}
+                  ${isPublished ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">Удалить</button>`}
                   <button class="btn btn-ghost" data-view-post="${p.id}">Открыть</button>
                   <button class="btn btn-ghost" data-retry="${p.id}" ${retryDisabled}>Повтор</button>
                 </div>
@@ -1860,6 +1864,36 @@ async function bind() {
       render();
     } catch (e) {
       state.notice = { type: 'error', text: e.message || 'Не удалось опубликовать пост.' };
+      render();
+    }
+  });
+
+  document.querySelectorAll('[data-delete-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.deletePost || b.getAttribute('data-delete-post'));
+    if (!id) return;
+    if (!confirm('Удалить неопубликованный пост? Это действие нельзя отменить.')) return;
+    try {
+      await api(`/api/posts/${id}`, { method: 'DELETE' });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост удален.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось удалить пост.' };
+      render();
+    }
+  });
+
+  document.querySelectorAll('[data-hide-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.hidePost || b.getAttribute('data-hide-post'));
+    if (!id) return;
+    if (!confirm('Убрать опубликованный пост из календаря/истории на сайте?')) return;
+    try {
+      await api(`/api/posts/${id}/hide`, { method: 'POST', body: '{}' });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост скрыт с сайта.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось скрыть пост.' };
       render();
     }
   });

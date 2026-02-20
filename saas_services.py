@@ -1002,6 +1002,26 @@ def create_monthly_content_plan(
         "инструмент дня",
         "разбор частой проблемы",
         "мини-гайд",
+        "реальный пример из практики",
+        "что сделать за 15 минут",
+        "главный провал и решение",
+        "краткий аудит текущей стратегии",
+        "2 рабочих сценария на выбор",
+        "как повысить конверсию в лид",
+        "что убрать, чтобы росла вовлеченность",
+        "частый вопрос клиентов",
+        "идея поста на сегодня",
+        "серия на неделю",
+        "оффер, который продает",
+        "как усилить доверие к бренду",
+        "ошибка в коммуникации с аудиторией",
+        "контент без выгорания",
+        "формула сильного CTA",
+        "контент-подход для локального бизнеса",
+        "как упаковать кейс",
+        "контент для холодной аудитории",
+        "быстрый шаблон для сторис/ленты",
+        "7-дневный спринт роста",
     ]
 
     created = 0
@@ -1011,11 +1031,21 @@ def create_monthly_content_plan(
 
     db = SessionLocal()
     try:
+        existing_topics = set(
+            t[0]
+            for t in db.query(ContentPlan.topic)
+            .filter(ContentPlan.user_id == user.id, ContentPlan.project_id == project_id)
+            .all()
+        )
+        used_topics = set(existing_topics)
         plan_rows: List[ContentPlan] = []
         for i in range(30):
             scheduled_at = start_day + timedelta(days=i)
             angle = angles[i % len(angles)]
-            topic = f"{business_type}: {niche} · {goal} — {angle} (день {i + 1})"
+            topic = f"{angle}: {niche} для {business_type} — цель: {goal} (день {i + 1})"
+            if topic in used_topics:
+                topic = f"{topic} / вариант {i + 1}"
+            used_topics.add(topic)
             row = ContentPlan(
                 user_id=user.id,
                 project_id=project_id,

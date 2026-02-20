@@ -984,6 +984,7 @@ def create_post_draft():
 def posts_history():
     user = g.current_user
     project_id = request.args.get("project_id", type=int)
+    include_hidden = str(request.args.get("include_hidden") or "").strip().lower() in {"1", "true", "yes"}
 
     db = SessionLocal()
     try:
@@ -992,6 +993,8 @@ def posts_history():
             query = query.filter(Post.user_id == user.id)
         if project_id:
             query = query.filter(Post.project_id == project_id)
+        if not include_hidden:
+            query = query.filter(Post.status != "hidden")
 
         posts = query.order_by(Post.created_at.desc()).limit(400).all()
         return jsonify(
@@ -1073,6 +1076,8 @@ def update_post(post_id: int):
             return jsonify({"error": "Пост не найден"}), 404
         if user.role != "admin" and post.user_id != user.id:
             return jsonify({"error": "Недостаточно прав"}), 403
+        if str(post.status or "").lower() == "hidden":
+            return jsonify({"error": "Скрытый пост нельзя редактировать"}), 409
         status_now = str(post.status or "").lower()
         # Protect only truly published posts. Legacy rows may have status=done without remote_id.
         is_published = bool(post.published_at) or (status_now == "done" and bool(post.remote_id))
@@ -1124,6 +1129,50 @@ def update_post(post_id: int):
                 "published_at": post.published_at.isoformat() if post.published_at else None,
             }
         )
+    finally:
+        db.close()
+
+
+@saas_api.route("/posts/<int:post_id>", methods=["DELETE"])
+@require_auth
+def delete_post(post_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        post = db.query(Post).filter_by(id=post_id).first()
+        if not post:
+            return jsonify({"error": "Пост не найден"}), 404
+        if user.role != "admin" and post.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        status_now = str(post.status or "").lower()
+        is_published = bool(post.published_at) or status_now == "done"
+        if is_published:
+            return jsonify({"error": "Опубликованный пост нельзя удалить. Используйте «Убрать с сайта»."}), 409
+
+        db.delete(post)
+        db.commit()
+        return jsonify({"ok": True, "id": post_id, "deleted": True})
+    finally:
+        db.close()
+
+
+@saas_api.route("/posts/<int:post_id>/hide", methods=["POST"])
+@require_auth
+def hide_post(post_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        post = db.query(Post).filter_by(id=post_id).first()
+        if not post:
+            return jsonify({"error": "Пост не найден"}), 404
+        if user.role != "admin" and post.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        post.status = "hidden"
+        post.schedule_at = None
+        db.commit()
+        return jsonify({"ok": True, "id": post_id, "status": "hidden"})
     finally:
         db.close()
 
