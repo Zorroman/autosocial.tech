@@ -825,7 +825,12 @@ function pageHistory() {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
-  const plannerStatus = (p) => ((p.published_at || String(p.status || '').toLowerCase() === 'done') ? 'published' : 'draft');
+  const isPublishedPost = (p) => {
+    if (!p) return false;
+    const status = String(p.status || '').toLowerCase();
+    return Boolean(p.published_at) || Boolean(p.remote_id) || status === 'published';
+  };
+  const plannerStatus = (p) => (isPublishedPost(p) ? 'published' : 'draft');
   const plannerColumns = [{ key: 'draft', label: 'Черновики' }, ...dayKeys.map((k) => {
     const d = new Date(`${k}T00:00:00`);
     return { key: k, label: d.toLocaleDateString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit' }) };
@@ -833,7 +838,7 @@ function pageHistory() {
   const grouped = Object.fromEntries(plannerColumns.map((c) => [c.key, []]));
   for (const p of (state.posts || [])) {
     const published = plannerStatus(p) === 'published';
-    const calendarDate = published ? (p.published_at || p.schedule_at) : p.schedule_at;
+    const calendarDate = published ? (p.published_at || p.schedule_at || p.created_at) : p.schedule_at;
     const calendarKey = dateToKey(calendarDate);
     const key = calendarKey && dayKeys.includes(calendarKey) ? calendarKey : 'draft';
     if (!grouped[key]) grouped[key] = [];
@@ -901,8 +906,8 @@ function pageHistory() {
             const title = ((p.topic || '').trim() && (p.topic || '').includes('?') && (p.title_preview || '').trim())
               ? p.title_preview
               : (p.topic || p.title_preview || '—');
-            const publishDisabled = (p.status === 'done' || p.status === 'failed') ? 'disabled' : '';
             const isPublished = plannerStatus(p) === 'published';
+            const publishDisabled = (isPublished || p.status === 'failed') ? 'disabled' : '';
             return `<tr>
               <td>${new Date(p.created_at).toLocaleString()}</td>
               <td>${esc(p.platform)}</td>
@@ -1808,7 +1813,7 @@ async function bind() {
       const id = Number(e.dataTransfer.getData('text/plain') || 0);
       if (!id) return;
       const post = (state.posts || []).find((p) => p.id === id);
-      if (!post || post.published_at || String(post.status || '').toLowerCase() === 'done') return;
+      if (!post || isPublishedPost(post)) return;
       const payload = {
         schedule_at: dropScheduleForColumn(post, col.dataset.dropCol || 'draft'),
       };

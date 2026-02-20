@@ -1146,7 +1146,9 @@ def delete_post(post_id: int):
             return jsonify({"error": "Недостаточно прав"}), 403
 
         status_now = str(post.status or "").lower()
-        is_published = bool(post.published_at) or status_now == "done"
+        # Treat as published only when publication is confirmed.
+        # Legacy rows may have status=done without actual publish identifiers.
+        is_published = bool(post.published_at) or (status_now == "done" and bool(post.remote_id))
         if is_published:
             return jsonify({"error": "Опубликованный пост нельзя удалить. Используйте «Убрать с сайта»."}), 409
 
