@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import quote_plus
 from uuid import uuid4
 
+import requests
 from openai import OpenAI
 
 from config import Config
@@ -112,16 +113,49 @@ def build_semantic_fallback_image_url(
     if custom_default:
         return custom_default
 
-    safe_topic = re.sub(r"\s+", " ", (topic or "").strip())
-    safe_category = re.sub(r"\s+", " ", (category or "").strip())
-    prompt = (
-        f"{safe_topic or 'social media marketing'}, {safe_category or 'business'}, "
-        f"{tone} tone, {language} context, photorealistic scene, "
-        "no text, no logo, no watermark, no flat blue background"
-    )
-    encoded = quote_plus(prompt)
+    keywords = _semantic_keywords(topic=topic, category=category)
+    encoded = quote_plus(",".join(keywords))
     seed = random.randint(10000, 99999)
-    return f"https://image.pollinations.ai/prompt/{encoded}?width=1080&height=1080&seed={seed}&nologo=true"
+    remote_url = f"https://loremflickr.com/1080/1080/{encoded}?lock={seed}"
+    hosted_url = _mirror_external_image_to_local(remote_url)
+    return hosted_url or remote_url
+
+
+def _mirror_external_image_to_local(url: str) -> str | None:
+    try:
+        resp = requests.get(url, timeout=30)
+        if resp.status_code != 200:
+            return None
+        ctype = (resp.headers.get("content-type") or "").lower()
+        if "image" not in ctype:
+            return None
+        ext = ".jpg"
+        if "png" in ctype:
+            ext = ".png"
+        filename = f"ai_{uuid4().hex}{ext}"
+        (MEDIA_DIR / filename).write_bytes(resp.content)
+        return f"{settings.API_BASE_URL}/api/media/{filename}"
+    except Exception:
+        return None
+
+
+def _semantic_keywords(topic: str, category: str | None) -> list[str]:
+    category_map = {
+        "beauty": ["beauty", "salon", "cosmetology"],
+        "auto": ["car", "service", "automotive"],
+        "coach": ["coach", "business", "consulting"],
+        "ecommerce": ["shop", "ecommerce", "product"],
+        "business": ["business", "office", "marketing"],
+    }
+    tokens = re.findall(r"[a-zA-Z]{4,}", (topic or "").lower())
+    picked = [t for t in tokens if t not in {"this", "that", "with", "from", "your"}][:3]
+    if picked:
+        return picked
+    cat = (category or "").strip().lower()
+    for key, values in category_map.items():
+        if key in cat:
+            return values
+    return ["business", "marketing", "social"]
 
 
 def generate_image_url(topic: str, category: str | None = None, tone: str = "friendly", language: str = "ru") -> str | None:

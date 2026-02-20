@@ -1207,6 +1207,11 @@ def publish_post(post_id: int):
                 db.commit()
                 return jsonify({"error": post.error_message, "status_reason_code": "page_token_missing"}), 400
             result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
+            fb_err = result.get("error") if isinstance(result, dict) else None
+            fb_code = str((fb_err or {}).get("code", ""))
+            if fb_err and fb_code == "324":
+                # If Meta rejects image URL, retry with text-only post.
+                result = publish_to_facebook(connection.page_id, page_access_token, None, caption)
             remote_id = result.get("post_id") or result.get("id")
         else:
             # Instagram publish should use USER access token.
