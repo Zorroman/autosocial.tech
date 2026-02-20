@@ -825,6 +825,10 @@ function pageHistory() {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
+  const toLocalIsoNoTz = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
   const isPublishedPost = (p) => {
     if (!p) return false;
     const status = String(p.status || '').toLowerCase();
@@ -1788,7 +1792,8 @@ async function bind() {
     const safeBase = Number.isNaN(base.getTime()) ? new Date(`${colKey}T12:00:00`) : base;
     const t = new Date(`${colKey}T00:00:00`);
     t.setHours(safeBase.getHours(), safeBase.getMinutes(), 0, 0);
-    return t.toISOString();
+    // Keep local wall clock time to avoid timezone day-shift in planner columns.
+    return toLocalIsoNoTz(t);
   };
 
   document.querySelectorAll('[data-post-card]').forEach((card) => {

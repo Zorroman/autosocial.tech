@@ -994,7 +994,7 @@ def posts_history():
         if project_id:
             query = query.filter(Post.project_id == project_id)
         if not include_hidden:
-            query = query.filter(Post.status != "hidden")
+            query = query.filter(Post.status.notin_(["hidden", "deleted"]))
 
         posts = query.order_by(Post.created_at.desc()).limit(400).all()
         return jsonify(
@@ -1076,8 +1076,8 @@ def update_post(post_id: int):
             return jsonify({"error": "Пост не найден"}), 404
         if user.role != "admin" and post.user_id != user.id:
             return jsonify({"error": "Недостаточно прав"}), 403
-        if str(post.status or "").lower() == "hidden":
-            return jsonify({"error": "Скрытый пост нельзя редактировать"}), 409
+        if str(post.status or "").lower() in {"hidden", "deleted"}:
+            return jsonify({"error": "Скрытый/удаленный пост нельзя редактировать"}), 409
         status_now = str(post.status or "").lower()
         # Protect only truly published posts. Legacy rows may have status=done without remote_id.
         is_published = bool(post.published_at) or (status_now == "done" and bool(post.remote_id))
@@ -1152,9 +1152,12 @@ def delete_post(post_id: int):
         if is_published:
             return jsonify({"error": "Опубликованный пост нельзя удалить. Используйте «Убрать с сайта»."}), 409
 
-        db.delete(post)
+        # Soft-delete to avoid FK conflicts with usage/payment/audit rows.
+        post.status = "deleted"
+        post.schedule_at = None
+        post.error_message = None
         db.commit()
-        return jsonify({"ok": True, "id": post_id, "deleted": True})
+        return jsonify({"ok": True, "id": post_id, "deleted": True, "status": "deleted"})
     finally:
         db.close()
 
