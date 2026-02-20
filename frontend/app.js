@@ -1163,34 +1163,121 @@ async function bind() {
   };
 
   const startManagerBtn = document.getElementById('startManagerBtn');
+  const managerProjectEl = document.getElementById('managerProject');
+  const managerBusinessEl = document.getElementById('managerBusiness');
+  const managerNicheEl = document.getElementById('managerNiche');
+  const managerGoalEl = document.getElementById('managerGoal');
+  const managerLangEl = document.getElementById('managerLang');
+  const strategyBtn = document.getElementById('strategyBtn');
+
+  const MANAGER_DRAFT_KEY = 'managerDraft';
+  const managerInputs = [managerProjectEl, managerBusinessEl, managerNicheEl, managerGoalEl, managerLangEl].filter(Boolean);
+
+  const restoreManagerDraft = () => {
+    try {
+      const raw = localStorage.getItem(MANAGER_DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (managerProjectEl && d.project_id !== undefined) managerProjectEl.value = String(d.project_id ?? '');
+      if (managerBusinessEl && d.business_type) managerBusinessEl.value = String(d.business_type);
+      if (managerNicheEl && d.niche) managerNicheEl.value = String(d.niche);
+      if (managerGoalEl && d.goal) managerGoalEl.value = String(d.goal);
+      if (managerLangEl && d.language) managerLangEl.value = String(d.language);
+    } catch {}
+  };
+
+  const saveManagerDraft = () => {
+    try {
+      const payload = {
+        project_id: managerProjectEl?.value || '',
+        business_type: managerBusinessEl?.value?.trim() || '',
+        niche: managerNicheEl?.value?.trim() || '',
+        goal: managerGoalEl?.value?.trim() || '',
+        language: managerLangEl?.value || 'ru',
+      };
+      localStorage.setItem(MANAGER_DRAFT_KEY, JSON.stringify(payload));
+    } catch {}
+  };
+
+  const setManagerLoading = (isLoading) => {
+    if (startManagerBtn) startManagerBtn.disabled = !!isLoading;
+    if (strategyBtn) strategyBtn.disabled = !!isLoading;
+    if (startManagerBtn) startManagerBtn.textContent = isLoading ? 'Запуск...' : 'Запустить AI SMM Менеджер';
+    if (strategyBtn) strategyBtn.textContent = isLoading ? 'Генерация...' : 'Сгенерировать стратегию на месяц';
+  };
+
+  const readManagerPayload = ({ requireConnection }) => {
+    const projectRaw = managerProjectEl?.value || '';
+    const business_type = managerBusinessEl?.value?.trim() || '';
+    const niche = managerNicheEl?.value?.trim() || '';
+    const goal = managerGoalEl?.value?.trim() || '';
+    const language = managerLangEl?.value || 'ru';
+    const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
+    if (requireConnection && !hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
+    if (!business_type) throw new Error('Заполните поле "Тип бизнеса".');
+    if (!niche) throw new Error('Заполните поле "Ниша".');
+    if (!goal) throw new Error('Заполните поле "Цель".');
+    return { project_id: projectRaw ? Number(projectRaw) : null, business_type, niche, goal, language };
+  };
+
+  restoreManagerDraft();
+  managerInputs.forEach((el) => {
+    el.addEventListener('input', saveManagerDraft);
+    el.addEventListener('change', saveManagerDraft);
+  });
+
   if (startManagerBtn) startManagerBtn.onclick = async () => {
     try {
-      const projectRaw = document.getElementById('managerProject').value;
-      const business_type = document.getElementById('managerBusiness').value.trim();
-      const niche = document.getElementById('managerNiche').value.trim();
-      const goal = document.getElementById('managerGoal').value.trim();
-      const language = document.getElementById('managerLang').value;
-      const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
-      if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
-      if (!business_type || !niche || !goal) throw new Error('Заполните поля "Тип бизнеса", "Ниша" и "Цель".');
-      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, business_type, niche, goal, language }) });
-      const created = r?.result?.created_plan_items ?? null;
-      const existing = r?.result?.existing_future_items ?? 0;
-      const gen = r?.result?.generated_posts ?? 0;
-      if (!created && existing > 0) {
-        state.notice = { type: 'ok', text: `Контент-план уже создан (будущих публикаций: ${existing}). ${gen ? `Подготовлено постов: ${gen}. ` : ''}Для ускорения нажмите "План на неделю".` };
+      setManagerLoading(true);
+      const payload = readManagerPayload({ requireConnection: true });
+      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const projectId = payload.project_id;
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, days: 7, limit: 20 }),
+      });
+      const created = Number(r?.result?.created_plan_items || 0);
+      const existing = Number(r?.result?.existing_future_items || 0);
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      const skipped = Number(warmup?.result?.skipped || warmup?.skipped || 0);
+      if (created === 0 && existing > 0) {
+        state.notice = { type: 'ok', text: `Контент-план уже был создан (будущих публикаций: ${existing}). На ближайшую неделю подготовлено: ${queued}.` };
       } else {
-        const days = Number(created || 30);
-        state.notice = { type: 'ok', text: `Стратегия на ${days} дней создана. ${gen ? `Сразу подготовлено постов: ${gen}. ` : ''}Остальные можно подготовить кнопкой "План на неделю".` };
+        state.notice = { type: 'ok', text: `AI SMM Менеджер запущен: создан план на 30 дней, в очередь добавлено постов: ${queued}${skipped ? `, пропущено: ${skipped}` : ''}.` };
       }
       nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setManagerLoading(false);
+    }
   };
 
   const goConnectionsBtn = document.getElementById('goConnectionsBtn'); if (goConnectionsBtn) goConnectionsBtn.onclick = () => nav('/connections');
   const goCreateBtn = document.getElementById('goCreateBtn'); if (goCreateBtn) goCreateBtn.onclick = () => nav('/create');
   const goBillingBtn = document.getElementById('goBillingBtn'); if (goBillingBtn) goBillingBtn.onclick = () => nav('/billing');
-  const strategyBtn = document.getElementById('strategyBtn'); if (strategyBtn) strategyBtn.onclick = () => document.getElementById('startManagerBtn')?.click();
+  if (strategyBtn) strategyBtn.onclick = async () => {
+    try {
+      setManagerLoading(true);
+      const payload = readManagerPayload({ requireConnection: false });
+      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const created = Number(r?.result?.created_plan_items || 0);
+      const existing = Number(r?.result?.existing_future_items || 0);
+      if (!created && existing > 0) {
+        state.notice = { type: 'ok', text: `Стратегия уже существует: найдено ${existing} будущих публикаций. Откройте "История" для календаря.` };
+      } else {
+        state.notice = { type: 'ok', text: `Стратегия на месяц готова: создано ${created || 30} публикаций в контент-плане.` };
+      }
+      await loadBase();
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setManagerLoading(false);
+    }
+  };
   const postTodayBtn = document.getElementById('postTodayBtn');
   if (postTodayBtn) postTodayBtn.onclick = async () => {
     try {
