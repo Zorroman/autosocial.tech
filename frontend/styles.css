@@ -306,6 +306,12 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
   border-color: var(--brand-primary);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-primary) 30%, transparent);
 }
+.field input.input-error,
+.field select.input-error,
+.field textarea.input-error {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--error) 25%, transparent);
+}
 
 .btn {
   border: 1px solid transparent;

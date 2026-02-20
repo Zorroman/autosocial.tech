@@ -395,6 +395,9 @@ function pageDashboard() {
   const limitMonth = b.limits.posts_per_month || 0;
   const usedDaily = b.usage.daily_posts || 0;
   const limitDaily = b.limits.daily_posts || 0;
+  const unlimitedDaily = Number(limitDaily) >= 1000000000;
+  const dailyMax = unlimitedDaily ? Math.max(Number(usedDaily) || 0, 1) : Math.max(Number(limitDaily) || 0, 1);
+  const dailyText = unlimitedDaily ? `${usedDaily} / без лимита` : `${usedDaily} / ${limitDaily}`;
   const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
   const latestPosts = (state.posts || []).slice(0, 5);
   // Count only real publishes (scheduled drafts may have remote_id in mock mode).
@@ -467,24 +470,34 @@ function pageDashboard() {
 
     <section class="card" style="margin-top:18px;">
       <h2>Запустить AI SMM Менеджер</h2>
-      <p class="small">Шаг 1: подключите соцсети. Шаг 2: задайте нишу и цель. Шаг 3: сгенерируйте стратегию на месяц.</p>
+      <p class="small">Шаг 1: подключите соцсети. Шаг 2: заполните бизнес-контекст. Шаг 3: запустите генерацию и план.</p>
       <div class="grid-2">
         <div>
           ${selectField('managerProject', 'Проект', state.projects[0]?.id || '', state.projects.map((p) => ({ value: p.id, label: p.name })).concat([{ value: '', label: 'Проект по умолчанию' }]))}
+          <p class="small wizard-inline-help">Выберите проект, для которого генерировать стратегию и публикации.</p>
           ${field('managerBusiness', 'Тип бизнеса', 'text', '', 'например, салон красоты')}
+          <p class="small wizard-inline-help">Кто вы: салон, магазин, эксперт, агентство и т.д.</p>
           ${field('managerNiche', 'Ниша', 'text', '', 'например, косметология')}
+          <p class="small wizard-inline-help">О чем будет контент: тема/направление вашего бизнеса.</p>
           ${field('managerGoal', 'Цель', 'text', '', 'например, лиды и записи')}
+          <p class="small wizard-inline-help">Какой результат нужен: заявки, продажи, охваты, записи.</p>
           ${selectField('managerLang', 'Язык', 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+          <div class="topic-template-row" style="margin:8px 0 12px;">
+            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="salon">Салон красоты</button>
+            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="shop">Интернет-магазин</button>
+            <button class="btn btn-ghost btn-topic-template" type="button" data-manager-preset="expert">Эксперт/консалтинг</button>
+          </div>
           <div class="cta-row">
             <button id="startManagerBtn" class="btn btn-primary">Запустить AI SMM Менеджер</button>
             <button id="strategyBtn" class="btn btn-secondary">Сгенерировать стратегию на месяц</button>
           </div>
+          <p class="small" style="margin-top:8px;">Кнопка «Запустить» создаёт план + сразу готовит посты на ближайшую неделю. «Сгенерировать стратегию» создаёт только контент-план на 30 дней.</p>
         </div>
         <div>
           <article class="card" style="height:100%;">
             <h3>Дневной лимит</h3>
-            <p class="small">${usedDaily} / ${limitDaily} постов сегодня</p>
-            ${progressBar(usedDaily, limitDaily)}
+            <p class="small">${dailyText} постов сегодня</p>
+            ${progressBar(usedDaily, dailyMax)}
             <h3 style="margin-top:16px;">Быстрые действия</h3>
             <div class="cta-row">
               <button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button>
@@ -492,6 +505,10 @@ function pageDashboard() {
             </div>
             ${canSchedule ? '' : '<div class="small" style="margin-top:8px;color:var(--warning);">Планирование доступно на платных тарифах.</div>'}
             <div class="small" style="margin-top:12px;">Статус подключения: ${hasConnectedAccount ? '<span class="status success">подключено</span>' : '<span class="status warning">не подключено</span>'}</div>
+            <ul class="small" style="margin-top:10px; line-height:1.5;">
+              <li>«Пост на сегодня» — создаёт до 3 постов на текущую дату.</li>
+              <li>«План на неделю» — генерирует и ставит в очередь контент на 7 дней.</li>
+            </ul>
           </article>
         </div>
       </div>
@@ -1236,6 +1253,7 @@ async function bind() {
 
   const MANAGER_DRAFT_KEY = 'managerDraft';
   const managerInputs = [managerProjectEl, managerBusinessEl, managerNicheEl, managerGoalEl, managerLangEl].filter(Boolean);
+  const managerPresetButtons = Array.from(document.querySelectorAll('[data-manager-preset]'));
 
   const restoreManagerDraft = () => {
     try {
@@ -1270,12 +1288,27 @@ async function bind() {
     if (strategyBtn) strategyBtn.textContent = isLoading ? 'Генерация...' : 'Сгенерировать стратегию на месяц';
   };
 
+  const setQuickLoading = (btn, loadingText, isLoading) => {
+    if (!btn) return;
+    if (!btn.dataset.defaultText) btn.dataset.defaultText = btn.textContent || '';
+    btn.disabled = !!isLoading;
+    btn.textContent = isLoading ? loadingText : btn.dataset.defaultText;
+  };
+
+  const setInputError = (el, hasError) => {
+    if (!el) return;
+    el.classList.toggle('input-error', !!hasError);
+  };
+
   const readManagerPayload = ({ requireConnection }) => {
     const projectRaw = managerProjectEl?.value || '';
     const business_type = managerBusinessEl?.value?.trim() || '';
     const niche = managerNicheEl?.value?.trim() || '';
     const goal = managerGoalEl?.value?.trim() || '';
     const language = managerLangEl?.value || 'ru';
+    setInputError(managerBusinessEl, !business_type);
+    setInputError(managerNicheEl, !niche);
+    setInputError(managerGoalEl, !goal);
     const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
     if (requireConnection && !hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
     if (!business_type) throw new Error('Заполните поле "Тип бизнеса".');
@@ -1288,6 +1321,30 @@ async function bind() {
   managerInputs.forEach((el) => {
     el.addEventListener('input', saveManagerDraft);
     el.addEventListener('change', saveManagerDraft);
+    el.addEventListener('input', () => setInputError(el, false));
+    el.addEventListener('change', () => setInputError(el, false));
+  });
+
+  managerPresetButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const preset = String(btn.getAttribute('data-manager-preset') || '').trim();
+      if (preset === 'salon') {
+        if (managerBusinessEl) managerBusinessEl.value = 'Салон красоты';
+        if (managerNicheEl) managerNicheEl.value = 'Косметология и уход';
+        if (managerGoalEl) managerGoalEl.value = 'Лиды и записи';
+      } else if (preset === 'shop') {
+        if (managerBusinessEl) managerBusinessEl.value = 'Интернет-магазин';
+        if (managerNicheEl) managerNicheEl.value = 'Товары для дома';
+        if (managerGoalEl) managerGoalEl.value = 'Продажи и повторные покупки';
+      } else if (preset === 'expert') {
+        if (managerBusinessEl) managerBusinessEl.value = 'Экспертный сервис';
+        if (managerNicheEl) managerNicheEl.value = 'Консалтинг / обучение';
+        if (managerGoalEl) managerGoalEl.value = 'Заявки на консультации';
+      }
+      saveManagerDraft();
+      state.notice = { type: 'ok', text: 'Поля заполнены примером. При необходимости отредактируйте и запускайте.' };
+      render();
+    };
   });
 
   if (startManagerBtn) startManagerBtn.onclick = async () => {
@@ -1345,21 +1402,43 @@ async function bind() {
   const postTodayBtn = document.getElementById('postTodayBtn');
   if (postTodayBtn) postTodayBtn.onclick = async () => {
     try {
-      const projectRaw = document.getElementById('managerProject')?.value || '';
-      await api('/api/content-plan/materialize', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, days: 1, limit: 3 }) });
-      state.notice = { type: 'ok', text: 'Пост(ы) на сегодня поставлены в очередь и скоро появятся в истории.' };
+      setQuickLoading(postTodayBtn, 'Публикую...', true);
+      const payload = readManagerPayload({ requireConnection: true });
+      await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: payload.project_id, days: 1, limit: 3 }),
+      });
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «История».' };
       nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setQuickLoading(postTodayBtn, 'Публикую...', false);
+    }
   };
 
   const scheduleWeekBtn = document.getElementById('scheduleWeekBtn');
   if (scheduleWeekBtn) scheduleWeekBtn.onclick = async () => {
     try {
-      const projectRaw = document.getElementById('managerProject')?.value || '';
-      await api('/api/content-plan/materialize', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, days: 7, limit: 20 }) });
-      state.notice = { type: 'ok', text: 'План на неделю поставлен в очередь: посты будут сгенерированы и запланированы автоматически.' };
+      setQuickLoading(scheduleWeekBtn, 'Планирую...', true);
+      const payload = readManagerPayload({ requireConnection: true });
+      await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: payload.project_id, days: 7, limit: 20 }),
+      });
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      state.notice = { type: 'ok', text: queued > 0 ? `План на неделю готов: в очередь добавлено ${queued} пост(ов).` : 'На ближайшую неделю контент уже подготовлен.' };
       nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setQuickLoading(scheduleWeekBtn, 'Планирую...', false);
+    }
   };
   const createProjectInlineBtn = document.getElementById('createProjectInlineBtn');
   if (createProjectInlineBtn) createProjectInlineBtn.onclick = async () => {
