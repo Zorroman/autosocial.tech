@@ -48,6 +48,10 @@ const state = {
   adminUsers: [],
   adminRevenue: null,
   notice: null,
+  historyCalendar: {
+    monthKey: '',
+    monthsSpan: 3,
+  },
   createWizard: {
     step: 1,
     projectId: '',
@@ -123,6 +127,42 @@ const safeText = (v, fallback = '—') => {
   const s = String(v ?? '').replace(/\uFFFD/g, '').trim();
   return s ? s : fallback;
 };
+const _pad2 = (n) => String(n).padStart(2, '0');
+function localDateKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
+}
+function localMonthKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}`;
+}
+function monthStartFromKey(key) {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(mo)) return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  return new Date(y, mo, 1);
+}
+function toLocalInputValue(value) {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}`;
+}
+function toLocalIsoNoTz(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:${_pad2(d.getSeconds())}`;
+}
+function localInputToIsoNoTz(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return toLocalIsoNoTz(d);
+}
 const isAuthRoute = (p) => p !== '/login';
 let renderVersion = 0;
 
@@ -804,33 +844,24 @@ function pricingCards() {
 function pageHistory() {
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
   const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = new Date();
+  const calendarState = state.historyCalendar || { monthKey: '', monthsSpan: 3 };
+  const currentMonthKey = localMonthKey(today);
+  if (!calendarState.monthKey) calendarState.monthKey = currentMonthKey;
+  const monthsSpanRaw = Number(calendarState.monthsSpan || 3);
+  const monthsSpan = Number.isFinite(monthsSpanRaw) ? Math.max(1, Math.min(6, monthsSpanRaw)) : 3;
+  calendarState.monthsSpan = monthsSpan;
+  const start = monthStartFromKey(calendarState.monthKey);
+  const end = new Date(start.getFullYear(), start.getMonth() + monthsSpan, 1);
   const dayMs = 24 * 60 * 60 * 1000;
-  const localDateKey = (d) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-  const dayKeys = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start.getTime() + i * dayMs);
-    return localDateKey(d);
-  });
+  const dayKeys = [];
+  for (let cursor = new Date(start.getTime()); cursor < end; cursor = new Date(cursor.getTime() + dayMs)) {
+    dayKeys.push(localDateKey(cursor));
+  }
+  const rangeLabel = `${start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })} — ${new Date(end.getFullYear(), end.getMonth(), 0).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}`;
   const dateToKey = (value) => {
     if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    return localDateKey(d);
-  };
-  const toLocalInput = (value) => {
-    if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-  const toLocalIsoNoTz = (d) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return localDateKey(value);
   };
   const isPublishedPost = (p) => {
     if (!p) return false;
@@ -860,8 +891,25 @@ function pageHistory() {
   }
 
   const plannerBoard = `<section class="card planner-card">
-    <div class="row" style="justify-content:space-between;align-items:center;">
+    <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <h3 style="margin:0;">Календарь публикаций</h3>
+      <div class="cta-row">
+        <button class="btn btn-ghost" id="calendarPrevMonthBtn">← Месяц назад</button>
+        <button class="btn btn-ghost" id="calendarTodayBtn">Текущий месяц</button>
+        <button class="btn btn-ghost" id="calendarNextMonthBtn">Месяц вперед →</button>
+      </div>
+    </div>
+    <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <div class="small"><strong>Период:</strong> ${esc(rangeLabel)}</div>
+      <div class="small">
+        Горизонт:
+        <select id="calendarSpanSelect" style="margin-left:6px;">
+          <option value="1" ${monthsSpan === 1 ? 'selected' : ''}>1 месяц</option>
+          <option value="2" ${monthsSpan === 2 ? 'selected' : ''}>2 месяца</option>
+          <option value="3" ${monthsSpan === 3 ? 'selected' : ''}>3 месяца</option>
+          <option value="6" ${monthsSpan === 6 ? 'selected' : ''}>6 месяцев</option>
+        </select>
+      </div>
       <div class="small">Перетаскивайте посты по дням. В “Черновики” — без расписания.</div>
     </div>
     <div class="planner-grid">
@@ -987,7 +1035,7 @@ function pageHistory() {
       { value: 'facebook', label: 'Facebook' },
     ])}
     ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
-    ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInput(editor.post.schedule_at))}
+    ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInputValue(editor.post.schedule_at))}
     <div class="cta-row" style="justify-content:flex-end;margin-top:12px;">
       <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>Снять с расписания</button>
       <button id="savePostEditBtn" class="btn btn-primary" ${editor.saving ? 'disabled' : ''}>${editor.saving ? 'Сохраняю…' : 'Сохранить'}</button>
@@ -1449,7 +1497,8 @@ async function bind() {
 
       if (w.mode === 'schedule') {
         if (!w.scheduleAt) throw new Error('Укажите дату и время для планирования.');
-        const scheduleAtIso = new Date(w.scheduleAt).toISOString();
+        const scheduleAtIso = localInputToIsoNoTz(w.scheduleAt);
+        if (!scheduleAtIso) throw new Error('Некорректные дата/время планирования.');
         for (const platform of selectedPlatforms) {
           const payload = { ...payloadBase, platform, schedule_at: scheduleAtIso };
           await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
@@ -1768,7 +1817,12 @@ async function bind() {
     };
     const scheduleValue = (document.getElementById('editSchedule')?.value || '').trim();
     if (scheduleValue) {
-      payload.schedule_at = new Date(scheduleValue).toISOString();
+      payload.schedule_at = localInputToIsoNoTz(scheduleValue);
+      if (!payload.schedule_at) {
+        state.postEditor = { ...state.postEditor, saving: false, error: 'Некорректные дата/время публикации.' };
+        render();
+        return;
+      }
     }
     state.postEditor = { ...state.postEditor, saving: true, error: '' };
     render();
@@ -1836,6 +1890,32 @@ async function bind() {
       }
     };
   });
+
+  const calendarPrevMonthBtn = document.getElementById('calendarPrevMonthBtn');
+  if (calendarPrevMonthBtn) calendarPrevMonthBtn.onclick = () => {
+    const cur = monthStartFromKey(state.historyCalendar?.monthKey);
+    const prev = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(prev) };
+    render();
+  };
+  const calendarNextMonthBtn = document.getElementById('calendarNextMonthBtn');
+  if (calendarNextMonthBtn) calendarNextMonthBtn.onclick = () => {
+    const cur = monthStartFromKey(state.historyCalendar?.monthKey);
+    const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(next) };
+    render();
+  };
+  const calendarTodayBtn = document.getElementById('calendarTodayBtn');
+  if (calendarTodayBtn) calendarTodayBtn.onclick = () => {
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(new Date()) };
+    render();
+  };
+  const calendarSpanSelect = document.getElementById('calendarSpanSelect');
+  if (calendarSpanSelect) calendarSpanSelect.onchange = () => {
+    const months = Math.max(1, Math.min(6, Number(calendarSpanSelect.value || 3) || 3));
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthsSpan: months };
+    render();
+  };
 
   const closePostViewer = () => { state.postViewer = { open: false, loading: false, post: null, error: '' }; render(); };
   const closePostViewerBtn = document.getElementById('closePostViewerBtn');
