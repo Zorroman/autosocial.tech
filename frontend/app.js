@@ -970,19 +970,6 @@ function createPreviewContextKey(wizard) {
 
 function pageCreate() {
   const w = state.createWizard;
-  const hashText = (input) => {
-    let h = 2166136261;
-    for (const ch of String(input || '')) {
-      h ^= ch.charCodeAt(0);
-      h = Math.imul(h, 16777619);
-    }
-    return Math.abs(h >>> 0);
-  };
-  const pick = (arr, seed, offset = 0) => arr[(seed + offset) % arr.length];
-  const extractTopicTags = (topic) => {
-    const words = Array.from(new Set(String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []));
-    return words.filter((word) => word.length > 3).slice(0, 3).map((word) => `#${word}`);
-  };
   const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
   const categoryOptions = [
     { value: 'business', label: 'Бизнес и услуги' },
@@ -1008,96 +995,28 @@ function pageCreate() {
     { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
     { value: 'sales', label: 'Продающий', hint: 'Фокус на выгоде и понятном призыве к действию.' },
   ];
+  const platformLimitMap = {
+    instagram: { recMin: 120, recMax: 220, maxHashtags: 5 },
+    facebook: { recMin: 200, recMax: 400, maxHashtags: 5 },
+    youtube: { recMin: 180, recMax: 600, maxHashtags: 3 },
+  };
+  const activePlatforms = [
+    w.platforms.facebook ? 'facebook' : null,
+    w.platforms.instagram ? 'instagram' : null,
+  ].filter(Boolean);
+  const previewPlatforms = activePlatforms.length ? activePlatforms : ['instagram'];
+  const previewRecMin = Math.max(...previewPlatforms.map((p) => platformLimitMap[p]?.recMin || 120));
+  const previewRecMaxRaw = Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.recMax || 220));
+  const previewRecMax = Math.max(previewRecMin, previewRecMaxRaw);
+  const previewMaxHashtags = Math.max(1, Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.maxHashtags || 5)));
   const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
   const buildPreviewDraft = () => {
-    const topic = (w.topic || '').trim() || 'Польза для клиента';
-    const lang = String(w.language || 'ru').trim().toLowerCase();
-    const seed = hashText(createPreviewContextKey(w));
-    const topicWords = (String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []).filter((word) => word.length > 3);
-    const focusA = topicWords[0] || 'результат';
-    const focusB = topicWords[1] || 'качество';
-    const focusC = topicWords[2] || 'сроки';
-    const categoryTagMap = {
-      business: ['#бизнес', '#услуги', '#рост'],
-      marketing: ['#маркетинг', '#smm', '#лиды'],
-      fitness: ['#фитнес', '#здоровье', '#тренировки'],
-      ecommerce: ['#ecommerce', '#интернетмагазин', '#продажи'],
-      beauty: ['#красота', '#уход', '#процедуры'],
-      auto: ['#авто', '#автосервис', '#сто'],
-      fallback: ['#контент', '#продвижение', '#клиенты'],
-    };
-    const toneRu = {
-      friendly: {
-        hooks: ['Разберем без сложных терминов', 'Покажем на понятных примерах', 'Сохраняйте, чтобы применить сразу'],
-        ctas: ['Напишите в комментариях, если хотите разбор под ваш случай.', 'Сохраните пост и отправьте коллеге.', 'Если нужен персональный план, напишите в директ.'],
-      },
-      expert: {
-        hooks: ['Коротко по фактам и практике', 'Разбор на основе типичных кейсов', 'Структурируем, чтобы было легко внедрить'],
-        ctas: ['Готовы внедрять? Оставьте запрос на аудит.', 'Сохраните чек-лист и сравните с текущим процессом.', 'Нужна консультация по вашей нише? Напишите нам.'],
-      },
-      sales: {
-        hooks: ['Сфокусируемся на выгоде и результате', 'Покажем, где теряются деньги и как это исправить', 'Дадим алгоритм, который приводит к заявкам'],
-        ctas: ['Хотите такой же результат? Напишите "СТАРТ" в директ.', 'Готовы усилить продажи? Отправьте сообщение прямо сейчас.', 'Оставьте заявку и получите план на 7 дней.'],
-      },
-    };
-    const toneKey = toneRu[w.tone] ? w.tone : 'friendly';
-    const toneData = toneRu[toneKey];
-    const tags = Array.from(new Set([...(categoryTagMap[w.category] || categoryTagMap.fallback), ...extractTopicTags(topic)])).slice(0, 5).join(' ');
-    const ruBodyVariants = [
-      [
-        `1) Где в теме «${topic}» теряются деньги/время: проверьте ${focusA} и ${focusB}.`,
-        `2) Что должно быть в хорошем решении: четкие KPI, понятные этапы и контроль по ${focusC}.`,
-        `3) Как внедрить за 24 часа: выберите 1 действие по теме «${topic}» и запустите тест.`,
-      ],
-      [
-        `1) Антипаттерн: решения по теме «${topic}» принимаются без критериев.`,
-        `2) Рабочий подход: сравнивайте варианты по итоговой ценности, а не только по цене.`,
-        `3) Быстрый шаг: зафиксируйте один измеримый результат по «${topic}» на эту неделю.`,
-      ],
-      [
-        `1) Начните с диагностики: что сейчас мешает в теме «${topic}».`,
-        `2) Составьте чек-лист из 3 пунктов: ${focusA}, ${focusB}, ${focusC}.`,
-        `3) Примите решение по фактам и назначьте ответственного за внедрение.`,
-      ],
-    ];
-    if (lang === 'en') {
-      const cta = pick([
-        'Comment "PLAN" and we will send you a practical checklist.',
-        'Save this post and share it with your team.',
-        'Need a tailored strategy? Send us a direct message.',
-      ], seed, 3);
-      const enBody = pick([
-        [
-          `Step 1: Identify where "${topic}" currently breaks your process.`,
-          `Step 2: Define 2-3 measurable criteria before choosing an option.`,
-          `Step 3: Run a small 7-day test and compare outcomes.`,
-        ],
-        [
-          `Step 1: Audit your current approach to "${topic}".`,
-          `Step 2: Prioritize long-term value over short-term price.`,
-          `Step 3: Assign an owner and deadline for implementation.`,
-        ],
-      ], seed, 4);
-      return [
-        `${topic}: what to check before you make a decision`,
-        '',
-        `Most teams lose results here because they skip the basics. Here is a practical breakdown for "${topic}".`,
-        ...enBody,
-        '',
-        `${cta}`,
-        tags || '#content #marketing #growth',
-      ].join('\n');
+    const topic = (w.topic || '').trim();
+    if (!topic) return '';
+    if (String(w.language || 'ru').trim().toLowerCase() === 'en') {
+      return `${topic}\n\nWrite your key point here, then add one clear CTA.\n\n#content #marketing`;
     }
-    const ruBody = pick(ruBodyVariants, seed, 2);
-    return [
-      `${topic}: что важно проверить до принятия решения`,
-      '',
-      `${pick(toneData.hooks, seed)}. Тема «${topic}» напрямую влияет на результат в категории «${(categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label}».`,
-      ...ruBody,
-      '',
-      pick(toneData.ctas, seed, 1),
-      tags || '#контент #маркетинг #продажи',
-    ].join('\n');
+    return `${topic}\n\nДобавьте главный тезис по теме и один чёткий призыв к действию.\n\n#контент #бизнес`;
   };
   const previewContextKey = createPreviewContextKey(w);
   const normalizedPreview = ((w.previewText || '').trim() && w.previewContextKey === previewContextKey)
@@ -1159,7 +1078,7 @@ function pageCreate() {
       <span class="pill">Язык: ${esc(w.language === 'ru' ? 'Русский' : 'English')}</span>
     </div>
     ${field('wPreviewText', 'Текст поста (можно редактировать)', 'textarea', normalizedPreview, 'Введите текст публикации')}
-    <p class="small wizard-inline-help">Рекомендуем: 500-1200 символов, 3-5 хештегов, 1 чёткий призыв к действию.</p>
+    <p class="small wizard-inline-help">Рекомендуем: ${previewRecMin}-${previewRecMax} символов, 2-${previewMaxHashtags} хештегов, 1 чёткий призыв к действию.</p>
   `;
 
   const step5 = `
@@ -2377,9 +2296,13 @@ async function bind() {
   bindTopicTemplateButtons();
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
-  const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
+  const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = async () => {
     try {
       const w = state.createWizard;
+      const selectedPlatforms = [
+        w.platforms.facebook ? 'facebook' : null,
+        w.platforms.instagram ? 'instagram' : null,
+      ].filter(Boolean);
       if (w.step === 1) w.projectId = document.getElementById('wProject')?.value || w.projectId || '';
       if (w.step === 2) {
         w.platforms.facebook = !!document.getElementById('wFb')?.checked;
@@ -2395,7 +2318,22 @@ async function bind() {
         if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна. Выберите быструю тему или введите вручную.' }; return render(); }
         const contextKey = createPreviewContextKey(w);
         if (!w.previewText || w.previewContextKey !== contextKey) {
-          w.previewText = '';
+          wNext.disabled = true;
+          wNext.textContent = 'Генерирую...';
+          const previewPayload = await api('/api/generate-preview', {
+            method: 'POST',
+            body: JSON.stringify({
+              project_id: Number(w.projectId || state.projects[0]?.id || 0) || null,
+              topic: w.topic,
+              category: w.category,
+              tone: w.tone,
+              language: w.language,
+              platforms: selectedPlatforms.length ? selectedPlatforms : ['instagram'],
+            }),
+            timeoutMs: 90000,
+          });
+          const generated = (previewPayload?.text || '').trim();
+          w.previewText = generated || buildPreviewDraft();
           w.previewContextKey = contextKey;
         }
       }
@@ -2413,6 +2351,9 @@ async function bind() {
     } catch (e) {
       state.notice = { type: 'error', text: `Не удалось перейти к следующему шагу: ${e?.message || 'ошибка формы'}` };
       render();
+    } finally {
+      wNext.disabled = false;
+      wNext.textContent = 'Далее';
     }
   };
 

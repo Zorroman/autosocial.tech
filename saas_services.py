@@ -11,7 +11,12 @@ from cryptography.fernet import Fernet
 from sqlalchemy import and_, desc, extract, func
 
 from database import SessionLocal
-from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_post_with_usage
+from gpt_generator import (
+    build_semantic_fallback_image_url,
+    generate_image_url,
+    generate_post_with_usage,
+    generate_structured_text_with_usage,
+)
 from saas_models import (
     AppUser,
     AuditLog,
@@ -468,6 +473,103 @@ def _structured_post_text(hook: str, value_lines: List[str], cta: str, hashtags:
     if hashtags:
         text += "\\n\\n" + hashtags.strip()
     return text[:max_chars]
+
+
+def _strip_code_fences(text: str) -> str:
+    t = (text or "").strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-zA-Z0-9_-]*\n?", "", t)
+        t = re.sub(r"\n?```$", "", t)
+    return t.strip()
+
+
+def _trim_text_to_limit(text: str, max_chars: int) -> str:
+    t = (text or "").strip()
+    if len(t) <= max_chars:
+        return t
+    candidates = [t.rfind("\n", 0, max_chars), t.rfind(". ", 0, max_chars), t.rfind("! ", 0, max_chars), t.rfind("? ", 0, max_chars)]
+    cut = max(candidates)
+    if cut < int(max_chars * 0.6):
+        cut = max_chars
+    trimmed = t[:cut].rstrip(" \n.,;:-")
+    return f"{trimmed}…"
+
+
+def _platform_preview_limits(platforms: Optional[List[str]]) -> Dict[str, int]:
+    normalized = []
+    for item in (platforms or ["instagram"]):
+        key = (item or "").strip().lower()
+        if key in {"instagram", "facebook", "youtube"} and key not in normalized:
+            normalized.append(key)
+    if not normalized:
+        normalized = ["instagram"]
+    cfgs = [_platform_rule(p) for p in normalized]
+    max_chars = min(int(c["max_chars"]) for c in cfgs)
+    recommended_min = max(int(c["recommended_chars_min"]) for c in cfgs)
+    recommended_max = min(int(c["recommended_chars_max"]) for c in cfgs)
+    if recommended_max < recommended_min:
+        recommended_max = min(max_chars, max(recommended_min, 320))
+    max_hashtags = min(int(c["max_hashtags"]) for c in cfgs)
+    return {
+        "max_chars": max_chars,
+        "recommended_chars_min": recommended_min,
+        "recommended_chars_max": min(recommended_max, max_chars),
+        "max_hashtags": max(1, max_hashtags),
+    }
+
+
+def generate_post_preview_text(
+    topic: str,
+    category: Optional[str],
+    tone: str,
+    language: str,
+    platforms: Optional[List[str]] = None,
+) -> Dict[str, object]:
+    limits = _platform_preview_limits(platforms)
+    lang = (language or "ru").strip().lower()
+    tone_value = (tone or "friendly").strip().lower()
+    category_value = (category or "business").strip()
+    recommended_min = int(limits["recommended_chars_min"])
+    recommended_max = int(limits["recommended_chars_max"])
+    max_chars = int(limits["max_chars"])
+    max_hashtags = int(limits["max_hashtags"])
+
+    system_prompt = (
+        "Ты senior SMM-копирайтер. Верни только готовый текст поста для публикации, без пояснений. "
+        "Текст должен выглядеть живо и естественно, без канцелярита и без шаблонной воды."
+    )
+    user_prompt = (
+        f"Сгенерируй пост для соцсетей.\n"
+        f"Тема: {topic}\n"
+        f"Категория: {category_value}\n"
+        f"Тон: {tone_value}\n"
+        f"Язык: {lang}\n\n"
+        f"Требования:\n"
+        f"- длина: примерно {recommended_min}-{recommended_max} символов, максимум {max_chars};\n"
+        f"- 1 четкий призыв к действию;\n"
+        f"- 2-{max_hashtags} релевантных хештегов в конце;\n"
+        f"- можно 0-2 эмодзи;\n"
+        f"- не делай нумерацию по умолчанию; список только если он реально уместен по теме;\n"
+        f"- не используй фразы типа 'в современном мире' и другие общие клише.\n"
+    )
+
+    token_budget = max(180, min(700, int(max_chars / 3)))
+    result = generate_structured_text_with_usage(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_output_tokens=token_budget,
+        temperature=0.7,
+    )
+    text = _trim_text_to_limit(_strip_code_fences(result.text or ""), max_chars)
+    if not text:
+        text = f"{topic}\n\nСделайте один конкретный шаг по теме уже сегодня и проверьте результат через 7 дней.\n\n#контент #бизнес"
+
+    return {
+        "text": text,
+        "input_tokens": int(result.input_tokens or 0),
+        "output_tokens": int(result.output_tokens or 0),
+        "limits": limits,
+    }
 
 
 def _multiplier(variant_count: int, translation: bool) -> float:
