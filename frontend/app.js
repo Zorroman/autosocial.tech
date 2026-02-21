@@ -1182,23 +1182,24 @@ function pageConnections() {
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         return `<article class="card connection-card">
-          <div class="row" style="justify-content:space-between;align-items:flex-start;">
+          <div class="row connection-head">
             <div>
               <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span></div>
-              <div class="row" style="align-items:center;gap:12px;margin-top:10px;">${avatar}<h3 style="margin:0;">Facebook + Instagram</h3></div>
-              <div class="small" style="margin-top:6px;">Подключение для автопостинга. Токены не показываем.</div>
+              <div class="row connection-title-row">${avatar}<h3 style="margin:0;">Facebook + Instagram</h3></div>
+              <div class="small connection-subtitle">Подключение для автопостинга. Токены не показываем.</div>
             </div>
             <div>${statusBadge(status)}</div>
           </div>
-
-          <div class="grid-2" style="margin-top:14px;">
-            <div><div class="pill">Facebook Page</div><div style="font-weight:900;margin-top:6px;">${pageLine}</div></div>
-            <div><div class="pill">Instagram Business</div><div style="font-weight:900;margin-top:6px;">${igLine}</div></div>
+          <div class="connection-features">
+            <span class="pill">Facebook Page</span>
+            <span class="pill">Instagram Business</span>
           </div>
-
-          <div class="small" style="margin-top:10px;">${esc(howToFix)}</div>
-
-          <div class="cta-row" style="margin-top:12px;">
+          <div class="grid-2 connection-grid-info">
+            <div><div class="connection-main-text">${pageLine}</div></div>
+            <div><div class="connection-main-text">${igLine}</div></div>
+          </div>
+          <div class="small connection-hint">${esc(howToFix)}</div>
+          <div class="cta-row connection-actions">
             <button class="btn btn-primary" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
             ${canRefresh ? `<button class="btn btn-secondary" data-refresh="${c.id}">Обновить токен</button>` : ''}
             <button class="btn btn-danger" data-disconnect="${c.id}">Отключить</button>
@@ -1209,26 +1210,25 @@ function pageConnections() {
 
   const youtubeCard = `
     <article class="card connection-card yt-connection-card">
-      <div class="row yt-head">
+      <div class="row connection-head">
         <div>
           <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row yt-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">YouTube канал</h3></div>
-          <div class="small yt-subtitle">Сценарии роликов, таймлайн, CTA и посты для Community в одном месте.</div>
+          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">YouTube канал</h3></div>
+          <div class="small connection-subtitle">Сценарии роликов, таймлайн, CTA и посты для Community в одном месте.</div>
         </div>
         <div><span class="status queued">Готово к настройке</span></div>
       </div>
-      <div class="yt-features">
+      <div class="connection-features">
         <span class="pill">Shorts 15-70с</span>
         <span class="pill">Long 120-480с</span>
         <span class="pill">ETA генерации</span>
       </div>
-      <ul class="small yt-list">
-        <li>Подбирает несколько заголовков и цепляющий хук.</li>
-        <li>Собирает таймлайн ролика по времени и сценам.</li>
-        <li>Готовит описание, CTA и текст для Community.</li>
-      </ul>
-      <div class="small yt-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
-      <div class="cta-row yt-actions">
+      <div class="grid-2 connection-grid-info">
+        <div><div class="connection-main-text">Сценарий, структура, хук и CTA</div></div>
+        <div><div class="connection-main-text">Community-посты и тексты под ролик</div></div>
+      </div>
+      <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      <div class="cta-row connection-actions">
         <button id="openYoutubeStudioBtn" class="btn btn-primary" type="button">Подключить YouTube</button>
         <button type="button" class="btn btn-ghost" data-link="/youtube">Открыть студио</button>
       </div>
