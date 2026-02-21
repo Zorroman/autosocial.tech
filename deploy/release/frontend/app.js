@@ -1211,6 +1211,7 @@ function pageConnections() {
           : `<span class="small">Instagram Business не выбран</span>`;
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
+        const canAddPage = status === 'connected_ready' || status === 'connected' || status === 'connected_need_page';
         return `<article class="card connection-card">
           <div class="row connection-head">
             <div>
@@ -1231,6 +1232,7 @@ function pageConnections() {
           <div class="small connection-hint">${esc(howToFix)}</div>
           <div class="cta-row connection-actions">
             <button class="btn btn-primary connection-btn-sm" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
+            ${canAddPage ? `<button class="btn btn-ghost connection-btn-sm" data-add-page="${c.id}">Добавить страницу</button>` : ''}
             ${canRefresh ? `<button class="btn btn-secondary connection-btn-sm" data-refresh="${c.id}">Обновить токен</button>` : ''}
             <button class="btn btn-danger connection-btn-sm" data-disconnect="${c.id}">Отключить</button>
           </div>
@@ -2753,6 +2755,16 @@ async function bind() {
   document.querySelectorAll('[data-edit-post]').forEach((b) => b.onclick = async () => {
     const id = Number(b.dataset.editPost || b.getAttribute('data-edit-post'));
     await openPostEditor(id);
+  });
+  document.querySelectorAll('[data-add-page]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.addPage || 0);
+    if (!id) return;
+    try {
+      await openPagePicker(id);
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось открыть список страниц.' };
+      render();
+    }
   });
 
   const updateHistorySelectedDayPanel = (key) => {
