@@ -460,7 +460,12 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
 
     is_dev = (settings.ENV or "").lower() in {"dev", "development", "local"}
     if not delivered and not is_dev:
-        return {"error": "Письма временно недоступны. Попробуйте позже."}, 503
+        current_app.logger.warning(
+            "auth email delivery unavailable; fallback to on-screen code flow=%s email=%s ip=%s",
+            flow,
+            email,
+            ip_addr,
+        )
 
     payload = {
         "challenge_token": challenge_token,
@@ -471,7 +476,9 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
         "flow": flow,
     }
     payload["message"] = "Код отправлен на email"
-    if is_dev and not delivered:
+    if not delivered:
+        payload["message"] = "Почта временно недоступна. Используйте код подтверждения ниже."
+    if not delivered:
         payload["dev_code"] = code
         payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
     log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
