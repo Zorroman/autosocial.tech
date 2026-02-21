@@ -8,7 +8,16 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # Always load .env from the project directory, regardless of current working dir.
-load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"))
+# Passenger can execute from __pycache__, so probe both current dir and parent.
+_app_file = Path(__file__).resolve()
+_env_candidates = [
+    _app_file.parent / ".env",
+    _app_file.parent.parent / ".env" if _app_file.parent.name == "__pycache__" else None,
+]
+for _env_path in _env_candidates:
+    if _env_path and _env_path.exists():
+        load_dotenv(dotenv_path=_env_path)
+        break
 
 from database import engine
 from facebook_api import exchange_code_for_token, get_page_and_ig_id, publish_to_facebook, publish_to_instagram
