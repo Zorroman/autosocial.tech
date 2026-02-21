@@ -613,6 +613,63 @@ th { color: var(--text-muted); font-weight: 600; }
   gap: 8px;
   margin: 0 0 12px;
 }
+
+.connections-grid {
+  align-items: start;
+}
+
+.connection-card {
+  border-radius: 18px;
+}
+
+.yt-connection-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(239, 68, 68, 0.1), transparent 28%),
+    radial-gradient(circle at 10% 90%, rgba(59, 130, 246, 0.08), transparent 32%),
+    color-mix(in oklab, var(--surface) 95%, transparent);
+}
+
+.yt-head {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.yt-title-row {
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.yt-avatar {
+  font-size: 19px;
+  font-weight: 900;
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #ef4444, #dc2626 55%, #f43f5e);
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.28);
+}
+
+.yt-subtitle {
+  margin-top: 6px;
+}
+
+.yt-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.yt-hint {
+  margin-top: 12px;
+}
+
+.yt-actions {
+  margin-top: 14px;
+}
 #wPreviewText {
   min-height: 180px;
   line-height: 1.5;

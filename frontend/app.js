@@ -1183,7 +1183,7 @@ function pageConnections() {
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         const isError = status === 'error';
-        return `<article class="card">
+        return `<article class="card connection-card">
           <div class="row" style="justify-content:space-between;align-items:flex-start;">
             <div>
               <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span></div>
@@ -1228,26 +1228,31 @@ function pageConnections() {
           </details>
         </article>`;
       }).join('')}`
-    : `<article class="card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
+    : `<article class="card connection-card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
 
   const youtubeCard = `
-    <article class="card">
-      <div class="row" style="justify-content:space-between;align-items:flex-start;">
+    <article class="card connection-card yt-connection-card">
+      <div class="row yt-head">
         <div>
           <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row" style="align-items:center;gap:12px;margin-top:10px;"><span class="avatar">YT</span><h3 style="margin:0;">YouTube канал</h3></div>
-          <div class="small" style="margin-top:6px;">Генерация сценариев роликов и YouTube-постов в отдельном студио-блоке.</div>
+          <div class="row yt-title-row"><span class="avatar yt-avatar">YT</span><h3 style="margin:0;">YouTube канал</h3></div>
+          <div class="small yt-subtitle">Сценарии роликов, таймлайн, CTA и посты для Community в одном месте.</div>
         </div>
         <div><span class="status queued">Готово к настройке</span></div>
       </div>
-      <div class="small" style="margin-top:10px;">Для публикаций и контента откройте YouTube Studio и настройте параметры ролика.</div>
-      <div class="cta-row" style="margin-top:12px;">
+      <div class="yt-features">
+        <span class="pill">Shorts 15-70с</span>
+        <span class="pill">Long 120-480с</span>
+        <span class="pill">ETA генерации</span>
+      </div>
+      <div class="small yt-hint">Для контента откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      <div class="cta-row yt-actions">
         <button id="openYoutubeStudioBtn" class="btn btn-primary" type="button">Подключить YouTube</button>
       </div>
     </article>
   `;
 
-  const cards = `<div class="grid-2">${metaCards}${youtubeCard}</div>`;
+  const cards = `<div class="grid-2 connections-grid">${metaCards}${youtubeCard}</div>`;
 
   const picker = state.connectionPicker || { open: false, loading: false, pages: [], selectedPageId: '', error: '' };
   const pageMatches = (p) => {
