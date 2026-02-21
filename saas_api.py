@@ -49,6 +49,7 @@ from saas_services import (
     can_access_project,
     check_project_limit,
     create_post_and_charge,
+    generate_post_preview_text,
     create_daily_blog_post,
     create_monthly_content_plan,
     materialize_content_plan,
@@ -222,13 +223,18 @@ def _google_redirect_uri() -> str:
 
 
 def _youtube_redirect_uri() -> str:
-    env = (os.getenv("YOUTUBE_REDIRECT_URI") or "").strip()
+    env = (
+        os.getenv("YOUTUBE_REDIRECT_URI")
+        or settings.YOUTUBE_REDIRECT_URI
+        or settings.GOOGLE_REDIRECT_URI
+        or os.getenv("GOOGLE_REDIRECT_URI")
+        or ""
+    ).strip()
     if env:
         return env
-    base = _public_api_base_url()
-    if base:
-        return f"{base}/api/integrations/youtube/callback"
-    return "http://localhost:5000/api/integrations/youtube/callback"
+    # By default reuse Google login callback to avoid redirect_uri_mismatch
+    # when only one Google OAuth callback URI is configured in Cloud Console.
+    return _google_redirect_uri()
 
 
 def _facebook_client_id() -> str:
@@ -318,16 +324,18 @@ def _store_oauth_state(provider: str, extra: dict | None = None) -> str:
     return state
 
 
-def _consume_oauth_state_meta(state: str, provider: str) -> dict | None:
+def _consume_oauth_state_meta(state: str, provider: str | None = None) -> dict | None:
     if not state:
         return None
-    meta = OAUTH_STATES.pop(state, None)
+    meta = OAUTH_STATES.get(state)
     if not meta:
         return None
-    if meta["provider"] != provider:
+    if provider and meta["provider"] != provider:
         return None
     if meta["exp"] < time.time():
+        OAUTH_STATES.pop(state, None)
         return None
+    OAUTH_STATES.pop(state, None)
     return meta
 
 
@@ -691,14 +699,108 @@ def oauth_google_start():
     return redirect(f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}")
 
 
+def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
+    client_id = _google_client_id()
+    client_secret = _google_client_secret()
+    if not client_id or not client_secret:
+        return redirect(_frontend_connections_url("youtube_error=google_not_configured"))
+
+    token_resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=15,
+    )
+    if not token_resp.ok:
+        return redirect(_frontend_connections_url("youtube_error=token_exchange_failed"))
+
+    token_data = token_resp.json() or {}
+    access_token = str(token_data.get("access_token") or "").strip()
+    expires_in = int(token_data.get("expires_in") or 0)
+    if not access_token:
+        return redirect(_frontend_connections_url("youtube_error=token_missing"))
+
+    yt_resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/channels",
+        params={"part": "snippet", "mine": "true", "maxResults": 1},
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=15,
+    )
+    if not yt_resp.ok:
+        return redirect(_frontend_connections_url("youtube_error=youtube_api_failed"))
+
+    yt_data = yt_resp.json() if yt_resp.content else {}
+    items = yt_data.get("items") if isinstance(yt_data, dict) else None
+    if not isinstance(items, list) or not items:
+        return redirect(_frontend_connections_url("youtube_error=no_channel"))
+
+    first = items[0] if isinstance(items[0], dict) else {}
+    snippet = first.get("snippet") if isinstance(first.get("snippet"), dict) else {}
+    thumbs = snippet.get("thumbnails") if isinstance(snippet.get("thumbnails"), dict) else {}
+    thumb_default = thumbs.get("default") if isinstance(thumbs.get("default"), dict) else {}
+    channel_id = str(first.get("id") or "").strip()
+    channel_name = str(snippet.get("title") or "").strip() or "YouTube канал"
+    channel_picture = str(thumb_default.get("url") or "").strip() or None
+
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user_id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        if not row:
+            row = SocialAccount(user_id=user_id, provider="youtube")
+            db.add(row)
+            db.flush()
+
+        row.page_id = channel_id or row.page_id or f"yt-{user_id}"
+        row.page_name = channel_name
+        row.page_picture_url = channel_picture
+        row.ig_user_id = None
+        row.ig_username = None
+        row.token_encrypted = encrypt_meta_token(access_token)
+        row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        row.last_success_at = datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
+
+    return redirect(_frontend_connections_url("youtube_connected=1"))
+
+
 @saas_api.route("/auth/oauth/google/callback", methods=["GET"])
 def oauth_google_callback():
+    state_token = (request.args.get("state") or "").strip()
+    state_meta = _consume_oauth_state_meta(state_token)
+    if not state_meta:
+        return _oauth_redirect({"oauth_error": "state_invalid"})
+
+    provider = str(state_meta.get("provider") or "").strip().lower()
+    if provider == "youtube_connect":
+        if request.args.get("error"):
+            return redirect(_frontend_connections_url("youtube_error=oauth_denied"))
+        user_id = int(state_meta.get("user_id") or 0)
+        if not user_id:
+            return redirect(_frontend_connections_url("youtube_error=state_invalid"))
+        code = (request.args.get("code") or "").strip()
+        if not code:
+            return redirect(_frontend_connections_url("youtube_error=missing_code"))
+        return _finalize_youtube_oauth_connect(user_id, code, _youtube_redirect_uri())
+
+    if provider != "google":
+        return _oauth_redirect({"oauth_error": "state_invalid"})
     if request.args.get("error"):
         return _oauth_redirect({"oauth_error": "google_denied"})
-
-    state_token = (request.args.get("state") or "").strip()
-    if not _consume_oauth_state(state_token, "google"):
-        return _oauth_redirect({"oauth_error": "state_invalid"})
 
     code = (request.args.get("code") or "").strip()
     if not code:
@@ -1140,6 +1242,55 @@ def generate():
         ),
         202,
     )
+
+
+@saas_api.route("/generate-preview", methods=["POST"])
+@require_auth
+def generate_preview():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+
+    topic = (data.get("topic") or "").strip()
+    category = (data.get("category") or "").strip() or None
+    language = (data.get("language") or "ru").strip()
+    tone = (data.get("tone") or "friendly").strip()
+    platforms_raw = data.get("platforms")
+    platforms = []
+    if isinstance(platforms_raw, list):
+        for item in platforms_raw:
+            key = str(item or "").strip().lower()
+            if key in {"facebook", "instagram", "youtube"} and key not in platforms:
+                platforms.append(key)
+
+    project_id_raw = data.get("project_id")
+    if project_id_raw is not None:
+        try:
+            project_id = int(project_id_raw)
+        except (TypeError, ValueError):
+            return jsonify({"error": "project_id должен быть числом"}), 400
+        if not can_access_project(user, project_id):
+            return jsonify({"error": "У вас нет доступа к проекту"}), 403
+
+    if not topic:
+        return jsonify({"error": "Укажите тему поста"}), 400
+
+    try:
+        payload = generate_post_preview_text(
+            topic=topic,
+            category=category,
+            tone=tone,
+            language=language,
+            platforms=platforms,
+        )
+    except Exception as exc:
+        msg = str(exc)
+        if "insufficient_quota" in msg or "You exceeded your current quota" in msg:
+            return jsonify({"error": "OpenAI: недостаточно квоты для генерации предпросмотра."}), 402
+        if "Error code: 429" in msg:
+            return jsonify({"error": "OpenAI: rate limit/429. Повторите через минуту."}), 429
+        return jsonify({"error": f"Ошибка генерации предпросмотра: {msg}"}), 500
+
+    return jsonify(payload)
 
 
 @saas_api.route("/youtube/generate-video", methods=["POST"])
@@ -2344,84 +2495,7 @@ def youtube_callback():
     code = (request.args.get("code") or "").strip()
     if not code:
         return redirect(_frontend_connections_url("youtube_error=missing_code"))
-
-    client_id = _google_client_id()
-    client_secret = _google_client_secret()
-    redirect_uri = _youtube_redirect_uri()
-    if not client_id or not client_secret:
-        return redirect(_frontend_connections_url("youtube_error=google_not_configured"))
-
-    token_resp = requests.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code": code,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code",
-        },
-        timeout=15,
-    )
-    if not token_resp.ok:
-        return redirect(_frontend_connections_url("youtube_error=token_exchange_failed"))
-
-    token_data = token_resp.json() or {}
-    access_token = str(token_data.get("access_token") or "").strip()
-    expires_in = int(token_data.get("expires_in") or 0)
-    if not access_token:
-        return redirect(_frontend_connections_url("youtube_error=token_missing"))
-
-    yt_resp = requests.get(
-        "https://www.googleapis.com/youtube/v3/channels",
-        params={"part": "snippet", "mine": "true", "maxResults": 1},
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=15,
-    )
-    if not yt_resp.ok:
-        return redirect(_frontend_connections_url("youtube_error=youtube_api_failed"))
-
-    yt_data = yt_resp.json() if yt_resp.content else {}
-    items = yt_data.get("items") if isinstance(yt_data, dict) else None
-    if not isinstance(items, list) or not items:
-        return redirect(_frontend_connections_url("youtube_error=no_channel"))
-
-    first = items[0] if isinstance(items[0], dict) else {}
-    snippet = first.get("snippet") if isinstance(first.get("snippet"), dict) else {}
-    thumbs = snippet.get("thumbnails") if isinstance(snippet.get("thumbnails"), dict) else {}
-    thumb_default = thumbs.get("default") if isinstance(thumbs.get("default"), dict) else {}
-    channel_id = str(first.get("id") or "").strip()
-    channel_name = str(snippet.get("title") or "").strip() or "YouTube канал"
-    channel_picture = str(thumb_default.get("url") or "").strip() or None
-
-    db = SessionLocal()
-    try:
-        row = (
-            db.query(SocialAccount)
-            .filter(SocialAccount.user_id == user_id, SocialAccount.provider == "youtube")
-            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
-            .first()
-        )
-        if not row:
-            row = SocialAccount(user_id=user_id, provider="youtube")
-            db.add(row)
-            db.flush()
-
-        row.page_id = channel_id or row.page_id or f"yt-{user_id}"
-        row.page_name = channel_name
-        row.page_picture_url = channel_picture
-        row.ig_user_id = None
-        row.ig_username = None
-        row.token_encrypted = encrypt_meta_token(access_token)
-        row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
-        row.status = "connected_ready"
-        row.status_reason_code = None
-        row.updated_at = datetime.utcnow()
-        row.last_success_at = datetime.utcnow()
-        db.commit()
-    finally:
-        db.close()
-
-    return redirect(_frontend_connections_url("youtube_connected=1"))
+    return _finalize_youtube_oauth_connect(user_id, code, _youtube_redirect_uri())
 
 
 @saas_api.route("/integrations/youtube/connect", methods=["POST"])
