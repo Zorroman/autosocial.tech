@@ -595,10 +595,17 @@ th { color: var(--text-muted); font-weight: 600; }
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 6px;
 }
 .btn-topic-template {
   font-size: 13px;
   padding: 7px 10px;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
+}
+.quick-topics-help {
+  margin-top: 8px;
 }
 .wizard-summary {
   display: flex;
@@ -903,74 +910,164 @@ th { color: var(--text-muted); font-weight: 600; }
   margin-bottom: 18px;
 }
 
-.planner-grid {
-  margin-top: 14px;
+.phone-calendar {
+  padding: 18px;
+  border-radius: 20px;
+}
+
+.phone-cal-toolbar {
   display: grid;
-  grid-template-columns: repeat(8, minmax(180px, 1fr));
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+.phone-cal-title {
+  margin: 0;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.phone-nav-btn {
+  padding: 8px 0;
+  border-radius: 999px;
+}
+
+.phone-cal-subline {
+  margin-top: 8px;
+  display: flex;
   gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.planner-column {
-  min-height: 240px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--surface-2) 88%, transparent);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.phone-weekdays {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.planner-column.drop-hover {
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-primary) 24%, transparent);
-}
-
-.planner-column-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
+.phone-weekdays span {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
   font-weight: 700;
-  font-size: 13px;
-  background: color-mix(in oklab, var(--surface) 90%, transparent);
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
 }
 
-.planner-column-body {
-  padding: 10px;
+.phone-days {
+  margin-top: 8px;
   display: grid;
-  gap: 10px;
-  align-content: start;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.planner-post {
+.phone-day-blank {
+  min-height: 60px;
+}
+
+.phone-day {
+  min-height: 60px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--surface) 92%, transparent);
-  padding: 10px;
-  cursor: grab;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-.planner-post.dragging {
-  opacity: 0.66;
+.phone-day:hover {
+  transform: translateY(-1px);
 }
 
-.planner-post.locked {
-  cursor: default;
+.phone-day.has-posts {
+  border-color: color-mix(in oklab, var(--success) 42%, var(--border));
+  background: color-mix(in oklab, var(--success) 14%, var(--surface));
+}
+
+.phone-day.no-posts {
+  border-color: color-mix(in oklab, var(--border) 86%, #cbd5e1);
+  background: color-mix(in oklab, var(--surface) 92%, #f1f5f9);
+}
+
+.phone-day.is-today {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-primary) 30%, transparent);
+}
+
+.phone-day.is-selected {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.phone-day-number {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.phone-day-dot {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
   opacity: 0.9;
 }
 
-.planner-empty {
+.phone-selected-panel {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.phone-post-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
   padding: 10px;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  text-align: center;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.phone-post-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.phone-post-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 @media (max-width: 1120px) {
   .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .phone-day {
+    min-height: 50px;
+    border-radius: 12px;
+  }
+  .phone-day-number {
+    font-size: 17px;
+  }
+  .phone-post-row {
+    flex-direction: column;
+  }
+  .phone-post-actions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 960px) {
