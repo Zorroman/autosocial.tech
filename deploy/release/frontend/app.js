@@ -1163,8 +1163,8 @@ function pageConnections() {
     return { action: 'retry', label: 'Повторить' };
   };
 
-  const cards = state.connections.length
-    ? `<div class="grid-2">${state.connections.map((c) => {
+  const metaCards = state.connections.length
+    ? `${state.connections.map((c) => {
         const status = String(c.status || 'not_connected').toLowerCase();
         const primary = primaryByStatus(status);
         const avatar = c.facebook_page_picture_url
@@ -1227,8 +1227,27 @@ function pageConnections() {
             </div>
           </details>
         </article>`;
-      }).join('')}</div>`
-    : emptyState('Нет подключенных аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections');
+      }).join('')}`
+    : `<article class="card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
+
+  const youtubeCard = `
+    <article class="card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
+          <div class="row" style="align-items:center;gap:12px;margin-top:10px;"><span class="avatar">YT</span><h3 style="margin:0;">YouTube канал</h3></div>
+          <div class="small" style="margin-top:6px;">Генерация сценариев роликов и YouTube-постов в отдельном студио-блоке.</div>
+        </div>
+        <div><span class="status queued">Готово к настройке</span></div>
+      </div>
+      <div class="small" style="margin-top:10px;">Для публикаций и контента откройте YouTube Studio и настройте параметры ролика.</div>
+      <div class="cta-row" style="margin-top:12px;">
+        <button id="openYoutubeStudioBtn" class="btn btn-primary" type="button">Подключить YouTube</button>
+      </div>
+    </article>
+  `;
+
+  const cards = `<div class="grid-2">${metaCards}${youtubeCard}</div>`;
 
   const picker = state.connectionPicker || { open: false, loading: false, pages: [], selectedPageId: '', error: '' };
   const pageMatches = (p) => {
@@ -1259,7 +1278,7 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите один раз и публикуйте автоматически. Если страниц несколько, выберите нужную.</p><div class="cta-row" style="margin-bottom:12px;"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить demo-аккаунт</button></div>${cards}</section>${modal}`);
+  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row" style="margin-bottom:12px;"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить demo-аккаунт</button></div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
@@ -2457,6 +2476,8 @@ async function bind() {
   };
   const connectMetaBtn = document.getElementById('connectMetaBtn');
   if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
+  const openYoutubeStudioBtn = document.getElementById('openYoutubeStudioBtn');
+  if (openYoutubeStudioBtn) openYoutubeStudioBtn.onclick = () => nav('/youtube');
   const connectDemoBtn = document.getElementById('connectDemoBtn'); if (connectDemoBtn) connectDemoBtn.onclick = async () => { await api('/api/connections/meta/mock-connect', { method: 'POST', body: '{}' }); state.connections = await api('/api/connections'); render(); };
   document.querySelectorAll('[data-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить интеграцию Meta?')) return;
