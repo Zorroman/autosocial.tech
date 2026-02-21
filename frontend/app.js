@@ -27,6 +27,7 @@ const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
   authMode: 'register',
+  authChallenge: null,
   authProviders: null,
   user: null,
   billing: null,
@@ -705,12 +706,18 @@ function appLayout(path, title, body) {
 }
 function pageLogin() {
   const isRegister = state.authMode !== 'login';
+  const loginCodeStep = !!(state.authChallenge && state.authChallenge.flow === 'login');
   const showSocialLogin = false;
-  const formTitle = isRegister ? 'Создать аккаунт' : 'Войти';
-  const submitLabel = isRegister ? 'Создать аккаунт' : 'Войти';
+  const formTitle = loginCodeStep ? 'Подтвердите вход' : (isRegister ? 'Создать аккаунт' : 'Войти');
+  const submitLabel = loginCodeStep ? 'Подтвердить код' : (isRegister ? 'Продолжить' : 'Получить код');
   const switchText = isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
   const switchLabel = isRegister ? 'Войти' : 'Создать';
   const socialBlock = showSocialLogin ? `<div class="social-auth-row"></div>` : '';
+  const authHint = loginCodeStep
+    ? `Код отправлен на ${esc(state.authChallenge.email || '')}.`
+    : (isRegister
+      ? 'После регистрации отправим ссылку на почту. Перейдите по ней, и аккаунт активируется.'
+      : 'После ввода email и пароля отправим 4-значный код на почту.');
 
   return `<div class="auth-wrap page">
     <div class="auth-shell reveal">
@@ -786,14 +793,18 @@ function pageLogin() {
       <section class="auth-panel auth-form-panel">
         ${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}
         <h2>${formTitle}</h2>
-        <p class="small mobile-microcopy">Быстрый старт по email и паролю.</p>
+        <p class="small mobile-microcopy">${authHint}</p>
         ${socialBlock}
-        ${field('authEmail', 'Email', 'email', '', 'you@company.com')}
-        ${field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
+        ${loginCodeStep ? '' : field('authEmail', 'Email', 'email', '', 'you@company.com')}
+        ${loginCodeStep ? '' : field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
+        ${loginCodeStep ? field('authCode', 'Код из письма', 'text', '', '4 цифры') : ''}
+        ${loginCodeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
+        ${loginCodeStep ? '<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">Отправить код повторно</button>' : ''}
+        ${loginCodeStep ? '<button id="authBackBtn" class="btn btn-link" type="button">Изменить email/пароль</button>' : ''}
         <div class="auth-switch-row">
           <span class="small">${switchText}</span>
-          <button id="authSwitchBtn" class="btn btn-link" type="button">${switchLabel}</button>
+          <button id="authSwitchBtn" class="btn btn-link" type="button" ${loginCodeStep ? 'disabled' : ''}>${switchLabel}</button>
         </div>
       </section>
     </div>
@@ -1696,6 +1707,7 @@ async function bind() {
   const authSwitchBtn = document.getElementById('authSwitchBtn');
   if (authSwitchBtn) authSwitchBtn.onclick = () => {
     state.authMode = state.authMode === 'login' ? 'register' : 'login';
+    state.authChallenge = null;
     state.notice = null;
     render();
   };
@@ -1713,6 +1725,7 @@ async function bind() {
   const heroRegisterBtn = document.getElementById('heroRegisterBtn');
   if (heroRegisterBtn) heroRegisterBtn.onclick = () => {
     state.authMode = 'register';
+    state.authChallenge = null;
     state.notice = null;
     render();
     focusAuthEmail();
@@ -1721,6 +1734,7 @@ async function bind() {
   const finalRegisterBtn = document.getElementById('finalRegisterBtn');
   if (finalRegisterBtn) finalRegisterBtn.onclick = () => {
     state.authMode = 'register';
+    state.authChallenge = null;
     state.notice = null;
     render();
     focusAuthEmail();
@@ -1729,12 +1743,47 @@ async function bind() {
   const finalPricingBtn = document.getElementById('finalPricingBtn');
   if (finalPricingBtn) finalPricingBtn.onclick = () => nav('/billing');
 
+  const authBackBtn = document.getElementById('authBackBtn');
+  if (authBackBtn) authBackBtn.onclick = () => {
+    state.authChallenge = null;
+    state.notice = null;
+    render();
+    focusAuthEmail();
+  };
+
   const authSubmitBtn = document.getElementById('authSubmitBtn');
   if (authSubmitBtn) authSubmitBtn.onclick = async () => {
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const challenge = state.authChallenge;
+    if (challenge && challenge.flow === 'login') {
+      const code = (document.getElementById('authCode')?.value || '').trim();
+      if (!/^\d{4}$/.test(code)) {
+        state.notice = { type: 'error', text: 'Введите 4-значный код из письма.' };
+        render();
+        return;
+      }
+      try {
+        const data = await api('/api/auth/verify-code', {
+          method: 'POST',
+          body: JSON.stringify({ challenge_token: challenge.challengeToken, code }),
+        });
+        state.token = data.token;
+        localStorage.setItem('token', data.token);
+        state.authChallenge = null;
+        await loadBase();
+        state.notice = { type: 'ok', text: 'Вход выполнен успешно.' };
+        nav('/connections', { keepNotice: true });
+      } catch (e) {
+        const raw = String(e.message || 'Ошибка авторизации');
+        state.notice = { type: 'error', text: raw || 'Неверный код или код просрочен.' };
+        render();
+      }
+      return;
+    }
+
     const email = document.getElementById('authEmail')?.value.trim().toLowerCase();
     const password = document.getElementById('authPassword')?.value || '';
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+    const website = document.getElementById('authWebsite')?.value || '';
     if (!email || !emailRe.test(email)) {
       state.notice = { type: 'error', text: 'Введите корректный email.' };
       render();
@@ -1745,15 +1794,22 @@ async function bind() {
       render();
       return;
     }
-
     try {
-      const endpoint = state.authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const data = await api(endpoint, { method: 'POST', body: JSON.stringify({ email, password }) });
-      state.token = data.token;
-      localStorage.setItem('token', data.token);
-      await loadBase();
-      state.notice = { type: 'ok', text: state.authMode === 'login' ? 'Вход выполнен успешно.' : 'Аккаунт создан. Подключите Facebook на следующем шаге.' };
-      nav('/connections', { keepNotice: true });
+      const flow = state.authMode === 'login' ? 'login' : 'register';
+      const data = await api('/api/auth/challenge', {
+        method: 'POST',
+        body: JSON.stringify({ flow, email, password, website }),
+      });
+      if (flow === 'register') {
+        state.authChallenge = null;
+        state.notice = { type: 'ok', text: 'Письмо со ссылкой отправлено. Перейдите по ссылке, чтобы завершить регистрацию.' };
+        render();
+        return;
+      }
+      state.authChallenge = { flow, email, password, website, challengeToken: data.challenge_token };
+      const suffix = data.dev_code ? ` (dev-код: ${data.dev_code})` : '';
+      state.notice = { type: 'ok', text: `Код отправлен на ${email}.${suffix}` };
+      render();
     } catch (e) {
       const raw = String(e.message || 'Ошибка авторизации');
       let text = 'Не удалось выполнить вход. Проверьте email и пароль.';
@@ -1763,8 +1819,34 @@ async function bind() {
         text = 'Пароль должен быть не короче 8 символов.';
       } else if (raw.toLowerCase().includes('неверный') || raw.toLowerCase().includes('invalid')) {
         text = 'Неверный email или пароль.';
+      } else if (raw) {
+        text = raw;
       }
       state.notice = { type: 'error', text };
+      render();
+    }
+  };
+
+  const authResendBtn = document.getElementById('authResendBtn');
+  if (authResendBtn) authResendBtn.onclick = async () => {
+    const challenge = state.authChallenge;
+    if (!challenge || challenge.flow !== 'login') return;
+    try {
+      const data = await api('/api/auth/challenge', {
+        method: 'POST',
+        body: JSON.stringify({
+          flow: 'login',
+          email: challenge.email,
+          password: challenge.password,
+          website: challenge.website || '',
+        }),
+      });
+      state.authChallenge = { ...challenge, challengeToken: data.challenge_token };
+      const suffix = data.dev_code ? ` (dev-код: ${data.dev_code})` : '';
+      state.notice = { type: 'ok', text: `Новый код отправлен.${suffix}` };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: String(e.message || 'Не удалось отправить код повторно.') };
       render();
     }
   };

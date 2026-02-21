@@ -1,12 +1,19 @@
 ﻿import json
 import os
+import random
+import re
+import smtplib
+import ssl
+import hashlib
+import hmac
 from pathlib import Path
 from urllib.parse import quote
 from urllib.parse import urlsplit
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from email.message import EmailMessage
 
 import requests
 from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
@@ -22,6 +29,7 @@ from facebook_api import (
 from gpt_generator import build_semantic_fallback_image_url
 from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
 from saas_models import (
+    AuthEmailChallenge,
     AppUser,
     BlogPost,
     ContentPlan,
@@ -70,10 +78,74 @@ OAUTH_STATES = {}
 OAUTH_STATE_TTL_SECONDS = 600
 MEDIA_DIR = Path(__file__).resolve().with_name("generated_media")
 MEDIA_DIR.mkdir(exist_ok=True)
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+AUTH_CODE_TTL_SECONDS = max(120, int(os.getenv("AUTH_CODE_TTL_SECONDS", "600")))
+AUTH_CODE_COOLDOWN_SECONDS = max(10, int(os.getenv("AUTH_CODE_COOLDOWN_SECONDS", "45")))
+AUTH_MAX_VERIFY_ATTEMPTS = max(3, int(os.getenv("AUTH_MAX_VERIFY_ATTEMPTS", "5")))
+AUTH_RATE_WINDOW_SECONDS = max(60, int(os.getenv("AUTH_RATE_WINDOW_SECONDS", "900")))
+AUTH_RATE_MAX_PER_IP = max(5, int(os.getenv("AUTH_RATE_MAX_PER_IP", "25")))
+AUTH_RATE_MAX_PER_EMAIL = max(3, int(os.getenv("AUTH_RATE_MAX_PER_EMAIL", "8")))
+AUTH_CODE_PEPPER = os.getenv("AUTH_CODE_PEPPER", "autosocial-auth-code")
 
 
 def _ip() -> str:
     return request.headers.get("X-Forwarded-For", request.remote_addr or "")
+
+
+def _auth_code_hash(challenge_token: str, code: str) -> str:
+    payload = f"{challenge_token}:{code}:{AUTH_CODE_PEPPER}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _send_auth_email_code(email: str, code: str, flow: str, ip_addr: str, challenge_token: str) -> bool:
+    smtp_host = (os.getenv("SMTP_HOST") or "").strip()
+    smtp_from = (os.getenv("SMTP_FROM") or "").strip()
+    if not smtp_host or not smtp_from:
+        return False
+
+    smtp_port = int((os.getenv("SMTP_PORT") or "587").strip())
+    smtp_user = (os.getenv("SMTP_USER") or "").strip()
+    smtp_password = (os.getenv("SMTP_PASSWORD") or "").strip()
+    smtp_use_ssl = (os.getenv("SMTP_USE_SSL") or "false").strip().lower() in {"1", "true", "yes"}
+    smtp_use_starttls = (os.getenv("SMTP_USE_STARTTLS") or "true").strip().lower() in {"1", "true", "yes"}
+    app_name = (os.getenv("APP_NAME") or "AutoSocial GPT").strip()
+    action_text = "входа" if flow == "login" else "регистрации"
+    ttl_min = max(1, AUTH_CODE_TTL_SECONDS // 60)
+    verify_link = f"{_public_api_base_url() or _api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
+
+    message = EmailMessage()
+    message["Subject"] = f"{app_name}: код подтверждения"
+    message["From"] = smtp_from
+    message["To"] = email
+    if flow == "register":
+        message.set_content(
+            f"Подтвердите регистрацию в AutoSocial GPT:\n{verify_link}\n\n"
+            f"Ссылка действует {ttl_min} минут.\n"
+            "Если это были не вы, просто проигнорируйте письмо."
+        )
+    else:
+        message.set_content(
+            f"Код для {action_text}: {code}\n"
+            f"Срок действия: {ttl_min} минут.\n"
+            "Если это были не вы, просто проигнорируйте письмо."
+        )
+
+    context = ssl.create_default_context()
+    if smtp_use_ssl:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=10) as smtp:
+            if smtp_user and smtp_password:
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(message)
+    else:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as smtp:
+            if smtp_use_starttls:
+                smtp.starttls(context=context)
+            if smtp_user and smtp_password:
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(message)
+
+    log_event("auth_code_email_sent", context=f"flow={flow};email={email};ip={ip_addr}")
+    return True
 
 
 def _current_user_refetched() -> AppUser:
@@ -86,6 +158,10 @@ def _current_user_refetched() -> AppUser:
 
 def _frontend_base_url() -> str:
     return (settings.FRONTEND_BASE_URL or os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")).rstrip("/")
+
+
+def _api_base_url() -> str:
+    return (settings.API_BASE_URL or os.getenv("API_BASE_URL", "http://localhost:5000")).rstrip("/")
 
 
 def _frontend_connections_url(query: str = "") -> str:
@@ -284,36 +360,238 @@ def health():
     return jsonify({"ok": True, "status": "ok", "env": settings.ENV, "time": datetime.utcnow().isoformat()})
 
 
+def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, ip_addr: str, user_agent: str):
+    if honeypot:
+        return {"error": "Запрос отклонен"}, 400
+    if flow not in {"login", "register"}:
+        return {"error": "Некорректный тип авторизации"}, 400
+    if not email or not EMAIL_RE.match(email):
+        return {"error": "Введите корректный email"}, 400
+    if not password:
+        return {"error": "Введите email и пароль"}, 400
+    if len(password) < 8:
+        return {"error": "Пароль должен быть не короче 8 символов"}, 400
+
+    now = datetime.utcnow()
+    db = SessionLocal()
+    try:
+        since = now - timedelta(seconds=AUTH_RATE_WINDOW_SECONDS)
+        by_ip_recent = (
+            db.query(AuthEmailChallenge)
+            .filter(AuthEmailChallenge.created_at >= since, AuthEmailChallenge.requested_ip == ip_addr)
+            .count()
+        )
+        if by_ip_recent >= AUTH_RATE_MAX_PER_IP:
+            return {"error": "Слишком много попыток. Попробуйте позже."}, 429
+
+        by_email_recent = (
+            db.query(AuthEmailChallenge)
+            .filter(AuthEmailChallenge.created_at >= since, AuthEmailChallenge.email == email)
+            .count()
+        )
+        if by_email_recent >= AUTH_RATE_MAX_PER_EMAIL:
+            return {"error": "Слишком много попыток для этого email. Попробуйте позже."}, 429
+
+        latest = (
+            db.query(AuthEmailChallenge)
+            .filter(
+                AuthEmailChallenge.email == email,
+                AuthEmailChallenge.flow == flow,
+                AuthEmailChallenge.verified_at.is_(None),
+            )
+            .order_by(AuthEmailChallenge.created_at.desc())
+            .first()
+        )
+        if latest and (now - latest.created_at).total_seconds() < AUTH_CODE_COOLDOWN_SECONDS:
+            return {
+                "error": f"Код уже отправлен. Повторите через {AUTH_CODE_COOLDOWN_SECONDS} сек."
+            }, 429
+
+        existing_user = db.query(AppUser).filter_by(email=email).first()
+        login_user_id = None
+        pending_password_hash = None
+        if flow == "register":
+            if existing_user:
+                return {"error": "Пользователь с таким email уже существует"}, 409
+            pending_password_hash = hash_password(password)
+        else:
+            if not existing_user or not verify_password(password, existing_user.password_hash):
+                return {"error": "Неверный email или пароль"}, 401
+            login_user_id = existing_user.id
+
+        challenge_token = secrets.token_urlsafe(24)
+        code = f"{random.randint(0, 9999):04d}"
+        challenge = AuthEmailChallenge(
+            challenge_token=challenge_token,
+            flow=flow,
+            email=email,
+            user_id=login_user_id,
+            pending_password_hash=pending_password_hash,
+            code_hash=_auth_code_hash(challenge_token, code),
+            attempts_left=AUTH_MAX_VERIFY_ATTEMPTS,
+            requested_ip=ip_addr,
+            user_agent=(user_agent or "")[:255],
+            expires_at=now + timedelta(seconds=AUTH_CODE_TTL_SECONDS),
+        )
+        db.add(challenge)
+        db.commit()
+    finally:
+        db.close()
+
+    delivered = False
+    try:
+        delivered = _send_auth_email_code(
+            email=email,
+            code=code,
+            flow=flow,
+            ip_addr=ip_addr,
+            challenge_token=challenge_token,
+        )
+    except Exception as exc:
+        current_app.logger.warning("auth code email failed: %s", exc)
+
+    is_dev = (settings.ENV or "").lower() in {"dev", "development", "local"}
+    if not delivered and not is_dev:
+        return {"error": "Письма временно недоступны. Попробуйте позже."}, 503
+
+    payload = {
+        "challenge_token": challenge_token,
+        "expires_in": AUTH_CODE_TTL_SECONDS,
+        "cooldown_seconds": AUTH_CODE_COOLDOWN_SECONDS,
+        "delivery": "email" if delivered else "dev",
+        "message": "Проверьте email и подтвердите действие",
+        "flow": flow,
+    }
+    if flow == "register":
+        payload["message"] = "Отправили ссылку для подтверждения регистрации на email"
+    else:
+        payload["message"] = "Код отправлен на email"
+    if is_dev and not delivered:
+        if flow == "register":
+            payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
+        else:
+            payload["dev_code"] = code
+    log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
+    return payload, 200
+
+
+def _complete_auth_challenge(challenge_token: str, code: str, ip_addr: str, allow_register_without_code: bool = False):
+    if not challenge_token:
+        return {"error": "Отсутствует challenge_token"}, 400
+    if not allow_register_without_code and not re.fullmatch(r"\d{4}", code or ""):
+        return {"error": "Введите 4-значный код"}, 400
+
+    now = datetime.utcnow()
+    db = SessionLocal()
+    try:
+        challenge = db.query(AuthEmailChallenge).filter_by(challenge_token=challenge_token).first()
+        if not challenge:
+            return {"error": "Код не найден или устарел"}, 404
+        if challenge.verified_at is not None:
+            return {"error": "Код уже использован"}, 409
+        if challenge.expires_at < now:
+            return {"error": "Срок действия кода истёк"}, 400
+        if challenge.attempts_left <= 0:
+            return {"error": "Слишком много попыток. Запросите новый код."}, 429
+
+        needs_code = not (allow_register_without_code and challenge.flow == "register")
+        if needs_code:
+            expected = _auth_code_hash(challenge.challenge_token, code)
+            if not hmac.compare_digest(expected, challenge.code_hash):
+                challenge.attempts_left = max(0, challenge.attempts_left - 1)
+                db.commit()
+                if challenge.attempts_left <= 0:
+                    return {"error": "Слишком много попыток. Запросите новый код."}, 429
+                return {"error": f"Неверный код. Осталось попыток: {challenge.attempts_left}"}, 400
+
+        challenge.verified_at = now
+        flow = challenge.flow
+        email = challenge.email
+        user = None
+        if flow == "register":
+            existing = db.query(AppUser).filter_by(email=email).first()
+            if existing:
+                return {"error": "Пользователь с таким email уже существует"}, 409
+            user = AppUser(
+                email=email,
+                password_hash=challenge.pending_password_hash or hash_password(secrets.token_urlsafe(24)),
+                role="user",
+                plan="free",
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        elif flow == "login":
+            user = db.query(AppUser).filter_by(id=challenge.user_id, email=email).first()
+            if not user:
+                return {"error": "Неверный email или пароль"}, 401
+            user.last_login = now
+            db.commit()
+        else:
+            return {"error": "Некорректный тип challenge"}, 400
+
+        user_id = user.id
+        user_email = user.email
+        user_role = user.role
+        user_plan = user.plan
+    finally:
+        db.close()
+
+    seed_plans()
+    ensure_user_plan_and_credits(user_id)
+    get_or_create_default_project(user_id)
+
+    token = create_token(user_id)
+    event_name = "user_registered" if flow == "register" else "user_login"
+    log_event(event_name, actor_user_id=user_id, context=f"email={user_email};ip={ip_addr};via=email_code")
+    return {"token": token, "user": {"id": user_id, "email": user_email, "role": user_role, "plan": user_plan}}, 200
+
+
+@saas_api.route("/auth/challenge", methods=["POST"])
+def auth_challenge():
+    data = request.get_json(silent=True) or {}
+    flow = (data.get("flow") or "").strip().lower()
+    email = (data.get("email") or "").strip().lower()
+    password = (data.get("password") or "").strip()
+    honeypot = (data.get("website") or "").strip()
+    payload, status = _start_auth_challenge(flow=flow, email=email, password=password, honeypot=honeypot, ip_addr=_ip(), user_agent=request.headers.get("User-Agent", ""))
+    return jsonify(payload), status
+
+
+@saas_api.route("/auth/verify-code", methods=["POST"])
+def auth_verify_code():
+    data = request.get_json(silent=True) or {}
+    challenge_token = (data.get("challenge_token") or "").strip()
+    code = (data.get("code") or "").strip()
+    payload, status = _complete_auth_challenge(challenge_token=challenge_token, code=code, ip_addr=_ip())
+    return jsonify(payload), status
+
+
+@saas_api.route("/auth/verify-email", methods=["GET"])
+def auth_verify_email():
+    challenge_token = (request.args.get("challenge_token") or "").strip()
+    payload, status = _complete_auth_challenge(
+        challenge_token=challenge_token,
+        code="",
+        ip_addr=_ip(),
+        allow_register_without_code=True,
+    )
+    if status != 200:
+        return _oauth_redirect({"oauth_error": "email_verify_failed"})
+    token = payload.get("token")
+    if not token:
+        return _oauth_redirect({"oauth_error": "email_verify_failed"})
+    return _oauth_redirect({"oauth_token": token})
+
+
 @saas_api.route("/auth/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
-
-    if not email or not password:
-        return jsonify({"error": "Введите email и пароль"}), 400
-    if len(password) < 8:
-        return jsonify({"error": "Пароль должен быть не короче 8 символов"}), 400
-
-    db = SessionLocal()
-    try:
-        if db.query(AppUser).filter_by(email=email).first():
-            return jsonify({"error": "Пользователь с таким email уже существует"}), 409
-
-        user = AppUser(email=email, password_hash=hash_password(password), role="user", plan="free")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    finally:
-        db.close()
-
-    seed_plans()
-    ensure_user_plan_and_credits(user.id)
-    get_or_create_default_project(user.id)
-
-    token = create_token(user.id)
-    log_event("user_registered", actor_user_id=user.id, context=f"email={email};ip={_ip()}")
-    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "role": user.role, "plan": user.plan}})
+    honeypot = (data.get("website") or "").strip()
+    payload, status = _start_auth_challenge(flow="register", email=email, password=password, honeypot=honeypot, ip_addr=_ip(), user_agent=request.headers.get("User-Agent", ""))
+    return jsonify(payload), status
 
 
 @saas_api.route("/auth/login", methods=["POST"])
@@ -321,31 +599,9 @@ def login():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
-
-    user_id = None
-    user_role = None
-    user_plan = None
-    db = SessionLocal()
-    try:
-        user = db.query(AppUser).filter_by(email=email).first()
-        if not user or not verify_password(password, user.password_hash):
-            return jsonify({"error": "Неверный email или пароль"}), 401
-        user.last_login = datetime.utcnow()
-        user_id = user.id
-        user_role = user.role
-        user_plan = user.plan
-        db.commit()
-    finally:
-        db.close()
-
-    if user_id is None:
-        return jsonify({"error": "Пользователь не найден"}), 404
-
-    seed_plans()
-    ensure_user_plan_and_credits(user_id)
-    token = create_token(user_id)
-    log_event("user_login", actor_user_id=user_id, context=f"email={email};ip={_ip()}")
-    return jsonify({"token": token, "user": {"id": user_id, "email": email, "role": user_role, "plan": user_plan}})
+    honeypot = (data.get("website") or "").strip()
+    payload, status = _start_auth_challenge(flow="login", email=email, password=password, honeypot=honeypot, ip_addr=_ip(), user_agent=request.headers.get("User-Agent", ""))
+    return jsonify(payload), status
 
 
 @saas_api.route("/auth/providers", methods=["GET"])

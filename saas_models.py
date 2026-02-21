@@ -52,6 +52,24 @@ class ApiToken(SaaSBase):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class AuthEmailChallenge(SaaSBase):
+    __tablename__ = "auth_email_challenges"
+
+    id = Column(Integer, primary_key=True)
+    challenge_token = Column(String(120), unique=True, nullable=False, index=True)
+    flow = Column(String(20), nullable=False)  # login | register
+    email = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=True, index=True)
+    pending_password_hash = Column(String(255), nullable=True)
+    code_hash = Column(String(128), nullable=False)
+    attempts_left = Column(Integer, nullable=False, default=5)
+    requested_ip = Column(String(80), nullable=True, index=True)
+    user_agent = Column(String(255), nullable=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    verified_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class Project(SaaSBase):
     __tablename__ = "projects"
 
