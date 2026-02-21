@@ -40,7 +40,7 @@ const state = {
     pages: [],
     selectedPageId: '',
     error: '',
-    filter: 'all', // all | with_ig | without_ig
+    filter: 'all', // all | with_ig | without_ig | not_connected
     query: '',
   },
   posts: [],
@@ -1278,6 +1278,7 @@ function pageConnections() {
   const pageInFilter = (p) => {
     if (picker.filter === 'with_ig') return !!p.has_ig;
     if (picker.filter === 'without_ig') return !p.has_ig;
+    if (picker.filter === 'not_connected') return !p.already_connected;
     return true;
   };
   const visiblePages = (picker.pages || []).filter((p) => pageInFilter(p) && pageMatches(p));
@@ -1287,16 +1288,18 @@ function pageConnections() {
     : (picker.error
         ? `<p class="small" style="color:var(--error);">${esc(picker.error)}</p>`
         : (picker.pages.length
-            ? `<div class="list">${visiblePages.map((p) => {
+            ? (visiblePages.length
+                ? `<div class="list">${visiblePages.map((p) => {
                 const pic = p.page_picture_url ? `<span class="avatar"><img src="${esc(p.page_picture_url)}" alt="" /></span>` : `<span class="avatar">${esc((safeText(p.page_name,'P')[0] || 'P').toUpperCase())}</span>`;
                 const ig = p.has_ig ? `<span class="pill ok">IG привязан</span>` : `<span class="pill warn">Без IG</span>`;
                 const checked = String(picker.selectedPageId) === String(p.page_id) ? 'checked' : '';
                 const already = p.already_connected ? `<span class="pill">уже добавлена</span>` : '';
                 return `<label class="list-item"><div><div class="row" style="align-items:center;gap:10px;">${pic}<div><div style="font-weight:800;">${esc(safeText(p.page_name))}</div><div class="meta">Page ID: ${esc(safeText(p.page_id))}${p.ig_user_id ? ` • IG: ${esc(safeText(p.ig_user_id))}` : ''}${p.ig_username ? ` (@${esc(p.ig_username)})` : ''}</div></div></div></div><div class="row" style="align-items:center;gap:10px;">${already}${ig}<input type="radio" name="pagePick" value="${esc(p.page_id)}" ${checked} /></div></label>`;
               }).join('')}</div>`
+                : `<p class="small">Неподключенных страниц не найдено. Все доступные страницы уже добавлены.</p>`)
             : `<p class="small">Страницы не найдены. Проверьте, что у аккаунта есть роль на Facebook Page и выданы permissions (pages_show_list).</p>`));
 
-  const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
+  const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterNotConnectedBtn" class="btn btn-ghost">Неподключенные</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
   return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Facebook</button></div>${cards}</section>${modal}`);
 }
@@ -2521,15 +2524,16 @@ async function bind() {
     state.connectionPicker.query = '';
   };
 
-  const openPagePicker = async (id) => {
+  const openPagePicker = async (id, opts = {}) => {
     try {
+      const preferUnconnected = !!opts.preferUnconnected;
       state.connectionPicker.open = true;
       state.connectionPicker.connectionId = id;
       state.connectionPicker.loading = true;
       state.connectionPicker.pages = [];
       state.connectionPicker.selectedPageId = '';
       state.connectionPicker.error = '';
-      state.connectionPicker.filter = 'all';
+      state.connectionPicker.filter = preferUnconnected ? 'not_connected' : 'all';
       state.connectionPicker.query = '';
       render();
 
@@ -2537,7 +2541,10 @@ async function bind() {
       state.connectionPicker.pages = r.pages || [];
       state.connectionPicker.loading = false;
       // Preselect page that has IG if possible.
-      const preferred = (state.connectionPicker.pages || []).find((p) => p.has_ig) || state.connectionPicker.pages[0];
+      const pagePool = preferUnconnected
+        ? (state.connectionPicker.pages || []).filter((p) => !p.already_connected)
+        : (state.connectionPicker.pages || []);
+      const preferred = pagePool.find((p) => p.has_ig) || pagePool[0];
       if (preferred) state.connectionPicker.selectedPageId = String(preferred.page_id || '');
       render();
     } catch (e) {
@@ -2599,18 +2606,22 @@ async function bind() {
 
   const applyFilterBtnState = () => {
     const a = document.getElementById('filterAllBtn');
+    const nc = document.getElementById('filterNotConnectedBtn');
     const w = document.getElementById('filterWithIgBtn');
     const n = document.getElementById('filterWithoutIgBtn');
     const f = state.connectionPicker.filter;
     const activeClass = 'btn btn-secondary';
     const normalClass = 'btn btn-ghost';
     if (a) a.className = f === 'all' ? activeClass : normalClass;
+    if (nc) nc.className = f === 'not_connected' ? activeClass : normalClass;
     if (w) w.className = f === 'with_ig' ? activeClass : normalClass;
     if (n) n.className = f === 'without_ig' ? activeClass : normalClass;
   };
 
   const filterAllBtn = document.getElementById('filterAllBtn');
   if (filterAllBtn) filterAllBtn.onclick = () => { state.connectionPicker.filter = 'all'; applyFilterBtnState(); render(); };
+  const filterNotConnectedBtn = document.getElementById('filterNotConnectedBtn');
+  if (filterNotConnectedBtn) filterNotConnectedBtn.onclick = () => { state.connectionPicker.filter = 'not_connected'; applyFilterBtnState(); render(); };
   const filterWithIgBtn = document.getElementById('filterWithIgBtn');
   if (filterWithIgBtn) filterWithIgBtn.onclick = () => { state.connectionPicker.filter = 'with_ig'; applyFilterBtnState(); render(); };
   const filterWithoutIgBtn = document.getElementById('filterWithoutIgBtn');
@@ -2760,7 +2771,7 @@ async function bind() {
     const id = Number(b.dataset.addPage || 0);
     if (!id) return;
     try {
-      await openPagePicker(id);
+      await openPagePicker(id, { preferUnconnected: true });
     } catch (e) {
       state.notice = { type: 'error', text: e.message || 'Не удалось открыть список страниц.' };
       render();
