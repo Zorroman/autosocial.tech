@@ -82,11 +82,18 @@ def publish_to_facebook(page_id, access_token, image_url, caption):
             "message": caption,
             "access_token": access_token,
         }
+    started = time.perf_counter()
     res = requests.post(url, data=payload, timeout=30)
-    return res.json()
+    data = res.json()
+    if isinstance(data, dict):
+        data.setdefault("_timing_ms", {})
+        data["_timing_ms"]["request_ms"] = int((time.perf_counter() - started) * 1000)
+    return data
 
 
 def publish_to_instagram(ig_user_id, access_token, image_url, caption):
+    started_total = time.perf_counter()
+    timing = {}
     if not image_url:
         return {"error": "image_url is required for Instagram publishing"}
 
@@ -97,15 +104,18 @@ def publish_to_instagram(ig_user_id, access_token, image_url, caption):
         "access_token": access_token,
     }
 
+    started_create = time.perf_counter()
     create_res = requests.post(create_url, data=create_payload, timeout=30)
+    timing["create_ms"] = int((time.perf_counter() - started_create) * 1000)
     create_data = create_res.json()
     if "id" not in create_data:
-        return {"error": "Failed to create media", "details": create_data}
+        return {"error": "Failed to create media", "details": create_data, "_timing_ms": timing}
 
     creation_id = create_data["id"]
 
     # Wait until container is ready for publish.
     status_url = f"https://graph.facebook.com/v20.0/{creation_id}"
+    started_wait = time.perf_counter()
     for _ in range(8):
         status_res = requests.get(
             status_url,
@@ -117,18 +127,26 @@ def publish_to_instagram(ig_user_id, access_token, image_url, caption):
         if status_code in {"FINISHED", "PUBLISHED"}:
             break
         if status_code in {"ERROR", "EXPIRED"}:
-            return {"error": "Media container error", "details": status_data, "creation_id": creation_id}
+            timing["status_wait_ms"] = int((time.perf_counter() - started_wait) * 1000)
+            timing["total_ms"] = int((time.perf_counter() - started_total) * 1000)
+            return {"error": "Media container error", "details": status_data, "creation_id": creation_id, "_timing_ms": timing}
         time.sleep(2)
+    timing["status_wait_ms"] = int((time.perf_counter() - started_wait) * 1000)
 
     publish_url = f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish"
     publish_payload = {"creation_id": creation_id, "access_token": access_token}
 
     last_error = None
+    started_publish = time.perf_counter()
     for _ in range(5):
         publish_res = requests.post(publish_url, data=publish_payload, timeout=30)
         publish_data = publish_res.json()
         err = publish_data.get("error")
         if not err and publish_data.get("id"):
+            publish_data.setdefault("_timing_ms", {})
+            publish_data["_timing_ms"].update(timing)
+            publish_data["_timing_ms"]["publish_ms"] = int((time.perf_counter() - started_publish) * 1000)
+            publish_data["_timing_ms"]["total_ms"] = int((time.perf_counter() - started_total) * 1000)
             return publish_data
 
         code = str((err or {}).get("code", ""))
@@ -138,6 +156,18 @@ def publish_to_instagram(ig_user_id, access_token, image_url, caption):
             last_error = publish_data
             time.sleep(2)
             continue
+        publish_data.setdefault("_timing_ms", {})
+        publish_data["_timing_ms"].update(timing)
+        publish_data["_timing_ms"]["publish_ms"] = int((time.perf_counter() - started_publish) * 1000)
+        publish_data["_timing_ms"]["total_ms"] = int((time.perf_counter() - started_total) * 1000)
         return publish_data
 
-    return last_error or {"error": "Failed to publish media", "creation_id": creation_id}
+    if last_error and isinstance(last_error, dict):
+        last_error.setdefault("_timing_ms", {})
+        last_error["_timing_ms"].update(timing)
+        last_error["_timing_ms"]["publish_ms"] = int((time.perf_counter() - started_publish) * 1000)
+        last_error["_timing_ms"]["total_ms"] = int((time.perf_counter() - started_total) * 1000)
+        return last_error
+    timing["publish_ms"] = int((time.perf_counter() - started_publish) * 1000)
+    timing["total_ms"] = int((time.perf_counter() - started_total) * 1000)
+    return {"error": "Failed to publish media", "creation_id": creation_id, "_timing_ms": timing}

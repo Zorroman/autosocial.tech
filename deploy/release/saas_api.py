@@ -8,7 +8,7 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 import requests
-from flask import Blueprint, g, jsonify, redirect, request
+from flask import Blueprint, current_app, g, jsonify, redirect, request
 
 from database import SessionLocal
 from facebook_api import (
@@ -1030,6 +1030,12 @@ def legacy_generated_posts_alias():
 def publish_post(post_id: int):
     user = g.current_user
     db = SessionLocal()
+    started_at = time.perf_counter()
+    timing_ms = {}
+
+    def _mark(stage: str, t0: float) -> None:
+        timing_ms[stage] = int((time.perf_counter() - t0) * 1000)
+
     try:
         post = db.query(Post).filter_by(id=post_id).first()
         if not post:
@@ -1049,6 +1055,7 @@ def publish_post(post_id: int):
             return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "mock"})
 
         # Real Meta publish path.
+        t_conn = time.perf_counter()
         connection = (
             db.query(SocialAccount)
             .filter(
@@ -1059,15 +1066,18 @@ def publish_post(post_id: int):
             .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
             .first()
         )
+        _mark("connection_lookup_ms", t_conn)
         if not connection:
             return jsonify({"error": "Нет подключенного Meta аккаунта для публикации"}), 400
         if not connection.token_encrypted:
             return jsonify({"error": "Токен подключения не найден. Переподключите Facebook."}), 400
 
+        t_decrypt = time.perf_counter()
         try:
             access_token = decrypt_meta_token(connection.token_encrypted)
         except Exception:
             return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook."}), 400
+        _mark("token_decrypt_ms", t_decrypt)
 
         caption = (post.generated_text or post.topic or "").strip()
         if not caption:
@@ -1085,7 +1095,9 @@ def publish_post(post_id: int):
                 post.error_message = "Не выбрана Facebook Page в подключении."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
+            t_publish = time.perf_counter()
             result = publish_to_facebook(connection.page_id, access_token, image_url, caption)
+            _mark("meta_publish_ms", t_publish)
             remote_id = result.get("post_id") or result.get("id")
         else:
             # Instagram requires media URL via Graph API.
@@ -1094,21 +1106,40 @@ def publish_post(post_id: int):
                 post.error_message = "Нет связанного Instagram Business у выбранной страницы."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
+            t_publish = time.perf_counter()
             result = publish_to_instagram(connection.ig_user_id, access_token, image_url, caption)
+            _mark("meta_publish_ms", t_publish)
             remote_id = result.get("id")
 
         if result.get("error") or not remote_id:
             post.status = "failed"
             post.error_message = str(result.get("error") or result)
             db.commit()
-            return jsonify({"error": "Ошибка публикации в Meta", "details": result}), 400
+            timing_ms["total_ms"] = int((time.perf_counter() - started_at) * 1000)
+            current_app.logger.warning(
+                "publish_post failed post_id=%s user_id=%s platform=%s timings=%s details=%s",
+                post.id,
+                post.user_id,
+                post.platform,
+                json.dumps(timing_ms, ensure_ascii=False),
+                str(result)[:1200],
+            )
+            return jsonify({"error": "Ошибка публикации в Meta", "details": result, "timing_ms": timing_ms}), 400
 
         post.status = "done"
         post.published_at = now
         post.remote_id = str(remote_id)
         post.error_message = None
         db.commit()
-        return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real"})
+        timing_ms["total_ms"] = int((time.perf_counter() - started_at) * 1000)
+        current_app.logger.info(
+            "publish_post ok post_id=%s user_id=%s platform=%s timings=%s",
+            post.id,
+            post.user_id,
+            post.platform,
+            json.dumps(timing_ms, ensure_ascii=False),
+        )
+        return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real", "timing_ms": timing_ms})
     finally:
         db.close()
 

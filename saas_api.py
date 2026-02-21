@@ -25,6 +25,7 @@ from saas_models import (
     AppUser,
     BlogPost,
     ContentPlan,
+    CreditLedger,
     NicheHook,
     PaymentEvent,
     Plan,
@@ -33,6 +34,7 @@ from saas_models import (
     Project,
     SocialAccount,
     SystemLog,
+    TopicSuggestion,
 )
 from saas_services import (
     CREDIT_PACKS,
@@ -674,6 +676,54 @@ def update_project(project_id: int):
         db.close()
 
 
+@saas_api.route("/projects/<int:project_id>", methods=["DELETE"])
+@require_auth
+def delete_project(project_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    confirm_name = (request.args.get("confirm_name") or data.get("confirm_name") or "").strip()
+    return _delete_project_impl(user=user, project_id=project_id, confirm_name=confirm_name)
+
+
+@saas_api.route("/projects/<int:project_id>/delete", methods=["POST"])
+@require_auth
+def delete_project_post(project_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    confirm_name = (request.args.get("confirm_name") or data.get("confirm_name") or "").strip()
+    return _delete_project_impl(user=user, project_id=project_id, confirm_name=confirm_name)
+
+
+def _delete_project_impl(user, project_id: int, confirm_name: str):
+    db = SessionLocal()
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return jsonify({"error": "Проект не найден"}), 404
+        if user.role != "admin" and project.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        if not confirm_name:
+            return jsonify({"error": "Подтвердите удаление названием проекта"}), 400
+        if confirm_name != project.name:
+            return jsonify({"error": "Название проекта не совпадает. Удаление отменено."}), 400
+
+        owner_user_id = project.user_id
+
+        post_ids = [row[0] for row in db.query(Post.id).filter(Post.project_id == project.id).all()]
+        db.query(ContentPlan).filter(ContentPlan.project_id == project.id).delete(synchronize_session=False)
+        db.query(TopicSuggestion).filter(TopicSuggestion.project_id == project.id).delete(synchronize_session=False)
+        if post_ids:
+            db.query(CreditLedger).filter(CreditLedger.post_id.in_(post_ids)).delete(synchronize_session=False)
+        db.query(Post).filter(Post.project_id == project.id).delete(synchronize_session=False)
+        db.delete(project)
+        db.commit()
+
+        return jsonify({"ok": True, "deleted_project_id": project_id, "deleted_posts": len(post_ids)})
+    finally:
+        db.close()
+
+
 @saas_api.route("/topics/suggestions", methods=["GET"])
 @require_auth
 def topics_suggestions():
@@ -1193,6 +1243,12 @@ def legacy_generated_posts_alias():
 def publish_post(post_id: int):
     user = g.current_user
     db = SessionLocal()
+    started_at = time.perf_counter()
+    timing_ms = {}
+
+    def _mark(stage: str, t0: float) -> None:
+        timing_ms[stage] = int((time.perf_counter() - t0) * 1000)
+
     try:
         post = db.query(Post).filter_by(id=post_id).first()
         if not post:
@@ -1212,6 +1268,7 @@ def publish_post(post_id: int):
             return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "mock"})
 
         # Real Meta publish path.
+        t_conn = time.perf_counter()
         connection = (
             db.query(SocialAccount)
             .filter(
@@ -1221,15 +1278,18 @@ def publish_post(post_id: int):
             .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
             .first()
         )
+        _mark("connection_lookup_ms", t_conn)
         if not connection:
             return jsonify({"error": "Нет подключенного Meta аккаунта для публикации"}), 400
         if not connection.token_encrypted:
             return jsonify({"error": "Токен подключения не найден. Переподключите Facebook."}), 400
 
+        t_decrypt = time.perf_counter()
         try:
             access_token = decrypt_meta_token(connection.token_encrypted)
         except Exception:
             return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook."}), 400
+        _mark("token_decrypt_ms", t_decrypt)
 
         caption = (post.generated_text or post.topic or "").strip()
         if not caption:
@@ -1253,6 +1313,7 @@ def publish_post(post_id: int):
                 post.error_message = "Не выбрана Facebook Page в подключении."
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
+            t_publish = time.perf_counter()
             page_access_token = _resolve_page_access_token(access_token, connection.page_id)
             if not page_access_token:
                 _apply_meta_status(connection, "permissions_missing", "page_token_missing")
@@ -1266,6 +1327,7 @@ def publish_post(post_id: int):
             if fb_err and fb_code == "324":
                 # If Meta rejects image URL, retry with text-only post.
                 result = publish_to_facebook(connection.page_id, page_access_token, None, caption)
+            _mark("meta_publish_ms", t_publish)
             remote_id = result.get("post_id") or result.get("id")
         else:
             # Instagram publish should use USER access token.
@@ -1276,7 +1338,9 @@ def publish_post(post_id: int):
                 db.commit()
                 return jsonify({"error": post.error_message}), 400
             ig_token = access_token
+            t_publish = time.perf_counter()
             result = publish_to_instagram(connection.ig_user_id, ig_token, image_url, caption)
+            _mark("meta_publish_ms", t_publish)
             remote_id = result.get("id")
 
         if result.get("error") or not remote_id:
@@ -1290,7 +1354,16 @@ def publish_post(post_id: int):
             post.status = "failed"
             post.error_message = str(result.get("error") or result)
             db.commit()
-            return jsonify({"error": "Ошибка публикации в Meta", "details": result}), 400
+            timing_ms["total_ms"] = int((time.perf_counter() - started_at) * 1000)
+            current_app.logger.warning(
+                "publish_post failed post_id=%s user_id=%s platform=%s timings=%s details=%s",
+                post.id,
+                post.user_id,
+                post.platform,
+                json.dumps(timing_ms, ensure_ascii=False),
+                str(result)[:1200],
+            )
+            return jsonify({"error": "Ошибка публикации в Meta", "details": result, "timing_ms": timing_ms}), 400
 
         post.status = "done"
         post.published_at = now
@@ -1299,7 +1372,15 @@ def publish_post(post_id: int):
         _apply_meta_status(connection, "connected_ready", None)
         connection.last_success_at = now
         db.commit()
-        return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real"})
+        timing_ms["total_ms"] = int((time.perf_counter() - started_at) * 1000)
+        current_app.logger.info(
+            "publish_post ok post_id=%s user_id=%s platform=%s timings=%s",
+            post.id,
+            post.user_id,
+            post.platform,
+            json.dumps(timing_ms, ensure_ascii=False),
+        )
+        return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real", "timing_ms": timing_ms})
     except Exception as exc:
         db.rollback()
         current_app.logger.exception("publish_post failed for post_id=%s user_id=%s", post_id, getattr(user, "id", None))

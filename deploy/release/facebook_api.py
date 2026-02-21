@@ -1,3 +1,4 @@
+import time
 import requests
 from config import Config
 
@@ -73,10 +74,17 @@ def publish_to_facebook(page_id, access_token, image_url, caption):
             "message": caption,
             "access_token": access_token
         }
+    started = time.perf_counter()
     res = requests.post(url, data=payload, timeout=30)
-    return res.json()
+    data = res.json()
+    if isinstance(data, dict):
+        data.setdefault("_timing_ms", {})
+        data["_timing_ms"]["request_ms"] = int((time.perf_counter() - started) * 1000)
+    return data
 
 def publish_to_instagram(ig_user_id, access_token, image_url, caption):
+    started_total = time.perf_counter()
+    timing = {}
     if not image_url:
         return {"error": "image_url is required for Instagram publishing"}
     # 1. Создаём media object
@@ -87,11 +95,13 @@ def publish_to_instagram(ig_user_id, access_token, image_url, caption):
         "access_token": access_token
     }
 
+    started_create = time.perf_counter()
     create_res = requests.post(create_url, data=create_payload, timeout=30)
+    timing["create_ms"] = int((time.perf_counter() - started_create) * 1000)
     create_data = create_res.json()
 
     if "id" not in create_data:
-        return {"error": "Failed to create media", "details": create_data}
+        return {"error": "Failed to create media", "details": create_data, "_timing_ms": timing}
 
     creation_id = create_data["id"]
 
@@ -102,5 +112,12 @@ def publish_to_instagram(ig_user_id, access_token, image_url, caption):
         "access_token": access_token
     }
 
+    started_publish = time.perf_counter()
     publish_res = requests.post(publish_url, data=publish_payload, timeout=30)
-    return publish_res.json()
+    data = publish_res.json()
+    if isinstance(data, dict):
+        data.setdefault("_timing_ms", {})
+        data["_timing_ms"].update(timing)
+        data["_timing_ms"]["publish_ms"] = int((time.perf_counter() - started_publish) * 1000)
+        data["_timing_ms"]["total_ms"] = int((time.perf_counter() - started_total) * 1000)
+    return data
