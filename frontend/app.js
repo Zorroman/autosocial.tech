@@ -1230,9 +1230,9 @@ function pageConnections() {
           </div>
           <div class="small connection-hint">${esc(howToFix)}</div>
           <div class="cta-row connection-actions">
-            <button class="btn btn-primary" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
-            ${canRefresh ? `<button class="btn btn-secondary" data-refresh="${c.id}">Обновить токен</button>` : ''}
-            <button class="btn btn-danger" data-disconnect="${c.id}">Отключить</button>
+            <button class="btn btn-primary connection-btn-sm" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
+            ${canRefresh ? `<button class="btn btn-secondary connection-btn-sm" data-refresh="${c.id}">Обновить токен</button>` : ''}
+            <button class="btn btn-danger connection-btn-sm" data-disconnect="${c.id}">Отключить</button>
           </div>
         </article>`;
       }).join('')}`
@@ -1254,13 +1254,13 @@ function pageConnections() {
         <span class="pill">ETA генерации</span>
       </div>
       <div class="grid-2 connection-grid-info">
-        <div><div class="connection-main-text">Сценарий, структура, хук и CTA</div></div>
-        <div><div class="connection-main-text">Community-посты и тексты под ролик</div></div>
+        <div><div class="connection-main-text">Сценарий, таймлайн и CTA</div></div>
+        <div><div class="connection-main-text">Посты для Community</div></div>
       </div>
       <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
       <div class="cta-row connection-actions">
-        <button id="openYoutubeStudioBtn" class="btn btn-primary" type="button">Подключить YouTube</button>
-        <button type="button" class="btn btn-ghost" data-link="/youtube">Открыть студио</button>
+        <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Подключить YouTube</button>
+        <button type="button" class="btn btn-ghost connection-btn-sm" data-link="/youtube">Открыть студио</button>
       </div>
     </article>
   `;
@@ -1296,7 +1296,7 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button></div>${cards}</section>${modal}`);
+  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Facebook</button></div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
@@ -2494,8 +2494,6 @@ async function bind() {
   };
   const connectMetaBtn = document.getElementById('connectMetaBtn');
   if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
-  const openYoutubeStudioBtn = document.getElementById('openYoutubeStudioBtn');
-  if (openYoutubeStudioBtn) openYoutubeStudioBtn.onclick = () => nav('/youtube');
   document.querySelectorAll('[data-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить интеграцию Meta?')) return;
     await api(`/api/connections/${b.dataset.disconnect}/disconnect`, { method: 'POST', body: '{}' });

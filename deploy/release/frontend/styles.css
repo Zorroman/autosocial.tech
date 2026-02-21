@@ -625,7 +625,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .connections-grid .connection-card {
   display: flex;
   flex-direction: column;
-  min-height: 344px;
+  min-height: 300px;
 }
 
 .connection-card {
@@ -646,6 +646,7 @@ th { color: var(--text-muted); font-weight: 600; }
 
 .connection-subtitle {
   margin-top: 6px;
+  font-size: 13px;
 }
 
 .connection-features {
@@ -656,21 +657,29 @@ th { color: var(--text-muted); font-weight: 600; }
 }
 
 .connection-grid-info {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .connection-main-text {
   font-weight: 900;
   line-height: 1.35;
+  font-size: 13px;
 }
 
 .connection-hint {
-  margin-top: 12px;
+  margin-top: 10px;
+  font-size: 13px;
 }
 
 .connection-actions {
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 12px;
+}
+
+.connection-btn-sm {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 11px;
 }
 
 .yt-connection-card {
