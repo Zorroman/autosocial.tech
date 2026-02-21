@@ -359,6 +359,8 @@ function buildCreateQuickTopics(topic, category) {
       const m = source.match(re);
       if (m?.[1]) return m[1].trim();
     }
+    const genericTopicMatch = source.match(/по теме\s+([^:,.!?]+)/i);
+    if (genericTopicMatch?.[1]) return genericTopicMatch[1].trim().replace(/^["'`«]+|["'`»]+$/g, '').trim();
     const templatePrefix = /^(3\s+част[а-я]+.*?по теме|чек-лист\s+по теме|кейс\s+по теме|сравнение\s+по теме|5\s+советов?\s+по теме)\s+/i;
     if (templatePrefix.test(source)) {
       const withoutPrefix = source.replace(templatePrefix, '').trim();
@@ -635,7 +637,7 @@ function appLayout(path, title, body) {
   if (state.user?.role === 'admin') links.push(['/admin', 'РђРґРјРёРЅ', 'admin']);
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
   const footer = `<div class="footer-note"><div class="small">Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.</div><div class="small">Stripe защищенные платежи · SSL защищено · GDPR совместимо</div></div>`;
-  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM РњРµРЅРµРґР¶РµСЂ</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.plan || 'free')}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°' : 'РўС‘РјРЅР°СЏ С‚РµРјР°'}</button><button id="logoutBtn" class="btn btn-secondary">Р’С‹Р№С‚Рё</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
+  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM РњРµРЅРµРґР¶РµСЂ</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°' : 'РўС‘РјРЅР°СЏ С‚РµРјР°'}</button><button id="logoutBtn" class="btn btn-secondary">Р’С‹Р№С‚Рё</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
   const isRegister = state.authMode !== 'login';
@@ -752,7 +754,7 @@ function pageDashboard() {
   const onboardingPct = Math.round((onboardingScore / 3) * 100);
   const canSchedule = !!b.limits.can_schedule;
   const projectsHtml = state.projects.length
-    ? `<div class="grid-2">${state.projects.map((p) => `<article class="card"><div class="row" style="justify-content:space-between;align-items:flex-start;"><div><h3 style="margin-bottom:6px;">${esc(p.name)}</h3><div class="small">Создан: ${new Date(p.created_at).toLocaleDateString()}</div><div class="small">Постов: ${p.posts_count || 0}</div></div><div class="cta-row" style="gap:8px;justify-content:flex-end;"><button class="btn btn-ghost" type="button" data-project-edit="${p.id}" data-project-name="${esc(p.name)}">Переименовать</button><button class="btn btn-danger" type="button" data-project-delete="${p.id}" data-project-name="${esc(p.name)}">Удалить</button></div></div></article>`).join('')}</div>`
+    ? `<div class="grid-2">${state.projects.map((p) => `<article class="card"><div class="row" style="justify-content:space-between;align-items:flex-start;"><div><h3 style="margin-bottom:6px;">${esc(p.name)}</h3><div class="small">ID: ${p.id}</div><div class="small">Создан: ${new Date(p.created_at).toLocaleDateString()}</div><div class="small">Постов: ${p.posts_count || 0}</div></div><div class="cta-row" style="gap:8px;justify-content:flex-end;"><button class="btn btn-ghost" type="button" data-project-edit="${p.id}" data-project-name="${esc(p.name)}">Переименовать</button><button class="btn btn-danger" type="button" data-project-delete="${p.id}" data-project-name="${esc(p.name)}">Удалить</button></div></div></article>`).join('')}</div>`
     : emptyState('Пока нет проектов', 'Создайте первый проект, чтобы запускать AI-автоматизацию.', 'Создать проект', '/create');
   const recentHtml = latestPosts.length
     ? `<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Платформа</th><th>Тема</th><th>Статус</th></tr></thead><tbody>${latestPosts.map((p) => `<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${esc(p.platform || '—')}</td><td>${esc(p.topic || '—')}</td><td>${statusBadge(p.status || 'queued')}</td></tr>`).join('')}</tbody></table></div>`
@@ -851,6 +853,7 @@ function pageDashboard() {
 
     <section class="card" style="margin-top:18px;">
       <h2>Проекты</h2>
+      <p class="small">Всего проектов: <strong>${state.projects.length}</strong></p>
       ${projectsHtml}
     </section>
   `);
@@ -1905,17 +1908,24 @@ async function bind() {
   document.querySelectorAll('[data-project-delete]').forEach((btn) => {
     btn.onclick = async () => {
       try {
-        const id = Number(btn.dataset.projectDelete);
-        const name = String(btn.dataset.projectName || '').trim();
+        const rawId = btn.getAttribute('data-project-delete') || btn.dataset.projectDelete || '';
+        const id = Number(rawId);
+        const name = String(btn.getAttribute('data-project-name') || btn.dataset.projectName || '').trim();
+        if (!id) throw new Error('Не удалось определить ID проекта.');
         const reallyDelete = confirm(`Вы точно хотите удалить проект "${name}"? Это действие необратимо.`);
         if (!reallyDelete) return;
-        const confirmation = prompt(`Введите название проекта "${name}", чтобы подтвердить удаление:`, '');
-        if (confirmation === null) return;
-        const confirmName = String(confirmation).trim();
-        if (!confirmName) throw new Error('Нужно ввести название проекта для подтверждения.');
-        await api(`/api/projects/${id}/delete`, { method: 'POST', body: JSON.stringify({ confirm_name: confirmName }) });
+        if (!name) throw new Error('Не удалось получить название проекта для удаления.');
+        const deleted = await api(`/api/projects/${id}/delete`, { method: 'POST', body: JSON.stringify({ confirm_name: name }) });
         await loadBase();
-        state.notice = { type: 'ok', text: 'Проект удален.' };
+        const stillExists = state.projects.some((p) => Number(p.id) === id);
+        if (stillExists) throw new Error(`Сервер вернул успех, но проект #${id} все еще в списке.`);
+        const replacementId = Number(deleted?.replacement_project_id || 0);
+        state.notice = {
+          type: 'ok',
+          text: replacementId
+            ? `Проект #${id} удален. Создан новый проект #${replacementId}.`
+            : `Проект #${id} удален.`,
+        };
         render();
       } catch (e) {
         state.notice = { type: 'error', text: e.message };
@@ -1944,17 +1954,6 @@ async function bind() {
   };
   const wCategoryEl = document.getElementById('wCategory');
   if (wCategoryEl) wCategoryEl.onchange = () => { state.createWizard.category = wCategoryEl.value; render(); };
-  const bindTopicTemplateButtons = () => {
-    document.querySelectorAll('[data-topic-template]').forEach((btn) => {
-      btn.onclick = () => {
-        const topic = (btn.getAttribute('data-topic-template') || '').trim();
-        const topicInput = document.getElementById('wTopic');
-        if (topicInput) topicInput.value = topic;
-        state.createWizard.topic = topic;
-        state.notice = null;
-      };
-    });
-  };
   const refreshTopicTemplates = () => {
     const topicInput = document.getElementById('wTopic');
     if (topicInput) state.createWizard.topic = topicInput.value.trim();
@@ -1964,14 +1963,31 @@ async function bind() {
     container.innerHTML = topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('');
     bindTopicTemplateButtons();
   };
+  const bindTopicTemplateButtons = () => {
+    document.querySelectorAll('[data-topic-template]').forEach((btn) => {
+      btn.onclick = () => {
+        const topic = (btn.getAttribute('data-topic-template') || '').trim();
+        const topicInput = document.getElementById('wTopic');
+        if (topicInput) topicInput.value = topic;
+        state.createWizard.topic = topic;
+        refreshTopicTemplates();
+        state.notice = null;
+      };
+    });
+  };
   const wTopicEl = document.getElementById('wTopic');
   if (wTopicEl) {
     let topicTypingTimer = null;
-    wTopicEl.oninput = () => {
+    const scheduleTopicRefresh = () => {
       state.createWizard.topic = wTopicEl.value;
       if (topicTypingTimer) clearTimeout(topicTypingTimer);
       topicTypingTimer = setTimeout(refreshTopicTemplates, 250);
     };
+    wTopicEl.oninput = scheduleTopicRefresh;
+    wTopicEl.onchange = () => refreshTopicTemplates();
+    wTopicEl.onblur = () => refreshTopicTemplates();
+    wTopicEl.onpaste = () => setTimeout(refreshTopicTemplates, 0);
+    refreshTopicTemplates();
   }
   const wRefreshTopicsBtn = document.getElementById('wRefreshTopics');
   if (wRefreshTopicsBtn) wRefreshTopicsBtn.onclick = () => refreshTopicTemplates();
