@@ -952,14 +952,17 @@ function pageDashboard() {
   `);
 }
 
+function createPreviewContextKey(wizard) {
+  return [
+    String(wizard?.category || 'business').trim(),
+    String(wizard?.topic || '').trim().toLowerCase(),
+    String(wizard?.tone || 'friendly').trim(),
+    String(wizard?.language || 'ru').trim(),
+  ].join('|');
+}
+
 function pageCreate() {
   const w = state.createWizard;
-  const createPreviewContextKey = (wizard) => [
-    String(wizard.category || 'business').trim(),
-    String(wizard.topic || '').trim().toLowerCase(),
-    String(wizard.tone || 'friendly').trim(),
-    String(wizard.language || 'ru').trim(),
-  ].join('|');
   const hashText = (input) => {
     let h = 2166136261;
     for (const ch of String(input || '')) {
