@@ -18,14 +18,15 @@ const _savedApiHost = (() => {
 })();
 const _savedApiAllowed = _isLocal
   ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(_savedApiBase)
-  : /^api(-dev)?\.autosocial\.tech$/i.test(_savedApiHost);
+  : false;
 const _defaultApiBase = _isLocal
   ? 'http://127.0.0.1:5000'
-  : (String(_rootHost).startsWith('api.') ? `${window.location.protocol}//${_rootHost}` : `${window.location.protocol}//api.${_rootHost}`);
+  : `${window.location.protocol}//api.${_rootHost}`;
 const API_BASE = _savedApiAllowed ? _savedApiBase : _defaultApiBase;
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
+  authMode: 'register',
   authProviders: null,
   user: null,
   billing: null,
@@ -47,6 +48,11 @@ const state = {
   adminUsers: [],
   adminRevenue: null,
   notice: null,
+  historyCalendar: {
+    monthKey: '',
+    monthsSpan: 1,
+    selectedDayKey: '',
+  },
   createWizard: {
     step: 1,
     projectId: '',
@@ -54,11 +60,13 @@ const state = {
     topic: '',
     tone: 'friendly',
     language: 'ru',
+    previewText: '',
     mode: 'now',
     scheduleAt: '',
     platforms: { facebook: true, instagram: true },
     mediaUrl: '',
   },
+  aiWizard: null,
 };
 
 const CP1251_EXTRA_MAP = {
@@ -121,7 +129,43 @@ const safeText = (v, fallback = '—') => {
   const s = String(v ?? '').replace(/\uFFFD/g, '').trim();
   return s ? s : fallback;
 };
-const isAuthRoute = (p) => p !== '/login';
+const _pad2 = (n) => String(n).padStart(2, '0');
+function localDateKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
+}
+function localMonthKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}`;
+}
+function monthStartFromKey(key) {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(mo)) return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  return new Date(y, mo, 1);
+}
+function toLocalInputValue(value) {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}`;
+}
+function toLocalIsoNoTz(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:${_pad2(d.getSeconds())}`;
+}
+function localInputToIsoNoTz(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return toLocalIsoNoTz(d);
+}
+const isAuthRoute = (p) => !['/login', '/blog'].includes(p);
 let renderVersion = 0;
 
 function setTheme(theme) {
@@ -138,7 +182,14 @@ async function api(path, options = {}) {
   const text = await res.text();
   let payload;
   try { payload = JSON.parse(text); } catch { payload = text; }
-  if (!res.ok) throw new Error(typeof payload === 'string' ? payload : payload.error || 'Ошибка запроса');
+  if (!res.ok) {
+    if (typeof payload === 'string') {
+      const htmlResponse = /<html|<!doctype/i.test(payload);
+      if (htmlResponse) throw new Error(`Ошибка сервера (${res.status}). Повторите позже.`);
+      throw new Error(payload || `Ошибка запроса (${res.status})`);
+    }
+    throw new Error(payload.error || `Ошибка запроса (${res.status})`);
+  }
   return payload;
 }
 
@@ -153,12 +204,12 @@ async function loadAuthProviders() {
   }
 }
 
-function nav(path) {
+function nav(path, opts = {}) {
   const current = location.pathname.replace(/\/$/, '') || '/';
   const target = String(path || '').replace(/\/$/, '') || '/';
   if (current === target) return;
   history.pushState({}, '', path);
-  state.notice = null;
+  if (!opts.keepNotice) state.notice = null;
   render();
 }
 
@@ -186,6 +237,7 @@ function planBadge(plan) {
 function statusBadge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
+    draft: { cls: 'queued', label: 'Черновик' },
     done: { cls: 'success', label: 'Готово' },
     published: { cls: 'success', label: 'Опубликовано' },
     connected: { cls: 'success', label: 'Подключено' },
@@ -200,6 +252,7 @@ function statusBadge(status) {
     failed: { cls: 'error', label: 'Ошибка' },
     queued: { cls: 'queued', label: 'В очереди' },
     scheduled: { cls: 'scheduled', label: 'Запланировано' },
+    hidden: { cls: 'warning', label: 'Скрыт' },
   };
   const item = map[key] || { cls: 'warning', label: status || 'неизвестно' };
   return `<span class="status ${item.cls}">${esc(item.label)}</span>`;
@@ -225,12 +278,321 @@ function emptyState(title, text, buttonLabel, path) {
   return `<div class="empty"><h3>${esc(title)}</h3><p class="small">${esc(text)}</p>${buttonLabel ? `<button class="btn btn-primary" data-link="${esc(path)}">${esc(buttonLabel)}</button>` : ''}</div>`;
 }
 
+function blogSelectedSlug() {
+  try {
+    return new URLSearchParams(location.search).get('slug') || '';
+  } catch {
+    return '';
+  }
+}
+
+function blogContentToHtml(content) {
+  const lines = String(content || '').split('\n');
+  return lines.map((line) => {
+    const t = line.trim();
+    if (!t) return '<p class="small">&nbsp;</p>';
+    if (t.startsWith('### ')) return `<h4>${esc(t.slice(4))}</h4>`;
+    if (t.startsWith('## ')) return `<h3>${esc(t.slice(3))}</h3>`;
+    if (t.startsWith('# ')) return `<h2>${esc(t.slice(2))}</h2>`;
+    if (/^\d+\.\s+/.test(t) || t.startsWith('- ')) return `<p class="small">${esc(t)}</p>`;
+    return `<p>${esc(t)}</p>`;
+  }).join('');
+}
+
+const WizardUtils = (typeof window !== 'undefined' && window.WizardUtils) ? window.WizardUtils : {};
+const WIZARD_BUSINESS_TYPES = [
+  'SaaS / IT',
+  'Салон красоты',
+  'Интернет-магазин',
+  'Эксперт / консалтинг',
+  'Другое',
+];
+const WIZARD_GOALS = ['Лиды', 'Продажи', 'Охваты', 'Бренд'];
+const WIZARD_TONES = ['Экспертный', 'Дружелюбный', 'Продающий', 'Провокационный'];
+const WIZARD_NICHE_HINTS = [
+  'SMM и маркетинг', 'Косметология', 'Барбершоп', 'Автосервис', 'Детейлинг', 'Ремонт квартир',
+  'Психология', 'Консалтинг', 'Онлайн-курсы', 'Фитнес', 'Стоматология', 'Ресторан', 'Кафе',
+  'Интернет-магазин одежды', 'Недвижимость', 'Юридические услуги',
+];
+const WIZARD_OUTPUT_OPTIONS = [
+  { key: 'plan7', label: 'Контент-план на 7 дней' },
+  { key: 'posts10', label: '10 готовых постов' },
+  { key: 'reels5', label: '5 идей для Reels/Shorts' },
+  { key: 'funnel', label: 'Воронка прогрева (серия тем)' },
+  { key: 'hashtags', label: 'Хештеги и CTA' },
+  { key: 'bio', label: 'Описание профиля' },
+];
+const CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY = {
+  business: 'выбор услуги',
+  marketing: 'продвижение бизнеса',
+  fitness: 'старт тренировок',
+  ecommerce: 'выбор товара',
+  beauty: 'уход и процедуры',
+  auto: 'обслуживание автомобиля',
+  fallback: 'решение задачи клиента',
+};
+
+function buildCreateQuickTopics(topic, category) {
+  const raw = String(topic || '').trim().replace(/\s+/g, ' ');
+  const normalized = raw.replace(/^[\s"'`]+|[\s"'`]+$/g, '');
+  const focus = normalized || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY[String(category || 'business')] || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY.business;
+  const suffix = `по теме "${focus}"`;
+  return [
+    `3 частые ошибки клиентов ${suffix}`,
+    `Чек-лист ${suffix}: что проверить перед стартом`,
+    `Кейс ${suffix}: как получили результат за 7 дней`,
+    `Сравнение ${suffix}: 2 подхода и какой выбрать`,
+    `5 советов ${suffix}, чтобы снизить лишние расходы`,
+  ];
+}
+
+function defaultAiWizardState() {
+  return {
+    step: 1,
+    status: 'idle', // idle | typing | analyzing | submitting
+    project_id: '',
+    business_type: '',
+    niche: '',
+    product_summary: '',
+    goal: '',
+    tone: '',
+    language: 'ru',
+    outputs: {
+      plan7: true,
+      posts10: true,
+      reels5: false,
+      funnel: false,
+      hashtags: true,
+      bio: false,
+    },
+  };
+}
+
+function ensureAiWizardState() {
+  if (!state.aiWizard) state.aiWizard = defaultAiWizardState();
+}
+
+function loadAiWizardDraft() {
+  ensureAiWizardState();
+  try {
+    const raw = localStorage.getItem('aiWizardDraftV2');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    state.aiWizard = {
+      ...defaultAiWizardState(),
+      ...parsed,
+      outputs: { ...defaultAiWizardState().outputs, ...(parsed.outputs || {}) },
+    };
+  } catch {}
+}
+
+function saveAiWizardDraft() {
+  try {
+    ensureAiWizardState();
+    localStorage.setItem('aiWizardDraftV2', JSON.stringify(state.aiWizard));
+  } catch {}
+}
+
+function mapWizardStateToExistingPayload(w) {
+  const mapper = WizardUtils.mapWizardStateToExistingPayload;
+  if (typeof mapper === 'function') return mapper(w);
+  return {
+    project_id: w.project_id ? Number(w.project_id) : null,
+    business_type: String(w.business_type || '').trim(),
+    niche: String(w.niche || '').trim(),
+    goal: String(w.goal || '').trim(),
+    language: String(w.language || 'ru').trim(),
+  };
+}
+
+function buildPreviewFromWizard(w) {
+  const fn = WizardUtils.generateWizardPreview;
+  if (typeof fn === 'function') return fn(w);
+  const niche = (w.niche || 'ваша ниша').trim();
+  const tone = (w.tone || 'Дружелюбный').toLowerCase();
+  const goal = (w.goal || 'Охваты').toLowerCase();
+  return {
+    weeklyTopic: `Неделя 1: «${niche} — практические советы и кейсы»`,
+    samplePost: `Как в нише «${niche}» получить ${goal}: 3 шага без лишних затрат. Сохраняйте пост и внедряйте сегодня.`,
+    strategyMix: { expert: 50, nurture: 30, sales: 20 },
+    focusHint: `Фокус: ${goal}. Тон: ${tone}. Давайте 1 конкретную пользу в каждом посте.`,
+  };
+}
+
+function getWizardValidationErrors(w, step) {
+  const errors = {};
+  if (step >= 1) {
+    if (!String(w.business_type || '').trim()) errors.business_type = 'Выберите тип бизнеса';
+    if (!String(w.niche || '').trim()) errors.niche = 'Укажите нишу';
+    if (!String(w.product_summary || '').trim()) errors.product_summary = 'Кратко опишите продукт/услугу';
+  }
+  if (step >= 2) {
+    if (!String(w.goal || '').trim()) errors.goal = 'Выберите цель';
+    if (!String(w.tone || '').trim()) errors.tone = 'Выберите стиль';
+  }
+  if (step >= 3) {
+    const selected = Object.values(w.outputs || {}).filter(Boolean).length;
+    if (!selected) errors.outputs = 'Выберите минимум один результат генерации';
+  }
+  return errors;
+}
+
+function wizardStatusLabel(status) {
+  const map = {
+    idle: 'Готово к запуску',
+    typing: 'Заполняем контекст',
+    analyzing: 'AI анализирует ввод',
+    submitting: 'Генерируем…',
+  };
+  return map[String(status || 'idle')] || 'Готово к запуску';
+}
+
+function chipsGroup(id, ariaLabel, values, selected, dataAttr) {
+  return `
+    <div id="${id}" class="wizard-chips" role="group" aria-label="${esc(ariaLabel)}">
+      ${values.map((v) => `<button type="button" class="wizard-chip ${String(v) === String(selected) ? 'active' : ''}" ${dataAttr}="${esc(v)}" aria-pressed="${String(v) === String(selected) ? 'true' : 'false'}">${esc(v)}</button>`).join('')}
+    </div>
+  `;
+}
+
+function Step1Business(w, projectOptions, errors) {
+  return `
+    <div class="wizard-step-block">
+      <h3>О бизнесе</h3>
+      ${selectField('wizardProject', 'Проект', w.project_id, projectOptions)}
+      <div class="field">
+        <label>Тип бизнеса</label>
+        ${chipsGroup('wizardBusinessType', 'Тип бизнеса', WIZARD_BUSINESS_TYPES, w.business_type, 'data-wizard-business')}
+        ${errors.business_type ? `<p class="small wizard-error">${esc(errors.business_type)}</p>` : ''}
+      </div>
+      <div class="field">
+        <label for="wizardNiche">Ниша</label>
+        <input id="wizardNiche" list="wizardNicheHints" value="${esc(w.niche)}" placeholder="Например, косметология, автосервис, онлайн-курсы" aria-describedby="wizardNicheHelp" />
+        <datalist id="wizardNicheHints">${WIZARD_NICHE_HINTS.map((i) => `<option value="${esc(i)}"></option>`).join('')}</datalist>
+        <p id="wizardNicheHelp" class="small wizard-inline-help">Можно выбрать подсказку или ввести вручную.</p>
+        ${errors.niche ? `<p class="small wizard-error">${esc(errors.niche)}</p>` : ''}
+      </div>
+      ${field('wizardProductSummary', 'Коротко о продукте/услуге', 'textarea', w.product_summary || '', '1–2 предложения: что продаёте и чем полезны клиенту')}
+      ${errors.product_summary ? `<p class="small wizard-error">${esc(errors.product_summary)}</p>` : ''}
+      <p class="small wizard-inline-help">AI использует это, чтобы настроить тон и темы контента.</p>
+    </div>
+  `;
+}
+
+function Step2GoalTone(w, errors) {
+  const preview = buildPreviewFromWizard(w);
+  return `
+    <div class="wizard-step-block">
+      <h3>Цель и стиль</h3>
+      <div class="field">
+        <label>Цель</label>
+        ${chipsGroup('wizardGoal', 'Цель', WIZARD_GOALS, w.goal, 'data-wizard-goal')}
+        ${errors.goal ? `<p class="small wizard-error">${esc(errors.goal)}</p>` : ''}
+      </div>
+      <div class="field">
+        <label>Стиль (тон)</label>
+        ${chipsGroup('wizardTone', 'Стиль', WIZARD_TONES, w.tone, 'data-wizard-tone')}
+        ${errors.tone ? `<p class="small wizard-error">${esc(errors.tone)}</p>` : ''}
+      </div>
+      ${selectField('wizardLang', 'Язык', w.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+      <article class="wizard-ai-hint" aria-live="polite">
+        <h4>AI подсказка</h4>
+        <p class="small">${esc(preview.focusHint)}</p>
+      </article>
+    </div>
+  `;
+}
+
+function PreviewCard(w) {
+  const p = buildPreviewFromWizard(w);
+  return `
+    <article class="wizard-preview card" aria-live="polite">
+      <h4>AI уже подготовил черновик</h4>
+      <div class="small"><strong>Тема недели:</strong> ${esc(p.weeklyTopic)}</div>
+      <div class="small" style="margin-top:8px;"><strong>Пример поста:</strong><br>${esc(p.samplePost)}</div>
+      <div class="small" style="margin-top:8px;">
+        <strong>Стратегия:</strong> экспертный ${Number(p.strategyMix.expert) || 0}% · прогрев ${Number(p.strategyMix.nurture) || 0}% · продажи ${Number(p.strategyMix.sales) || 0}%
+      </div>
+      <button id="wizardRefreshPreviewBtn" type="button" class="btn btn-ghost" style="margin-top:10px;">Обновить предпросмотр</button>
+    </article>
+  `;
+}
+
+function Step3GeneratePreview(w, errors) {
+  return `
+    <div class="wizard-step-block">
+      <h3>Генерация и предпросмотр</h3>
+      <p class="small">Вы получите план и черновики. Можно будет отредактировать перед публикацией.</p>
+      <div class="wizard-checks" role="group" aria-label="Что сгенерировать">
+        ${WIZARD_OUTPUT_OPTIONS.map((item) => `
+          <label class="wizard-check-item">
+            <input type="checkbox" data-wizard-output="${esc(item.key)}" ${w.outputs?.[item.key] ? 'checked' : ''} />
+            <span>${esc(item.label)}</span>
+          </label>
+        `).join('')}
+      </div>
+      ${errors.outputs ? `<p class="small wizard-error">${esc(errors.outputs)}</p>` : ''}
+      <div class="small wizard-plan-note">В бесплатной версии ограничено количество постов. В PRO — полный план на месяц и автопостинг.</div>
+    </div>
+  `;
+}
+
+// AI SMM Wizard v2: 3-step + preview
+// Files touched: frontend/app.js, frontend/styles.css, frontend/wizard_utils.js, tests/unit/wizard_utils.test.js
+// Why: replace long form with step-by-step UX while preserving legacy backend payload contract on submit.
+function WizardContainer(params) {
+  ensureAiWizardState();
+  const w = state.aiWizard;
+  const step = Number(w.step || 1);
+  const stepErrors = getWizardValidationErrors(w, step);
+  const canGoNext = Object.keys(getWizardValidationErrors(w, step)).length === 0;
+  const projectOptions = params.projectOptions.length ? params.projectOptions : [{ value: '', label: 'Проект по умолчанию' }];
+
+  let stepHtml = '';
+  if (step === 1) stepHtml = Step1Business(w, projectOptions, stepErrors);
+  if (step === 2) stepHtml = Step2GoalTone(w, stepErrors);
+  if (step === 3) stepHtml = Step3GeneratePreview(w, stepErrors);
+
+  return `
+    <section id="aiWizardBlock" class="card" style="margin-top:18px;">
+      <div class="wizard-head">
+        <h2>Создать стратегию и контент</h2>
+        <p class="small">3 шага — и AI подготовит план и примеры постов. Можно отредактировать перед запуском.</p>
+        <div class="wizard-meta-row">
+          <span class="small"><strong>Шаг ${step} из 3</strong></span>
+          <span class="small">${esc(wizardStatusLabel(w.status || 'idle'))}</span>
+        </div>
+        ${progressBar(step, 3)}
+      </div>
+
+      <div class="stepper wizard-stepper-3">
+        <div class="step ${step === 1 ? 'active' : ''}">1. О бизнесе</div>
+        <div class="step ${step === 2 ? 'active' : ''}">2. Цель и стиль</div>
+        <div class="step ${step === 3 ? 'active' : ''}">3. Генерация и предпросмотр</div>
+      </div>
+
+      <div class="wizard-grid">
+        <div>${stepHtml}</div>
+        ${step === 3 ? `<div>${PreviewCard(w)}</div>` : ''}
+      </div>
+
+      <div class="wizard-actions">
+        <button id="wizardPrevBtn" type="button" class="btn btn-ghost" ${step === 1 || w.status === 'submitting' ? 'disabled' : ''}>Назад</button>
+        ${step < 3
+          ? `<button id="wizardNextBtn" type="button" class="btn btn-secondary" ${(!canGoNext || w.status === 'submitting') ? 'disabled' : ''}>Далее</button>`
+          : `<button id="wizardSubmitBtn" type="button" class="btn btn-primary" ${(Object.keys(stepErrors).length > 0 || w.status === 'submitting') ? 'disabled' : ''}>${w.status === 'submitting' ? 'Генерируем…' : 'Создать план и черновики'}</button>`
+        }
+      </div>
+    </section>
+  `;
+}
+
 function appLayout(path, title, body) {
   const links = [
     ['/dashboard', 'РџР°РЅРµР»СЊ', 'dashboard'],
     ['/create', 'РЎРѕР·РґР°С‚СЊ', 'create'],
     ['/connections', 'РџРѕРґРєР»СЋС‡РµРЅРёСЏ', 'connections'],
-    ['/history', 'История', 'history'],
+    ['/history', 'Календарь', 'history'],
     ['/billing', 'РўР°СЂРёС„С‹', 'billing'],
     ['/settings', 'РќР°СЃС‚СЂРѕР№РєРё', 'settings'],
     ['/blog', 'Р‘Р»РѕРі', 'blog'],
@@ -242,12 +604,100 @@ function appLayout(path, title, body) {
   return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM РњРµРЅРµРґР¶РµСЂ</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.plan || 'free')}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°' : 'РўС‘РјРЅР°СЏ С‚РµРјР°'}</button><button id="logoutBtn" class="btn btn-secondary">Р’С‹Р№С‚Рё</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
-  const googleConfigured = !!state.authProviders?.google?.configured;
-  const facebookConfigured = !!state.authProviders?.facebook?.configured;
-  const googleHint = googleConfigured ? '' : '<div class="small" style="color:var(--warning);margin-top:6px;">Google OAuth РЅРµ РЅР°СЃС‚СЂРѕРµРЅ</div>';
-  const facebookHint = facebookConfigured ? '' : '<div class="small" style="color:var(--warning);margin-top:6px;">Facebook OAuth РЅРµ РЅР°СЃС‚СЂРѕРµРЅ</div>';
+  const isRegister = state.authMode !== 'login';
+  const showSocialLogin = false;
+  const formTitle = isRegister ? 'Создать аккаунт' : 'Войти';
+  const submitLabel = isRegister ? 'Создать аккаунт' : 'Войти';
+  const switchText = isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
+  const switchLabel = isRegister ? 'Войти' : 'Создать';
+  const socialBlock = showSocialLogin ? `<div class="social-auth-row"></div>` : '';
 
-  return `<div class="auth-wrap page"><div class="auth-shell reveal"><section class="auth-panel"><img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:16px;"/><h1>ИИ SMM-менеджер, который ведёт ваши соцсети</h1><p class="muted">AutoSocial GPT Р°РЅР°Р»РёР·РёСЂСѓРµС‚ РЅРёС€Сѓ, СЃРѕР·РґР°С‘С‚ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ, РїРёС€РµС‚ РїРѕСЃС‚С‹ Рё РїСѓР±Р»РёРєСѓРµС‚ РІ Facebook Рё Instagram.</p><div class="trust-row"><span class="trust-chip">Р‘РµР· СЃРєСЂС‹С‚С‹С… РїР»Р°С‚РµР¶РµР№</span><span class="trust-chip">Р‘РµР·РѕРїР°СЃРЅР°СЏ РѕРїР»Р°С‚Р° Stripe</span><span class="trust-chip">GDPR</span></div><div class="hero-visual" style="margin-top:18px;"><img src="/assets/brand/hero-mockup.svg" alt="РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ"/></div></section><section class="auth-panel">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}<h2>Р’С…РѕРґ РІ Р°РєРєР°СѓРЅС‚</h2><p class="small">Р’РѕР№РґРёС‚Рµ С‡РµСЂРµР· Google РёР»Рё Facebook, РёР»Рё РёСЃРїРѕР»СЊР·СѓР№С‚Рµ email Рё РїР°СЂРѕР»СЊ.</p><div class="social-auth-row"><div><button id="oauthGoogleBtn" class="btn btn-social" ${googleConfigured ? '' : 'disabled'}>Р’РѕР№С‚Рё С‡РµСЂРµР· Google</button>${googleHint}</div><div><button id="oauthFacebookBtn" class="btn btn-social" ${facebookConfigured ? '' : 'disabled'}>Р’РѕР№С‚Рё С‡РµСЂРµР· Facebook</button>${facebookHint}</div></div><div class="auth-divider"><span>РёР»Рё</span></div>${field('loginEmail', 'Email')}${field('loginPassword', 'РџР°СЂРѕР»СЊ', 'password')}<button id="loginBtn" class="btn btn-primary" style="width:100%;margin-bottom:12px;">Р’РѕР№С‚Рё</button><h3 style="margin-top:12px;">Р РµРіРёСЃС‚СЂР°С†РёСЏ</h3>${field('regEmail', 'Email')}${field('regPassword', 'РџР°СЂРѕР»СЊ', 'password')}<button id="regBtn" class="btn btn-secondary" style="width:100%;">РЎРѕР·РґР°С‚СЊ Р°РєРєР°СѓРЅС‚</button></section></div></div>`;
+  return `<div class="auth-wrap page">
+    <div class="auth-shell reveal">
+      <section class="auth-panel auth-hero-panel">
+        <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:18px;"/>
+
+        <div class="hero-block">
+          <h1 class="hero__title">AutoSocial GPT — AI-ассистент для управления соцсетями, который делает посты, публикации и стратегии за вас.</h1>
+          <p class="hero__subtitle auth-subtitle">Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.</p>
+          <div class="cta-row">
+            <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно по email</button>
+          </div>
+          <p class="small hero__microcopy">Без привязки карт сейчас — начните с Free плана.</p>
+        </div>
+
+        <div class="features-block">
+          <h3>Всё, что нужно для SMM — в одной панели</h3>
+          <ul class="auth-benefits">
+            <li class="features__item">Генерация уникального контента на основе AI</li>
+            <li class="features__item">Автопостинг по расписанию в Facebook и Instagram</li>
+            <li class="features__item">Интеллектуальные шаблоны для любых ниш</li>
+            <li class="features__item">Планировщик, который думает за вас</li>
+            <li class="features__item">Метрики и аналитика для роста</li>
+          </ul>
+        </div>
+
+        <div class="how-block">
+          <h3>Как AutoSocial GPT помогает вашему бизнесу</h3>
+          <ul class="check-list">
+            <li class="done"><strong>Создавайте контент за секунды</strong><br/><span class="small">Введите тему или ключевое сообщение — получите готовые посты с хештегами и CTA.</span></li>
+            <li class="done"><strong>Планируйте. Автоматизируйте. Забывайте о ручной публикации</strong><br/><span class="small">Настройте расписание — и система публикует сама.</span></li>
+            <li class="done"><strong>Следите за эффективностью</strong><br/><span class="small">Показы, вовлечённость, рост аудитории — всё в одной панели.</span></li>
+          </ul>
+        </div>
+
+        <div class="trust-block">
+          <h3>Почему маркетологи выбирают AutoSocial GPT</h3>
+          <ul class="auth-benefits">
+            <li class="features__item">Экономит до 10 часов в неделю на публикациях</li>
+            <li class="features__item">Генерирует контент, основанный на бест-практиках SMM</li>
+            <li class="features__item">Интеграции с Facebook + Instagram Business</li>
+            <li class="features__item">SSL / GDPR-ready. Готово к оплате.</li>
+          </ul>
+          <blockquote class="auth-quote">“AutoSocial GPT перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB</blockquote>
+        </div>
+
+        <div class="final-cta-block">
+          <h3>Готовы автоматизировать свои соцсети?</h3>
+          <div class="cta-row">
+            <button id="finalRegisterBtn" class="btn btn-primary cta__button">Создать аккаунт по email</button>
+            <button id="finalPricingBtn" class="btn btn-secondary cta__button">Узнать тарифы</button>
+          </div>
+          <p class="small">Начните с Free плана. Обновление на Pro доступно в любой момент.</p>
+        </div>
+
+        <div class="trust-row">
+          <span class="trust-chip">SSL</span>
+          <span class="trust-chip">GDPR</span>
+          <span class="trust-chip">Stripe</span>
+        </div>
+
+        <div class="hero-visual auth-hero-visual">
+          <img src="/assets/brand/hero-mockup.svg" alt="Интерфейс AutoSocial GPT"/>
+        </div>
+
+        <div class="landing-footer-links">
+          <button class="btn btn-link" data-link="/billing" type="button">Тарифы</button>
+          <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">Политика конфиденциальности</a>
+          <button class="btn btn-link" data-link="/contact" type="button">Поддержка</button>
+        </div>
+      </section>
+
+      <section class="auth-panel auth-form-panel">
+        ${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}
+        <h2>${formTitle}</h2>
+        <p class="small mobile-microcopy">Быстрый старт по email и паролю.</p>
+        ${socialBlock}
+        ${field('authEmail', 'Email', 'email', '', 'you@company.com')}
+        ${field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
+        <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
+        <div class="auth-switch-row">
+          <span class="small">${switchText}</span>
+          <button id="authSwitchBtn" class="btn btn-link" type="button">${switchLabel}</button>
+        </div>
+      </section>
+    </div>
+  </div>`;
 }
 
 function pageDashboard() {
@@ -256,6 +706,9 @@ function pageDashboard() {
   const limitMonth = b.limits.posts_per_month || 0;
   const usedDaily = b.usage.daily_posts || 0;
   const limitDaily = b.limits.daily_posts || 0;
+  const unlimitedDaily = Number(limitDaily) >= 1000000000;
+  const dailyMax = unlimitedDaily ? Math.max(Number(usedDaily) || 0, 1) : Math.max(Number(limitDaily) || 0, 1);
+  const dailyText = unlimitedDaily ? `${usedDaily} / без лимита` : `${usedDaily} / ${limitDaily}`;
   const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
   const latestPosts = (state.posts || []).slice(0, 5);
   // Count only real publishes (scheduled drafts may have remote_id in mock mode).
@@ -275,6 +728,12 @@ function pageDashboard() {
     <li class="${state.projects.length > 0 ? 'done' : ''}">2. Создайте проект</li>
     <li class="${hasPublishedPost ? 'done' : ''}">3. Опубликуйте первый пост</li>
   </ul>`;
+  ensureAiWizardState();
+  if (!state.aiWizard.project_id && state.projects[0]?.id) {
+    state.aiWizard.project_id = String(state.projects[0].id);
+  }
+  const wizardProjectOptions = state.projects.map((p) => ({ value: String(p.id), label: p.name }))
+    .concat([{ value: '', label: 'Проект по умолчанию' }]);
 
   return appLayout('/dashboard', 'Панель', `
     <section class="hero reveal">
@@ -326,35 +785,28 @@ function pageDashboard() {
       </article>
     </section>
 
+    ${WizardContainer({ projectOptions: wizardProjectOptions })}
+
     <section class="card" style="margin-top:18px;">
-      <h2>Запустить AI SMM Менеджер</h2>
-      <p class="small">Шаг 1: подключите соцсети. Шаг 2: задайте нишу и цель. Шаг 3: сгенерируйте стратегию на месяц.</p>
       <div class="grid-2">
-        <div>
-          ${selectField('managerProject', 'Проект', state.projects[0]?.id || '', state.projects.map((p) => ({ value: p.id, label: p.name })).concat([{ value: '', label: 'Проект по умолчанию' }]))}
-          ${field('managerBusiness', 'Тип бизнеса', 'text', '', 'например, салон красоты')}
-          ${field('managerNiche', 'Ниша', 'text', '', 'например, косметология')}
-          ${field('managerGoal', 'Цель', 'text', '', 'например, лиды и записи')}
-          ${selectField('managerLang', 'Язык', 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+        <article>
+          <h3>Дневной лимит</h3>
+          <p class="small">${dailyText} постов сегодня</p>
+          ${progressBar(usedDaily, dailyMax)}
+          <div class="small" style="margin-top:12px;">Статус подключения: ${hasConnectedAccount ? '<span class="status success">подключено</span>' : '<span class="status warning">не подключено</span>'}</div>
+        </article>
+        <article>
+          <h3>Быстрые действия</h3>
           <div class="cta-row">
-            <button id="startManagerBtn" class="btn btn-primary">Запустить AI SMM Менеджер</button>
-            <button id="strategyBtn" class="btn btn-secondary">Сгенерировать стратегию на месяц</button>
+            <button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button>
+            <button id="scheduleWeekBtn" class="btn btn-ghost" ${canSchedule ? '' : 'disabled'}>План на неделю</button>
           </div>
-        </div>
-        <div>
-          <article class="card" style="height:100%;">
-            <h3>Дневной лимит</h3>
-            <p class="small">${usedDaily} / ${limitDaily} постов сегодня</p>
-            ${progressBar(usedDaily, limitDaily)}
-            <h3 style="margin-top:16px;">Быстрые действия</h3>
-            <div class="cta-row">
-              <button id="postTodayBtn" class="btn btn-ghost">Пост на сегодня</button>
-              <button id="scheduleWeekBtn" class="btn btn-ghost" ${canSchedule ? '' : 'disabled'}>План на неделю</button>
-            </div>
-            ${canSchedule ? '' : '<div class="small" style="margin-top:8px;color:var(--warning);">Планирование доступно на платных тарифах.</div>'}
-            <div class="small" style="margin-top:12px;">Статус подключения: ${hasConnectedAccount ? '<span class="status success">подключено</span>' : '<span class="status warning">не подключено</span>'}</div>
-          </article>
-        </div>
+          ${canSchedule ? '' : '<div class="small" style="margin-top:8px;color:var(--warning);">Планирование доступно на платных тарифах.</div>'}
+          <ul class="small" style="margin-top:10px; line-height:1.5;">
+            <li>«Пост на сегодня» — создаёт до 3 постов на текущую дату.</li>
+            <li>«План на неделю» — генерирует и ставит в очередь контент на 7 дней.</li>
+          </ul>
+        </article>
       </div>
     </section>
 
@@ -373,24 +825,118 @@ function pageDashboard() {
 function pageCreate() {
   const w = state.createWizard;
   const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
-  const step1 = `
-    ${selectField('wProject', 'РџСЂРѕРµРєС‚', w.projectId, options.length ? options : [{ value: '', label: 'РќРµС‚ РїСЂРѕРµРєС‚РѕРІ' }])}
-    <div class="field">
-      <label for="wNewProject">РќРѕРІС‹Р№ РїСЂРѕРµРєС‚</label>
-      <div class="cta-row">
-        <input id="wNewProject" type="text" placeholder="РќР°РїСЂРёРјРµСЂ, РЎР°Р»РѕРЅ РљРёРµРІ" />
-        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Р”РѕР±Р°РІРёС‚СЊ РїСЂРѕРµРєС‚</button>
-      </div>
-      <p class="small">РЎРѕР·РґР°Р№С‚Рµ РїСЂРѕРµРєС‚ РїСЂСЏРјРѕ Р·РґРµСЃСЊ, Р±РµР· РІС‹С…РѕРґР° РёР· РјР°СЃС‚РµСЂР°.</p>
-    </div>`;
-  const step2 = `<div class="field"><label>РџР»Р°С‚С„РѕСЂРјС‹</label><div class="row"><label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label><label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label></div></div>`;
-  const step3 = `${field('wCategory', 'РљР°С‚РµРіРѕСЂРёСЏ', 'text', w.category)}${field('wTopic', 'РўРµРјР°', 'text', w.topic, 'Р’РІРµРґРёС‚Рµ С‚РµРјСѓ РІСЂСѓС‡РЅСѓСЋ')}${selectField('wTone', 'РўРѕРЅ', w.tone, [{ value: 'friendly', label: 'Р”СЂСѓР¶РµР»СЋР±РЅС‹Р№' }, { value: 'expert', label: 'Р­РєСЃРїРµСЂС‚РЅС‹Р№' }, { value: 'sales', label: 'РџСЂРѕРґР°СЋС‰РёР№' }])}${selectField('wLang', 'РЇР·С‹Рє', w.language, [{ value: 'ru', label: 'Р СѓСЃСЃРєРёР№' }, { value: 'en', label: 'English' }])}${field('wMedia', 'РЎСЃС‹Р»РєР° РЅР° РјРµРґРёР°', 'text', w.mediaUrl, 'РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅР°СЏ СЃСЃС‹Р»РєР° РЅР° РёР·РѕР±СЂР°Р¶РµРЅРёРµ')}`;
-  const step4 = `<article class="card"><h3>РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</h3><pre style="white-space:pre-wrap;font-family:Inter, sans-serif;">${esc(w.topic ? `HOOK: ${w.topic}\nVALUE: РєРѕРЅРєСЂРµС‚РЅС‹Рµ РєРѕСЂРѕС‚РєРёРµ СЃРѕРІРµС‚С‹\nCTA: РїРѕРЅСЏС‚РЅС‹Р№ СЃР»РµРґСѓСЋС‰РёР№ С€Р°Рі\n#С…РµС€С‚РµРіРё` : 'Р’РІРµРґРёС‚Рµ С‚РµРјСѓ, С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РїРѕСЃС‚Р°.')}</pre></article>`;
-  const step5 = `${selectField('wMode', 'Р РµР¶РёРј РїСѓР±Р»РёРєР°С†РёРё', w.mode, [{ value: 'now', label: 'РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ СЃРµР№С‡Р°СЃ' }, { value: 'schedule', label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°С‚СЊ' }])}${field('wSchedule', 'Р”Р°С‚Р° Рё РІСЂРµРјСЏ', 'datetime-local', w.scheduleAt)}<p class="small">Free: Р±РµР· РїР»Р°РЅРёСЂРѕРІР°РЅРёСЏ. РџР»Р°С‚РЅС‹Рµ С‚Р°СЂРёС„С‹: РїР»Р°РЅРёСЂРѕРІР°РЅРёРµ РґРѕСЃС‚СѓРїРЅРѕ.</p>`;
-  const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
-  return appLayout('/create', 'РЎРѕР·РґР°С‚СЊ', `<section class="card"><h2>РњР°СЃС‚РµСЂ СЃРѕР·РґР°РЅРёСЏ РїРѕСЃС‚Р°</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. РџСЂРѕРµРєС‚</div><div class="step ${w.step===2?'active':''}">2. РџР»Р°С‚С„РѕСЂРјС‹</div><div class="step ${w.step===3?'active':''}">3. РљРѕРЅС‚РµРЅС‚</div><div class="step ${w.step===4?'active':''}">4. РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</div><div class="step ${w.step===5?'active':''}">5. РџСѓР±Р»РёРєР°С†РёСЏ</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">РќР°Р·Р°Рґ</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Р”Р°Р»РµРµ</button>':'<button id="wSubmit" class="btn btn-primary">РЎРѕР·РґР°С‚СЊ Рё РѕРїСѓР±Р»РёРєРѕРІР°С‚СЊ</button>'}</div></section>`);
-}
+  const categoryOptions = [
+    { value: 'business', label: 'Бизнес и услуги' },
+    { value: 'marketing', label: 'Маркетинг и продвижение' },
+    { value: 'fitness', label: 'Фитнес и здоровье' },
+    { value: 'ecommerce', label: 'Интернет-магазин' },
+    { value: 'beauty', label: 'Красота и уход' },
+    { value: 'auto', label: 'Авто и сервис' },
+    { value: 'fallback', label: 'Другое' },
+  ];
+  const categoryHints = {
+    business: 'Для экспертов, услуг, локального бизнеса и B2B.',
+    marketing: 'Для агентств, SMM, таргета и контент-маркетинга.',
+    fitness: 'Для тренеров, залов, wellness и нутрициологии.',
+    ecommerce: 'Для карточек товара, акций и прогрева к покупке.',
+    beauty: 'Для салонов, косметологии, мастеров красоты.',
+    auto: 'Для автосервисов, детейлинга, продажи авто.',
+    fallback: 'Универсальный режим, если ниша нестандартная.',
+  };
+  const topicTemplates = buildCreateQuickTopics(w.topic, w.category);
+  const toneOptions = [
+    { value: 'friendly', label: 'Дружелюбный', hint: 'Простой и живой язык, без давления.' },
+    { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
+    { value: 'sales', label: 'Продающий', hint: 'Фокус на выгоде и понятном призыве к действию.' },
+  ];
+  const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
+  const buildPreviewDraft = () => {
+    const topic = (w.topic || '').trim() || 'Польза для клиента';
+    return [
+      `${topic}: что важно знать перед выбором`,
+      '',
+      '1) Критерий №1: проверьте опыт и реальные кейсы.',
+      '2) Критерий №2: уточните сроки и зону ответственности.',
+      '3) Критерий №3: сравните не цену, а итоговую ценность.',
+      '',
+      'Сохраните пост, чтобы не потерять чек-лист.',
+      '#бизнес #маркетинг #продажи',
+    ].join('\n');
+  };
+  const normalizedPreview = (w.previewText || '').trim() || buildPreviewDraft();
+  const submitLabel = w.mode === 'schedule' ? 'Создать и запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
 
+  const step1 = `
+    ${selectField('wProject', 'Проект', w.projectId, options.length ? options : [{ value: '', label: 'Нет проектов' }])}
+    <div class="field">
+      <label for="wNewProject">Новый проект</label>
+      <div class="cta-row">
+        <input id="wNewProject" type="text" placeholder="Например, Салон Киев" />
+        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Добавить проект</button>
+      </div>
+      <p class="small">Создайте проект прямо здесь, без выхода из мастера.</p>
+    </div>`;
+
+  const step2 = `
+    <div class="field">
+      <label>Платформы</label>
+      <div class="row">
+        <label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label>
+        <label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label>
+      </div>
+    </div>`;
+
+  const step3 = `
+    <article class="wizard-help">
+      <h3>Что заполнить на этом шаге</h3>
+      <p class="small">1) Выберите категорию бизнеса. 2) Введите тему поста. 3) Выберите стиль текста (тон).</p>
+    </article>
+    ${selectField('wCategory', 'Категория бизнеса', w.category, categoryOptions)}
+    <p class="small wizard-inline-help">${esc(categoryHints[w.category] || categoryHints.business)}</p>
+    ${field('wTopic', 'Тема поста', 'text', w.topic, 'Например: 3 ошибки при выборе автосервиса')}
+    <div class="field">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <label style="margin:0;">Быстрые темы</label>
+        <button id="wRefreshTopics" type="button" class="btn btn-ghost">Обновить</button>
+      </div>
+      <div id="wTopicTemplates" class="topic-template-row">
+        ${topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('')}
+      </div>
+      <p class="small wizard-inline-help">Подбираются под введённую тему. Нажмите "Обновить", если изменили формулировку.</p>
+    </div>
+    ${selectField('wTone', 'Тон текста', w.tone, toneOptions.map((t) => ({ value: t.value, label: t.label })))}
+    <p class="small wizard-inline-help">${esc((toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).hint)}</p>
+    ${selectField('wLang', 'Язык', w.language, [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+    ${field('wMedia', 'Ссылка на изображение (необязательно)', 'text', w.mediaUrl, 'https://...')}`;
+
+  const step4 = `
+    <article class="wizard-help">
+      <h3>Предпросмотр перед публикацией</h3>
+      <p class="small">Проверьте и отредактируйте текст. Этот вариант отправится в публикацию.</p>
+    </article>
+    <div class="wizard-summary">
+      <span class="pill">Категория: ${esc((categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label)}</span>
+      <span class="pill">Тон: ${esc(toneLabel)}</span>
+      <span class="pill">Язык: ${esc(w.language === 'ru' ? 'Русский' : 'English')}</span>
+    </div>
+    ${field('wPreviewText', 'Текст поста (можно редактировать)', 'textarea', normalizedPreview, 'Введите текст публикации')}
+    <p class="small wizard-inline-help">Рекомендуем: 500-1200 символов, 3-5 хештегов, 1 чёткий призыв к действию.</p>
+  `;
+
+  const step5 = `
+    ${selectField('wMode', 'Режим публикации', w.mode, [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать на дату' }, { value: 'draft', label: 'Сохранить как черновик' }])}
+    ${w.mode === 'schedule' ? field('wSchedule', 'Дата и время публикации', 'datetime-local', w.scheduleAt) : ''}
+    <article class="wizard-help">
+      <h3>Итог перед запуском</h3>
+      <p class="small">Проект: <strong>${esc((state.projects.find((p) => String(p.id) === String(w.projectId)) || state.projects[0] || { name: 'Не выбран' }).name)}</strong> · Платформы: <strong>${esc([w.platforms.facebook ? 'Facebook' : null, w.platforms.instagram ? 'Instagram' : null].filter(Boolean).join(' + ') || 'Не выбрано')}</strong></p>
+      <p class="small">Тема: <strong>${esc(w.topic || '—')}</strong></p>
+    </article>
+    <p class="small">Планирование доступно на платных тарифах. В режиме черновика пост не публикуется.</p>
+  `;
+
+  const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
+  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Далее</button>':`<button id="wSubmit" class="btn btn-primary">${esc(submitLabel)}</button>`}</div></section>`);
+}
 function pageConnections() {
   const query = new URLSearchParams(location.search);
   const err = query.get('error');
@@ -553,6 +1099,8 @@ function pricingCards() {
   const planMap = {};
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
 
+  const stripe = state.billing?.stripe || {};
+  const stripeReady = !!stripe.subscriptions_ready;
   const current = String(state.user?.plan || 'free').toLowerCase();
   const order = ['free', 'light', 'pro', 'agency'];
   const meta = {
@@ -575,12 +1123,14 @@ function pricingCards() {
     ${order.map((name) => {
       const m = meta[name] || { title: name, desc: '' };
       const isCurrent = current === name;
-      const canUpgrade = name !== 'free';
+      const canUpgrade = name !== 'free' && stripeReady;
       const btn = isCurrent
         ? `<button class="btn btn-secondary" disabled>Текущий тариф</button>`
         : canUpgrade
           ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">Перейти на ${esc(m.title)}</button>`
-          : `<button class="btn btn-ghost" disabled>Бесплатно</button>`;
+          : name === 'free'
+            ? `<button class="btn btn-ghost" disabled>Бесплатно</button>`
+            : `<button class="btn btn-ghost" disabled title="Stripe не настроен">Оплата недоступна</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
@@ -608,6 +1158,106 @@ function pricingCards() {
 
 function pageHistory() {
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
+  const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
+  const today = new Date();
+  const calendarState = state.historyCalendar || { monthKey: '', monthsSpan: 1, selectedDayKey: '' };
+  const currentMonthKey = localMonthKey(today);
+  if (!calendarState.monthKey) calendarState.monthKey = currentMonthKey;
+  calendarState.monthsSpan = 1;
+  const start = monthStartFromKey(calendarState.monthKey);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dayKeys = [];
+  for (let cursor = new Date(start.getTime()); cursor < end; cursor = new Date(cursor.getTime() + dayMs)) {
+    dayKeys.push(localDateKey(cursor));
+  }
+  const rangeLabel = start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const dateToKey = (value) => {
+    if (!value) return '';
+    return localDateKey(value);
+  };
+  const isPublishedPost = (p) => {
+    if (!p) return false;
+    const status = String(p.status || '').toLowerCase();
+    return Boolean(p.published_at) || Boolean(p.remote_id) || status === 'published';
+  };
+  const plannerStatus = (p) => (isPublishedPost(p) ? 'published' : 'draft');
+  const grouped = Object.fromEntries(dayKeys.map((k) => [k, []]));
+  grouped.draft = [];
+  const dayKeySet = new Set(dayKeys);
+  for (const p of (state.posts || [])) {
+    const published = plannerStatus(p) === 'published';
+    const calendarDate = published ? (p.published_at || p.schedule_at || p.created_at) : p.schedule_at;
+    const calendarKey = dateToKey(calendarDate);
+    const key = calendarKey && dayKeySet.has(calendarKey) ? calendarKey : 'draft';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(p);
+  }
+  for (const key of Object.keys(grouped)) {
+    grouped[key].sort((a, b) => {
+      const da = new Date(a.published_at || a.schedule_at || a.created_at).getTime();
+      const db = new Date(b.published_at || b.schedule_at || b.created_at).getTime();
+      return da - db;
+    });
+  }
+  const defaultSelectedKey = dayKeySet.has(dateToKey(today)) ? dateToKey(today) : dayKeys[0];
+  const selectedDayKey = dayKeySet.has(calendarState.selectedDayKey) ? calendarState.selectedDayKey : defaultSelectedKey;
+  calendarState.selectedDayKey = selectedDayKey;
+  state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: calendarState.monthKey, monthsSpan: 1, selectedDayKey };
+
+  const selectedDayPosts = grouped[selectedDayKey] || [];
+  const selectedDate = new Date(`${selectedDayKey}T00:00:00`);
+  const selectedDateLabel = selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const postsInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k]?.length || 0), 0);
+  const publishedInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k] || []).filter((p) => plannerStatus(p) === 'published').length, 0);
+  const draftsWithoutDay = grouped.draft.length;
+
+  const weekDayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const leadingEmpty = (start.getDay() + 6) % 7;
+  const monthCells = [];
+  for (let i = 0; i < leadingEmpty; i += 1) monthCells.push('<div class="phone-day-blank"></div>');
+  for (const key of dayKeys) {
+    const d = new Date(`${key}T00:00:00`);
+    const count = (grouped[key] || []).length;
+    const isToday = key === dateToKey(today);
+    const isSelected = key === selectedDayKey;
+    monthCells.push(`<button class="phone-day ${count > 0 ? 'has-posts' : 'no-posts'} ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" data-calendar-day="${key}">
+      <span class="phone-day-number">${d.getDate()}</span>
+      <span class="phone-day-dot">${count > 0 ? `${count}` : '0'}</span>
+    </button>`);
+  }
+
+  const selectedPostsHtml = selectedDayPosts.map((p) => {
+    const status = plannerStatus(p);
+    const title = p.topic || p.title_preview || `Пост #${p.id}`;
+    const when = p.published_at ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}` : (p.schedule_at ? `План: ${new Date(p.schedule_at).toLocaleString()}` : 'Без даты');
+    return `<article class="phone-post-row">
+      <div class="phone-post-main">
+        <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
+        <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${status === 'published' ? 'Опубликован' : 'Черновик'}</div>
+      </div>
+    </article>`;
+  }).join('');
+
+  const plannerBoard = `<section class="card planner-card phone-calendar">
+    <div class="phone-cal-toolbar">
+      <button class="btn btn-ghost phone-nav-btn" id="calendarPrevMonthBtn">←</button>
+      <h3 class="phone-cal-title">${esc(rangeLabel)}</h3>
+      <button class="btn btn-ghost phone-nav-btn" id="calendarNextMonthBtn">→</button>
+    </div>
+    <div class="phone-cal-subline">
+      <button class="btn btn-ghost" id="calendarTodayBtn">Сегодня</button>
+      <span class="small">Постов в месяце: ${postsInMonth} · Опубликовано: ${publishedInMonth} · Вне месяца/без даты: ${draftsWithoutDay}</span>
+    </div>
+    <div class="phone-weekdays">${weekDayLabels.map((w) => `<span>${w}</span>`).join('')}</div>
+    <div class="phone-days">${monthCells.join('')}</div>
+    <div class="phone-selected-panel">
+      <h4 id="historySelectedDayLabel" style="margin:0;">${esc(selectedDateLabel)}</h4>
+      <div id="historySelectedDayPosts">
+        ${selectedPostsHtml || `<div class="small muted">На этот день постов нет</div>`}
+      </div>
+    </div>
+  </section>`;
 
   const table = state.posts.length
     ? `<div class="table-wrap"><table>
@@ -626,16 +1276,19 @@ function pageHistory() {
             const title = ((p.topic || '').trim() && (p.topic || '').includes('?') && (p.title_preview || '').trim())
               ? p.title_preview
               : (p.topic || p.title_preview || '—');
-            const publishDisabled = (p.status === 'done' || p.status === 'failed') ? 'disabled' : '';
+            const isPublished = plannerStatus(p) === 'published';
+            const publishDisabled = (isPublished || p.status === 'failed') ? 'disabled' : '';
             return `<tr>
               <td>${new Date(p.created_at).toLocaleString()}</td>
               <td>${esc(p.platform)}</td>
               <td class="truncate" title="${esc(title)}">${esc(title)}</td>
-              <td>${statusBadge(p.status)}</td>
+              <td>${statusBadge(plannerStatus(p))}</td>
               <td class="small">${esc(pub)}</td>
               <td>
                 <div class="cta-row" style="justify-content:flex-end;">
-                  <button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>
+                  <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
+                  ${isPublished ? `<button class="btn btn-ghost" data-hide-post="${p.id}">Убрать с сайта</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>`}
+                  ${isPublished ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">Удалить</button>`}
                   <button class="btn btn-ghost" data-view-post="${p.id}">Открыть</button>
                   <button class="btn btn-ghost" data-retry="${p.id}" ${retryDisabled}>Повтор</button>
                 </div>
@@ -644,7 +1297,7 @@ function pageHistory() {
           }).join('')}
         </tbody>
       </table></div>`
-    : emptyState('История пуста', 'Создайте первый пост и опубликуйте его.', 'Создать пост', '/create');
+    : emptyState('Календарь пуст', 'Создайте первый пост и опубликуйте его.', 'Создать пост', '/create');
 
   const modalBody = viewer.loading
     ? `<p class="small">Загружаю пост…</p>`
@@ -688,15 +1341,52 @@ function pageHistory() {
     </div>
   </div>`;
 
-  return appLayout('/history','История',`<section class="card"><h2>История публикаций</h2>${table}</section>${modal}`);
+  const editorBody = editor.post ? `<div>
+    ${editor.error ? `<p class="small" style="color:var(--error);">${esc(editor.error)}</p>` : ''}
+    ${field('editTopic', 'Тема', 'text', editor.post.topic || '')}
+    ${field('editText', 'Текст', 'textarea', editor.post.generated_text || '')}
+    ${selectField('editPlatform', 'Платформа', editor.post.platform || 'instagram', [
+      { value: 'instagram', label: 'Instagram' },
+      { value: 'facebook', label: 'Facebook' },
+    ])}
+    ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
+    ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInputValue(editor.post.schedule_at))}
+    <div class="cta-row" style="justify-content:flex-end;margin-top:12px;">
+      <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>Снять с расписания</button>
+      <button id="savePostEditBtn" class="btn btn-primary" ${editor.saving ? 'disabled' : ''}>${editor.saving ? 'Сохраняю…' : 'Сохранить'}</button>
+    </div>
+  </div>` : `<p class="small muted">Пост не выбран.</p>`;
+
+  const editModal = `<div id="postEditBackdrop" class="modal-backdrop ${editor.open ? 'open' : ''}">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Редактирование перед публикацией</h3>
+        <button id="closePostEditBtn" class="btn btn-ghost">Закрыть</button>
+      </div>
+      <div class="modal-body">${editorBody}</div>
+    </div>
+  </div>`;
+
+  return appLayout('/history','Календарь',`${plannerBoard}<section class="card"><h2>Архив публикаций</h2>${table}</section>${modal}${editModal}`);
 }
 
 function pageBilling() {
   const b = state.billing || { plan: 'free', usage: {}, limits: {} };
+  const stripe = b.stripe || {};
   const usedMonth = b.usage.posts_per_month || 0;
   const limitMonth = b.limits.posts_per_month || 0;
   const usedDaily = b.usage.daily_posts || 0;
   const limitDaily = b.limits.daily_posts || 0;
+  const monthlyUnlimited = Number(limitMonth) >= 1000000000;
+  const dailyUnlimited = Number(limitDaily) >= 1000000000;
+  const monthMax = monthlyUnlimited ? Math.max(Number(usedMonth) || 0, 1) : Math.max(Number(limitMonth) || 0, 1);
+  const dayMax = dailyUnlimited ? Math.max(Number(usedDaily) || 0, 1) : Math.max(Number(limitDaily) || 0, 1);
+  const stripeHint = stripe.subscriptions_ready
+    ? ''
+    : `<section class="card" style="margin-bottom:18px;">
+         <h3>Оплата временно недоступна</h3>
+         <p class="small">Stripe не настроен: добавьте STRIPE_SECRET_KEY в server .env.</p>
+       </section>`;
 
   const billingInfo = `<section class="grid-2" style="margin-bottom:18px;">
     <article class="card">
@@ -704,27 +1394,28 @@ function pageBilling() {
       <p class="small">Платите за автопостинг и удобство. Лимиты отображаются в постах.</p>
       <p class="small muted" style="margin-top:8px;">Важно: у Instagram есть лимит публикаций через API на один IG Business (обычно до ~100 за 24 часа). Если подключений несколько, система распределяет нагрузку.</p>
       <div class="cta-row" style="margin-top:12px;">
-        <button class="btn btn-ghost" data-portal="1">Управление подпиской</button>
+        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : 'Stripe не настроен'}">Управление подпиской</button>
       </div>
+      <div class="small muted" style="margin-top:8px;">Статус биллинга: ${esc(b.billing_status || 'inactive')}</div>
     </article>
     <article class="card">
       <h3>Использование</h3>
-      <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${limitMonth || '—'}</strong></div>
-      ${progressBar(usedMonth, limitMonth || 0)}
-      <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${limitDaily || '—'}</strong></div>
-      ${progressBar(usedDaily, limitDaily || 0)}
+      <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${monthlyUnlimited ? 'без лимита' : (limitMonth || '—')}</strong></div>
+      ${progressBar(usedMonth, monthMax)}
+      <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${dailyUnlimited ? 'без лимита' : (limitDaily || '—')}</strong></div>
+      ${progressBar(usedDaily, dayMax)}
     </article>
   </section>`;
 
   return appLayout(
     '/billing',
     'Тарифы',
-    `${billingInfo}
+    `${stripeHint}${billingInfo}
      ${pricingCards()}
      <section class="card" style="margin-top:18px;">
        <h3>Сравнение тарифов</h3>
        ${plansTable()}
-       <div class="small muted" style="margin-top:10px;">Если Stripe не настроен локально, кнопки оплаты покажут понятную ошибку. Для теста можно оставить Free.</div>
+       <div class="small muted" style="margin-top:10px;">Оплата и управление подпиской работают после настройки Stripe на сервере.</div>
      </section>`
   );
 }
@@ -734,8 +1425,34 @@ function pageSettings() {
 }
 
 function pageBlog() {
-  const items = state.blog.length ? `<div class="grid-2">${state.blog.map((b)=>`<article class="card"><h3>${esc(b.title)}</h3><div class="small">${new Date(b.published_at).toLocaleDateString()}</div><p class="small">${esc((b.meta_description || '').slice(0,220))}</p></article>`).join('')}</div>` : emptyState('Р‘Р»РѕРі РїРѕРєР° РїСѓСЃС‚','Р•Р¶РµРґРЅРµРІРЅС‹Рµ SEO-СЃС‚Р°С‚СЊРё Р±СѓРґСѓС‚ РїРѕСЏРІР»СЏС‚СЊСЃСЏ Р·РґРµСЃСЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.','','');
-  return appLayout('/blog','Р‘Р»РѕРі',`<section class="card"><h2>SEO Р±Р»РѕРі-РґРІРёР¶РѕРє</h2>${items}</section>`);
+  const selectedSlug = blogSelectedSlug();
+  const selected = selectedSlug ? state.blog.find((b) => String(b.slug || '') === selectedSlug) : null;
+  if (selected) {
+    const detail = `
+      <article class="card">
+        <div class="cta-row" style="justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;">${esc(selected.title)}</h2>
+          <button id="blogBackBtn" class="btn btn-ghost">К списку</button>
+        </div>
+        <div class="small" style="margin-top:10px;">${new Date(selected.published_at).toLocaleDateString()}</div>
+        <hr style="margin:14px 0;border:none;border-top:1px solid rgba(128,128,128,.25);" />
+        <div class="blog-content">${blogContentToHtml(selected.content)}</div>
+      </article>`;
+    return appLayout('/blog', 'Блог', detail);
+  }
+
+  const items = state.blog.length
+    ? `<div class="grid-2">${state.blog.map((b)=>`
+      <article class="card">
+        <h3>${esc(b.title)}</h3>
+        <div class="small">${new Date(b.published_at).toLocaleDateString()}</div>
+        <p class="small">${esc((b.meta_description || '').slice(0,220))}</p>
+        <div class="cta-row" style="margin-top:10px;">
+          <button class="btn btn-primary" data-blog-open="${esc(b.slug)}">Открыть статью</button>
+        </div>
+      </article>`).join('')}</div>`
+    : emptyState('Блог пока пуст', 'Ежедневные SEO-статьи будут появляться здесь автоматически.', '', '');
+  return appLayout('/blog', 'Блог', `<section class="card"><h2>SEO блог-движок</h2>${items}</section>`);
 }
 
 function pageContact() {
@@ -744,7 +1461,7 @@ function pageContact() {
 
 function adminUsersTable() {
   if (!state.adminUsers.length) return '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР°.</p>';
-  return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.role === 'admin' ? 'admin' : u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function pageAdmin() {
@@ -759,6 +1476,10 @@ function page(path) {
 }
 
 async function preload(path) {
+  if (path === '/blog') {
+    state.blog = await api('/api/blog/posts');
+    return;
+  }
   if (!state.token) return;
   if (path === '/connections') state.connections = await api('/api/connections');
   if (path === '/history') state.posts = await api('/api/posts');
@@ -767,7 +1488,6 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.posts = await api('/api/posts');
   }
-  if (path === '/blog') state.blog = await api('/api/blog/posts');
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
 }
 async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.projects = await api('/api/projects'); }
@@ -780,87 +1500,339 @@ function bindCommon() {
 
 async function bind() {
   bindCommon();
+  const blogBackBtn = document.getElementById('blogBackBtn');
+  if (blogBackBtn) {
+    blogBackBtn.onclick = () => {
+      history.pushState({}, '', '/blog');
+      state.notice = null;
+      render();
+    };
+  }
+  document.querySelectorAll('[data-blog-open]').forEach((btn) => {
+    btn.onclick = () => {
+      const slug = btn.getAttribute('data-blog-open');
+      if (!slug) return;
+      history.pushState({}, '', `/blog?slug=${encodeURIComponent(slug)}`);
+      state.notice = null;
+      render();
+    };
+  });
 
   const oauthGoogleBtn = document.getElementById('oauthGoogleBtn');
   if (oauthGoogleBtn && !oauthGoogleBtn.disabled) oauthGoogleBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/google/start`; };
   const oauthFacebookBtn = document.getElementById('oauthFacebookBtn');
   if (oauthFacebookBtn && !oauthFacebookBtn.disabled) oauthFacebookBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/facebook/start`; };
 
-  const loginBtn = document.getElementById('loginBtn');
-  if (loginBtn) loginBtn.onclick = async () => {
-    try {
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      state.token = data.token;
-      localStorage.setItem('token', data.token);
-      await loadBase();
-      state.notice = { type: 'ok', text: 'Р’С…РѕРґ РІС‹РїРѕР»РЅРµРЅ СѓСЃРїРµС€РЅРѕ.' };
-      nav('/dashboard');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+  const authSwitchBtn = document.getElementById('authSwitchBtn');
+  if (authSwitchBtn) authSwitchBtn.onclick = () => {
+    state.authMode = state.authMode === 'login' ? 'register' : 'login';
+    state.notice = null;
+    render();
   };
 
-  const regBtn = document.getElementById('regBtn');
-  if (regBtn) regBtn.onclick = async () => {
-    try {
-      const email = document.getElementById('regEmail').value.trim();
-      const password = document.getElementById('regPassword').value;
-      const data = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
-      state.token = data.token;
-      localStorage.setItem('token', data.token);
-      await loadBase();
-      state.notice = { type: 'ok', text: 'РђРєРєР°СѓРЅС‚ СЃРѕР·РґР°РЅ.' };
-      nav('/dashboard');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
-  };
-
-  const startManagerBtn = document.getElementById('startManagerBtn');
-  if (startManagerBtn) startManagerBtn.onclick = async () => {
-    try {
-      const projectRaw = document.getElementById('managerProject').value;
-      const business_type = document.getElementById('managerBusiness').value.trim();
-      const niche = document.getElementById('managerNiche').value.trim();
-      const goal = document.getElementById('managerGoal').value.trim();
-      const language = document.getElementById('managerLang').value;
-      const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
-      if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
-      if (!business_type || !niche || !goal) throw new Error('Заполните поля "Тип бизнеса", "Ниша" и "Цель".');
-      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, business_type, niche, goal, language }) });
-      const created = r?.result?.created_plan_items ?? null;
-      const existing = r?.result?.existing_future_items ?? 0;
-      const gen = r?.result?.generated_posts ?? 0;
-      if (!created && existing > 0) {
-        state.notice = { type: 'ok', text: `Контент-план уже создан (будущих публикаций: ${existing}). ${gen ? `Подготовлено постов: ${gen}. ` : ''}Для ускорения нажмите "План на неделю".` };
-      } else {
-        const days = Number(created || 30);
-        state.notice = { type: 'ok', text: `Стратегия на ${days} дней создана. ${gen ? `Сразу подготовлено постов: ${gen}. ` : ''}Остальные можно подготовить кнопкой "План на неделю".` };
+  const focusAuthEmail = () => {
+    setTimeout(() => {
+      const emailInput = document.getElementById('authEmail');
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+    }, 0);
+  };
+
+  const heroRegisterBtn = document.getElementById('heroRegisterBtn');
+  if (heroRegisterBtn) heroRegisterBtn.onclick = () => {
+    state.authMode = 'register';
+    state.notice = null;
+    render();
+    focusAuthEmail();
+  };
+
+  const finalRegisterBtn = document.getElementById('finalRegisterBtn');
+  if (finalRegisterBtn) finalRegisterBtn.onclick = () => {
+    state.authMode = 'register';
+    state.notice = null;
+    render();
+    focusAuthEmail();
+  };
+
+  const finalPricingBtn = document.getElementById('finalPricingBtn');
+  if (finalPricingBtn) finalPricingBtn.onclick = () => nav('/billing');
+
+  const authSubmitBtn = document.getElementById('authSubmitBtn');
+  if (authSubmitBtn) authSubmitBtn.onclick = async () => {
+    const email = document.getElementById('authEmail')?.value.trim().toLowerCase();
+    const password = document.getElementById('authPassword')?.value || '';
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email || !emailRe.test(email)) {
+      state.notice = { type: 'error', text: 'Введите корректный email.' };
+      render();
+      return;
+    }
+    if (password.length < 8) {
+      state.notice = { type: 'error', text: 'Пароль должен быть не короче 8 символов.' };
+      render();
+      return;
+    }
+
+    try {
+      const endpoint = state.authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+      const data = await api(endpoint, { method: 'POST', body: JSON.stringify({ email, password }) });
+      state.token = data.token;
+      localStorage.setItem('token', data.token);
+      await loadBase();
+      state.notice = { type: 'ok', text: state.authMode === 'login' ? 'Вход выполнен успешно.' : 'Аккаунт создан. Подключите Facebook на следующем шаге.' };
+      nav('/connections', { keepNotice: true });
+    } catch (e) {
+      const raw = String(e.message || 'Ошибка авторизации');
+      let text = 'Не удалось выполнить вход. Проверьте email и пароль.';
+      if (raw.toLowerCase().includes('существует') || raw.toLowerCase().includes('already')) {
+        text = 'Этот email уже зарегистрирован. Войдите в аккаунт.';
+      } else if (raw.toLowerCase().includes('не короче') || raw.toLowerCase().includes('short')) {
+        text = 'Пароль должен быть не короче 8 символов.';
+      } else if (raw.toLowerCase().includes('неверный') || raw.toLowerCase().includes('invalid')) {
+        text = 'Неверный email или пароль.';
+      }
+      state.notice = { type: 'error', text };
+      render();
+    }
+  };
+
+  ensureAiWizardState();
+
+  const setManagerLoading = (isLoading) => {
+    ensureAiWizardState();
+    state.aiWizard.status = isLoading ? 'submitting' : 'idle';
+    saveAiWizardDraft();
+  };
+
+  const setQuickLoading = (btn, loadingText, isLoading) => {
+    if (!btn) return;
+    if (!btn.dataset.defaultText) btn.dataset.defaultText = btn.textContent || '';
+    btn.disabled = !!isLoading;
+    btn.textContent = isLoading ? loadingText : btn.dataset.defaultText;
+  };
+
+  const readManagerPayload = ({ requireConnection, requireStep = 2 }) => {
+    ensureAiWizardState();
+    const w = state.aiWizard;
+    const errors = getWizardValidationErrors(w, requireStep);
+    if (errors.business_type) throw new Error(errors.business_type);
+    if (errors.niche) throw new Error(errors.niche);
+    if (errors.product_summary) throw new Error(errors.product_summary);
+    if (errors.goal) throw new Error(errors.goal);
+    if (errors.tone) throw new Error(errors.tone);
+    const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
+    if (requireConnection && !hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
+    return mapWizardStateToExistingPayload(w);
+  };
+
+  const updateWizard = (patch, status = 'typing') => {
+    ensureAiWizardState();
+    state.aiWizard = { ...state.aiWizard, ...patch };
+    state.aiWizard.status = status;
+    saveAiWizardDraft();
+  };
+
+  const scheduleAnalyzeRender = () => {
+    ensureAiWizardState();
+    state.aiWizard.status = 'analyzing';
+    saveAiWizardDraft();
+    if (window.__wizardAnalyzeTimer) clearTimeout(window.__wizardAnalyzeTimer);
+    window.__wizardAnalyzeTimer = setTimeout(() => {
+      ensureAiWizardState();
+      if (state.aiWizard.status !== 'submitting') state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      render();
+    }, 260);
+    render();
+  };
+
+  const wizardBlock = document.getElementById('aiWizardBlock');
+  if (wizardBlock) {
+    wizardBlock.addEventListener('keydown', (e) => {
+      ensureAiWizardState();
+      if (e.key !== 'Enter') return;
+      if (state.aiWizard.step >= 3) return;
+      const tag = String(e.target?.tagName || '').toLowerCase();
+      if (tag === 'textarea') return;
+      e.preventDefault();
+    });
+  }
+
+  const wizardProjectEl = document.getElementById('wizardProject');
+  if (wizardProjectEl) wizardProjectEl.onchange = () => {
+    updateWizard({ project_id: wizardProjectEl.value }, 'typing');
+    render();
+  };
+  const wizardNicheEl = document.getElementById('wizardNiche');
+  if (wizardNicheEl) wizardNicheEl.oninput = () => {
+    updateWizard({ niche: wizardNicheEl.value }, 'typing');
+    scheduleAnalyzeRender();
+  };
+  const wizardProductSummaryEl = document.getElementById('wizardProductSummary');
+  if (wizardProductSummaryEl) wizardProductSummaryEl.oninput = () => {
+    updateWizard({ product_summary: wizardProductSummaryEl.value }, 'typing');
+    render();
+  };
+  const wizardLangEl = document.getElementById('wizardLang');
+  if (wizardLangEl) wizardLangEl.onchange = () => {
+    updateWizard({ language: wizardLangEl.value }, 'typing');
+    scheduleAnalyzeRender();
+  };
+
+  document.querySelectorAll('[data-wizard-business]').forEach((btn) => {
+    btn.onclick = () => {
+      const value = String(btn.getAttribute('data-wizard-business') || '').trim();
+      updateWizard({ business_type: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-goal]').forEach((btn) => {
+    btn.onclick = () => {
+      const value = String(btn.getAttribute('data-wizard-goal') || '').trim();
+      updateWizard({ goal: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-tone]').forEach((btn) => {
+    btn.onclick = () => {
+      const value = String(btn.getAttribute('data-wizard-tone') || '').trim();
+      updateWizard({ tone: value }, 'typing');
+      scheduleAnalyzeRender();
+    };
+  });
+  document.querySelectorAll('[data-wizard-output]').forEach((el) => {
+    el.onchange = () => {
+      const key = String(el.getAttribute('data-wizard-output') || '').trim();
+      ensureAiWizardState();
+      state.aiWizard.outputs = { ...(state.aiWizard.outputs || {}), [key]: !!el.checked };
+      state.aiWizard.status = 'typing';
+      saveAiWizardDraft();
+      render();
+    };
+  });
+
+  const wizardPrevBtn = document.getElementById('wizardPrevBtn');
+  if (wizardPrevBtn) wizardPrevBtn.onclick = () => {
+    ensureAiWizardState();
+    state.aiWizard.step = Math.max(1, Number(state.aiWizard.step || 1) - 1);
+    state.aiWizard.status = 'idle';
+    saveAiWizardDraft();
+    render();
+  };
+  const wizardNextBtn = document.getElementById('wizardNextBtn');
+  if (wizardNextBtn) wizardNextBtn.onclick = () => {
+    ensureAiWizardState();
+    const step = Number(state.aiWizard.step || 1);
+    const errors = getWizardValidationErrors(state.aiWizard, step);
+    if (Object.keys(errors).length > 0) {
+      const firstError = errors.business_type || errors.niche || errors.product_summary || errors.goal || errors.tone || errors.outputs || 'Заполните обязательные поля шага.';
+      state.notice = { type: 'error', text: firstError };
+      return render();
+    }
+    state.aiWizard.step = Math.min(3, step + 1);
+    state.aiWizard.status = 'idle';
+    saveAiWizardDraft();
+    render();
+  };
+  const wizardRefreshPreviewBtn = document.getElementById('wizardRefreshPreviewBtn');
+  if (wizardRefreshPreviewBtn) wizardRefreshPreviewBtn.onclick = () => {
+    ensureAiWizardState();
+    state.aiWizard.status = 'analyzing';
+    saveAiWizardDraft();
+    render();
+    setTimeout(() => {
+      ensureAiWizardState();
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      render();
+    }, 220);
+  };
+  const wizardSubmitBtn = document.getElementById('wizardSubmitBtn');
+  if (wizardSubmitBtn) wizardSubmitBtn.onclick = async () => {
+    try {
+      ensureAiWizardState();
+      const errors = getWizardValidationErrors(state.aiWizard, 3);
+      if (Object.keys(errors).length > 0) {
+        const firstError = errors.business_type || errors.niche || errors.product_summary || errors.goal || errors.tone || errors.outputs || 'Проверьте поля и попробуйте снова.';
+        throw new Error(firstError);
+      }
+      setManagerLoading(true);
+      render();
+      const payload = readManagerPayload({ requireConnection: true, requireStep: 2 });
+      const r = await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const materializeDays = state.aiWizard.outputs?.plan7 ? 7 : 3;
+      const materializeLimit = state.aiWizard.outputs?.posts10 ? 10 : 5;
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: payload.project_id, days: materializeDays, limit: materializeLimit }),
+      });
+      const created = Number(r?.result?.created_plan_items || 0);
+      const existing = Number(r?.result?.existing_future_items || 0);
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      const skipped = Number(warmup?.result?.skipped || warmup?.skipped || 0);
+      if (created === 0 && existing > 0) {
+        state.notice = { type: 'ok', text: `Контент-план уже существует (будущих публикаций: ${existing}). Подготовлено черновиков: ${queued}.` };
+      } else {
+        state.notice = { type: 'ok', text: `План и черновики готовы: создан план на 30 дней, добавлено постов: ${queued}${skipped ? `, пропущено: ${skipped}` : ''}.` };
+      }
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      nav('/history', { keepNotice: true });
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось запустить генерацию.' };
+      ensureAiWizardState();
+      state.aiWizard.status = 'idle';
+      saveAiWizardDraft();
+      render();
+    }
   };
 
   const goConnectionsBtn = document.getElementById('goConnectionsBtn'); if (goConnectionsBtn) goConnectionsBtn.onclick = () => nav('/connections');
   const goCreateBtn = document.getElementById('goCreateBtn'); if (goCreateBtn) goCreateBtn.onclick = () => nav('/create');
   const goBillingBtn = document.getElementById('goBillingBtn'); if (goBillingBtn) goBillingBtn.onclick = () => nav('/billing');
-  const strategyBtn = document.getElementById('strategyBtn'); if (strategyBtn) strategyBtn.onclick = () => document.getElementById('startManagerBtn')?.click();
   const postTodayBtn = document.getElementById('postTodayBtn');
   if (postTodayBtn) postTodayBtn.onclick = async () => {
     try {
-      const projectRaw = document.getElementById('managerProject')?.value || '';
-      await api('/api/content-plan/materialize', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, days: 1, limit: 3 }) });
-      state.notice = { type: 'ok', text: 'Пост(ы) на сегодня поставлены в очередь и скоро появятся в истории.' };
-      nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+      setQuickLoading(postTodayBtn, 'Публикую...', true);
+      const payload = readManagerPayload({ requireConnection: true });
+      await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: payload.project_id, days: 1, limit: 3 }),
+      });
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «Календарь».' };
+      nav('/history', { keepNotice: true });
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setQuickLoading(postTodayBtn, 'Публикую...', false);
+    }
   };
 
   const scheduleWeekBtn = document.getElementById('scheduleWeekBtn');
   if (scheduleWeekBtn) scheduleWeekBtn.onclick = async () => {
     try {
-      const projectRaw = document.getElementById('managerProject')?.value || '';
-      await api('/api/content-plan/materialize', { method: 'POST', body: JSON.stringify({ project_id: projectRaw ? Number(projectRaw) : null, days: 7, limit: 20 }) });
-      state.notice = { type: 'ok', text: 'План на неделю поставлен в очередь: посты будут сгенерированы и запланированы автоматически.' };
-      nav('/history');
-    } catch (e) { state.notice = { type: 'error', text: e.message }; render(); }
+      setQuickLoading(scheduleWeekBtn, 'Планирую...', true);
+      const payload = readManagerPayload({ requireConnection: true });
+      await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
+      const warmup = await api('/api/content-plan/materialize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: payload.project_id, days: 7, limit: 20 }),
+      });
+      const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
+      state.notice = { type: 'ok', text: queued > 0 ? `План на неделю готов: в очередь добавлено ${queued} пост(ов).` : 'На ближайшую неделю контент уже подготовлен.' };
+      nav('/history', { keepNotice: true });
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message };
+      render();
+    } finally {
+      setQuickLoading(scheduleWeekBtn, 'Планирую...', false);
+    }
   };
   const createProjectInlineBtn = document.getElementById('createProjectInlineBtn');
   if (createProjectInlineBtn) createProjectInlineBtn.onclick = async () => {
@@ -915,6 +1887,44 @@ async function bind() {
       createProjectFromCreateBtn.disabled = false;
     }
   };
+  const wCategoryEl = document.getElementById('wCategory');
+  if (wCategoryEl) wCategoryEl.onchange = () => { state.createWizard.category = wCategoryEl.value; render(); };
+  const bindTopicTemplateButtons = () => {
+    document.querySelectorAll('[data-topic-template]').forEach((btn) => {
+      btn.onclick = () => {
+        const topic = (btn.getAttribute('data-topic-template') || '').trim();
+        const topicInput = document.getElementById('wTopic');
+        if (topicInput) topicInput.value = topic;
+        state.createWizard.topic = topic;
+        state.notice = null;
+      };
+    });
+  };
+  const refreshTopicTemplates = () => {
+    const topicInput = document.getElementById('wTopic');
+    if (topicInput) state.createWizard.topic = topicInput.value.trim();
+    const container = document.getElementById('wTopicTemplates');
+    if (!container) return;
+    const topicTemplates = buildCreateQuickTopics(state.createWizard.topic, state.createWizard.category);
+    container.innerHTML = topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('');
+    bindTopicTemplateButtons();
+  };
+  const wTopicEl = document.getElementById('wTopic');
+  if (wTopicEl) {
+    let topicTypingTimer = null;
+    wTopicEl.oninput = () => {
+      state.createWizard.topic = wTopicEl.value;
+      if (topicTypingTimer) clearTimeout(topicTypingTimer);
+      topicTypingTimer = setTimeout(refreshTopicTemplates, 250);
+    };
+  }
+  const wRefreshTopicsBtn = document.getElementById('wRefreshTopics');
+  if (wRefreshTopicsBtn) wRefreshTopicsBtn.onclick = () => refreshTopicTemplates();
+  const wToneEl = document.getElementById('wTone');
+  if (wToneEl) wToneEl.onchange = () => { state.createWizard.tone = wToneEl.value; render(); };
+  const wModeEl = document.getElementById('wMode');
+  if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; render(); };
+  bindTopicTemplateButtons();
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
   const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
@@ -923,7 +1933,7 @@ async function bind() {
     if (w.step === 2) {
       w.platforms.facebook = !!document.getElementById('wFb')?.checked;
       w.platforms.instagram = !!document.getElementById('wIg')?.checked;
-      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Р’С‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРЅСѓ РїР»Р°С‚С„РѕСЂРјСѓ.' }; return render(); }
+      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
     }
     if (w.step === 3) {
       w.category = document.getElementById('wCategory').value.trim();
@@ -931,7 +1941,14 @@ async function bind() {
       w.tone = document.getElementById('wTone').value;
       w.language = document.getElementById('wLang').value;
       w.mediaUrl = document.getElementById('wMedia').value.trim();
-      if (!w.topic) { state.notice = { type: 'error', text: 'РўРµРјР° РѕР±СЏР·Р°С‚РµР»СЊРЅР°.' }; return render(); }
+      if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна.' }; return render(); }
+      if (!w.previewText) {
+        w.previewText = '';
+      }
+    }
+    if (w.step === 4) {
+      w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
+      if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
     }
     if (w.step === 5) {
       w.mode = document.getElementById('wMode')?.value || 'now';
@@ -948,21 +1965,27 @@ async function bind() {
       // Persist step 5 fields on submit as well (in case user didn't hit Next).
       w.mode = document.getElementById('wMode')?.value || w.mode || 'now';
       w.scheduleAt = document.getElementById('wSchedule')?.value || w.scheduleAt || '';
+      w.previewText = (document.getElementById('wPreviewText')?.value || w.previewText || '').trim();
 
       const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
       if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
       if (!w.topic) throw new Error('Тема обязательна.');
+      if (!w.previewText) throw new Error('Добавьте текст в предпросмотре.');
 
-      const platform = w.platforms.instagram ? 'instagram' : 'facebook';
+      const selectedPlatforms = [
+        w.platforms.facebook ? 'facebook' : null,
+        w.platforms.instagram ? 'instagram' : null,
+      ].filter(Boolean);
+      if (!selectedPlatforms.length) throw new Error('Выберите хотя бы одну платформу.');
       const project_id = Number(w.projectId || state.projects[0]?.id || 0) || null;
-      const payload = {
+      const payloadBase = {
         project_id,
         topic: w.topic,
         category: w.category,
         tone: w.tone,
         language: w.language,
-        platform,
         media_url: w.mediaUrl || null,
+        generated_text: w.previewText,
       };
 
       wSubmit.disabled = true;
@@ -970,20 +1993,47 @@ async function bind() {
 
       if (w.mode === 'schedule') {
         if (!w.scheduleAt) throw new Error('Укажите дату и время для планирования.');
-        // datetime-local -> ISO (no timezone). Backend expects ISO.
-        payload.schedule_at = new Date(w.scheduleAt).toISOString();
-        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-        state.notice = { type: 'ok', text: 'Пост создан и запланирован.' };
+        const scheduleAtIso = localInputToIsoNoTz(w.scheduleAt);
+        if (!scheduleAtIso) throw new Error('Некорректные дата/время планирования.');
+        for (const platform of selectedPlatforms) {
+          const payload = { ...payloadBase, platform, schedule_at: scheduleAtIso };
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты созданы и запланированы для Facebook и Instagram.' : 'Пост создан и запланирован.' };
         nav('/history');
         return;
       }
 
-      // mode=now: generate content and then call publish endpoint (mock for now).
-      const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
-      const postId = created?.id;
-      if (!postId) throw new Error('Не удалось создать пост.');
-      await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
-      state.notice = { type: 'ok', text: 'Пост опубликован.' };
+      // mode=draft: generate content only, without publishing.
+      if (w.mode === 'draft') {
+        for (const platform of selectedPlatforms) {
+          const payload = { ...payloadBase, platform, save_as_draft: true };
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Черновики созданы для Facebook и Instagram.' : 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
+        nav('/history');
+        return;
+      }
+
+      // mode=now: generate content and then call publish endpoint.
+      let sharedMediaUrl = (w.mediaUrl || '').trim() || null;
+      const publishErrors = [];
+      for (const platform of selectedPlatforms) {
+        const payload = { ...payloadBase, platform, media_url: sharedMediaUrl };
+        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        const postId = created?.id;
+        if (!postId) throw new Error(`Не удалось создать пост для ${platform}.`);
+        if (!sharedMediaUrl && created?.media_url) sharedMediaUrl = created.media_url;
+        try {
+          await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
+        } catch (pubErr) {
+          publishErrors.push(`${platform === 'facebook' ? 'Facebook' : 'Instagram'}: ${pubErr?.message || 'ошибка публикации'}`);
+        }
+      }
+      if (publishErrors.length) {
+        throw new Error(`Часть публикаций не выполнена: ${publishErrors.join(' ; ')}`);
+      }
+      state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты опубликованы в Facebook и Instagram.' : 'Пост опубликован.' };
       nav('/history');
     } catch (e) {
       let text = e.message || 'Ошибка публикации.';
@@ -993,7 +2043,11 @@ async function bind() {
       state.notice = { type: 'error', text };
       render();
     } finally {
-      try { wSubmit.disabled = false; wSubmit.textContent = 'Создать и опубликовать'; } catch {}
+      try {
+        const mode = document.getElementById('wMode')?.value || state.createWizard.mode || 'now';
+        wSubmit.disabled = false;
+        wSubmit.textContent = mode === 'schedule' ? 'Создать и запланировать' : (mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
+      } catch {}
     }
   };
 
@@ -1211,6 +2265,154 @@ async function bind() {
     }
   };
 
+  const openPostEditor = async (id) => {
+    if (!id) return;
+    state.postEditor = { open: true, saving: false, post: null, error: '', loading: true };
+    render();
+    try {
+      const post = await api(`/api/posts/${id}`);
+      state.postEditor = { open: true, saving: false, post, error: '', loading: false };
+      render();
+    } catch (e) {
+      state.postEditor = { open: true, saving: false, post: null, error: e.message || 'Не удалось загрузить пост.', loading: false };
+      render();
+    }
+  };
+  const closePostEditor = () => {
+    state.postEditor = { open: false, saving: false, post: null, error: '' };
+    render();
+  };
+
+  const postEditBackdrop = document.getElementById('postEditBackdrop');
+  if (postEditBackdrop) postEditBackdrop.onclick = (e) => { if (e.target && e.target.id === 'postEditBackdrop') closePostEditor(); };
+  const closePostEditBtn = document.getElementById('closePostEditBtn');
+  if (closePostEditBtn) closePostEditBtn.onclick = closePostEditor;
+
+  const clearScheduleBtn = document.getElementById('clearScheduleBtn');
+  if (clearScheduleBtn) clearScheduleBtn.onclick = () => {
+    const el = document.getElementById('editSchedule');
+    if (el) el.value = '';
+  };
+
+  const savePostEditBtn = document.getElementById('savePostEditBtn');
+  if (savePostEditBtn) savePostEditBtn.onclick = async () => {
+    const post = state.postEditor?.post;
+    if (!post?.id) return;
+    const topic = (document.getElementById('editTopic')?.value || '').trim();
+    if (!topic) {
+      state.postEditor = { ...state.postEditor, error: 'Введите тему поста.' };
+      render();
+      return;
+    }
+    const payload = {
+      topic,
+      generated_text: (document.getElementById('editText')?.value || '').trim(),
+      platform: (document.getElementById('editPlatform')?.value || 'instagram').trim(),
+      media_url: (document.getElementById('editMedia')?.value || '').trim(),
+      schedule_at: null,
+    };
+    const scheduleValue = (document.getElementById('editSchedule')?.value || '').trim();
+    if (scheduleValue) {
+      payload.schedule_at = localInputToIsoNoTz(scheduleValue);
+      if (!payload.schedule_at) {
+        state.postEditor = { ...state.postEditor, saving: false, error: 'Некорректные дата/время публикации.' };
+        render();
+        return;
+      }
+    }
+    state.postEditor = { ...state.postEditor, saving: true, error: '' };
+    render();
+    try {
+      await api(`/api/posts/${post.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост обновлен.' };
+      state.postEditor = { open: false, saving: false, post: null, error: '' };
+      render();
+    } catch (e) {
+      state.postEditor = { ...state.postEditor, saving: false, error: e.message || 'Не удалось сохранить пост.' };
+      render();
+    }
+  };
+
+  document.querySelectorAll('[data-edit-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.editPost || b.getAttribute('data-edit-post'));
+    await openPostEditor(id);
+  });
+
+  const updateHistorySelectedDayPanel = (key) => {
+    if (!key) return;
+    const labelEl = document.getElementById('historySelectedDayLabel');
+    const postsEl = document.getElementById('historySelectedDayPosts');
+    if (!labelEl || !postsEl) return;
+
+    const dayDate = new Date(`${key}T00:00:00`);
+    labelEl.textContent = dayDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const isPublishedPostLocal = (p) => {
+      const status = String(p?.status || '').toLowerCase();
+      return Boolean(p?.published_at) || Boolean(p?.remote_id) || status === 'published';
+    };
+    const postsForDay = (state.posts || []).filter((p) => {
+      const published = isPublishedPostLocal(p);
+      const calendarDate = published ? (p.published_at || p.schedule_at || p.created_at) : p.schedule_at;
+      return calendarDate && localDateKey(calendarDate) === key;
+    }).sort((a, b) => {
+      const da = new Date(a.published_at || a.schedule_at || a.created_at).getTime();
+      const db = new Date(b.published_at || b.schedule_at || b.created_at).getTime();
+      return da - db;
+    });
+
+    if (!postsForDay.length) {
+      postsEl.innerHTML = '<div class="small muted">На этот день постов нет</div>';
+      return;
+    }
+
+    postsEl.innerHTML = postsForDay.map((p) => {
+      const published = isPublishedPostLocal(p);
+      const title = p.topic || p.title_preview || `Пост #${p.id}`;
+      const when = p.published_at
+        ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}`
+        : (p.schedule_at ? `План: ${new Date(p.schedule_at).toLocaleString()}` : 'Без даты');
+      return `<article class="phone-post-row">
+        <div class="phone-post-main">
+          <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
+          <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${published ? 'Опубликован' : 'Черновик'}</div>
+        </div>
+      </article>`;
+    }).join('');
+  };
+
+  document.querySelectorAll('[data-calendar-day]').forEach((btn) => {
+    btn.onclick = () => {
+      const key = String(btn.dataset.calendarDay || '');
+      if (!key) return;
+      state.historyCalendar = { ...(state.historyCalendar || {}), selectedDayKey: key, monthsSpan: 1 };
+      document.querySelectorAll('[data-calendar-day].is-selected').forEach((el) => el.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+      updateHistorySelectedDayPanel(key);
+    };
+  });
+
+  const calendarPrevMonthBtn = document.getElementById('calendarPrevMonthBtn');
+  if (calendarPrevMonthBtn) calendarPrevMonthBtn.onclick = () => {
+    const cur = monthStartFromKey(state.historyCalendar?.monthKey);
+    const prev = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(prev) };
+    render();
+  };
+  const calendarNextMonthBtn = document.getElementById('calendarNextMonthBtn');
+  if (calendarNextMonthBtn) calendarNextMonthBtn.onclick = () => {
+    const cur = monthStartFromKey(state.historyCalendar?.monthKey);
+    const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(next) };
+    render();
+  };
+  const calendarTodayBtn = document.getElementById('calendarTodayBtn');
+  if (calendarTodayBtn) calendarTodayBtn.onclick = () => {
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(new Date()), monthsSpan: 1 };
+    render();
+  };
+
   const closePostViewer = () => { state.postViewer = { open: false, loading: false, post: null, error: '' }; render(); };
   const closePostViewerBtn = document.getElementById('closePostViewerBtn');
   if (closePostViewerBtn) closePostViewerBtn.onclick = closePostViewer;
@@ -1255,12 +2457,49 @@ async function bind() {
     }
   });
 
+  document.querySelectorAll('[data-delete-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.deletePost || b.getAttribute('data-delete-post'));
+    if (!id) return;
+    if (!confirm('Удалить неопубликованный пост? Это действие нельзя отменить.')) return;
+    try {
+      await api(`/api/posts/${id}`, { method: 'DELETE' });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост удален.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось удалить пост.' };
+      render();
+    }
+  });
+
+  document.querySelectorAll('[data-hide-post]').forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.hidePost || b.getAttribute('data-hide-post'));
+    if (!id) return;
+    if (!confirm('Убрать опубликованный пост из календаря/истории на сайте?')) return;
+    try {
+      await api(`/api/posts/${id}/hide`, { method: 'POST', body: '{}' });
+      state.posts = await api('/api/posts');
+      state.notice = { type: 'ok', text: 'Пост скрыт с сайта.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось скрыть пост.' };
+      render();
+    }
+  });
+
   const checkoutSubscription = async (plan) => {
     try {
       const r = await api('/api/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ plan }) });
       location.href = r.checkout_url;
     } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось открыть оплату. Проверьте настройки Stripe.' };
+      const msg = String(e?.message || '');
+      const stripeConfigError = /stripe.+not configured|price id.+not configured/i.test(msg);
+      state.notice = {
+        type: 'error',
+        text: stripeConfigError
+          ? 'Оплата временно недоступна: Stripe еще не настроен.'
+          : (msg || 'Не удалось открыть оплату. Проверьте настройки Stripe.'),
+      };
       render();
     }
   };
@@ -1272,7 +2511,14 @@ async function bind() {
       const r = await api('/api/billing/portal', { method: 'POST', body: '{}' });
       location.href = r.portal_url;
     } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось открыть портал подписки. Проверьте настройки Stripe.' };
+      const msg = String(e?.message || '');
+      const stripeConfigError = /stripe.+not configured|stripe customer is not linked/i.test(msg);
+      state.notice = {
+        type: 'error',
+        text: stripeConfigError
+          ? 'Портал подписки недоступен: Stripe не подключен.'
+          : (msg || 'Не удалось открыть портал подписки. Проверьте настройки Stripe.'),
+      };
       render();
     }
   };
@@ -1297,41 +2543,24 @@ async function render() {
     if (!state.authProviders) await loadAuthProviders();
     const oauthToken = query.get('oauth_token');
     const oauthError = query.get('oauth_error');
-    const oauthMessages = {
-      google_not_configured: 'Google login is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
-      google_denied: 'Google login was canceled.',
-      google_missing_code: 'Google OAuth error: missing authorization code.',
-      google_token_exchange_failed: 'Google OAuth error during token exchange.',
-      google_token_missing: 'Google OAuth error: access token is missing.',
-      google_profile_failed: 'Google OAuth error: cannot load profile.',
-      facebook_not_configured: 'Facebook login is not configured. Set FACEBOOK_APP_ID/FACEBOOK_APP_SECRET (or FB_LOGIN_APP_ID/FB_LOGIN_APP_SECRET).',
-      facebook_denied: 'Facebook login was canceled.',
-      facebook_missing_code: 'Facebook OAuth error: missing authorization code.',
-      facebook_token_exchange_failed: 'Facebook OAuth error during token exchange.',
-      facebook_token_missing: 'Facebook OAuth error: access token is missing.',
-      facebook_profile_failed: 'Facebook OAuth error: cannot load profile.',
-      facebook_email_missing: 'Facebook did not return your email. Grant email permission and try again.',
-      oauth_profile_incomplete: 'OAuth profile is incomplete. Try another login method.',
-      state_invalid: 'OAuth session expired. Start login again.',
-    };
 
     if (oauthToken) {
       state.token = oauthToken;
       localStorage.setItem('token', oauthToken);
       try {
         await loadBase();
-        state.notice = { type: 'ok', text: 'OAuth login successful.' };
+        state.notice = { type: 'ok', text: 'Вход выполнен успешно.' };
         history.replaceState({}, '', '/dashboard');
         path = '/dashboard';
       } catch {
         state.token = '';
         localStorage.removeItem('token');
-        state.notice = { type: 'error', text: 'OAuth token is invalid. Please login again.' };
+        state.notice = { type: 'error', text: 'Не удалось выполнить вход. Попробуйте снова.' };
         history.replaceState({}, '', '/login');
         path = '/login';
       }
     } else if (oauthError) {
-      state.notice = { type: 'error', text: oauthMessages[oauthError] || 'OAuth login failed.' };
+      state.notice = { type: 'error', text: 'Социальный вход временно недоступен. Используйте email и пароль.' };
       history.replaceState({}, '', '/login');
       path = '/login';
     }
@@ -1373,7 +2602,33 @@ async function render() {
       history.replaceState({}, '', '/connections');
     }
   }
-  try { if (isAuthRoute(path)) { await loadBase(); await preload(path); } } catch { state.token = ''; localStorage.removeItem('token'); history.replaceState({}, '', '/login'); path = '/login'; state.notice = { type: 'error', text: 'РЎРµСЃСЃРёСЏ РёСЃС‚РµРєР»Р°. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°.' }; }
+  if (path === '/billing') {
+    if (query.get('success') === '1') {
+      state.notice = { type: 'ok', text: 'Оплата прошла успешно. Тариф обновится после подтверждения Stripe.' };
+      history.replaceState({}, '', '/billing');
+    } else if (query.get('cancel') === '1') {
+      state.notice = { type: 'error', text: 'Оплата отменена. Тариф не изменен.' };
+      history.replaceState({}, '', '/billing');
+    }
+  }
+  try {
+    if (isAuthRoute(path)) {
+      await loadBase();
+      await preload(path);
+    } else if (path === '/blog') {
+      await preload(path);
+    }
+  } catch {
+    if (path === '/blog') {
+      state.notice = { type: 'error', text: 'Не удалось загрузить статьи блога.' };
+    } else {
+      state.token = '';
+      localStorage.removeItem('token');
+      history.replaceState({}, '', '/login');
+      path = '/login';
+      state.notice = { type: 'error', text: 'РЎРµСЃСЃРёСЏ РёСЃС‚РµРєР»Р°. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°.' };
+    }
+  }
   if (currentRender !== renderVersion) return;
   document.getElementById('app').innerHTML = decodeMojibake(page(path));
   if (currentRender !== renderVersion) return;
@@ -1388,7 +2643,9 @@ document.addEventListener('click', (e) => {
   e.stopPropagation();
   nav(el.getAttribute('data-link'));
 });
+loadAiWizardDraft();
 render();
+
 
 
 

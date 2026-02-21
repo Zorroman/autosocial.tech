@@ -18,7 +18,7 @@ const _savedApiHost = (() => {
 })();
 const _savedApiAllowed = _isLocal
   ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(_savedApiBase)
-  : /^api(-dev)?\.autosocial\.tech$/i.test(_savedApiHost);
+  : false;
 const _defaultApiBase = _isLocal
   ? 'http://127.0.0.1:5000'
   : `${window.location.protocol}//api.${_rootHost}`;
@@ -322,6 +322,29 @@ const WIZARD_OUTPUT_OPTIONS = [
   { key: 'hashtags', label: 'Хештеги и CTA' },
   { key: 'bio', label: 'Описание профиля' },
 ];
+const CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY = {
+  business: 'выбор услуги',
+  marketing: 'продвижение бизнеса',
+  fitness: 'старт тренировок',
+  ecommerce: 'выбор товара',
+  beauty: 'уход и процедуры',
+  auto: 'обслуживание автомобиля',
+  fallback: 'решение задачи клиента',
+};
+
+function buildCreateQuickTopics(topic, category) {
+  const raw = String(topic || '').trim().replace(/\s+/g, ' ');
+  const normalized = raw.replace(/^[\s"'`]+|[\s"'`]+$/g, '');
+  const focus = normalized || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY[String(category || 'business')] || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY.business;
+  const suffix = `по теме "${focus}"`;
+  return [
+    `3 частые ошибки клиентов ${suffix}`,
+    `Чек-лист ${suffix}: что проверить перед стартом`,
+    `Кейс ${suffix}: как получили результат за 7 дней`,
+    `Сравнение ${suffix}: 2 подхода и какой выбрать`,
+    `5 советов ${suffix}, чтобы снизить лишние расходы`,
+  ];
+}
 
 function defaultAiWizardState() {
   return {
@@ -569,7 +592,7 @@ function appLayout(path, title, body) {
     ['/dashboard', 'РџР°РЅРµР»СЊ', 'dashboard'],
     ['/create', 'РЎРѕР·РґР°С‚СЊ', 'create'],
     ['/connections', 'РџРѕРґРєР»СЋС‡РµРЅРёСЏ', 'connections'],
-    ['/history', 'История', 'history'],
+    ['/history', 'Календарь', 'history'],
     ['/billing', 'РўР°СЂРёС„С‹', 'billing'],
     ['/settings', 'РќР°СЃС‚СЂРѕР№РєРё', 'settings'],
     ['/blog', 'Р‘Р»РѕРі', 'blog'],
@@ -695,7 +718,7 @@ function pageDashboard() {
   const onboardingPct = Math.round((onboardingScore / 3) * 100);
   const canSchedule = !!b.limits.can_schedule;
   const projectsHtml = state.projects.length
-    ? `<div class="grid-2">${state.projects.map((p) => `<article class="card"><div class="row" style="justify-content:space-between;align-items:flex-start;"><div><h3 style="margin-bottom:6px;">${esc(p.name)}</h3><div class="small">Создан: ${new Date(p.created_at).toLocaleDateString()}</div><div class="small">Постов: ${p.posts_count || 0}</div></div><div class="cta-row" style="gap:8px;justify-content:flex-end;"><button class="btn btn-ghost" type="button" data-project-edit="${p.id}" data-project-name="${esc(p.name)}">Переименовать</button></div></div></article>`).join('')}</div>`
+    ? `<div class="grid-2">${state.projects.map((p) => `<article class="card"><div class="row" style="justify-content:space-between;align-items:flex-start;"><div><h3 style="margin-bottom:6px;">${esc(p.name)}</h3><div class="small">Создан: ${new Date(p.created_at).toLocaleDateString()}</div><div class="small">Постов: ${p.posts_count || 0}</div></div><div class="cta-row" style="gap:8px;justify-content:flex-end;"><button class="btn btn-ghost" type="button" data-project-edit="${p.id}" data-project-name="${esc(p.name)}">Переименовать</button><button class="btn btn-danger" type="button" data-project-delete="${p.id}" data-project-name="${esc(p.name)}">Удалить</button></div></div></article>`).join('')}</div>`
     : emptyState('Пока нет проектов', 'Создайте первый проект, чтобы запускать AI-автоматизацию.', 'Создать проект', '/create');
   const recentHtml = latestPosts.length
     ? `<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Платформа</th><th>Тема</th><th>Статус</th></tr></thead><tbody>${latestPosts.map((p) => `<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${esc(p.platform || '—')}</td><td>${esc(p.topic || '—')}</td><td>${statusBadge(p.status || 'queued')}</td></tr>`).join('')}</tbody></table></div>`
@@ -820,13 +843,7 @@ function pageCreate() {
     auto: 'Для автосервисов, детейлинга, продажи авто.',
     fallback: 'Универсальный режим, если ниша нестандартная.',
   };
-  const topicTemplates = [
-    '3 частые ошибки клиентов в выборе услуги',
-    'Чек-лист: как подготовиться перед обращением',
-    'Кейс: как мы получили результат за 7 дней',
-    'Сравнение: 2 подхода и какой выбрать',
-    '5 советов, которые экономят бюджет клиенту',
-  ];
+  const topicTemplates = buildCreateQuickTopics(w.topic, w.category);
   const toneOptions = [
     { value: 'friendly', label: 'Дружелюбный', hint: 'Простой и живой язык, без давления.' },
     { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
@@ -878,10 +895,14 @@ function pageCreate() {
     <p class="small wizard-inline-help">${esc(categoryHints[w.category] || categoryHints.business)}</p>
     ${field('wTopic', 'Тема поста', 'text', w.topic, 'Например: 3 ошибки при выборе автосервиса')}
     <div class="field">
-      <label>Быстрые темы</label>
-      <div class="topic-template-row">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <label style="margin:0;">Быстрые темы</label>
+        <button id="wRefreshTopics" type="button" class="btn btn-ghost">Обновить</button>
+      </div>
+      <div id="wTopicTemplates" class="topic-template-row">
         ${topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('')}
       </div>
+      <p class="small wizard-inline-help">Подбираются под введённую тему. Нажмите "Обновить", если изменили формулировку.</p>
     </div>
     ${selectField('wTone', 'Тон текста', w.tone, toneOptions.map((t) => ({ value: t.value, label: t.label })))}
     <p class="small wizard-inline-help">${esc((toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).hint)}</p>
@@ -1276,7 +1297,7 @@ function pageHistory() {
           }).join('')}
         </tbody>
       </table></div>`
-    : emptyState('История пуста', 'Создайте первый пост и опубликуйте его.', 'Создать пост', '/create');
+    : emptyState('Календарь пуст', 'Создайте первый пост и опубликуйте его.', 'Создать пост', '/create');
 
   const modalBody = viewer.loading
     ? `<p class="small">Загружаю пост…</p>`
@@ -1346,7 +1367,7 @@ function pageHistory() {
     </div>
   </div>`;
 
-  return appLayout('/history','История',`${plannerBoard}<section class="card"><h2>История публикаций</h2>${table}</section>${modal}${editModal}`);
+  return appLayout('/history','Календарь',`${plannerBoard}<section class="card"><h2>Архив публикаций</h2>${table}</section>${modal}${editModal}`);
 }
 
 function pageBilling() {
@@ -1440,7 +1461,7 @@ function pageContact() {
 
 function adminUsersTable() {
   if (!state.adminUsers.length) return '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР°.</p>';
-  return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.role === 'admin' ? 'admin' : u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function pageAdmin() {
@@ -1783,7 +1804,7 @@ async function bind() {
         body: JSON.stringify({ project_id: payload.project_id, days: 1, limit: 3 }),
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
-      state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «История».' };
+      state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «Календарь».' };
       nav('/history', { keepNotice: true });
     } catch (e) {
       state.notice = { type: 'error', text: e.message };
@@ -1868,19 +1889,42 @@ async function bind() {
   };
   const wCategoryEl = document.getElementById('wCategory');
   if (wCategoryEl) wCategoryEl.onchange = () => { state.createWizard.category = wCategoryEl.value; render(); };
+  const bindTopicTemplateButtons = () => {
+    document.querySelectorAll('[data-topic-template]').forEach((btn) => {
+      btn.onclick = () => {
+        const topic = (btn.getAttribute('data-topic-template') || '').trim();
+        const topicInput = document.getElementById('wTopic');
+        if (topicInput) topicInput.value = topic;
+        state.createWizard.topic = topic;
+        state.notice = null;
+      };
+    });
+  };
+  const refreshTopicTemplates = () => {
+    const topicInput = document.getElementById('wTopic');
+    if (topicInput) state.createWizard.topic = topicInput.value.trim();
+    const container = document.getElementById('wTopicTemplates');
+    if (!container) return;
+    const topicTemplates = buildCreateQuickTopics(state.createWizard.topic, state.createWizard.category);
+    container.innerHTML = topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('');
+    bindTopicTemplateButtons();
+  };
+  const wTopicEl = document.getElementById('wTopic');
+  if (wTopicEl) {
+    let topicTypingTimer = null;
+    wTopicEl.oninput = () => {
+      state.createWizard.topic = wTopicEl.value;
+      if (topicTypingTimer) clearTimeout(topicTypingTimer);
+      topicTypingTimer = setTimeout(refreshTopicTemplates, 250);
+    };
+  }
+  const wRefreshTopicsBtn = document.getElementById('wRefreshTopics');
+  if (wRefreshTopicsBtn) wRefreshTopicsBtn.onclick = () => refreshTopicTemplates();
   const wToneEl = document.getElementById('wTone');
   if (wToneEl) wToneEl.onchange = () => { state.createWizard.tone = wToneEl.value; render(); };
   const wModeEl = document.getElementById('wMode');
   if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; render(); };
-  document.querySelectorAll('[data-topic-template]').forEach((btn) => {
-    btn.onclick = () => {
-      const topic = (btn.getAttribute('data-topic-template') || '').trim();
-      const topicInput = document.getElementById('wTopic');
-      if (topicInput) topicInput.value = topic;
-      state.createWizard.topic = topic;
-      state.notice = null;
-    };
-  });
+  bindTopicTemplateButtons();
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
   const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
@@ -2293,6 +2337,27 @@ async function bind() {
   document.querySelectorAll('[data-edit-post]').forEach((b) => b.onclick = async () => {
     const id = Number(b.dataset.editPost || b.getAttribute('data-edit-post'));
     await openPostEditor(id);
+  });
+  document.querySelectorAll('[data-project-delete]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        const id = Number(btn.dataset.projectDelete);
+        const name = String(btn.dataset.projectName || '').trim();
+        const reallyDelete = confirm(`Вы точно хотите удалить проект "${name}"? Это действие необратимо.`);
+        if (!reallyDelete) return;
+        const confirmation = prompt(`Введите название проекта "${name}", чтобы подтвердить удаление:`, '');
+        if (confirmation === null) return;
+        const confirmName = String(confirmation).trim();
+        if (!confirmName) throw new Error('Нужно ввести название проекта для подтверждения.');
+        await api(`/api/projects/${id}`, { method: 'DELETE', body: JSON.stringify({ confirm_name: confirmName }) });
+        await loadBase();
+        state.notice = { type: 'ok', text: 'Проект удален.' };
+        render();
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message };
+        render();
+      }
+    };
   });
 
   const updateHistorySelectedDayPanel = (key) => {
