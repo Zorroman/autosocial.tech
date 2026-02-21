@@ -58,6 +58,7 @@ const state = {
     projectId: '',
     category: 'business',
     topic: '',
+    quickTopicsVersion: 0,
     tone: 'friendly',
     language: 'ru',
     previewText: '',
@@ -336,50 +337,91 @@ const WIZARD_OUTPUT_OPTIONS = [
   { key: 'hashtags', label: 'Хештеги и CTA' },
   { key: 'bio', label: 'Описание профиля' },
 ];
-const CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY = {
-  business: 'выбор услуги',
-  marketing: 'продвижение бизнеса',
-  fitness: 'старт тренировок',
-  ecommerce: 'выбор товара',
-  beauty: 'уход и процедуры',
-  auto: 'обслуживание автомобиля',
-  fallback: 'решение задачи клиента',
+const CREATE_QUICK_TOPIC_POOL_BY_CATEGORY = {
+  business: [
+    '3 ошибки, из-за которых клиент переплачивает за услугу',
+    'Чек-лист: что спросить у подрядчика до оплаты',
+    'Кейс: как сократили срок услуги без потери качества',
+    'Сравнение: разовая услуга или долгосрочное сопровождение',
+    '5 признаков, что услуга вам действительно подходит',
+    'Как проверить компетентность исполнителя за 10 минут',
+    'Почему "дешево" часто выходит дороже: разбор на примере',
+    'Что должно быть в договоре, чтобы не потерять деньги',
+  ],
+  marketing: [
+    '3 ошибки в продвижении, которые сливают бюджет',
+    'Чек-лист запуска рекламы: от оффера до аналитики',
+    'Кейс: как подняли заявки без увеличения бюджета',
+    'Сравнение: органический контент vs таргет в 2026',
+    '5 рабочих форматов контента для стабильных лидов',
+    'Почему охваты есть, а продаж нет: что проверить',
+    'Как быстро понять, что креатив не работает',
+    'План контента на неделю для малого бизнеса',
+  ],
+  fitness: [
+    '3 ошибки новичков, которые тормозят прогресс',
+    'Чек-лист: как безопасно начать тренировки после паузы',
+    'Кейс: как выйти на результат за 30 дней без перегруза',
+    'Сравнение: домашние тренировки или зал',
+    '5 привычек, которые ускоряют прогресс в форме',
+    'Почему вес стоит: главные причины и решения',
+    'Как составить реалистичный план тренировок на неделю',
+    'Что важнее для результата: питание или тренировки',
+  ],
+  ecommerce: [
+    '3 ошибки карточки товара, из-за которых нет продаж',
+    'Чек-лист: как оформить карточку, чтобы росла конверсия',
+    'Кейс: как подняли средний чек в интернет-магазине',
+    'Сравнение: скидка или бонус - что продает лучше',
+    '5 элементов, которые повышают доверие к магазину',
+    'Как сократить брошенные корзины без агрессивных скидок',
+    'Почему товар смотрят, но не покупают: разбор',
+    'Как написать описание товара, которое продает',
+  ],
+  beauty: [
+    '3 ошибки в уходе, которые портят результат процедур',
+    'Чек-лист подготовки к процедуре: что важно сделать заранее',
+    'Кейс: как получили заметный эффект за короткий курс',
+    'Сравнение: две популярные процедуры и кому что подходит',
+    '5 советов по уходу, чтобы продлить результат',
+    'Как выбрать мастера и не пожалеть после первого визита',
+    'Почему результат "не держится": основные причины',
+    'Что нельзя делать после процедуры: памятка клиенту',
+  ],
+  auto: [
+    '3 ошибки автовладельцев при выборе сервиса',
+    'Чек-лист перед визитом в СТО: что подготовить',
+    'Кейс: как предотвратили дорогой ремонт вовремя',
+    'Сравнение: оригинальные запчасти или качественный аналог',
+    '5 признаков, что машине нужна срочная диагностика',
+    'Как говорить с мастером, чтобы не навязали лишнее',
+    'Почему "дотяну до потом" приводит к большим тратам',
+    'Что проверить после ремонта перед оплатой',
+  ],
+  fallback: [
+    '3 частые ошибки клиентов при выборе решения',
+    'Чек-лист: как подготовиться перед обращением',
+    'Кейс: как получили измеримый результат за короткий срок',
+    'Сравнение: 2 подхода и какой выбрать',
+    '5 практических советов, которые экономят бюджет',
+    'Как оценить качество услуги до старта работы',
+    'Что чаще всего упускают на старте проекта',
+    'Какие вопросы задавать, чтобы избежать рисков',
+  ],
 };
 
-function buildCreateQuickTopics(topic, category) {
-  const raw = String(topic || '').trim().replace(/\s+/g, ' ');
-  const extractFocus = (value) => {
-    const source = String(value || '').trim();
-    if (!source) return '';
-    const quotedPatterns = [
-      /по теме\s+"([^"]+)"/i,
-      /по теме\s+«([^»]+)»/i,
-    ];
-    for (const re of quotedPatterns) {
-      const m = source.match(re);
-      if (m?.[1]) return m[1].trim();
-    }
-    const genericTopicMatch = source.match(/по теме\s+([^:,.!?]+)/i);
-    if (genericTopicMatch?.[1]) return genericTopicMatch[1].trim().replace(/^["'`«]+|["'`»]+$/g, '').trim();
-    const templatePrefix = /^(3\s+част[а-я]+.*?по теме|чек-лист\s+по теме|кейс\s+по теме|сравнение\s+по теме|5\s+советов?\s+по теме)\s+/i;
-    if (templatePrefix.test(source)) {
-      const withoutPrefix = source.replace(templatePrefix, '').trim();
-      const noTail = withoutPrefix.replace(/[:,-].*$/, '').trim();
-      const unquoted = noTail.replace(/^["'`«]+|["'`»]+$/g, '').trim();
-      if (unquoted) return unquoted;
-    }
-    return source;
+function buildCreateQuickTopics(category, version = 0) {
+  const key = String(category || 'fallback');
+  const pool = CREATE_QUICK_TOPIC_POOL_BY_CATEGORY[key] || CREATE_QUICK_TOPIC_POOL_BY_CATEGORY.fallback;
+  const count = Math.min(5, pool.length);
+  const seedBase = Array.from(`${key}:${Number(version) || 0}`).reduce((acc, ch) => acc + ch.charCodeAt(0), 0) || 1;
+  let seed = seedBase;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
   };
-  const normalized = extractFocus(raw).replace(/^[\s"'`«]+|[\s"'`»]+$/g, '');
-  const focus = normalized || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY[String(category || 'business')] || CREATE_QUICK_TOPIC_FALLBACK_BY_CATEGORY.business;
-  const suffix = `по теме "${focus}"`;
-  return [
-    `3 частые ошибки клиентов ${suffix}`,
-    `Чек-лист ${suffix}: что проверить перед стартом`,
-    `Кейс ${suffix}: как получили результат за 7 дней`,
-    `Сравнение ${suffix}: 2 подхода и какой выбрать`,
-    `5 советов ${suffix}, чтобы снизить лишние расходы`,
-  ];
+  const shuffled = [...pool].sort(() => rnd() - 0.5);
+  return shuffled.slice(0, count);
 }
 
 function defaultAiWizardState() {
@@ -880,7 +922,7 @@ function pageCreate() {
     auto: 'Для автосервисов, детейлинга, продажи авто.',
     fallback: 'Универсальный режим, если ниша нестандартная.',
   };
-  const topicTemplates = buildCreateQuickTopics(w.topic, w.category);
+  const topicTemplates = buildCreateQuickTopics(w.category, w.quickTopicsVersion || 0);
   const toneOptions = [
     { value: 'friendly', label: 'Дружелюбный', hint: 'Простой и живой язык, без давления.' },
     { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
@@ -939,7 +981,7 @@ function pageCreate() {
       <div id="wTopicTemplates" class="topic-template-row">
         ${topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('')}
       </div>
-      <p class="small wizard-inline-help quick-topics-help">Подбираются под введённую тему. Нажмите "Обновить", если изменили формулировку.</p>
+      <p class="small wizard-inline-help quick-topics-help">Подбираются по категории бизнеса. Нажмите "Обновить", чтобы получить другой набор.</p>
     </div>
     ${selectField('wTone', 'Тон текста', w.tone, toneOptions.map((t) => ({ value: t.value, label: t.label })))}
     <p class="small wizard-inline-help">${esc((toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).hint)}</p>
@@ -1953,13 +1995,15 @@ async function bind() {
     }
   };
   const wCategoryEl = document.getElementById('wCategory');
-  if (wCategoryEl) wCategoryEl.onchange = () => { state.createWizard.category = wCategoryEl.value; render(); };
+  if (wCategoryEl) wCategoryEl.onchange = () => {
+    state.createWizard.category = wCategoryEl.value;
+    state.createWizard.quickTopicsVersion = 0;
+    render();
+  };
   const refreshTopicTemplates = () => {
-    const topicInput = document.getElementById('wTopic');
-    if (topicInput) state.createWizard.topic = topicInput.value.trim();
     const container = document.getElementById('wTopicTemplates');
     if (!container) return;
-    const topicTemplates = buildCreateQuickTopics(state.createWizard.topic, state.createWizard.category);
+    const topicTemplates = buildCreateQuickTopics(state.createWizard.category, state.createWizard.quickTopicsVersion || 0);
     container.innerHTML = topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('');
     bindTopicTemplateButtons();
   };
@@ -1970,27 +2014,15 @@ async function bind() {
         const topicInput = document.getElementById('wTopic');
         if (topicInput) topicInput.value = topic;
         state.createWizard.topic = topic;
-        refreshTopicTemplates();
         state.notice = null;
       };
     });
   };
-  const wTopicEl = document.getElementById('wTopic');
-  if (wTopicEl) {
-    let topicTypingTimer = null;
-    const scheduleTopicRefresh = () => {
-      state.createWizard.topic = wTopicEl.value;
-      if (topicTypingTimer) clearTimeout(topicTypingTimer);
-      topicTypingTimer = setTimeout(refreshTopicTemplates, 250);
-    };
-    wTopicEl.oninput = scheduleTopicRefresh;
-    wTopicEl.onchange = () => refreshTopicTemplates();
-    wTopicEl.onblur = () => refreshTopicTemplates();
-    wTopicEl.onpaste = () => setTimeout(refreshTopicTemplates, 0);
-    refreshTopicTemplates();
-  }
   const wRefreshTopicsBtn = document.getElementById('wRefreshTopics');
-  if (wRefreshTopicsBtn) wRefreshTopicsBtn.onclick = () => refreshTopicTemplates();
+  if (wRefreshTopicsBtn) wRefreshTopicsBtn.onclick = () => {
+    state.createWizard.quickTopicsVersion = Number(state.createWizard.quickTopicsVersion || 0) + 1;
+    refreshTopicTemplates();
+  };
   const wToneEl = document.getElementById('wTone');
   if (wToneEl) wToneEl.onchange = () => { state.createWizard.tone = wToneEl.value; render(); };
   const wModeEl = document.getElementById('wMode');
