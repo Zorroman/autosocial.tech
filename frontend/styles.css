@@ -1088,6 +1088,10 @@ th { color: var(--text-muted); font-weight: 600; }
 
 /* Landing copy polish */
 .hero__title {
+  font-size: clamp(24px, 2.6vw, 38px);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.01em;
   margin-bottom: 14px;
 }
 
