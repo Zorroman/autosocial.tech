@@ -59,7 +59,39 @@ def list_pages(access_token: str, include_page_access_token: bool = False):
         all_pages.extend(next_res.get("data") or [])
         next_url = (next_res.get("paging") or {}).get("next")
 
-    res["data"] = all_pages
+    # Fallback: some Pages may be visible via Business Manager endpoints
+    # but not included in /me/accounts for the current token context.
+    fields_biz_pages = "id,name,picture{url},instagram_business_account{id,username}"
+    businesses = requests.get(
+        "https://graph.facebook.com/v20.0/me/businesses",
+        params={"access_token": access_token, "fields": "id,name", "limit": 50},
+        timeout=20,
+    ).json()
+    if isinstance(businesses, dict) and not businesses.get("error"):
+        for biz in (businesses.get("data") or [])[:20]:
+            biz_id = str((biz or {}).get("id") or "").strip()
+            if not biz_id:
+                continue
+            for edge in ("owned_pages", "client_pages"):
+                try:
+                    edge_res = requests.get(
+                        f"https://graph.facebook.com/v20.0/{biz_id}/{edge}",
+                        params={"access_token": access_token, "fields": fields_biz_pages, "limit": 100},
+                        timeout=20,
+                    ).json()
+                    if isinstance(edge_res, dict) and not edge_res.get("error"):
+                        all_pages.extend(edge_res.get("data") or [])
+                except Exception:
+                    continue
+
+    # De-duplicate by page id.
+    unique = {}
+    for p in all_pages:
+        pid = str((p or {}).get("id") or "").strip()
+        if not pid:
+            continue
+        unique[pid] = p
+    res["data"] = list(unique.values())
     return res
 
 
