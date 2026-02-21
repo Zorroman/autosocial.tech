@@ -62,6 +62,7 @@ const state = {
     tone: 'friendly',
     language: 'ru',
     previewText: '',
+    previewContextKey: '',
     mode: 'now',
     scheduleAt: '',
     platforms: { facebook: true, instagram: true },
@@ -924,6 +925,25 @@ function pageDashboard() {
 
 function pageCreate() {
   const w = state.createWizard;
+  const createPreviewContextKey = (wizard) => [
+    String(wizard.category || 'business').trim(),
+    String(wizard.topic || '').trim().toLowerCase(),
+    String(wizard.tone || 'friendly').trim(),
+    String(wizard.language || 'ru').trim(),
+  ].join('|');
+  const hashText = (input) => {
+    let h = 2166136261;
+    for (const ch of String(input || '')) {
+      h ^= ch.charCodeAt(0);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h >>> 0);
+  };
+  const pick = (arr, seed, offset = 0) => arr[(seed + offset) % arr.length];
+  const extractTopicTags = (topic) => {
+    const words = Array.from(new Set(String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []));
+    return words.filter((word) => word.length > 3).slice(0, 3).map((word) => `#${word}`);
+  };
   const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
   const categoryOptions = [
     { value: 'business', label: 'Бизнес и услуги' },
@@ -952,18 +972,68 @@ function pageCreate() {
   const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
   const buildPreviewDraft = () => {
     const topic = (w.topic || '').trim() || 'Польза для клиента';
+    const lang = String(w.language || 'ru').trim().toLowerCase();
+    const seed = hashText(createPreviewContextKey(w));
+    const categoryTagMap = {
+      business: ['#бизнес', '#услуги', '#рост'],
+      marketing: ['#маркетинг', '#smm', '#лиды'],
+      fitness: ['#фитнес', '#здоровье', '#тренировки'],
+      ecommerce: ['#ecommerce', '#интернетмагазин', '#продажи'],
+      beauty: ['#красота', '#уход', '#процедуры'],
+      auto: ['#авто', '#автосервис', '#сто'],
+      fallback: ['#контент', '#продвижение', '#клиенты'],
+    };
+    const toneRu = {
+      friendly: {
+        hooks: ['Разберем без сложных терминов', 'Покажем на понятных примерах', 'Сохраняйте, чтобы применить сразу'],
+        ctas: ['Напишите в комментариях, если хотите разбор под ваш случай.', 'Сохраните пост и отправьте коллеге.', 'Если нужен персональный план, напишите в директ.'],
+      },
+      expert: {
+        hooks: ['Коротко по фактам и практике', 'Разбор на основе типичных кейсов', 'Структурируем, чтобы было легко внедрить'],
+        ctas: ['Готовы внедрять? Оставьте запрос на аудит.', 'Сохраните чек-лист и сравните с текущим процессом.', 'Нужна консультация по вашей нише? Напишите нам.'],
+      },
+      sales: {
+        hooks: ['Сфокусируемся на выгоде и результате', 'Покажем, где теряются деньги и как это исправить', 'Дадим алгоритм, который приводит к заявкам'],
+        ctas: ['Хотите такой же результат? Напишите "СТАРТ" в директ.', 'Готовы усилить продажи? Отправьте сообщение прямо сейчас.', 'Оставьте заявку и получите план на 7 дней.'],
+      },
+    };
+    const toneKey = toneRu[w.tone] ? w.tone : 'friendly';
+    const toneData = toneRu[toneKey];
+    const tags = Array.from(new Set([...(categoryTagMap[w.category] || categoryTagMap.fallback), ...extractTopicTags(topic)])).slice(0, 5).join(' ');
+    if (lang === 'en') {
+      const cta = pick([
+        'Comment "PLAN" and we will send you a practical checklist.',
+        'Save this post and share it with your team.',
+        'Need a tailored strategy? Send us a direct message.',
+      ], seed, 3);
+      return [
+        `${topic}: what to check before you make a decision`,
+        '',
+        `Most teams lose results here because they skip the basics. In this post we break down ${topic} into 3 practical steps.`,
+        `Step 1: Define the expected outcome and success metric.`,
+        `Step 2: Compare options by value and long-term impact, not just price.`,
+        `Step 3: Confirm execution details, timeline, and accountability.`,
+        '',
+        `${cta}`,
+        tags || '#content #marketing #growth',
+      ].join('\n');
+    }
     return [
-      `${topic}: что важно знать перед выбором`,
+      `${topic}: что важно проверить до принятия решения`,
       '',
-      '1) Критерий №1: проверьте опыт и реальные кейсы.',
-      '2) Критерий №2: уточните сроки и зону ответственности.',
-      '3) Критерий №3: сравните не цену, а итоговую ценность.',
+      `${pick(toneData.hooks, seed)}. Тема «${topic}» напрямую влияет на результат в категории «${(categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label}».`,
+      `1) Определите целевой результат по теме «${topic}» и срок достижения.`,
+      '2) Сравните варианты по итоговой ценности: опыт, процесс, гарантии и поддержка.',
+      `3) Зафиксируйте следующий шаг: что делаете в ближайшие 24 часа, чтобы продвинуть тему «${topic}».`,
       '',
-      'Сохраните пост, чтобы не потерять чек-лист.',
-      '#бизнес #маркетинг #продажи',
+      pick(toneData.ctas, seed, 1),
+      tags || '#контент #маркетинг #продажи',
     ].join('\n');
   };
-  const normalizedPreview = (w.previewText || '').trim() || buildPreviewDraft();
+  const previewContextKey = createPreviewContextKey(w);
+  const normalizedPreview = ((w.previewText || '').trim() && w.previewContextKey === previewContextKey)
+    ? (w.previewText || '').trim()
+    : buildPreviewDraft();
   const submitLabel = w.mode === 'schedule' ? 'Создать и запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
 
   const step1 = `
@@ -2013,6 +2083,8 @@ async function bind() {
   if (wCategoryEl) wCategoryEl.onchange = () => {
     state.createWizard.category = wCategoryEl.value;
     state.createWizard.quickTopicsVersion = 0;
+    state.createWizard.previewText = '';
+    state.createWizard.previewContextKey = '';
     render();
   };
   const refreshTopicTemplates = () => {
@@ -2029,6 +2101,8 @@ async function bind() {
         const topicInput = document.getElementById('wTopic');
         if (topicInput) topicInput.value = topic;
         state.createWizard.topic = topic;
+        state.createWizard.previewText = '';
+        state.createWizard.previewContextKey = '';
         state.notice = null;
       };
     });
@@ -2038,8 +2112,26 @@ async function bind() {
     state.createWizard.quickTopicsVersion = Number(state.createWizard.quickTopicsVersion || 0) + 1;
     refreshTopicTemplates();
   };
+  const wTopicEl = document.getElementById('wTopic');
+  if (wTopicEl) wTopicEl.oninput = () => {
+    state.createWizard.topic = wTopicEl.value;
+    state.createWizard.previewText = '';
+    state.createWizard.previewContextKey = '';
+  };
   const wToneEl = document.getElementById('wTone');
-  if (wToneEl) wToneEl.onchange = () => { state.createWizard.tone = wToneEl.value; render(); };
+  if (wToneEl) wToneEl.onchange = () => {
+    state.createWizard.tone = wToneEl.value;
+    state.createWizard.previewText = '';
+    state.createWizard.previewContextKey = '';
+    render();
+  };
+  const wLangEl = document.getElementById('wLang');
+  if (wLangEl) wLangEl.onchange = () => {
+    state.createWizard.language = wLangEl.value;
+    state.createWizard.previewText = '';
+    state.createWizard.previewContextKey = '';
+    render();
+  };
   const wModeEl = document.getElementById('wMode');
   if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; render(); };
   bindTopicTemplateButtons();
@@ -2060,13 +2152,16 @@ async function bind() {
       w.language = document.getElementById('wLang').value;
       w.mediaUrl = document.getElementById('wMedia').value.trim();
       if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна.' }; return render(); }
-      if (!w.previewText) {
+      const contextKey = createPreviewContextKey(w);
+      if (!w.previewText || w.previewContextKey !== contextKey) {
         w.previewText = '';
+        w.previewContextKey = contextKey;
       }
     }
     if (w.step === 4) {
       w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
       if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
+      w.previewContextKey = createPreviewContextKey(w);
     }
     if (w.step === 5) {
       w.mode = document.getElementById('wMode')?.value || 'now';
@@ -2084,6 +2179,7 @@ async function bind() {
       w.mode = document.getElementById('wMode')?.value || w.mode || 'now';
       w.scheduleAt = document.getElementById('wSchedule')?.value || w.scheduleAt || '';
       w.previewText = (document.getElementById('wPreviewText')?.value || w.previewText || '').trim();
+      w.previewContextKey = createPreviewContextKey(w);
 
       const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
       if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
