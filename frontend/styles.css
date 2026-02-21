@@ -625,7 +625,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .connections-grid .connection-card {
   display: flex;
   flex-direction: column;
-  min-height: 300px;
+  min-height: 250px;
 }
 
 .connection-card {
@@ -677,8 +677,8 @@ th { color: var(--text-muted); font-weight: 600; }
 }
 
 .connection-btn-sm {
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 7px 11px;
+  font-size: 12px;
   border-radius: 11px;
 }
 

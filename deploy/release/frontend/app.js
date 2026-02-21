@@ -33,6 +33,13 @@ const state = {
   billing: null,
   projects: [],
   connections: [],
+  youtubeConnection: {
+    connected: false,
+    status: 'not_connected',
+    channel_id: '',
+    channel_name: '',
+    updated_at: null,
+  },
   connectionPicker: {
     open: false,
     connectionId: null,
@@ -1196,8 +1203,14 @@ function pageConnections() {
     return { action: 'retry', label: 'Повторить' };
   };
 
-  const metaCards = state.connections.length
-    ? `${state.connections.map((c) => {
+  const visibleMetaConnections = (state.connections || []).filter((c) => {
+    const status = String(c?.status || '').toLowerCase();
+    if (status !== 'not_connected' && status !== 'disconnected') return true;
+    return !!(c?.facebook_page_id || c?.facebook_page_name || c?.instagram_business_id || c?.page_id || c?.token_expires_at);
+  });
+
+  const metaCards = visibleMetaConnections.length
+    ? `${visibleMetaConnections.map((c) => {
         const status = String(c.status || 'not_connected').toLowerCase();
         const primary = primaryByStatus(status);
         const avatar = c.facebook_page_picture_url
@@ -1240,32 +1253,33 @@ function pageConnections() {
       }).join('')}`
     : `<article class="card connection-card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
 
-  const youtubeCard = `
+  const y = state.youtubeConnection || {};
+  const youtubeConnected = !!y.connected;
+  const youtubeCard = youtubeConnected ? `
     <article class="card connection-card yt-connection-card">
       <div class="row connection-head">
         <div>
           <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">YouTube канал</h3></div>
-          <div class="small connection-subtitle">Сценарии роликов, таймлайн, CTA и посты для Community в одном месте.</div>
+          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
+          <div class="small connection-subtitle">YouTube подключен. Можно открывать студию и генерировать ролики/посты.</div>
         </div>
-        <div><span class="status queued">Готово к настройке</span></div>
+        <div>${statusBadge(y.status || 'connected_ready')}</div>
       </div>
       <div class="connection-features">
         <span class="pill">Shorts 15-70с</span>
         <span class="pill">Long 120-480с</span>
-        <span class="pill">ETA генерации</span>
       </div>
       <div class="grid-2 connection-grid-info">
-        <div><div class="connection-main-text">Сценарий, таймлайн и CTA</div></div>
-        <div><div class="connection-main-text">Посты для Community</div></div>
+        <div><div class="connection-main-text">ID: ${esc(safeText(y.channel_id, 'не указан'))}</div></div>
+        <div><div class="connection-main-text">Статус: ${esc(safeText(y.status, 'connected_ready'))}</div></div>
       </div>
       <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
       <div class="cta-row connection-actions">
-        <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Подключить YouTube</button>
-        <button type="button" class="btn btn-ghost connection-btn-sm" data-link="/youtube">Открыть студио</button>
+        <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Открыть студию</button>
+        <button type="button" class="btn btn-danger connection-btn-sm" data-youtube-disconnect="1">Отключить YouTube</button>
       </div>
     </article>
-  `;
+  ` : '';
 
   const cards = `<div class="grid-2 connections-grid">${metaCards}${youtubeCard}</div>`;
 
@@ -1301,7 +1315,8 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterNotConnectedBtn" class="btn btn-ghost">Неподключенные</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Facebook</button></div>${cards}</section>${modal}`);
+  const connectYoutubeBtn = youtubeConnected ? '' : '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button">Подключить YouTube</button>';
+  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Facebook</button>${connectYoutubeBtn}</div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
@@ -1795,7 +1810,10 @@ async function preload(path) {
     return;
   }
   if (!state.token) return;
-  if (path === '/connections') state.connections = await api('/api/connections');
+  if (path === '/connections') {
+    state.connections = await api('/api/connections');
+    state.youtubeConnection = await api('/api/integrations/youtube/status');
+  }
   if (path === '/history') state.posts = await api('/api/posts');
   if (path === '/billing' || path === '/dashboard') state.plans = await api('/api/plans');
   if (path === '/dashboard') {
@@ -2499,6 +2517,20 @@ async function bind() {
   };
   const connectMetaBtn = document.getElementById('connectMetaBtn');
   if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
+  const connectYoutubeBtn = document.getElementById('connectYoutubeBtn');
+  if (connectYoutubeBtn) connectYoutubeBtn.onclick = async () => {
+    await api('/api/integrations/youtube/connect', { method: 'POST', body: '{}' });
+    state.youtubeConnection = await api('/api/integrations/youtube/status');
+    state.notice = { type: 'ok', text: 'YouTube подключен.' };
+    render();
+  };
+  document.querySelectorAll('[data-youtube-disconnect]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Отключить YouTube?')) return;
+    await api('/api/integrations/youtube/disconnect', { method: 'POST', body: '{}' });
+    state.youtubeConnection = await api('/api/integrations/youtube/status');
+    state.notice = { type: 'ok', text: 'YouTube отключен.' };
+    render();
+  });
   document.querySelectorAll('[data-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить интеграцию Meta?')) return;
     await api(`/api/connections/${b.dataset.disconnect}/disconnect`, { method: 'POST', body: '{}' });

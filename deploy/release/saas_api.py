@@ -460,7 +460,12 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
 
     is_dev = (settings.ENV or "").lower() in {"dev", "development", "local"}
     if not delivered and not is_dev:
-        return {"error": "Письма временно недоступны. Попробуйте позже."}, 503
+        current_app.logger.warning(
+            "auth email delivery unavailable; fallback to on-screen code flow=%s email=%s ip=%s",
+            flow,
+            email,
+            ip_addr,
+        )
 
     payload = {
         "challenge_token": challenge_token,
@@ -471,7 +476,9 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
         "flow": flow,
     }
     payload["message"] = "Код отправлен на email"
-    if is_dev and not delivered:
+    if not delivered:
+        payload["message"] = "Почта временно недоступна. Используйте код подтверждения ниже."
+    if not delivered:
         payload["dev_code"] = code
         payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
     log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
@@ -603,6 +610,21 @@ def login():
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
     honeypot = (data.get("website") or "").strip()
+
+    # Admin emergency path: allow direct password login without email code challenge.
+    db = SessionLocal()
+    try:
+        user = db.query(AppUser).filter_by(email=email).first()
+        if user and user.role == "admin" and verify_password(password, user.password_hash):
+            seed_plans()
+            ensure_user_plan_and_credits(user.id)
+            get_or_create_default_project(user.id)
+            token = create_token(user.id)
+            log_event("admin_login", actor_user_id=user.id, context=f"email={user.email};ip={_ip()};via=password_direct")
+            return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "role": user.role, "plan": user.plan}}), 200
+    finally:
+        db.close()
+
     payload, status = _start_auth_challenge(flow="login", email=email, password=password, honeypot=honeypot, ip_addr=_ip(), user_agent=request.headers.get("User-Agent", ""))
     return jsonify(payload), status
 
@@ -2038,6 +2060,26 @@ def _serialize_connection(row: SocialAccount) -> dict:
     }
 
 
+def _serialize_youtube_connection(row: SocialAccount | None) -> dict:
+    if not row:
+        return {
+            "connected": False,
+            "status": "not_connected",
+            "channel_id": None,
+            "channel_name": None,
+            "updated_at": None,
+        }
+    status = str(row.status or "not_connected").strip().lower()
+    connected = status in {"connected", "connected_ready"}
+    return {
+        "connected": connected,
+        "status": status,
+        "channel_id": row.page_id,
+        "channel_name": row.page_name,
+        "updated_at": row.updated_at.isoformat() if getattr(row, "updated_at", None) else None,
+    }
+
+
 @saas_api.route("/integrations/meta/connect", methods=["POST"])
 @saas_api.route("/connections/meta/start", methods=["POST"])
 @require_auth
@@ -2207,8 +2249,99 @@ def list_connections():
         if user.role != "admin" or not include_all:
             query = query.filter(SocialAccount.user_id == user.id)
         rows_all = query.order_by(SocialAccount.created_at.desc()).all()
-        rows = [row for row in rows_all if row.provider == "meta"]
+        rows = []
+        for row in rows_all:
+            if row.provider != "meta":
+                continue
+            status = _normalize_connection_status(row.status)
+            # Hide empty disconnected shells from UI after explicit disconnect.
+            if status in {"not_connected", "disconnected"} and not row.token_encrypted and not row.page_id and not row.ig_user_id:
+                continue
+            rows.append(row)
         return jsonify([_serialize_connection(row) for row in rows])
+    finally:
+        db.close()
+
+
+@saas_api.route("/integrations/youtube/status", methods=["GET"])
+@saas_api.route("/connections/youtube/status", methods=["GET"])
+@require_auth
+def youtube_status():
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        return jsonify(_serialize_youtube_connection(row))
+    finally:
+        db.close()
+
+
+@saas_api.route("/integrations/youtube/connect", methods=["POST"])
+@saas_api.route("/connections/youtube/connect", methods=["POST"])
+@require_auth
+def youtube_connect():
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+    channel_id = str(payload.get("channel_id") or "").strip()
+    channel_name = str(payload.get("channel_name") or "").strip() or "YouTube канал"
+
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        if not row:
+            row = SocialAccount(user_id=user.id, provider="youtube")
+            db.add(row)
+            db.flush()
+
+        row.page_id = channel_id or row.page_id or f"yt-{user.id}"
+        row.page_name = channel_name
+        row.page_picture_url = None
+        row.ig_user_id = None
+        row.ig_username = None
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        row.last_success_at = datetime.utcnow()
+        db.commit()
+        return jsonify(_serialize_youtube_connection(row))
+    finally:
+        db.close()
+
+
+@saas_api.route("/integrations/youtube/disconnect", methods=["POST"])
+@saas_api.route("/connections/youtube/disconnect", methods=["POST"])
+@require_auth
+def youtube_disconnect():
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        if not row:
+            return jsonify(_serialize_youtube_connection(None))
+
+        row.page_id = None
+        row.page_name = None
+        row.page_picture_url = None
+        row.status = "not_connected"
+        row.status_reason_code = "user_disconnected"
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        return jsonify(_serialize_youtube_connection(row))
     finally:
         db.close()
 
