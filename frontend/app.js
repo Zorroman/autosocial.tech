@@ -69,6 +69,22 @@ const state = {
     platforms: { facebook: true, instagram: true },
     mediaUrl: '',
   },
+  youtubeStudio: {
+    projectId: '',
+    topic: '',
+    videoType: 'short',
+    durationSeconds: 45,
+    language: 'ru',
+    tone: 'expert',
+    style: 'educational',
+    audience: 'Владельцы малого бизнеса',
+    goal: 'engagement',
+    postKind: 'community',
+    loadingVideo: false,
+    loadingPost: false,
+    videoResult: null,
+    postResult: null,
+  },
   aiWizard: null,
 };
 
@@ -243,6 +259,7 @@ function icon(name) {
     create: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
     connections: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M7 7h.01"/><path d="M17 17h.01"/><path d="M13 5h4a2 2 0 0 1 2 2v4"/><path d="M11 19H7a2 2 0 0 1-2-2v-4"/></svg>',
     history: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 3"/></svg>',
+    youtube: '<svg class="icon" viewBox="0 0 24 24"><path d="M22 12s0-3.5-.45-5.2a2.7 2.7 0 0 0-1.9-1.9C17.95 4.45 12 4.45 12 4.45s-5.95 0-7.65.45a2.7 2.7 0 0 0-1.9 1.9C2 8.5 2 12 2 12s0 3.5.45 5.2a2.7 2.7 0 0 0 1.9 1.9c1.7.45 7.65.45 7.65.45s5.95 0 7.65-.45a2.7 2.7 0 0 0 1.9-1.9C22 15.5 22 12 22 12z"/><path d="m10 15.5 5-3.5-5-3.5z"/></svg>',
     billing: '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/><path d="M7 15h4"/></svg>',
     settings: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.02.02a2 2 0 0 1-2.83 2.83l-.02-.02A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.56V21a2 2 0 0 1-4 0v-.04A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.02.02a2 2 0 0 1-2.83-2.83l.02-.02A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 0 1 0-4h.04A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.02-.02a2 2 0 0 1 2.83-2.83l.02.02A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 0 1 4 0v.04A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.02-.02a2 2 0 1 1 2.83 2.83l-.02.02A1.7 1.7 0 0 0 19.4 9c.13.32.46.53.81.53H21a2 2 0 0 1 0 4h-.79c-.35 0-.68.21-.81.53z"/></svg>',
     admin: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7l8-4z"/><path d="M9.5 12.5l1.7 1.7 3.6-3.6"/></svg>',
@@ -692,6 +709,7 @@ function appLayout(path, title, body) {
   const links = [
     ['/dashboard', 'РџР°РЅРµР»СЊ', 'dashboard'],
     ['/create', 'РЎРѕР·РґР°С‚СЊ', 'create'],
+    ['/youtube', 'YouTube Studio', 'youtube'],
     ['/connections', 'РџРѕРґРєР»СЋС‡РµРЅРёСЏ', 'connections'],
     ['/history', 'Календарь', 'history'],
     ['/billing', 'РўР°СЂРёС„С‹', 'billing'],
@@ -706,18 +724,18 @@ function appLayout(path, title, body) {
 }
 function pageLogin() {
   const isRegister = state.authMode !== 'login';
-  const loginCodeStep = !!(state.authChallenge && state.authChallenge.flow === 'login');
+  const codeStep = !!state.authChallenge;
+  const challengeFlow = state.authChallenge?.flow || (isRegister ? 'register' : 'login');
+  const flowTitle = challengeFlow === 'register' ? 'Подтвердите регистрацию' : 'Подтвердите вход';
   const showSocialLogin = false;
-  const formTitle = loginCodeStep ? 'Подтвердите вход' : (isRegister ? 'Создать аккаунт' : 'Войти');
-  const submitLabel = loginCodeStep ? 'Подтвердить код' : (isRegister ? 'Продолжить' : 'Получить код');
+  const formTitle = codeStep ? flowTitle : (isRegister ? 'Создать аккаунт' : 'Войти');
+  const submitLabel = codeStep ? 'Подтвердить код' : 'Получить код';
   const switchText = isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
   const switchLabel = isRegister ? 'Войти' : 'Создать';
   const socialBlock = showSocialLogin ? `<div class="social-auth-row"></div>` : '';
-  const authHint = loginCodeStep
+  const authHint = codeStep
     ? `Код отправлен на ${esc(state.authChallenge.email || '')}.`
-    : (isRegister
-      ? 'После регистрации отправим ссылку на почту. Перейдите по ней, и аккаунт активируется.'
-      : 'После ввода email и пароля отправим 4-значный код на почту.');
+    : 'Введите email и пароль. Отправим 4-значный код на почту.';
 
   return `<div class="auth-wrap page">
     <div class="auth-shell reveal">
@@ -795,16 +813,16 @@ function pageLogin() {
         <h2>${formTitle}</h2>
         <p class="small mobile-microcopy">${authHint}</p>
         ${socialBlock}
-        ${loginCodeStep ? '' : field('authEmail', 'Email', 'email', '', 'you@company.com')}
-        ${loginCodeStep ? '' : field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
-        ${loginCodeStep ? field('authCode', 'Код из письма', 'text', '', '4 цифры') : ''}
-        ${loginCodeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
+        ${codeStep ? '' : field('authEmail', 'Email', 'email', '', 'you@company.com')}
+        ${codeStep ? '' : field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
+        ${codeStep ? field('authCode', 'Код из письма', 'text', '', '4 цифры') : ''}
+        ${codeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
-        ${loginCodeStep ? '<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">Отправить код повторно</button>' : ''}
-        ${loginCodeStep ? '<button id="authBackBtn" class="btn btn-link" type="button">Изменить email/пароль</button>' : ''}
+        ${codeStep ? '<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">Отправить код повторно</button>' : ''}
+        ${codeStep ? '<button id="authBackBtn" class="btn btn-link" type="button">Изменить email/пароль</button>' : ''}
         <div class="auth-switch-row">
           <span class="small">${switchText}</span>
-          <button id="authSwitchBtn" class="btn btn-link" type="button" ${loginCodeStep ? 'disabled' : ''}>${switchLabel}</button>
+          <button id="authSwitchBtn" class="btn btn-link" type="button" ${codeStep ? 'disabled' : ''}>${switchLabel}</button>
         </div>
       </section>
     </div>
@@ -1116,7 +1134,7 @@ function pageCreate() {
   `;
 
   const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
-  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" class="btn btn-primary">Далее</button>':`<button id="wSubmit" class="btn btn-primary">${esc(submitLabel)}</button>`}</div></section>`);
+  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" type="button" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" type="button" class="btn btn-primary">Далее</button>':`<button id="wSubmit" type="button" class="btn btn-primary">${esc(submitLabel)}</button>`}</div></section>`);
 }
 function pageConnections() {
   const query = new URLSearchParams(location.search);
@@ -1458,7 +1476,8 @@ function pageHistory() {
               ? p.title_preview
               : (p.topic || p.title_preview || '—');
             const isPublished = plannerStatus(p) === 'published';
-            const publishDisabled = (isPublished || p.status === 'failed') ? 'disabled' : '';
+            const isYoutube = String(p.platform || '').toLowerCase() === 'youtube';
+            const publishDisabled = (isPublished || p.status === 'failed' || isYoutube) ? 'disabled' : '';
             return `<tr>
               <td>${new Date(p.created_at).toLocaleString()}</td>
               <td>${esc(p.platform)}</td>
@@ -1529,6 +1548,7 @@ function pageHistory() {
     ${selectField('editPlatform', 'Платформа', editor.post.platform || 'instagram', [
       { value: 'instagram', label: 'Instagram' },
       { value: 'facebook', label: 'Facebook' },
+      { value: 'youtube', label: 'YouTube' },
     ])}
     ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
     ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInputValue(editor.post.schedule_at))}
@@ -1636,6 +1656,77 @@ function pageBlog() {
   return appLayout('/blog', 'Блог', `<section class="card"><h2>SEO блог-движок</h2>${items}</section>`);
 }
 
+function pageYouTubeStudio() {
+  const y = state.youtubeStudio || {};
+  const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
+  const typeOptions = [
+    { value: 'short', label: 'Short (15-70 сек)' },
+    { value: 'long', label: 'Long (120-480 сек)' },
+  ];
+  const postKindOptions = [
+    { value: 'community', label: 'Community post' },
+    { value: 'announcement', label: 'Announcement' },
+    { value: 'poll', label: 'Poll idea' },
+  ];
+  const videoResult = y.videoResult || null;
+  const postResult = y.postResult || null;
+
+  const resultHtml = !videoResult ? '<p class="small">Сгенерируйте пакет видео, чтобы увидеть структуру ролика, заголовки и описание.</p>' : `
+    <div class="wizard-summary">
+      <span class="pill">Тип: ${esc(videoResult.video_type || '—')}</span>
+      <span class="pill">Длительность: ${esc(String(videoResult.duration_seconds || '—'))} сек</span>
+      <span class="pill">Ожидание: ~${esc(String(videoResult.estimated_wait_seconds || '—'))} сек</span>
+    </div>
+    <p class="small">${esc(videoResult.server_capacity_note || '')}</p>
+    <h3 style="margin-top:10px;">Варианты заголовка</h3>
+    <ul class="small">${(videoResult.title_options || []).map((t) => `<li>${esc(t)}</li>`).join('') || '<li>—</li>'}</ul>
+    <h3 style="margin-top:10px;">Хук</h3>
+    <p class="small">${esc(videoResult.hook || '—')}</p>
+    <h3 style="margin-top:10px;">Описание</h3>
+    <p class="small">${esc(videoResult.description || '—')}</p>
+    <h3 style="margin-top:10px;">Таймлайн</h3>
+    <div class="table-wrap"><table><thead><tr><th>Время</th><th>Сегмент</th><th>Озвучка</th><th>Визуал</th></tr></thead><tbody>
+      ${(videoResult.timeline || []).map((s) => `<tr><td>${esc(s.t || '—')}</td><td>${esc(s.segment || '—')}</td><td>${esc(s.voiceover || '—')}</td><td>${esc(s.visual || '—')}</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>'}
+    </tbody></table></div>
+    <h3 style="margin-top:10px;">CTA и пост</h3>
+    <p class="small"><strong>CTA:</strong> ${esc(videoResult.cta || '—')}</p>
+    <p class="small"><strong>Community post:</strong> ${esc(videoResult.community_post || '—')}</p>
+    <p class="small"><strong>Хештеги:</strong> ${esc((videoResult.hashtags || []).join(' ') || '—')}</p>
+  `;
+
+  return appLayout('/youtube', 'YouTube Studio', `
+    <section class="grid-2">
+      <article class="card">
+        <h2>Генерация ролика для YouTube</h2>
+        <p class="small">Настройте тип ролика, длительность и тему. Для стабильной генерации на сервере long ограничен до 480 секунд.</p>
+        ${selectField('ytProject', 'Проект', y.projectId || options[0]?.value || '', options.length ? options : [{ value: '', label: 'Нет проектов' }])}
+        ${field('ytTopic', 'Тема ролика', 'text', y.topic || '', 'Например: Как малому бизнесу получать заявки из YouTube')}
+        ${selectField('ytVideoType', 'Тип ролика', y.videoType || 'short', typeOptions)}
+        ${field('ytDuration', 'Длительность (сек)', 'number', String(y.durationSeconds || 45), '45')}
+        ${selectField('ytLang', 'Язык', y.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+        ${selectField('ytTone', 'Тон', y.tone || 'expert', [{ value: 'expert', label: 'Экспертный' }, { value: 'friendly', label: 'Дружелюбный' }, { value: 'sales', label: 'Продающий' }])}
+        ${field('ytStyle', 'Стиль', 'text', y.style || 'educational', 'educational / storytelling / analytical')}
+        ${field('ytAudience', 'Целевая аудитория', 'text', y.audience || '', 'Владельцы бизнеса, маркетологи, эксперты')}
+        ${field('ytGoal', 'Цель ролика', 'text', y.goal || 'engagement', 'engagement / leads / views')}
+        <div class="cta-row">
+          <button id="ytGenerateVideoBtn" type="button" class="btn btn-primary" ${y.loadingVideo ? 'disabled' : ''}>${y.loadingVideo ? 'Генерирую…' : 'Сгенерировать ролик'}</button>
+        </div>
+        <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);" />
+        <h3>YouTube пост</h3>
+        ${selectField('ytPostKind', 'Тип поста', y.postKind || 'community', postKindOptions)}
+        <div class="cta-row">
+          <button id="ytGeneratePostBtn" type="button" class="btn btn-secondary" ${y.loadingPost ? 'disabled' : ''}>${y.loadingPost ? 'Генерирую…' : 'Сгенерировать YouTube пост'}</button>
+        </div>
+        ${postResult ? `<p class="small" style="margin-top:10px;">Пост создан: #${esc(String(postResult.id || '—'))} (${esc(postResult.status || '—')}). Откройте раздел "Календарь".</p>` : ''}
+      </article>
+      <article class="card">
+        <h2>Результат генерации</h2>
+        ${resultHtml}
+      </article>
+    </section>
+  `);
+}
+
 function pageContact() {
   return appLayout('/contact','РљРѕРЅС‚Р°РєС‚С‹',`<section class="grid-2"><article class="card"><h2>РљРѕРЅС‚Р°РєС‚С‹</h2><p class="small">РќСѓР¶РЅР° РїРѕРјРѕС‰СЊ СЃ РѕРЅР±РѕСЂРґРёРЅРіРѕРј, РЅР°СЃС‚СЂРѕР№РєРѕР№ Meta РёР»Рё Р±РёР»Р»РёРЅРіРѕРј?</p><p><strong>Email:</strong> support@autosocial-gpt.local</p><p><strong>РљРѕРјРїР°РЅРёСЏ:</strong> AutoSocial GPT SaaS</p><p><strong>Р’СЂРµРјСЏ СЂР°Р±РѕС‚С‹:</strong> РџРЅ-РџС‚ 09:00-18:00 UTC</p></article><article class="card"><h2>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ Рё СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ</h2><ul class="small"><li>Р‘РµР·РѕРїР°СЃРЅС‹Рµ РїР»Р°С‚РµР¶Рё Stripe</li><li>SSL-С€РёС„СЂРѕРІР°РЅРёРµ СЃРѕРµРґРёРЅРµРЅРёР№</li><li>РЎРѕРѕС‚РІРµС‚СЃС‚РІРёРµ GDPR</li><li>Р‘РµР· СЃРєСЂС‹С‚С‹С… РїР»Р°С‚РµР¶РµР№</li></ul></article></section>`);
 }
@@ -1652,7 +1743,7 @@ function pageAdmin() {
 }
 
 function page(path) {
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact };
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact };
   return (routes[path] || pageDashboard)();
 }
 
@@ -1755,7 +1846,7 @@ async function bind() {
   if (authSubmitBtn) authSubmitBtn.onclick = async () => {
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const challenge = state.authChallenge;
-    if (challenge && challenge.flow === 'login') {
+    if (challenge) {
       const code = (document.getElementById('authCode')?.value || '').trim();
       if (!/^\d{4}$/.test(code)) {
         state.notice = { type: 'error', text: 'Введите 4-значный код из письма.' };
@@ -1771,7 +1862,7 @@ async function bind() {
         localStorage.setItem('token', data.token);
         state.authChallenge = null;
         await loadBase();
-        state.notice = { type: 'ok', text: 'Вход выполнен успешно.' };
+        state.notice = { type: 'ok', text: challenge.flow === 'register' ? 'Регистрация успешно завершена.' : 'Вход выполнен успешно.' };
         nav('/connections', { keepNotice: true });
       } catch (e) {
         const raw = String(e.message || 'Ошибка авторизации');
@@ -1800,12 +1891,6 @@ async function bind() {
         method: 'POST',
         body: JSON.stringify({ flow, email, password, website }),
       });
-      if (flow === 'register') {
-        state.authChallenge = null;
-        state.notice = { type: 'ok', text: 'Письмо со ссылкой отправлено. Перейдите по ссылке, чтобы завершить регистрацию.' };
-        render();
-        return;
-      }
       state.authChallenge = { flow, email, password, website, challengeToken: data.challenge_token };
       const suffix = data.dev_code ? ` (dev-код: ${data.dev_code})` : '';
       state.notice = { type: 'ok', text: `Код отправлен на ${email}.${suffix}` };
@@ -1830,12 +1915,12 @@ async function bind() {
   const authResendBtn = document.getElementById('authResendBtn');
   if (authResendBtn) authResendBtn.onclick = async () => {
     const challenge = state.authChallenge;
-    if (!challenge || challenge.flow !== 'login') return;
+    if (!challenge) return;
     try {
       const data = await api('/api/auth/challenge', {
         method: 'POST',
         body: JSON.stringify({
-          flow: 'login',
+          flow: challenge.flow,
           email: challenge.email,
           password: challenge.password,
           website: challenge.website || '',
@@ -1850,6 +1935,13 @@ async function bind() {
       render();
     }
   };
+
+  const authCodeInput = document.getElementById('authCode');
+  if (authCodeInput) {
+    authCodeInput.maxLength = 4;
+    authCodeInput.inputMode = 'numeric';
+    authCodeInput.autocomplete = 'one-time-code';
+  }
 
   ensureAiWizardState();
 
@@ -2220,37 +2312,42 @@ async function bind() {
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
   const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
-    const w = state.createWizard;
-    if (w.step === 1) w.projectId = document.getElementById('wProject').value;
-    if (w.step === 2) {
-      w.platforms.facebook = !!document.getElementById('wFb')?.checked;
-      w.platforms.instagram = !!document.getElementById('wIg')?.checked;
-      if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
-    }
-    if (w.step === 3) {
-      w.category = document.getElementById('wCategory').value.trim();
-      w.topic = document.getElementById('wTopic').value.trim();
-      w.tone = document.getElementById('wTone').value;
-      w.language = document.getElementById('wLang').value;
-      w.mediaUrl = document.getElementById('wMedia').value.trim();
-      if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна.' }; return render(); }
-      const contextKey = createPreviewContextKey(w);
-      if (!w.previewText || w.previewContextKey !== contextKey) {
-        w.previewText = '';
-        w.previewContextKey = contextKey;
+    try {
+      const w = state.createWizard;
+      if (w.step === 1) w.projectId = document.getElementById('wProject')?.value || w.projectId || '';
+      if (w.step === 2) {
+        w.platforms.facebook = !!document.getElementById('wFb')?.checked;
+        w.platforms.instagram = !!document.getElementById('wIg')?.checked;
+        if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
       }
+      if (w.step === 3) {
+        w.category = (document.getElementById('wCategory')?.value || w.category || 'business').trim();
+        w.topic = (document.getElementById('wTopic')?.value || w.topic || '').trim();
+        w.tone = document.getElementById('wTone')?.value || w.tone || 'friendly';
+        w.language = document.getElementById('wLang')?.value || w.language || 'ru';
+        w.mediaUrl = (document.getElementById('wMedia')?.value || w.mediaUrl || '').trim();
+        if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна. Выберите быструю тему или введите вручную.' }; return render(); }
+        const contextKey = createPreviewContextKey(w);
+        if (!w.previewText || w.previewContextKey !== contextKey) {
+          w.previewText = '';
+          w.previewContextKey = contextKey;
+        }
+      }
+      if (w.step === 4) {
+        w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
+        if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
+        w.previewContextKey = createPreviewContextKey(w);
+      }
+      if (w.step === 5) {
+        w.mode = document.getElementById('wMode')?.value || 'now';
+        w.scheduleAt = document.getElementById('wSchedule')?.value || '';
+      }
+      w.step = Math.min(5, w.step + 1);
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: `Не удалось перейти к следующему шагу: ${e?.message || 'ошибка формы'}` };
+      render();
     }
-    if (w.step === 4) {
-      w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
-      if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
-      w.previewContextKey = createPreviewContextKey(w);
-    }
-    if (w.step === 5) {
-      w.mode = document.getElementById('wMode')?.value || 'now';
-      w.scheduleAt = document.getElementById('wSchedule')?.value || '';
-    }
-    w.step = Math.min(5, w.step + 1);
-    render();
   };
 
   const wSubmit = document.getElementById('wSubmit');
@@ -2835,6 +2932,86 @@ async function bind() {
   const adminRevenueBtn = document.getElementById('adminRevenueBtn'); if (adminRevenueBtn) adminRevenueBtn.onclick = async () => { state.adminRevenue = await api('/api/admin/revenue'); render(); };
   const adminGenBlogBtn = document.getElementById('adminGenBlogBtn'); if (adminGenBlogBtn) adminGenBlogBtn.onclick = async () => { await api('/api/admin/blog/generate', { method: 'POST', body: '{}' }); render(); };
   const adminRunPlanBtn = document.getElementById('adminRunPlanBtn'); if (adminRunPlanBtn) adminRunPlanBtn.onclick = async () => { await api('/api/content-plan/run-due', { method: 'POST', body: '{}' }); render(); };
+
+  const ytGenerateVideoBtn = document.getElementById('ytGenerateVideoBtn');
+  if (ytGenerateVideoBtn) ytGenerateVideoBtn.onclick = async () => {
+    try {
+      const y = state.youtubeStudio || {};
+      y.projectId = (document.getElementById('ytProject')?.value || '').trim();
+      y.topic = (document.getElementById('ytTopic')?.value || '').trim();
+      y.videoType = (document.getElementById('ytVideoType')?.value || 'short').trim();
+      y.durationSeconds = Number(document.getElementById('ytDuration')?.value || (y.videoType === 'short' ? 45 : 180));
+      y.language = (document.getElementById('ytLang')?.value || 'ru').trim();
+      y.tone = (document.getElementById('ytTone')?.value || 'expert').trim();
+      y.style = (document.getElementById('ytStyle')?.value || 'educational').trim();
+      y.audience = (document.getElementById('ytAudience')?.value || '').trim();
+      y.goal = (document.getElementById('ytGoal')?.value || 'engagement').trim();
+      if (!y.topic) throw new Error('Укажите тему ролика.');
+      const shortMode = y.videoType === 'short';
+      const minLen = shortMode ? 15 : 120;
+      const maxLen = shortMode ? 70 : 480;
+      y.durationSeconds = Math.max(minLen, Math.min(maxLen, Number(y.durationSeconds) || minLen));
+      y.loadingVideo = true;
+      state.youtubeStudio = y;
+      render();
+      const payload = {
+        project_id: y.projectId ? Number(y.projectId) : null,
+        topic: y.topic,
+        video_type: y.videoType,
+        duration_seconds: y.durationSeconds,
+        language: y.language,
+        tone: y.tone,
+        style: y.style,
+        audience: y.audience,
+        goal: y.goal,
+      };
+      const result = await api('/api/youtube/generate-video', { method: 'POST', body: JSON.stringify(payload) });
+      y.videoResult = result;
+      y.loadingVideo = false;
+      state.notice = { type: 'ok', text: `YouTube-пакет готов. Примерное время генерации: ${result.estimated_wait_seconds || '—'} сек.` };
+      state.youtubeStudio = y;
+      render();
+    } catch (e) {
+      state.youtubeStudio.loadingVideo = false;
+      state.notice = { type: 'error', text: e.message || 'Ошибка генерации YouTube-видео.' };
+      render();
+    }
+  };
+
+  const ytGeneratePostBtn = document.getElementById('ytGeneratePostBtn');
+  if (ytGeneratePostBtn) ytGeneratePostBtn.onclick = async () => {
+    try {
+      const y = state.youtubeStudio || {};
+      y.projectId = (document.getElementById('ytProject')?.value || '').trim();
+      y.topic = (document.getElementById('ytTopic')?.value || '').trim();
+      y.postKind = (document.getElementById('ytPostKind')?.value || 'community').trim();
+      y.language = (document.getElementById('ytLang')?.value || 'ru').trim();
+      y.tone = (document.getElementById('ytTone')?.value || 'expert').trim();
+      if (!y.topic) throw new Error('Укажите тему для YouTube-поста.');
+      y.loadingPost = true;
+      state.youtubeStudio = y;
+      render();
+      const result = await api('/api/youtube/generate-post', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: y.projectId ? Number(y.projectId) : null,
+          topic: y.topic,
+          post_kind: y.postKind,
+          language: y.language,
+          tone: y.tone,
+        }),
+      });
+      y.postResult = result;
+      y.loadingPost = false;
+      state.notice = { type: 'ok', text: `YouTube-пост создан: #${result.id}.` };
+      state.youtubeStudio = y;
+      render();
+    } catch (e) {
+      state.youtubeStudio.loadingPost = false;
+      state.notice = { type: 'error', text: e.message || 'Ошибка генерации YouTube-поста.' };
+      render();
+    }
+  };
 }
 
 async function render() {

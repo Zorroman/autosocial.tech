@@ -114,6 +114,13 @@ PLATFORM_RULES_DEFAULT = {
         "max_hashtags": 5,
         "max_output_tokens_default": 350,
     },
+    "youtube": {
+        "max_chars": 5000,
+        "recommended_chars_min": 180,
+        "recommended_chars_max": 600,
+        "max_hashtags": 3,
+        "max_output_tokens_default": 500,
+    },
 }
 
 NICHE_HOOKS_DEFAULT = {
@@ -264,9 +271,9 @@ def ensure_user_plan_and_credits(user_id: int) -> None:
 def get_or_create_default_project(user_id: int) -> Project:
     db = SessionLocal()
     try:
-        project = db.query(Project).filter_by(user_id=user_id, name="Default Project").first()
+        project = db.query(Project).filter_by(user_id=user_id).order_by(Project.created_at.asc()).first()
         if not project:
-            project = Project(user_id=user_id, name="Default Project")
+            project = Project(user_id=user_id, name="Project")
             db.add(project)
             db.commit()
             db.refresh(project)
@@ -540,6 +547,9 @@ def create_post_and_charge(
         if enforce_limits and user.credits_left <= settings.OVERDRAFT_LIMIT:
             raise RuntimeError("Credits limit exceeded. Buy credits or upgrade.")
 
+        platform = (platform or "instagram").strip().lower()
+        if platform not in ("instagram", "facebook", "youtube"):
+            platform = "instagram"
         platform_cfg = _platform_rule(platform)
         max_output_tokens = min(_plan_output_cap(plan.name), int(platform_cfg["max_output_tokens_default"]))
         selected_hook = _pick_hook(category or topic)
@@ -573,7 +583,7 @@ def create_post_and_charge(
         raw_sentences = _split_sentences(result.text)
         value_lines = raw_sentences[:4] if raw_sentences else [f"Совет: сфокусируйтесь на теме '{topic}' и тестируйте 1 гипотезу в день."]
         cta = "Напишите в комментариях 'ПЛАН', и мы отправим следующий шаг."
-        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #instagram #facebook", platform_cfg["max_hashtags"])
+        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #youtube", platform_cfg["max_hashtags"])
         structured_text = _structured_post_text(
             hook=selected_hook,
             value_lines=value_lines[:4],
@@ -591,19 +601,21 @@ def create_post_and_charge(
 
         final_text = (generated_text_override or "").strip() or structured_text
         image_context = f"{topic}. {final_text[:220]}".strip()
-        resolved_media_url = (media_url or "").strip() or generate_image_url(
-            topic=image_context,
-            category=category,
-            tone=tone,
-            language=language,
-        )
-        if not resolved_media_url:
-            resolved_media_url = build_semantic_fallback_image_url(
+        resolved_media_url = (media_url or "").strip()
+        if platform != "youtube":
+            resolved_media_url = resolved_media_url or generate_image_url(
                 topic=image_context,
                 category=category,
                 tone=tone,
                 language=language,
             )
+            if not resolved_media_url:
+                resolved_media_url = build_semantic_fallback_image_url(
+                    topic=image_context,
+                    category=category,
+                    tone=tone,
+                    language=language,
+                )
         # New posts should be queued first; real publish endpoint sets done/published_at.
         post_status = "scheduled" if schedule_at else "queued"
         published_at = None
@@ -749,7 +761,7 @@ def run_generation_job(post_id: int) -> None:
         raw_sentences = _split_sentences(result.text)
         value_lines = raw_sentences[:4] if raw_sentences else [f"Совет: сфокусируйтесь на теме '{post.topic}' и тестируйте 1 гипотезу в день."]
         cta = "Напишите в комментариях 'ПЛАН', и мы отправим следующий шаг."
-        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #instagram #facebook", platform_cfg["max_hashtags"])
+        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #youtube", platform_cfg["max_hashtags"])
         structured_text = _structured_post_text(
             hook=selected_hook,
             value_lines=value_lines[:4],
@@ -772,14 +784,14 @@ def run_generation_job(post_id: int) -> None:
 
         post.generated_text = structured_text
         image_context = f"{post.topic}. {structured_text[:220]}".strip()
-        if not (post.media_url or "").strip():
+        if post.platform != "youtube" and not (post.media_url or "").strip():
             post.media_url = generate_image_url(
                 topic=image_context,
                 category=post.category,
                 tone=post.tone,
                 language=post.language,
             )
-        if not (post.media_url or "").strip():
+        if post.platform != "youtube" and not (post.media_url or "").strip():
             post.media_url = build_semantic_fallback_image_url(
                 topic=image_context,
                 category=post.category,
@@ -1125,7 +1137,7 @@ def materialize_content_plan(
     days = max(1, min(int(days or 7), 30))
     limit = max(1, min(int(limit or 20), 50))
     platform = (platform or "instagram").strip().lower()
-    if platform not in ("instagram", "facebook"):
+    if platform not in ("instagram", "facebook", "youtube"):
         platform = "instagram"
 
     db = SessionLocal()

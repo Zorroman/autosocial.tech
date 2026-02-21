@@ -26,7 +26,7 @@ from facebook_api import (
     publish_to_facebook,
     publish_to_instagram,
 )
-from gpt_generator import build_semantic_fallback_image_url
+from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
 from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
 from saas_models import (
     AuthEmailChallenge,
@@ -86,6 +86,10 @@ AUTH_RATE_WINDOW_SECONDS = max(60, int(os.getenv("AUTH_RATE_WINDOW_SECONDS", "90
 AUTH_RATE_MAX_PER_IP = max(5, int(os.getenv("AUTH_RATE_MAX_PER_IP", "25")))
 AUTH_RATE_MAX_PER_EMAIL = max(3, int(os.getenv("AUTH_RATE_MAX_PER_EMAIL", "8")))
 AUTH_CODE_PEPPER = os.getenv("AUTH_CODE_PEPPER", "autosocial-auth-code")
+YOUTUBE_SHORT_MIN_SECONDS = 15
+YOUTUBE_SHORT_MAX_SECONDS = 70
+YOUTUBE_LONG_MIN_SECONDS = 120
+YOUTUBE_LONG_MAX_SECONDS = 480
 
 
 def _ip() -> str:
@@ -111,24 +115,16 @@ def _send_auth_email_code(email: str, code: str, flow: str, ip_addr: str, challe
     app_name = (os.getenv("APP_NAME") or "AutoSocial GPT").strip()
     action_text = "входа" if flow == "login" else "регистрации"
     ttl_min = max(1, AUTH_CODE_TTL_SECONDS // 60)
-    verify_link = f"{_public_api_base_url() or _api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
 
     message = EmailMessage()
     message["Subject"] = f"{app_name}: код подтверждения"
     message["From"] = smtp_from
     message["To"] = email
-    if flow == "register":
-        message.set_content(
-            f"Подтвердите регистрацию в AutoSocial GPT:\n{verify_link}\n\n"
-            f"Ссылка действует {ttl_min} минут.\n"
-            "Если это были не вы, просто проигнорируйте письмо."
-        )
-    else:
-        message.set_content(
-            f"Код для {action_text}: {code}\n"
-            f"Срок действия: {ttl_min} минут.\n"
-            "Если это были не вы, просто проигнорируйте письмо."
-        )
+    message.set_content(
+        f"Код для {action_text}: {code}\n"
+        f"Срок действия: {ttl_min} минут.\n"
+        "Если это были не вы, просто проигнорируйте письмо."
+    )
 
     context = ssl.create_default_context()
     if smtp_use_ssl:
@@ -194,6 +190,18 @@ def serve_generated_media(filename: str):
     if not full_path.exists():
         return jsonify({'error': 'file_not_found'}), 404
     return send_from_directory(MEDIA_DIR, safe_name)
+
+
+def _youtube_length_bounds(video_type: str) -> tuple[int, int]:
+    if video_type == "short":
+        return (YOUTUBE_SHORT_MIN_SECONDS, YOUTUBE_SHORT_MAX_SECONDS)
+    return (YOUTUBE_LONG_MIN_SECONDS, YOUTUBE_LONG_MAX_SECONDS)
+
+
+def _youtube_eta_seconds(video_type: str, duration_seconds: int) -> int:
+    if video_type == "short":
+        return max(8, min(45, 8 + int(duration_seconds * 0.35)))
+    return max(20, min(120, 20 + int(duration_seconds * 0.22)))
 
 def _google_client_id() -> str:
     return (os.getenv("GOOGLE_CLIENT_ID") or "").strip()
@@ -462,15 +470,10 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
         "message": "Проверьте email и подтвердите действие",
         "flow": flow,
     }
-    if flow == "register":
-        payload["message"] = "Отправили ссылку для подтверждения регистрации на email"
-    else:
-        payload["message"] = "Код отправлен на email"
+    payload["message"] = "Код отправлен на email"
     if is_dev and not delivered:
-        if flow == "register":
-            payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
-        else:
-            payload["dev_code"] = code
+        payload["dev_code"] = code
+        payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
     log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
     return payload, 200
 
@@ -1004,7 +1007,9 @@ def generate():
 
     topic = (data.get("topic") or "").strip()
     category = (data.get("category") or "").strip() or None
-    platform = (data.get("platform") or "instagram").strip()
+    platform = (data.get("platform") or "instagram").strip().lower()
+    if platform not in {"facebook", "instagram", "youtube"}:
+        platform = "instagram"
     language = (data.get("language") or "ru").strip()
     tone = (data.get("tone") or "friendly").strip()
     prompt_text = (data.get("prompt_text") or "").strip()
@@ -1094,6 +1099,188 @@ def generate():
         ),
         202,
     )
+
+
+@saas_api.route("/youtube/generate-video", methods=["POST"])
+@require_auth
+def youtube_generate_video():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+
+    topic = (data.get("topic") or "").strip()
+    language = (data.get("language") or "ru").strip().lower()
+    tone = (data.get("tone") or "expert").strip().lower()
+    audience = (data.get("audience") or "small business owners").strip()
+    goal = (data.get("goal") or "engagement").strip()
+    style = (data.get("style") or "educational").strip()
+    video_type = (data.get("video_type") or "short").strip().lower()
+    if video_type not in {"short", "long"}:
+        video_type = "short"
+
+    if not topic:
+        return jsonify({"error": "Укажите тему видео"}), 400
+
+    min_len, max_len = _youtube_length_bounds(video_type)
+    try:
+        duration_seconds = int(data.get("duration_seconds") or min_len)
+    except Exception:
+        return jsonify({"error": "duration_seconds должен быть числом"}), 400
+    duration_seconds = max(min_len, min(max_len, duration_seconds))
+    eta_seconds = _youtube_eta_seconds(video_type, duration_seconds)
+
+    system_prompt = (
+        "Ты YouTube-стратег и сценарист. "
+        "Верни только JSON без markdown и пояснений. "
+        "Сделай результат конкретным, без воды, применимым сразу."
+    )
+    user_prompt = (
+        f"Сформируй пакет для YouTube видео.\n"
+        f"Тема: {topic}\n"
+        f"Тип: {video_type}\n"
+        f"Длительность: {duration_seconds} секунд\n"
+        f"Язык: {language}\n"
+        f"Тон: {tone}\n"
+        f"ЦА: {audience}\n"
+        f"Цель: {goal}\n"
+        f"Стиль: {style}\n"
+        "JSON-структура:\n"
+        "{\n"
+        '  "title_options": ["...","...","..."],\n'
+        '  "thumbnail_text": "...",\n'
+        '  "description": "...",\n'
+        '  "hashtags": ["#...","#...","#..."],\n'
+        '  "hook": "...",\n'
+        '  "timeline": [{"t":"00:00","segment":"...","voiceover":"...","visual":"..."}],\n'
+        '  "cta": "...",\n'
+        '  "community_post": "...",\n'
+        '  "production_notes": ["...","..."]\n'
+        "}"
+    )
+
+    try:
+        gen = generate_structured_text_with_usage(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_output_tokens=900 if video_type == "long" else 650,
+            temperature=0.7,
+        )
+        raw = (gen.text or "").strip()
+        payload = None
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            m = re.search(r"\{.*\}", raw, re.S)
+            if m:
+                payload = json.loads(m.group(0))
+        if not isinstance(payload, dict):
+            raise ValueError("model_return_invalid_json")
+    except Exception:
+        payload = {
+            "title_options": [
+                f"{topic}: пошаговый разбор без воды",
+                f"Как быстро получить результат в теме: {topic}",
+                f"{topic}: стратегия на {duration_seconds} секунд",
+            ],
+            "thumbnail_text": "ПЛАН ДЕЙСТВИЙ",
+            "description": f"Практический ролик по теме '{topic}' с понятными шагами и примерами.",
+            "hashtags": ["#youtube", "#контент", "#маркетинг"],
+            "hook": "За следующие минуты вы получите готовый план действий.",
+            "timeline": [
+                {"t": "00:00", "segment": "Хук", "voiceover": "Коротко обозначьте боль и обещание результата.", "visual": "Крупный план + заголовок"},
+                {"t": "00:10", "segment": "Суть проблемы", "voiceover": "Покажите, где обычно теряют время/деньги.", "visual": "Инфографика"},
+                {"t": "00:30", "segment": "Решение", "voiceover": "Дайте 3 конкретных шага.", "visual": "Список шагов"},
+            ],
+            "cta": "Подпишитесь и напишите в комментариях 'шаблон' - отправим структуру.",
+            "community_post": f"Новый ролик по теме '{topic}' уже на канале. Напишите свой кейс в комментариях.",
+            "production_notes": [
+                "Говорите короткими фразами: 8-14 слов.",
+                "Смена плана каждые 2-4 секунды для shorts и 5-8 секунд для long.",
+            ],
+        }
+        gen = type("Gen", (), {"input_tokens": 0, "output_tokens": 0})()
+
+    titles = payload.get("title_options") if isinstance(payload.get("title_options"), list) else []
+    timeline = payload.get("timeline") if isinstance(payload.get("timeline"), list) else []
+    hashtags = payload.get("hashtags") if isinstance(payload.get("hashtags"), list) else []
+    result = {
+        "topic": topic,
+        "video_type": video_type,
+        "duration_seconds": duration_seconds,
+        "duration_bounds_seconds": {"min": min_len, "max": max_len},
+        "estimated_wait_seconds": eta_seconds,
+        "server_capacity_note": f"Рекомендуемый лимит на сервере: до {max_len} секунд для типа {video_type}.",
+        "title_options": [str(x).strip() for x in titles[:5] if str(x).strip()],
+        "thumbnail_text": str(payload.get("thumbnail_text") or "").strip(),
+        "description": str(payload.get("description") or "").strip(),
+        "hashtags": [str(x).strip() for x in hashtags[:8] if str(x).strip()],
+        "hook": str(payload.get("hook") or "").strip(),
+        "timeline": timeline[:24],
+        "cta": str(payload.get("cta") or "").strip(),
+        "community_post": str(payload.get("community_post") or "").strip(),
+        "production_notes": payload.get("production_notes") if isinstance(payload.get("production_notes"), list) else [],
+        "tokens_input": int(getattr(gen, "input_tokens", 0) or 0),
+        "tokens_output": int(getattr(gen, "output_tokens", 0) or 0),
+    }
+    return jsonify(result)
+
+
+@saas_api.route("/youtube/generate-post", methods=["POST"])
+@require_auth
+def youtube_generate_post():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    topic = (data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"error": "Укажите тему поста"}), 400
+
+    post_kind = (data.get("post_kind") or "community").strip().lower()
+    if post_kind not in {"community", "announcement", "poll"}:
+        post_kind = "community"
+
+    language = (data.get("language") or "ru").strip().lower()
+    tone = (data.get("tone") or "friendly").strip().lower()
+    project_id_raw = data.get("project_id")
+    try:
+        project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
+    except Exception:
+        return jsonify({"error": "project_id должен быть числом"}), 400
+    if not can_access_project(user, project_id):
+        return jsonify({"error": "У вас нет доступа к проекту"}), 403
+
+    prompt_text = f"YouTube {post_kind} post"
+    try:
+        post = create_post_and_charge(
+            user_id=user.id,
+            project_id=project_id,
+            platform="youtube",
+            topic=f"[{post_kind}] {topic}",
+            category="youtube",
+            tone=tone,
+            language=language,
+            prompt_text=prompt_text,
+            media_url=None,
+            schedule_at=None,
+            variant_count=1,
+            translation=False,
+            long_post_mode=False,
+            generated_text_override=(data.get("generated_text") or "").strip() or None,
+            save_as_draft=True,
+        )
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 429
+    except Exception as exc:
+        return jsonify({"error": f"Ошибка генерации YouTube поста: {exc}"}), 500
+
+    return jsonify(
+        {
+            "id": post.id,
+            "platform": post.platform,
+            "status": post.status,
+            "topic": post.topic,
+            "generated_text": post.generated_text,
+            "created_at": post.created_at.isoformat() if post.created_at else None,
+        }
+    ), 202
 
 
 @saas_api.route("/ai-smm-manager/start", methods=["POST"])
@@ -1401,8 +1588,8 @@ def update_post(post_id: int):
 
         if "platform" in data:
             platform = (data.get("platform") or "").strip().lower()
-            if platform not in {"facebook", "instagram"}:
-                return jsonify({"error": "Платформа должна быть facebook или instagram"}), 400
+            if platform not in {"facebook", "instagram", "youtube"}:
+                return jsonify({"error": "Платформа должна быть facebook, instagram или youtube"}), 400
             post.platform = platform
 
         if "media_url" in data:
@@ -1513,6 +1700,8 @@ def publish_post(post_id: int):
             return jsonify({"error": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ"}), 403
         if post.retry_count >= 3:
             return jsonify({"error": "Р”РѕСЃС‚РёРіРЅСѓС‚ РјР°РєСЃРёРјСѓРј РїРѕРІС‚РѕСЂРѕРІ РїСѓР±Р»РёРєР°С†РёРё (3)"}), 429
+        if str(post.platform or "").lower() == "youtube":
+            return jsonify({"error": "Автопубликация в YouTube API пока не подключена. Доступна генерация контента."}), 400
 
         # In local/mock mode keep previous behavior.
         if settings.USE_MOCK_PROVIDERS:

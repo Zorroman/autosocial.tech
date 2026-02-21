@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import and_, desc, extract, func
 
 from database import SessionLocal
-from gpt_generator import generate_post_with_usage
+from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_post_with_usage
 from saas_models import (
     AppUser,
     AuditLog,
@@ -113,6 +113,13 @@ PLATFORM_RULES_DEFAULT = {
         "recommended_chars_max": 400,
         "max_hashtags": 5,
         "max_output_tokens_default": 350,
+    },
+    "youtube": {
+        "max_chars": 5000,
+        "recommended_chars_min": 180,
+        "recommended_chars_max": 600,
+        "max_hashtags": 3,
+        "max_output_tokens_default": 500,
     },
 }
 
@@ -264,9 +271,9 @@ def ensure_user_plan_and_credits(user_id: int) -> None:
 def get_or_create_default_project(user_id: int) -> Project:
     db = SessionLocal()
     try:
-        project = db.query(Project).filter_by(user_id=user_id, name="Default Project").first()
+        project = db.query(Project).filter_by(user_id=user_id).order_by(Project.created_at.asc()).first()
         if not project:
-            project = Project(user_id=user_id, name="Default Project")
+            project = Project(user_id=user_id, name="Project")
             db.add(project)
             db.commit()
             db.refresh(project)
@@ -293,6 +300,14 @@ def check_post_limits(user: AppUser) -> Dict[str, int]:
     db = SessionLocal()
     try:
         plan = get_plan(db, user)
+        if user.role == "admin":
+            # Admin can manage/test publishing without SaaS quota blocks.
+            return {
+                "monthly_used": 0,
+                "monthly_limit": 10**9,
+                "daily_used": 0,
+                "daily_limit": 10**9,
+            }
         monthly_used = (
             db.query(Post)
             .filter(
@@ -328,11 +343,24 @@ def get_billing_summary(user: AppUser) -> Dict[str, object]:
         post_limits = check_post_limits(user)
         project_limits = check_project_limit(user)
         approx_posts_left = int(max(user.credits_left, 0) / max(settings.AVG_TOKENS_PER_POST, 1))
+        stripe_price_map = {
+            "light": bool(settings.STRIPE_PRICE_LIGHT),
+            "pro": bool(settings.STRIPE_PRICE_PRO),
+            "agency": bool(settings.STRIPE_PRICE_AGENCY),
+        }
+        stripe_enabled = bool(settings.STRIPE_SECRET_KEY)
         return {
             "plan": plan.name,
             "billing_status": user.billing_status,
             "credits_left": user.credits_left,
             "approx_posts_left": approx_posts_left,
+            "stripe": {
+                "enabled": stripe_enabled,
+                # Even without env price ids we can resolve/create prices dynamically in stripe_service.
+                "subscriptions_ready": stripe_enabled,
+                "portal_ready": stripe_enabled,
+                "prices": stripe_price_map,
+            },
             "limits": {
                 "posts_per_month": post_limits["monthly_limit"],
                 "projects": project_limits["limit"],
@@ -490,6 +518,8 @@ def create_post_and_charge(
     variant_count: int,
     translation: bool,
     long_post_mode: bool,
+    generated_text_override: Optional[str] = None,
+    save_as_draft: bool = False,
 ) -> Post:
     db = SessionLocal()
     try:
@@ -500,22 +530,26 @@ def create_post_and_charge(
         ensure_user_plan_and_credits(user.id)
         db.refresh(user)
         plan = get_plan(db, user)
+        enforce_limits = user.role != "admin"
 
         limits = check_post_limits(user)
-        if limits["monthly_used"] >= limits["monthly_limit"]:
+        if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
             raise RuntimeError("Месячный лимит постов исчерпан. Обновите тариф.")
         # Daily limit is enforced for "publish now". Scheduling drafts should not be blocked by daily caps.
-        if not schedule_at and limits["daily_used"] >= limits["daily_limit"]:
+        if enforce_limits and not schedule_at and limits["daily_used"] >= limits["daily_limit"]:
             raise RuntimeError("Дневной лимит публикаций исчерпан. Попробуйте завтра.")
-        if schedule_at and not plan.can_schedule:
+        if enforce_limits and schedule_at and not plan.can_schedule:
             raise RuntimeError("Планирование доступно только на платных тарифах")
 
         estimate = estimate_credits(topic, long_post_mode, variant_count, translation)
-        if user.credits_left < int(estimate * 1.2):
+        if enforce_limits and user.credits_left < int(estimate * 1.2):
             raise RuntimeError("Monthly limit reached. Upgrade or buy credits.")
-        if user.credits_left <= settings.OVERDRAFT_LIMIT:
+        if enforce_limits and user.credits_left <= settings.OVERDRAFT_LIMIT:
             raise RuntimeError("Credits limit exceeded. Buy credits or upgrade.")
 
+        platform = (platform or "instagram").strip().lower()
+        if platform not in ("instagram", "facebook", "youtube"):
+            platform = "instagram"
         platform_cfg = _platform_rule(platform)
         max_output_tokens = min(_plan_output_cap(plan.name), int(platform_cfg["max_output_tokens_default"]))
         selected_hook = _pick_hook(category or topic)
@@ -549,7 +583,7 @@ def create_post_and_charge(
         raw_sentences = _split_sentences(result.text)
         value_lines = raw_sentences[:4] if raw_sentences else [f"Совет: сфокусируйтесь на теме '{topic}' и тестируйте 1 гипотезу в день."]
         cta = "Напишите в комментариях 'ПЛАН', и мы отправим следующий шаг."
-        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #instagram #facebook", platform_cfg["max_hashtags"])
+        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #youtube", platform_cfg["max_hashtags"])
         structured_text = _structured_post_text(
             hook=selected_hook,
             value_lines=value_lines[:4],
@@ -561,48 +595,71 @@ def create_post_and_charge(
         tokens_total = result.input_tokens + result.output_tokens
         charged = int(tokens_total * settings.CREDIT_MULTIPLIER * _multiplier(variant_count, translation))
 
-        user.credits_left -= charged
-        user.posts_used_month += 1
+        if enforce_limits:
+            user.credits_left -= charged
+            user.posts_used_month += 1
+
+        final_text = (generated_text_override or "").strip() or structured_text
+        image_context = f"{topic}. {final_text[:220]}".strip()
+        resolved_media_url = (media_url or "").strip()
+        if platform != "youtube":
+            resolved_media_url = resolved_media_url or generate_image_url(
+                topic=image_context,
+                category=category,
+                tone=tone,
+                language=language,
+            )
+            if not resolved_media_url:
+                resolved_media_url = build_semantic_fallback_image_url(
+                    topic=image_context,
+                    category=category,
+                    tone=tone,
+                    language=language,
+                )
+        # New posts should be queued first; real publish endpoint sets done/published_at.
+        post_status = "scheduled" if schedule_at else "queued"
+        published_at = None
 
         post = Post(
             user_id=user_id,
             project_id=project_id,
             platform=platform,
             prompt_text=prompt_text,
-            generated_text=structured_text,
+            generated_text=final_text,
             topic=topic,
             category=category,
             language=language,
             tone=tone,
-            media_url=media_url,
+            media_url=resolved_media_url or None,
             tokens_input=result.input_tokens,
             tokens_output=result.output_tokens,
             tokens_total=tokens_total,
             credits_charged=charged,
-            status="scheduled" if schedule_at else "done",
+            status=post_status,
             schedule_at=schedule_at,
-            published_at=None if schedule_at else datetime.utcnow(),
+            published_at=published_at,
         )
         db.add(post)
         db.flush()
 
-        db.add(
-            CreditLedger(
-                user_id=user.id,
-                type="usage",
-                delta_credits=-charged,
-                post_id=post.id,
-                meta_json=json.dumps(
-                    {
-                        "topic": topic,
-                        "tokens_total": tokens_total,
-                        "variant_count": variant_count,
-                        "translation": translation,
-                    },
-                    ensure_ascii=False,
-                ),
+        if enforce_limits:
+            db.add(
+                CreditLedger(
+                    user_id=user.id,
+                    type="usage",
+                    delta_credits=-charged,
+                    post_id=post.id,
+                    meta_json=json.dumps(
+                        {
+                            "topic": topic,
+                            "tokens_total": tokens_total,
+                            "variant_count": variant_count,
+                            "translation": translation,
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
             )
-        )
 
         suggestion = (
             db.query(TopicSuggestion)
@@ -704,7 +761,7 @@ def run_generation_job(post_id: int) -> None:
         raw_sentences = _split_sentences(result.text)
         value_lines = raw_sentences[:4] if raw_sentences else [f"Совет: сфокусируйтесь на теме '{post.topic}' и тестируйте 1 гипотезу в день."]
         cta = "Напишите в комментариях 'ПЛАН', и мы отправим следующий шаг."
-        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #instagram #facebook", platform_cfg["max_hashtags"])
+        hashtags = _sanitize_hashtags(result.text + " #autosocial #smm #marketing #youtube", platform_cfg["max_hashtags"])
         structured_text = _structured_post_text(
             hook=selected_hook,
             value_lines=value_lines[:4],
@@ -726,6 +783,21 @@ def run_generation_job(post_id: int) -> None:
         user.credits_left -= delta  # may add credits back when delta < 0
 
         post.generated_text = structured_text
+        image_context = f"{post.topic}. {structured_text[:220]}".strip()
+        if post.platform != "youtube" and not (post.media_url or "").strip():
+            post.media_url = generate_image_url(
+                topic=image_context,
+                category=post.category,
+                tone=post.tone,
+                language=post.language,
+            )
+        if post.platform != "youtube" and not (post.media_url or "").strip():
+            post.media_url = build_semantic_fallback_image_url(
+                topic=image_context,
+                category=post.category,
+                tone=post.tone,
+                language=post.language,
+            )
         post.tokens_input = result.input_tokens
         post.tokens_output = result.output_tokens
         post.tokens_total = tokens_total
@@ -955,6 +1027,26 @@ def create_monthly_content_plan(
         "инструмент дня",
         "разбор частой проблемы",
         "мини-гайд",
+        "реальный пример из практики",
+        "что сделать за 15 минут",
+        "главный провал и решение",
+        "краткий аудит текущей стратегии",
+        "2 рабочих сценария на выбор",
+        "как повысить конверсию в лид",
+        "что убрать, чтобы росла вовлеченность",
+        "частый вопрос клиентов",
+        "идея поста на сегодня",
+        "серия на неделю",
+        "оффер, который продает",
+        "как усилить доверие к бренду",
+        "ошибка в коммуникации с аудиторией",
+        "контент без выгорания",
+        "формула сильного CTA",
+        "контент-подход для локального бизнеса",
+        "как упаковать кейс",
+        "контент для холодной аудитории",
+        "быстрый шаблон для сторис/ленты",
+        "7-дневный спринт роста",
     ]
 
     created = 0
@@ -964,11 +1056,21 @@ def create_monthly_content_plan(
 
     db = SessionLocal()
     try:
+        existing_topics = set(
+            t[0]
+            for t in db.query(ContentPlan.topic)
+            .filter(ContentPlan.user_id == user.id, ContentPlan.project_id == project_id)
+            .all()
+        )
+        used_topics = set(existing_topics)
         plan_rows: List[ContentPlan] = []
         for i in range(30):
             scheduled_at = start_day + timedelta(days=i)
             angle = angles[i % len(angles)]
-            topic = f"{business_type}: {niche} · {goal} — {angle} (день {i + 1})"
+            topic = f"{angle}: {niche} для {business_type} — цель: {goal} (день {i + 1})"
+            if topic in used_topics:
+                topic = f"{topic} / вариант {i + 1}"
+            used_topics.add(topic)
             row = ContentPlan(
                 user_id=user.id,
                 project_id=project_id,
@@ -1035,7 +1137,7 @@ def materialize_content_plan(
     days = max(1, min(int(days or 7), 30))
     limit = max(1, min(int(limit or 20), 50))
     platform = (platform or "instagram").strip().lower()
-    if platform not in ("instagram", "facebook"):
+    if platform not in ("instagram", "facebook", "youtube"):
         platform = "instagram"
 
     db = SessionLocal()
@@ -1062,6 +1164,7 @@ def materialize_content_plan(
             raise RuntimeError("User not found")
         ensure_user_plan_and_credits(app_user.id)
         db.refresh(app_user)
+        enforce_limits = app_user.role != "admin"
 
         created_posts = 0
         post_ids: List[int] = []
@@ -1071,18 +1174,19 @@ def materialize_content_plan(
 
             # Monthly limits are enforced by counting Posts, so creating queued posts still consumes the quota.
             limits = check_post_limits(app_user)
-            if limits["monthly_used"] >= limits["monthly_limit"]:
+            if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
                 break
 
             # Reserve credits so users can't queue unlimited jobs with the same balance.
             reserve = estimate_credits(item.topic or "", long_post_mode=False, variant_count=1, translation=False)
-            if app_user.credits_left < int(reserve * 1.2):
+            if enforce_limits and app_user.credits_left < int(reserve * 1.2):
                 break
-            if app_user.credits_left <= settings.OVERDRAFT_LIMIT:
+            if enforce_limits and app_user.credits_left <= settings.OVERDRAFT_LIMIT:
                 break
 
-            app_user.credits_left -= reserve
-            app_user.posts_used_month += 1
+            if enforce_limits:
+                app_user.credits_left -= reserve
+                app_user.posts_used_month += 1
 
             post = Post(
                 user_id=app_user.id,
@@ -1106,15 +1210,16 @@ def materialize_content_plan(
             db.add(post)
             db.flush()
 
-            db.add(
-                CreditLedger(
-                    user_id=app_user.id,
-                    type="usage_reserve",
-                    delta_credits=-reserve,
-                    post_id=post.id,
-                    meta_json=json.dumps({"topic": item.topic, "reserve": reserve}, ensure_ascii=False),
+            if enforce_limits:
+                db.add(
+                    CreditLedger(
+                        user_id=app_user.id,
+                        type="usage_reserve",
+                        delta_credits=-reserve,
+                        post_id=post.id,
+                        meta_json=json.dumps({"topic": item.topic, "reserve": reserve}, ensure_ascii=False),
+                    )
                 )
-            )
 
             item.post_id = post.id
             item.caption = ""
@@ -1162,35 +1267,94 @@ def run_due_content_plan(limit: int = 50, user_id: Optional[int] = None, project
 
 
 def generate_blog_article(topic: str, language: str = "ru") -> Dict[str, str]:
+    target_words = 1500
+    base_prompt = (
+        f"Напиши SEO-статью на тему: '{topic}'. "
+        "Язык: русский. Объем: 1500-1800 слов. Формат: Markdown с H2/H3, без таблиц и без code blocks. "
+        "Тон: практичный экспертный, без воды, без повторения абзацев и без штампов. "
+        "Обязательно раскрой в тексте: "
+        "1) AutoSocial GPT как AI-ассистент для соцсетей; "
+        "2) генерация постов, хештегов и CTA; "
+        "3) планировщик и автопостинг по расписанию в Facebook + Instagram; "
+        "4) аналитика: показы, вовлеченность, рост аудитории; "
+        "5) преимущества для малого бизнеса и маркетологов; "
+        "6) Free-план без привязки карты и старт по email. "
+        "Добавь конкретику, шаги внедрения и финальный CTA: 'Начать бесплатно'. "
+        "Нельзя использовать маркеры вида 'Продолжение', 'Часть 1/2', 'Section 1/2'."
+    )
     result = generate_post_with_usage(
-        topic=f"SEO blog article (1500-2500 words): {topic}",
+        topic=base_prompt,
         category="blog",
         tone="expert",
         language=language,
         long_post_mode=True,
-        max_output_tokens=1800,
+        max_output_tokens=2400,
     )
 
-    content = f"# {topic}\n\n{result.text}\n\n"
-    extra_block = (
-        "## Практический чеклист\n"
-        "1. Определите сегмент аудитории и KPI.\n"
-        "2. Постройте контент-матрицу на 30 дней.\n"
-        "3. Автоматизируйте публикации и аналитику.\n"
-        "4. Перепаковывайте лучший контент в новые форматы.\n"
-    )
-    content += extra_block
+    content = f"# {topic}\n\n{(result.text or '').strip()}"
+    for idx in range(1, 5):
+        if len(content.split()) >= target_words:
+            break
+        continuation_prompt = (
+            f"Продолжи и углуби SEO-статью '{topic}'. Уже написано около {len(content.split())} слов. "
+            "Добавь новые разделы без повторов: ошибки внедрения, FAQ, мини-кейс, план на 30 дней. "
+            "Сохраняй стиль и структуру Markdown. "
+            "Не добавляй служебные заголовки: 'Продолжение #1', 'Продолжение #2', 'Часть 2' и подобные."
+        )
+        more = generate_post_with_usage(
+            topic=continuation_prompt,
+            category="blog",
+            tone="expert",
+            language=language,
+            long_post_mode=True,
+            max_output_tokens=1100,
+        )
+        extra = (more.text or "").strip()
+        if extra:
+            content += "\n\n" + extra
 
-    # Enforce 1500+ words for SEO requirements.
-    while len(content.split()) < 1500:
-        content += "\n\n## Дополнительные рекомендации\n" + result.text
+    if len(content.split()) < target_words:
+        content += (
+            "\n\n## Практический чеклист запуска\n"
+            "1. Определите цель на 30 дней: охват, вовлеченность или заявки.\n"
+            "2. Подготовьте темы под каждый этап воронки и соберите контент-план.\n"
+            "3. Сгенерируйте тексты с CTA и хештегами через AutoSocial GPT.\n"
+            "4. Настройте автопостинг в Facebook и Instagram по календарю.\n"
+            "5. Каждую неделю анализируйте метрики и усиливайте лучшие форматы.\n"
+            "\n## Финальный шаг\n"
+            "Если хотите внедрить SMM-автопилот без лишней рутины, начните с Free-плана AutoSocial GPT и зарегистрируйтесь по email."
+        )
+    day = 1
+    while len(content.split()) < target_words:
+        content += (
+            f"\n\n## План действий: день {day}\n"
+            f"День {day} начните с формулировки гипотезы: какой тип контента лучше сработает для вашей аудитории сегодня. "
+            "Соберите один образовательный пост, один кейс и один продающий блок с четким CTA, затем запланируйте публикации в Facebook и Instagram. "
+            "После выхода контента проверьте показы, вовлеченность, сохранения, клики и комментарии, чтобы понять, что действительно влияет на рост. "
+            "На основе данных обновите контент-план, оставьте сильные форматы и уберите слабые. "
+            "Такой цикл помогает внедрить системный SMM-процесс без хаоса и ручной рутины, а AutoSocial GPT ускоряет каждый этап от идеи до аналитики."
+        )
+        day += 1
+
+    # Remove leftover continuation markers if model still emits them.
+    cleaned_lines: List[str] = []
+    for line in content.splitlines():
+        t = line.strip().lower()
+        if re.match(r"^#{0,6}\s*продолжение\s*#?\d*\s*$", t):
+            continue
+        if re.match(r"^#{0,6}\s*част[ьи]\s*\d+\s*$", t):
+            continue
+        if re.match(r"^#{0,6}\s*continuation\s*#?\d*\s*$", t):
+            continue
+        cleaned_lines.append(line)
+    content = "\n".join(cleaned_lines).strip()
 
     return {
         "title": topic,
         "content": content,
         "meta_title": topic,
-        "meta_description": f"Подробное SEO-руководство по теме '{topic}'.",
-        "keywords": "instagram growth, facebook marketing, ai marketing, content strategy, personal branding",
+        "meta_description": f"SEO-статья по теме '{topic}': AI-контент, автопостинг Facebook+Instagram и аналитика в AutoSocial GPT.",
+        "keywords": "autosocial gpt, ai smm, автопостинг facebook instagram, контент стратегия, smm автоматизация",
     }
 
 

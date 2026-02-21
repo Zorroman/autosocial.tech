@@ -122,6 +122,39 @@ def generate_post(niche: str, topic: str | None = None) -> str:
     return result.text
 
 
+def generate_structured_text_with_usage(
+    system_prompt: str,
+    user_prompt: str,
+    max_output_tokens: int = 700,
+    temperature: float = 0.6,
+) -> GenerationResult:
+    if settings.USE_MOCK_PROVIDERS or not Config.OPENAI_API_KEY:
+        text = (
+            "{\n"
+            '  "title": "YouTube: практический разбор темы",\n'
+            '  "hook": "Смотрите до конца: в конце дам готовый шаблон.",\n'
+            '  "outline": ["Проблема", "Решение", "Пример", "Действие"],\n'
+            '  "cta": "Подписка + комментарий с запросом шаблона"\n'
+            "}"
+        )
+        return GenerationResult(text=text, input_tokens=120, output_tokens=min(max_output_tokens, 220))
+
+    response = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=temperature,
+        max_tokens=max_output_tokens,
+    )
+    usage = response.usage
+    input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+    text = (response.choices[0].message.content or "").strip()
+    return GenerationResult(text=text, input_tokens=input_tokens, output_tokens=output_tokens)
+
+
 def _build_image_prompt(topic: str, category: str | None, tone: str, language: str) -> str:
     return (
         "Create a photorealistic marketing image for social media post. "
