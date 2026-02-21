@@ -177,9 +177,30 @@ function setTheme(theme) {
 setTheme(state.theme);
 
 async function api(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const { timeoutMs = 45000, ...fetchOptions } = options || {};
+  const headers = { 'Content-Type': 'application/json', ...(fetchOptions.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  const controller = new AbortController();
+  const externalSignal = fetchOptions.signal;
+  const signal = externalSignal || controller.signal;
+  const timer = (!externalSignal && Number(timeoutMs) > 0)
+    ? setTimeout(() => controller.abort(), Number(timeoutMs))
+    : null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...fetchOptions, headers, signal });
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    if (err && err.name === 'AbortError') {
+      const secs = Math.max(1, Math.round(Number(timeoutMs || 0) / 1000));
+      throw new Error(`Сервер долго отвечает (${secs}с). Попробуйте снова.`);
+    }
+    throw err;
+  }
+  if (timer) clearTimeout(timer);
+
   const text = await res.text();
   let payload;
   try { payload = JSON.parse(text); } catch { payload = text; }
@@ -696,7 +717,7 @@ function pageLogin() {
         <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:18px;"/>
 
         <div class="hero-block">
-          <h1 class="hero__title">AutoSocial GPT — AI-ассистент для управления соцсетями, который делает посты, публикации и стратегии за вас.</h1>
+          <h1 class="hero__title">AutoSocial GPT — AI-ассистент для контента и автопостинга.</h1>
           <p class="hero__subtitle auth-subtitle">Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.</p>
           <div class="cta-row">
             <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно по email</button>
@@ -1961,13 +1982,7 @@ async function bind() {
         await loadBase();
         const stillExists = state.projects.some((p) => Number(p.id) === id);
         if (stillExists) throw new Error(`Сервер вернул успех, но проект #${id} все еще в списке.`);
-        const replacementId = Number(deleted?.replacement_project_id || 0);
-        state.notice = {
-          type: 'ok',
-          text: replacementId
-            ? `Проект #${id} удален. Создан новый проект #${replacementId}.`
-            : `Проект #${id} удален.`,
-        };
+        state.notice = { type: 'ok', text: `Проект #${id} удален.` };
         render();
       } catch (e) {
         state.notice = { type: 'error', text: e.message };
@@ -2100,7 +2115,7 @@ async function bind() {
         if (!scheduleAtIso) throw new Error('Некорректные дата/время планирования.');
         for (const platform of selectedPlatforms) {
           const payload = { ...payloadBase, platform, schedule_at: scheduleAtIso };
-          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         }
         state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты созданы и запланированы для Facebook и Instagram.' : 'Пост создан и запланирован.' };
         nav('/history');
@@ -2111,7 +2126,7 @@ async function bind() {
       if (w.mode === 'draft') {
         for (const platform of selectedPlatforms) {
           const payload = { ...payloadBase, platform, save_as_draft: true };
-          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+          await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         }
         state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Черновики созданы для Facebook и Instagram.' : 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
         nav('/history');
@@ -2120,18 +2135,25 @@ async function bind() {
 
       // mode=now: generate content and then call publish endpoint.
       let sharedMediaUrl = (w.mediaUrl || '').trim() || null;
-      const publishErrors = [];
+      const createdPosts = [];
       for (const platform of selectedPlatforms) {
         const payload = { ...payloadBase, platform, media_url: sharedMediaUrl };
-        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload) });
+        const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         const postId = created?.id;
         if (!postId) throw new Error(`Не удалось создать пост для ${platform}.`);
         if (!sharedMediaUrl && created?.media_url) sharedMediaUrl = created.media_url;
-        try {
-          await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}' });
-        } catch (pubErr) {
-          publishErrors.push(`${platform === 'facebook' ? 'Facebook' : 'Instagram'}: ${pubErr?.message || 'ошибка публикации'}`);
-        }
+        createdPosts.push({ platform, postId });
+      }
+      const publishErrors = [];
+      const publishResults = await Promise.allSettled(
+        createdPosts.map(({ postId }) => api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 })),
+      );
+      for (let i = 0; i < publishResults.length; i += 1) {
+        if (publishResults[i].status === 'fulfilled') continue;
+        const platform = createdPosts[i]?.platform;
+        const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
+        const reason = publishResults[i]?.reason;
+        publishErrors.push(`${platformLabel}: ${reason?.message || 'ошибка публикации'}`);
       }
       if (publishErrors.length) {
         throw new Error(`Часть публикаций не выполнена: ${publishErrors.join(' ; ')}`);
