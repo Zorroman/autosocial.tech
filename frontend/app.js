@@ -50,7 +50,8 @@ const state = {
   notice: null,
   historyCalendar: {
     monthKey: '',
-    monthsSpan: 3,
+    monthsSpan: 1,
+    selectedDayKey: '',
   },
   createWizard: {
     step: 1,
@@ -164,7 +165,7 @@ function localInputToIsoNoTz(value) {
   if (Number.isNaN(d.getTime())) return '';
   return toLocalIsoNoTz(d);
 }
-const isAuthRoute = (p) => p !== '/login';
+const isAuthRoute = (p) => !['/login', '/blog'].includes(p);
 let renderVersion = 0;
 
 function setTheme(theme) {
@@ -275,6 +276,27 @@ function progressBar(value, max) {
 }
 function emptyState(title, text, buttonLabel, path) {
   return `<div class="empty"><h3>${esc(title)}</h3><p class="small">${esc(text)}</p>${buttonLabel ? `<button class="btn btn-primary" data-link="${esc(path)}">${esc(buttonLabel)}</button>` : ''}</div>`;
+}
+
+function blogSelectedSlug() {
+  try {
+    return new URLSearchParams(location.search).get('slug') || '';
+  } catch {
+    return '';
+  }
+}
+
+function blogContentToHtml(content) {
+  const lines = String(content || '').split('\n');
+  return lines.map((line) => {
+    const t = line.trim();
+    if (!t) return '<p class="small">&nbsp;</p>';
+    if (t.startsWith('### ')) return `<h4>${esc(t.slice(4))}</h4>`;
+    if (t.startsWith('## ')) return `<h3>${esc(t.slice(3))}</h3>`;
+    if (t.startsWith('# ')) return `<h2>${esc(t.slice(2))}</h2>`;
+    if (/^\d+\.\s+/.test(t) || t.startsWith('- ')) return `<p class="small">${esc(t)}</p>`;
+    return `<p>${esc(t)}</p>`;
+  }).join('');
 }
 
 const WizardUtils = (typeof window !== 'undefined' && window.WizardUtils) ? window.WizardUtils : {};
@@ -1056,6 +1078,8 @@ function pricingCards() {
   const planMap = {};
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
 
+  const stripe = state.billing?.stripe || {};
+  const stripeReady = !!stripe.subscriptions_ready;
   const current = String(state.user?.plan || 'free').toLowerCase();
   const order = ['free', 'light', 'pro', 'agency'];
   const meta = {
@@ -1078,12 +1102,14 @@ function pricingCards() {
     ${order.map((name) => {
       const m = meta[name] || { title: name, desc: '' };
       const isCurrent = current === name;
-      const canUpgrade = name !== 'free';
+      const canUpgrade = name !== 'free' && stripeReady;
       const btn = isCurrent
         ? `<button class="btn btn-secondary" disabled>Текущий тариф</button>`
         : canUpgrade
           ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">Перейти на ${esc(m.title)}</button>`
-          : `<button class="btn btn-ghost" disabled>Бесплатно</button>`;
+          : name === 'free'
+            ? `<button class="btn btn-ghost" disabled>Бесплатно</button>`
+            : `<button class="btn btn-ghost" disabled title="Stripe не настроен">Оплата недоступна</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
@@ -1113,20 +1139,18 @@ function pageHistory() {
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
   const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
   const today = new Date();
-  const calendarState = state.historyCalendar || { monthKey: '', monthsSpan: 3 };
+  const calendarState = state.historyCalendar || { monthKey: '', monthsSpan: 1, selectedDayKey: '' };
   const currentMonthKey = localMonthKey(today);
   if (!calendarState.monthKey) calendarState.monthKey = currentMonthKey;
-  const monthsSpanRaw = Number(calendarState.monthsSpan || 3);
-  const monthsSpan = Number.isFinite(monthsSpanRaw) ? Math.max(1, Math.min(6, monthsSpanRaw)) : 3;
-  calendarState.monthsSpan = monthsSpan;
+  calendarState.monthsSpan = 1;
   const start = monthStartFromKey(calendarState.monthKey);
-  const end = new Date(start.getFullYear(), start.getMonth() + monthsSpan, 1);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
   const dayMs = 24 * 60 * 60 * 1000;
   const dayKeys = [];
   for (let cursor = new Date(start.getTime()); cursor < end; cursor = new Date(cursor.getTime() + dayMs)) {
     dayKeys.push(localDateKey(cursor));
   }
-  const rangeLabel = `${start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })} — ${new Date(end.getFullYear(), end.getMonth(), 0).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}`;
+  const rangeLabel = start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const dateToKey = (value) => {
     if (!value) return '';
     return localDateKey(value);
@@ -1137,16 +1161,14 @@ function pageHistory() {
     return Boolean(p.published_at) || Boolean(p.remote_id) || status === 'published';
   };
   const plannerStatus = (p) => (isPublishedPost(p) ? 'published' : 'draft');
-  const plannerColumns = [{ key: 'draft', label: 'Черновики' }, ...dayKeys.map((k) => {
-    const d = new Date(`${k}T00:00:00`);
-    return { key: k, label: d.toLocaleDateString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit' }) };
-  })];
-  const grouped = Object.fromEntries(plannerColumns.map((c) => [c.key, []]));
+  const grouped = Object.fromEntries(dayKeys.map((k) => [k, []]));
+  grouped.draft = [];
+  const dayKeySet = new Set(dayKeys);
   for (const p of (state.posts || [])) {
     const published = plannerStatus(p) === 'published';
     const calendarDate = published ? (p.published_at || p.schedule_at || p.created_at) : p.schedule_at;
     const calendarKey = dateToKey(calendarDate);
-    const key = calendarKey && dayKeys.includes(calendarKey) ? calendarKey : 'draft';
+    const key = calendarKey && dayKeySet.has(calendarKey) ? calendarKey : 'draft';
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(p);
   }
@@ -1157,58 +1179,62 @@ function pageHistory() {
       return da - db;
     });
   }
+  const defaultSelectedKey = dayKeySet.has(dateToKey(today)) ? dateToKey(today) : dayKeys[0];
+  const selectedDayKey = dayKeySet.has(calendarState.selectedDayKey) ? calendarState.selectedDayKey : defaultSelectedKey;
+  calendarState.selectedDayKey = selectedDayKey;
+  state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: calendarState.monthKey, monthsSpan: 1, selectedDayKey };
 
-  const plannerBoard = `<section class="card planner-card">
-    <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <h3 style="margin:0;">Календарь публикаций</h3>
-      <div class="cta-row">
-        <button class="btn btn-ghost" id="calendarPrevMonthBtn">← Месяц назад</button>
-        <button class="btn btn-ghost" id="calendarTodayBtn">Текущий месяц</button>
-        <button class="btn btn-ghost" id="calendarNextMonthBtn">Месяц вперед →</button>
+  const selectedDayPosts = grouped[selectedDayKey] || [];
+  const selectedDate = new Date(`${selectedDayKey}T00:00:00`);
+  const selectedDateLabel = selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const postsInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k]?.length || 0), 0);
+  const publishedInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k] || []).filter((p) => plannerStatus(p) === 'published').length, 0);
+  const draftsWithoutDay = grouped.draft.length;
+
+  const weekDayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const leadingEmpty = (start.getDay() + 6) % 7;
+  const monthCells = [];
+  for (let i = 0; i < leadingEmpty; i += 1) monthCells.push('<div class="phone-day-blank"></div>');
+  for (const key of dayKeys) {
+    const d = new Date(`${key}T00:00:00`);
+    const count = (grouped[key] || []).length;
+    const isToday = key === dateToKey(today);
+    const isSelected = key === selectedDayKey;
+    monthCells.push(`<button class="phone-day ${count > 0 ? 'has-posts' : 'no-posts'} ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" data-calendar-day="${key}">
+      <span class="phone-day-number">${d.getDate()}</span>
+      <span class="phone-day-dot">${count > 0 ? `${count}` : '0'}</span>
+    </button>`);
+  }
+
+  const selectedPostsHtml = selectedDayPosts.map((p) => {
+    const status = plannerStatus(p);
+    const title = p.topic || p.title_preview || `Пост #${p.id}`;
+    const when = p.published_at ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}` : (p.schedule_at ? `План: ${new Date(p.schedule_at).toLocaleString()}` : 'Без даты');
+    return `<article class="phone-post-row">
+      <div class="phone-post-main">
+        <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
+        <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${status === 'published' ? 'Опубликован' : 'Черновик'}</div>
       </div>
+    </article>`;
+  }).join('');
+
+  const plannerBoard = `<section class="card planner-card phone-calendar">
+    <div class="phone-cal-toolbar">
+      <button class="btn btn-ghost phone-nav-btn" id="calendarPrevMonthBtn">←</button>
+      <h3 class="phone-cal-title">${esc(rangeLabel)}</h3>
+      <button class="btn btn-ghost phone-nav-btn" id="calendarNextMonthBtn">→</button>
     </div>
-    <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
-      <div class="small"><strong>Период:</strong> ${esc(rangeLabel)}</div>
-      <div class="small">
-        Горизонт:
-        <select id="calendarSpanSelect" style="margin-left:6px;">
-          <option value="1" ${monthsSpan === 1 ? 'selected' : ''}>1 месяц</option>
-          <option value="2" ${monthsSpan === 2 ? 'selected' : ''}>2 месяца</option>
-          <option value="3" ${monthsSpan === 3 ? 'selected' : ''}>3 месяца</option>
-          <option value="6" ${monthsSpan === 6 ? 'selected' : ''}>6 месяцев</option>
-        </select>
+    <div class="phone-cal-subline">
+      <button class="btn btn-ghost" id="calendarTodayBtn">Сегодня</button>
+      <span class="small">Постов в месяце: ${postsInMonth} · Опубликовано: ${publishedInMonth} · Вне месяца/без даты: ${draftsWithoutDay}</span>
+    </div>
+    <div class="phone-weekdays">${weekDayLabels.map((w) => `<span>${w}</span>`).join('')}</div>
+    <div class="phone-days">${monthCells.join('')}</div>
+    <div class="phone-selected-panel">
+      <h4 id="historySelectedDayLabel" style="margin:0;">${esc(selectedDateLabel)}</h4>
+      <div id="historySelectedDayPosts">
+        ${selectedPostsHtml || `<div class="small muted">На этот день постов нет</div>`}
       </div>
-      <div class="small">Перетаскивайте посты по дням. В “Черновики” — без расписания.</div>
-    </div>
-    <div class="planner-grid">
-      ${plannerColumns.map((col) => {
-        const cards = (grouped[col.key] || []).map((p) => {
-          const status = plannerStatus(p);
-          const canDrag = status !== 'published';
-          const title = p.topic || p.title_preview || `Пост #${p.id}`;
-          return `<article class="planner-post ${canDrag ? '' : 'locked'}"
-              draggable="${canDrag ? 'true' : 'false'}"
-              data-post-card="${p.id}">
-              <div class="row" style="justify-content:space-between;align-items:flex-start;">
-                <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
-                ${statusBadge(status)}
-              </div>
-              <div class="small">${esc(p.platform || '—')}</div>
-              <div class="small">${p.published_at ? `Опубликовано: ${esc(new Date(p.published_at).toLocaleString())}` : (p.schedule_at ? `План: ${esc(new Date(p.schedule_at).toLocaleString())}` : 'Без даты')}</div>
-              <div class="cta-row" style="margin-top:8px;">
-                <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
-                ${status === 'published' ? `<button class="btn btn-ghost" data-hide-post="${p.id}">Убрать с сайта</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}">Опубликовать</button>`}
-                ${status === 'published' ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">Удалить</button>`}
-              </div>
-            </article>`;
-        }).join('');
-        return `<div class="planner-column" data-drop-col="${col.key}">
-          <div class="planner-column-head">${esc(col.label)}</div>
-          <div class="planner-column-body">
-            ${cards || `<div class="small muted planner-empty">Нет постов</div>`}
-          </div>
-        </div>`;
-      }).join('')}
     </div>
   </section>`;
 
@@ -1325,10 +1351,21 @@ function pageHistory() {
 
 function pageBilling() {
   const b = state.billing || { plan: 'free', usage: {}, limits: {} };
+  const stripe = b.stripe || {};
   const usedMonth = b.usage.posts_per_month || 0;
   const limitMonth = b.limits.posts_per_month || 0;
   const usedDaily = b.usage.daily_posts || 0;
   const limitDaily = b.limits.daily_posts || 0;
+  const monthlyUnlimited = Number(limitMonth) >= 1000000000;
+  const dailyUnlimited = Number(limitDaily) >= 1000000000;
+  const monthMax = monthlyUnlimited ? Math.max(Number(usedMonth) || 0, 1) : Math.max(Number(limitMonth) || 0, 1);
+  const dayMax = dailyUnlimited ? Math.max(Number(usedDaily) || 0, 1) : Math.max(Number(limitDaily) || 0, 1);
+  const stripeHint = stripe.subscriptions_ready
+    ? ''
+    : `<section class="card" style="margin-bottom:18px;">
+         <h3>Оплата временно недоступна</h3>
+         <p class="small">Stripe не настроен: добавьте STRIPE_SECRET_KEY в server .env.</p>
+       </section>`;
 
   const billingInfo = `<section class="grid-2" style="margin-bottom:18px;">
     <article class="card">
@@ -1336,27 +1373,28 @@ function pageBilling() {
       <p class="small">Платите за автопостинг и удобство. Лимиты отображаются в постах.</p>
       <p class="small muted" style="margin-top:8px;">Важно: у Instagram есть лимит публикаций через API на один IG Business (обычно до ~100 за 24 часа). Если подключений несколько, система распределяет нагрузку.</p>
       <div class="cta-row" style="margin-top:12px;">
-        <button class="btn btn-ghost" data-portal="1">Управление подпиской</button>
+        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : 'Stripe не настроен'}">Управление подпиской</button>
       </div>
+      <div class="small muted" style="margin-top:8px;">Статус биллинга: ${esc(b.billing_status || 'inactive')}</div>
     </article>
     <article class="card">
       <h3>Использование</h3>
-      <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${limitMonth || '—'}</strong></div>
-      ${progressBar(usedMonth, limitMonth || 0)}
-      <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${limitDaily || '—'}</strong></div>
-      ${progressBar(usedDaily, limitDaily || 0)}
+      <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${monthlyUnlimited ? 'без лимита' : (limitMonth || '—')}</strong></div>
+      ${progressBar(usedMonth, monthMax)}
+      <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${dailyUnlimited ? 'без лимита' : (limitDaily || '—')}</strong></div>
+      ${progressBar(usedDaily, dayMax)}
     </article>
   </section>`;
 
   return appLayout(
     '/billing',
     'Тарифы',
-    `${billingInfo}
+    `${stripeHint}${billingInfo}
      ${pricingCards()}
      <section class="card" style="margin-top:18px;">
        <h3>Сравнение тарифов</h3>
        ${plansTable()}
-       <div class="small muted" style="margin-top:10px;">Если Stripe не настроен локально, кнопки оплаты покажут понятную ошибку. Для теста можно оставить Free.</div>
+       <div class="small muted" style="margin-top:10px;">Оплата и управление подпиской работают после настройки Stripe на сервере.</div>
      </section>`
   );
 }
@@ -1366,8 +1404,34 @@ function pageSettings() {
 }
 
 function pageBlog() {
-  const items = state.blog.length ? `<div class="grid-2">${state.blog.map((b)=>`<article class="card"><h3>${esc(b.title)}</h3><div class="small">${new Date(b.published_at).toLocaleDateString()}</div><p class="small">${esc((b.meta_description || '').slice(0,220))}</p></article>`).join('')}</div>` : emptyState('Р‘Р»РѕРі РїРѕРєР° РїСѓСЃС‚','Р•Р¶РµРґРЅРµРІРЅС‹Рµ SEO-СЃС‚Р°С‚СЊРё Р±СѓРґСѓС‚ РїРѕСЏРІР»СЏС‚СЊСЃСЏ Р·РґРµСЃСЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.','','');
-  return appLayout('/blog','Р‘Р»РѕРі',`<section class="card"><h2>SEO Р±Р»РѕРі-РґРІРёР¶РѕРє</h2>${items}</section>`);
+  const selectedSlug = blogSelectedSlug();
+  const selected = selectedSlug ? state.blog.find((b) => String(b.slug || '') === selectedSlug) : null;
+  if (selected) {
+    const detail = `
+      <article class="card">
+        <div class="cta-row" style="justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;">${esc(selected.title)}</h2>
+          <button id="blogBackBtn" class="btn btn-ghost">К списку</button>
+        </div>
+        <div class="small" style="margin-top:10px;">${new Date(selected.published_at).toLocaleDateString()}</div>
+        <hr style="margin:14px 0;border:none;border-top:1px solid rgba(128,128,128,.25);" />
+        <div class="blog-content">${blogContentToHtml(selected.content)}</div>
+      </article>`;
+    return appLayout('/blog', 'Блог', detail);
+  }
+
+  const items = state.blog.length
+    ? `<div class="grid-2">${state.blog.map((b)=>`
+      <article class="card">
+        <h3>${esc(b.title)}</h3>
+        <div class="small">${new Date(b.published_at).toLocaleDateString()}</div>
+        <p class="small">${esc((b.meta_description || '').slice(0,220))}</p>
+        <div class="cta-row" style="margin-top:10px;">
+          <button class="btn btn-primary" data-blog-open="${esc(b.slug)}">Открыть статью</button>
+        </div>
+      </article>`).join('')}</div>`
+    : emptyState('Блог пока пуст', 'Ежедневные SEO-статьи будут появляться здесь автоматически.', '', '');
+  return appLayout('/blog', 'Блог', `<section class="card"><h2>SEO блог-движок</h2>${items}</section>`);
 }
 
 function pageContact() {
@@ -1391,6 +1455,10 @@ function page(path) {
 }
 
 async function preload(path) {
+  if (path === '/blog') {
+    state.blog = await api('/api/blog/posts');
+    return;
+  }
   if (!state.token) return;
   if (path === '/connections') state.connections = await api('/api/connections');
   if (path === '/history') state.posts = await api('/api/posts');
@@ -1399,7 +1467,6 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.posts = await api('/api/posts');
   }
-  if (path === '/blog') state.blog = await api('/api/blog/posts');
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
 }
 async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.projects = await api('/api/projects'); }
@@ -1412,6 +1479,23 @@ function bindCommon() {
 
 async function bind() {
   bindCommon();
+  const blogBackBtn = document.getElementById('blogBackBtn');
+  if (blogBackBtn) {
+    blogBackBtn.onclick = () => {
+      history.pushState({}, '', '/blog');
+      state.notice = null;
+      render();
+    };
+  }
+  document.querySelectorAll('[data-blog-open]').forEach((btn) => {
+    btn.onclick = () => {
+      const slug = btn.getAttribute('data-blog-open');
+      if (!slug) return;
+      history.pushState({}, '', `/blog?slug=${encodeURIComponent(slug)}`);
+      state.notice = null;
+      render();
+    };
+  });
 
   const oauthGoogleBtn = document.getElementById('oauthGoogleBtn');
   if (oauthGoogleBtn && !oauthGoogleBtn.disabled) oauthGoogleBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/google/start`; };
@@ -2211,51 +2295,57 @@ async function bind() {
     await openPostEditor(id);
   });
 
-  const dropScheduleForColumn = (post, colKey) => {
-    if (!post || colKey === 'draft') return null;
-    const base = post.schedule_at ? new Date(post.schedule_at) : new Date(`${colKey}T12:00:00`);
-    const safeBase = Number.isNaN(base.getTime()) ? new Date(`${colKey}T12:00:00`) : base;
-    const t = new Date(`${colKey}T00:00:00`);
-    t.setHours(safeBase.getHours(), safeBase.getMinutes(), 0, 0);
-    // Keep local wall clock time to avoid timezone day-shift in planner columns.
-    return toLocalIsoNoTz(t);
+  const updateHistorySelectedDayPanel = (key) => {
+    if (!key) return;
+    const labelEl = document.getElementById('historySelectedDayLabel');
+    const postsEl = document.getElementById('historySelectedDayPosts');
+    if (!labelEl || !postsEl) return;
+
+    const dayDate = new Date(`${key}T00:00:00`);
+    labelEl.textContent = dayDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const isPublishedPostLocal = (p) => {
+      const status = String(p?.status || '').toLowerCase();
+      return Boolean(p?.published_at) || Boolean(p?.remote_id) || status === 'published';
+    };
+    const postsForDay = (state.posts || []).filter((p) => {
+      const published = isPublishedPostLocal(p);
+      const calendarDate = published ? (p.published_at || p.schedule_at || p.created_at) : p.schedule_at;
+      return calendarDate && localDateKey(calendarDate) === key;
+    }).sort((a, b) => {
+      const da = new Date(a.published_at || a.schedule_at || a.created_at).getTime();
+      const db = new Date(b.published_at || b.schedule_at || b.created_at).getTime();
+      return da - db;
+    });
+
+    if (!postsForDay.length) {
+      postsEl.innerHTML = '<div class="small muted">На этот день постов нет</div>';
+      return;
+    }
+
+    postsEl.innerHTML = postsForDay.map((p) => {
+      const published = isPublishedPostLocal(p);
+      const title = p.topic || p.title_preview || `Пост #${p.id}`;
+      const when = p.published_at
+        ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}`
+        : (p.schedule_at ? `План: ${new Date(p.schedule_at).toLocaleString()}` : 'Без даты');
+      return `<article class="phone-post-row">
+        <div class="phone-post-main">
+          <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
+          <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${published ? 'Опубликован' : 'Черновик'}</div>
+        </div>
+      </article>`;
+    }).join('');
   };
 
-  document.querySelectorAll('[data-post-card]').forEach((card) => {
-    card.ondragstart = (e) => {
-      const id = card.dataset.postCard;
-      if (!id) return;
-      e.dataTransfer.setData('text/plain', id);
-      card.classList.add('dragging');
-    };
-    card.ondragend = () => {
-      card.classList.remove('dragging');
-      document.querySelectorAll('[data-drop-col].drop-hover').forEach((x) => x.classList.remove('drop-hover'));
-    };
-  });
-
-  document.querySelectorAll('[data-drop-col]').forEach((col) => {
-    col.ondragover = (e) => { e.preventDefault(); col.classList.add('drop-hover'); };
-    col.ondragleave = () => col.classList.remove('drop-hover');
-    col.ondrop = async (e) => {
-      e.preventDefault();
-      col.classList.remove('drop-hover');
-      const id = Number(e.dataTransfer.getData('text/plain') || 0);
-      if (!id) return;
-      const post = (state.posts || []).find((p) => p.id === id);
-      if (!post || isPublishedPost(post)) return;
-      const payload = {
-        schedule_at: dropScheduleForColumn(post, col.dataset.dropCol || 'draft'),
-      };
-      try {
-        await api(`/api/posts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
-        state.posts = await api('/api/posts');
-        state.notice = { type: 'ok', text: 'Планировщик обновлен.' };
-        render();
-      } catch (err) {
-        state.notice = { type: 'error', text: err.message || 'Не удалось перенести пост.' };
-        render();
-      }
+  document.querySelectorAll('[data-calendar-day]').forEach((btn) => {
+    btn.onclick = () => {
+      const key = String(btn.dataset.calendarDay || '');
+      if (!key) return;
+      state.historyCalendar = { ...(state.historyCalendar || {}), selectedDayKey: key, monthsSpan: 1 };
+      document.querySelectorAll('[data-calendar-day].is-selected').forEach((el) => el.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+      updateHistorySelectedDayPanel(key);
     };
   });
 
@@ -2275,13 +2365,7 @@ async function bind() {
   };
   const calendarTodayBtn = document.getElementById('calendarTodayBtn');
   if (calendarTodayBtn) calendarTodayBtn.onclick = () => {
-    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(new Date()) };
-    render();
-  };
-  const calendarSpanSelect = document.getElementById('calendarSpanSelect');
-  if (calendarSpanSelect) calendarSpanSelect.onchange = () => {
-    const months = Math.max(1, Math.min(6, Number(calendarSpanSelect.value || 3) || 3));
-    state.historyCalendar = { ...(state.historyCalendar || {}), monthsSpan: months };
+    state.historyCalendar = { ...(state.historyCalendar || {}), monthKey: localMonthKey(new Date()), monthsSpan: 1 };
     render();
   };
 
@@ -2364,7 +2448,14 @@ async function bind() {
       const r = await api('/api/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ plan }) });
       location.href = r.checkout_url;
     } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось открыть оплату. Проверьте настройки Stripe.' };
+      const msg = String(e?.message || '');
+      const stripeConfigError = /stripe.+not configured|price id.+not configured/i.test(msg);
+      state.notice = {
+        type: 'error',
+        text: stripeConfigError
+          ? 'Оплата временно недоступна: Stripe еще не настроен.'
+          : (msg || 'Не удалось открыть оплату. Проверьте настройки Stripe.'),
+      };
       render();
     }
   };
@@ -2376,7 +2467,14 @@ async function bind() {
       const r = await api('/api/billing/portal', { method: 'POST', body: '{}' });
       location.href = r.portal_url;
     } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось открыть портал подписки. Проверьте настройки Stripe.' };
+      const msg = String(e?.message || '');
+      const stripeConfigError = /stripe.+not configured|stripe customer is not linked/i.test(msg);
+      state.notice = {
+        type: 'error',
+        text: stripeConfigError
+          ? 'Портал подписки недоступен: Stripe не подключен.'
+          : (msg || 'Не удалось открыть портал подписки. Проверьте настройки Stripe.'),
+      };
       render();
     }
   };
@@ -2460,7 +2558,33 @@ async function render() {
       history.replaceState({}, '', '/connections');
     }
   }
-  try { if (isAuthRoute(path)) { await loadBase(); await preload(path); } } catch { state.token = ''; localStorage.removeItem('token'); history.replaceState({}, '', '/login'); path = '/login'; state.notice = { type: 'error', text: 'РЎРµСЃСЃРёСЏ РёСЃС‚РµРєР»Р°. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°.' }; }
+  if (path === '/billing') {
+    if (query.get('success') === '1') {
+      state.notice = { type: 'ok', text: 'Оплата прошла успешно. Тариф обновится после подтверждения Stripe.' };
+      history.replaceState({}, '', '/billing');
+    } else if (query.get('cancel') === '1') {
+      state.notice = { type: 'error', text: 'Оплата отменена. Тариф не изменен.' };
+      history.replaceState({}, '', '/billing');
+    }
+  }
+  try {
+    if (isAuthRoute(path)) {
+      await loadBase();
+      await preload(path);
+    } else if (path === '/blog') {
+      await preload(path);
+    }
+  } catch {
+    if (path === '/blog') {
+      state.notice = { type: 'error', text: 'Не удалось загрузить статьи блога.' };
+    } else {
+      state.token = '';
+      localStorage.removeItem('token');
+      history.replaceState({}, '', '/login');
+      path = '/login';
+      state.notice = { type: 'error', text: 'РЎРµСЃСЃРёСЏ РёСЃС‚РµРєР»Р°. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°.' };
+    }
+  }
   if (currentRender !== renderVersion) return;
   document.getElementById('app').innerHTML = decodeMojibake(page(path));
   if (currentRender !== renderVersion) return;

@@ -48,39 +48,140 @@ def ensure_customer(user: AppUser) -> str:
         db.close()
 
 
-def create_subscription_checkout(user: AppUser, plan_name: str) -> str:
-    price_id = PLAN_TO_PRICE.get(plan_name)
-    if not price_id:
-        raise RuntimeError("Stripe price id for selected plan is not configured")
+def _plan_price_eur(plan_name: str) -> float:
+    db = SessionLocal()
+    try:
+        plan = db.query(Plan).filter_by(name=plan_name).first()
+        if not plan:
+            raise RuntimeError(f"Unknown plan: {plan_name}")
+        return float(plan.price_eur_month or 0)
+    finally:
+        db.close()
 
-    customer_id = ensure_customer(user)
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        customer=customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=settings.STRIPE_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CANCEL_URL,
-        metadata={"user_id": str(user.id), "plan_name": plan_name},
+
+def _resolve_or_create_subscription_price_id(plan_name: str, prefer_env: bool = True) -> str:
+    if prefer_env:
+        configured = PLAN_TO_PRICE.get(plan_name)
+        if configured:
+            return configured
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError("Stripe is not configured")
+
+    lookup_key = f"autosocial_{plan_name}_eur_month_v1"
+    try:
+        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
+        data = (listed or {}).get("data", [])
+        if data:
+            return data[0]["id"]
+    except Exception:
+        pass
+
+    amount_eur = _plan_price_eur(plan_name)
+    if amount_eur <= 0:
+        raise RuntimeError("Selected plan has non-positive price")
+    price = stripe.Price.create(
+        currency="eur",
+        unit_amount=int(round(amount_eur * 100)),
+        recurring={"interval": "month"},
+        nickname=f"AutoSocial {plan_name.title()} Monthly",
+        lookup_key=lookup_key,
+        transfer_lookup_key=True,
+        product_data={"name": f"AutoSocial {plan_name.title()}"},
+        metadata={"plan_name": plan_name},
     )
+    return price.id
+
+
+def _resolve_or_create_pack_price_id(pack_code: str, prefer_env: bool = True) -> str:
+    if prefer_env:
+        configured = PACK_TO_PRICE.get(pack_code)
+        if configured:
+            return configured
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError("Stripe is not configured")
+    cfg = CREDIT_PACKS.get(pack_code)
+    if not cfg:
+        raise RuntimeError("Unknown credit pack")
+
+    lookup_key = f"autosocial_{pack_code}_eur_once_v1"
+    try:
+        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
+        data = (listed or {}).get("data", [])
+        if data:
+            return data[0]["id"]
+    except Exception:
+        pass
+
+    amount_eur = float(cfg.get("price_eur") or 0)
+    if amount_eur <= 0:
+        raise RuntimeError("Selected credit pack has non-positive price")
+    price = stripe.Price.create(
+        currency="eur",
+        unit_amount=int(round(amount_eur * 100)),
+        nickname=f"AutoSocial {pack_code.upper()} Top-up",
+        lookup_key=lookup_key,
+        transfer_lookup_key=True,
+        product_data={"name": f"AutoSocial Credits {pack_code.upper()}"},
+        metadata={"pack_code": pack_code},
+    )
+    return price.id
+
+
+def create_subscription_checkout(user: AppUser, plan_name: str) -> str:
+    price_id = _resolve_or_create_subscription_price_id(plan_name, prefer_env=True)
+    customer_id = ensure_customer(user)
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=settings.STRIPE_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CANCEL_URL,
+            metadata={"user_id": str(user.id), "plan_name": plan_name},
+        )
+    except stripe.error.InvalidRequestError as exc:
+        if "No such price" not in str(exc):
+            raise
+        fallback_price = _resolve_or_create_subscription_price_id(plan_name, prefer_env=False)
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": fallback_price, "quantity": 1}],
+            success_url=settings.STRIPE_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CANCEL_URL,
+            metadata={"user_id": str(user.id), "plan_name": plan_name},
+        )
     return session.url
 
 
 def create_credit_pack_checkout(user: AppUser, pack_code: str) -> str:
-    price_id = PACK_TO_PRICE.get(pack_code)
-    if not price_id:
-        raise RuntimeError("Stripe price id for selected credit pack is not configured")
-
+    price_id = _resolve_or_create_pack_price_id(pack_code, prefer_env=True)
     customer_id = ensure_customer(user)
-    session = stripe.checkout.Session.create(
-        mode="payment",
-        customer=customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=settings.STRIPE_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CANCEL_URL,
-        metadata={"user_id": str(user.id), "pack_code": pack_code},
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=settings.STRIPE_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CANCEL_URL,
+            metadata={"user_id": str(user.id), "pack_code": pack_code},
+        )
+    except stripe.error.InvalidRequestError as exc:
+        if "No such price" not in str(exc):
+            raise
+        fallback_price = _resolve_or_create_pack_price_id(pack_code, prefer_env=False)
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": fallback_price, "quantity": 1}],
+            success_url=settings.STRIPE_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CANCEL_URL,
+            metadata={"user_id": str(user.id), "pack_code": pack_code},
+        )
     return session.url
 
 

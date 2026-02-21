@@ -336,11 +336,24 @@ def get_billing_summary(user: AppUser) -> Dict[str, object]:
         post_limits = check_post_limits(user)
         project_limits = check_project_limit(user)
         approx_posts_left = int(max(user.credits_left, 0) / max(settings.AVG_TOKENS_PER_POST, 1))
+        stripe_price_map = {
+            "light": bool(settings.STRIPE_PRICE_LIGHT),
+            "pro": bool(settings.STRIPE_PRICE_PRO),
+            "agency": bool(settings.STRIPE_PRICE_AGENCY),
+        }
+        stripe_enabled = bool(settings.STRIPE_SECRET_KEY)
         return {
             "plan": plan.name,
             "billing_status": user.billing_status,
             "credits_left": user.credits_left,
             "approx_posts_left": approx_posts_left,
+            "stripe": {
+                "enabled": stripe_enabled,
+                # Even without env price ids we can resolve/create prices dynamically in stripe_service.
+                "subscriptions_ready": stripe_enabled,
+                "portal_ready": stripe_enabled,
+                "prices": stripe_price_map,
+            },
             "limits": {
                 "posts_per_month": post_limits["monthly_limit"],
                 "projects": project_limits["limit"],
@@ -1242,35 +1255,94 @@ def run_due_content_plan(limit: int = 50, user_id: Optional[int] = None, project
 
 
 def generate_blog_article(topic: str, language: str = "ru") -> Dict[str, str]:
+    target_words = 1500
+    base_prompt = (
+        f"Напиши SEO-статью на тему: '{topic}'. "
+        "Язык: русский. Объем: 1500-1800 слов. Формат: Markdown с H2/H3, без таблиц и без code blocks. "
+        "Тон: практичный экспертный, без воды, без повторения абзацев и без штампов. "
+        "Обязательно раскрой в тексте: "
+        "1) AutoSocial GPT как AI-ассистент для соцсетей; "
+        "2) генерация постов, хештегов и CTA; "
+        "3) планировщик и автопостинг по расписанию в Facebook + Instagram; "
+        "4) аналитика: показы, вовлеченность, рост аудитории; "
+        "5) преимущества для малого бизнеса и маркетологов; "
+        "6) Free-план без привязки карты и старт по email. "
+        "Добавь конкретику, шаги внедрения и финальный CTA: 'Начать бесплатно'. "
+        "Нельзя использовать маркеры вида 'Продолжение', 'Часть 1/2', 'Section 1/2'."
+    )
     result = generate_post_with_usage(
-        topic=f"SEO blog article (1500-2500 words): {topic}",
+        topic=base_prompt,
         category="blog",
         tone="expert",
         language=language,
         long_post_mode=True,
-        max_output_tokens=1800,
+        max_output_tokens=2400,
     )
 
-    content = f"# {topic}\n\n{result.text}\n\n"
-    extra_block = (
-        "## Практический чеклист\n"
-        "1. Определите сегмент аудитории и KPI.\n"
-        "2. Постройте контент-матрицу на 30 дней.\n"
-        "3. Автоматизируйте публикации и аналитику.\n"
-        "4. Перепаковывайте лучший контент в новые форматы.\n"
-    )
-    content += extra_block
+    content = f"# {topic}\n\n{(result.text or '').strip()}"
+    for idx in range(1, 5):
+        if len(content.split()) >= target_words:
+            break
+        continuation_prompt = (
+            f"Продолжи и углуби SEO-статью '{topic}'. Уже написано около {len(content.split())} слов. "
+            "Добавь новые разделы без повторов: ошибки внедрения, FAQ, мини-кейс, план на 30 дней. "
+            "Сохраняй стиль и структуру Markdown. "
+            "Не добавляй служебные заголовки: 'Продолжение #1', 'Продолжение #2', 'Часть 2' и подобные."
+        )
+        more = generate_post_with_usage(
+            topic=continuation_prompt,
+            category="blog",
+            tone="expert",
+            language=language,
+            long_post_mode=True,
+            max_output_tokens=1100,
+        )
+        extra = (more.text or "").strip()
+        if extra:
+            content += "\n\n" + extra
 
-    # Enforce 1500+ words for SEO requirements.
-    while len(content.split()) < 1500:
-        content += "\n\n## Дополнительные рекомендации\n" + result.text
+    if len(content.split()) < target_words:
+        content += (
+            "\n\n## Практический чеклист запуска\n"
+            "1. Определите цель на 30 дней: охват, вовлеченность или заявки.\n"
+            "2. Подготовьте темы под каждый этап воронки и соберите контент-план.\n"
+            "3. Сгенерируйте тексты с CTA и хештегами через AutoSocial GPT.\n"
+            "4. Настройте автопостинг в Facebook и Instagram по календарю.\n"
+            "5. Каждую неделю анализируйте метрики и усиливайте лучшие форматы.\n"
+            "\n## Финальный шаг\n"
+            "Если хотите внедрить SMM-автопилот без лишней рутины, начните с Free-плана AutoSocial GPT и зарегистрируйтесь по email."
+        )
+    day = 1
+    while len(content.split()) < target_words:
+        content += (
+            f"\n\n## План действий: день {day}\n"
+            f"День {day} начните с формулировки гипотезы: какой тип контента лучше сработает для вашей аудитории сегодня. "
+            "Соберите один образовательный пост, один кейс и один продающий блок с четким CTA, затем запланируйте публикации в Facebook и Instagram. "
+            "После выхода контента проверьте показы, вовлеченность, сохранения, клики и комментарии, чтобы понять, что действительно влияет на рост. "
+            "На основе данных обновите контент-план, оставьте сильные форматы и уберите слабые. "
+            "Такой цикл помогает внедрить системный SMM-процесс без хаоса и ручной рутины, а AutoSocial GPT ускоряет каждый этап от идеи до аналитики."
+        )
+        day += 1
+
+    # Remove leftover continuation markers if model still emits them.
+    cleaned_lines: List[str] = []
+    for line in content.splitlines():
+        t = line.strip().lower()
+        if re.match(r"^#{0,6}\s*продолжение\s*#?\d*\s*$", t):
+            continue
+        if re.match(r"^#{0,6}\s*част[ьи]\s*\d+\s*$", t):
+            continue
+        if re.match(r"^#{0,6}\s*continuation\s*#?\d*\s*$", t):
+            continue
+        cleaned_lines.append(line)
+    content = "\n".join(cleaned_lines).strip()
 
     return {
         "title": topic,
         "content": content,
         "meta_title": topic,
-        "meta_description": f"Подробное SEO-руководство по теме '{topic}'.",
-        "keywords": "instagram growth, facebook marketing, ai marketing, content strategy, personal branding",
+        "meta_description": f"SEO-статья по теме '{topic}': AI-контент, автопостинг Facebook+Instagram и аналитика в AutoSocial GPT.",
+        "keywords": "autosocial gpt, ai smm, автопостинг facebook instagram, контент стратегия, smm автоматизация",
     }
 
 
