@@ -1006,6 +1006,10 @@ function pageCreate() {
     const topic = (w.topic || '').trim() || 'Польза для клиента';
     const lang = String(w.language || 'ru').trim().toLowerCase();
     const seed = hashText(createPreviewContextKey(w));
+    const topicWords = (String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []).filter((word) => word.length > 3);
+    const focusA = topicWords[0] || 'результат';
+    const focusB = topicWords[1] || 'качество';
+    const focusC = topicWords[2] || 'сроки';
     const categoryTagMap = {
       business: ['#бизнес', '#услуги', '#рост'],
       marketing: ['#маркетинг', '#smm', '#лиды'],
@@ -1032,31 +1036,57 @@ function pageCreate() {
     const toneKey = toneRu[w.tone] ? w.tone : 'friendly';
     const toneData = toneRu[toneKey];
     const tags = Array.from(new Set([...(categoryTagMap[w.category] || categoryTagMap.fallback), ...extractTopicTags(topic)])).slice(0, 5).join(' ');
+    const ruBodyVariants = [
+      [
+        `1) Где в теме «${topic}» теряются деньги/время: проверьте ${focusA} и ${focusB}.`,
+        `2) Что должно быть в хорошем решении: четкие KPI, понятные этапы и контроль по ${focusC}.`,
+        `3) Как внедрить за 24 часа: выберите 1 действие по теме «${topic}» и запустите тест.`,
+      ],
+      [
+        `1) Антипаттерн: решения по теме «${topic}» принимаются без критериев.`,
+        `2) Рабочий подход: сравнивайте варианты по итоговой ценности, а не только по цене.`,
+        `3) Быстрый шаг: зафиксируйте один измеримый результат по «${topic}» на эту неделю.`,
+      ],
+      [
+        `1) Начните с диагностики: что сейчас мешает в теме «${topic}».`,
+        `2) Составьте чек-лист из 3 пунктов: ${focusA}, ${focusB}, ${focusC}.`,
+        `3) Примите решение по фактам и назначьте ответственного за внедрение.`,
+      ],
+    ];
     if (lang === 'en') {
       const cta = pick([
         'Comment "PLAN" and we will send you a practical checklist.',
         'Save this post and share it with your team.',
         'Need a tailored strategy? Send us a direct message.',
       ], seed, 3);
+      const enBody = pick([
+        [
+          `Step 1: Identify where "${topic}" currently breaks your process.`,
+          `Step 2: Define 2-3 measurable criteria before choosing an option.`,
+          `Step 3: Run a small 7-day test and compare outcomes.`,
+        ],
+        [
+          `Step 1: Audit your current approach to "${topic}".`,
+          `Step 2: Prioritize long-term value over short-term price.`,
+          `Step 3: Assign an owner and deadline for implementation.`,
+        ],
+      ], seed, 4);
       return [
         `${topic}: what to check before you make a decision`,
         '',
-        `Most teams lose results here because they skip the basics. In this post we break down ${topic} into 3 practical steps.`,
-        `Step 1: Define the expected outcome and success metric.`,
-        `Step 2: Compare options by value and long-term impact, not just price.`,
-        `Step 3: Confirm execution details, timeline, and accountability.`,
+        `Most teams lose results here because they skip the basics. Here is a practical breakdown for "${topic}".`,
+        ...enBody,
         '',
         `${cta}`,
         tags || '#content #marketing #growth',
       ].join('\n');
     }
+    const ruBody = pick(ruBodyVariants, seed, 2);
     return [
       `${topic}: что важно проверить до принятия решения`,
       '',
       `${pick(toneData.hooks, seed)}. Тема «${topic}» напрямую влияет на результат в категории «${(categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label}».`,
-      `1) Определите целевой результат по теме «${topic}» и срок достижения.`,
-      '2) Сравните варианты по итоговой ценности: опыт, процесс, гарантии и поддержка.',
-      `3) Зафиксируйте следующий шаг: что делаете в ближайшие 24 часа, чтобы продвинуть тему «${topic}».`,
+      ...ruBody,
       '',
       pick(toneData.ctas, seed, 1),
       tags || '#контент #маркетинг #продажи',
