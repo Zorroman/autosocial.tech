@@ -1171,18 +1171,13 @@ function pageConnections() {
           ? `<span class="avatar"><img src="${esc(c.facebook_page_picture_url)}" alt="" /></span>`
           : `<span class="avatar">${esc((safeText(c.facebook_page_name, 'P')[0] || 'P').toUpperCase())}</span>`;
         const pageLine = c.facebook_page_name
-          ? `${esc(c.facebook_page_name)} <span class="small">(${esc(safeText(c.facebook_page_id))})</span>`
+          ? `${esc(c.facebook_page_name)}`
           : `<span class="small">Страница не выбрана</span>`;
         const igLine = c.instagram_business_id
-          ? `${esc(safeText(c.instagram_username, '')) ? `@${esc(c.instagram_username)} ` : ''}<span class="small">(${esc(c.instagram_business_id)})</span>`
+          ? `${esc(safeText(c.instagram_username, '')) ? `@${esc(c.instagram_username)}` : 'Instagram Business подключен'}`
           : `<span class="small">Instagram Business не выбран</span>`;
-        const createdAt = c.created_at ? new Date(c.created_at).toLocaleString() : '—';
-        const updatedAt = c.updated_at ? new Date(c.updated_at).toLocaleString() : '—';
-        const lastSuccessAt = c.last_success_at ? new Date(c.last_success_at).toLocaleString() : '—';
-        const expAt = c.token_expires_at ? new Date(c.token_expires_at).toLocaleString() : 'неизвестно';
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
-        const isError = status === 'error';
         return `<article class="card connection-card">
           <div class="row" style="justify-content:space-between;align-items:flex-start;">
             <div>
@@ -1203,29 +1198,8 @@ function pageConnections() {
           <div class="cta-row" style="margin-top:12px;">
             <button class="btn btn-primary" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
             ${canRefresh ? `<button class="btn btn-secondary" data-refresh="${c.id}">Обновить токен</button>` : ''}
-            ${isError ? `<button class="btn btn-secondary" data-open-details="${c.id}">Детали</button>` : ''}
             <button class="btn btn-danger" data-disconnect="${c.id}">Отключить</button>
           </div>
-
-          <details style="margin-top:10px;">
-            <summary class="small" style="cursor:pointer;">Детали</summary>
-            <div class="small" style="margin-top:8px;">
-              <div><strong>Connection ID:</strong> ${esc(c.id)}</div>
-              <div><strong>Статус:</strong> ${esc(status)}</div>
-              <div data-testid="meta-reason-code"><strong>Код причины:</strong> ${esc(safeText(c.status_reason_code, '—'))}</div>
-              <div data-testid="meta-redirect-uri"><strong>META_REDIRECT_URI:</strong> ${esc(safeText(c.meta_redirect_uri, '—'))}</div>
-              <div><strong>Page ID:</strong> ${esc(safeText(c.facebook_page_id))}</div>
-              <div><strong>Page picture:</strong> ${esc(safeText(c.facebook_page_picture_url, '—'))}</div>
-              <div><strong>IG User ID:</strong> ${esc(safeText(c.instagram_business_id))}</div>
-              <div><strong>IG Username:</strong> ${esc(safeText(c.instagram_username))}</div>
-              <div><strong>Создано:</strong> ${esc(createdAt)}</div>
-              <div><strong>Обновлено:</strong> ${esc(updatedAt)}</div>
-              <div><strong>Последний успех:</strong> ${esc(lastSuccessAt)}</div>
-              <div><strong>Токен истекает:</strong> ${esc(expAt)}</div>
-              <div class="small" style="margin-top:8px;"><strong>Что делать:</strong> ${esc(howToFix)}</div>
-              <div class="cta-row" style="margin-top:8px;"><button class="btn btn-ghost" data-copy-tech="${esc(c.id)}">Скопировать тех.лог</button></div>
-            </div>
-          </details>
         </article>`;
       }).join('')}`
     : `<article class="card connection-card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
@@ -1289,7 +1263,7 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить demo-аккаунт</button></div>${cards}</section>${modal}`);
+  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button></div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
@@ -2489,7 +2463,6 @@ async function bind() {
   if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
   const openYoutubeStudioBtn = document.getElementById('openYoutubeStudioBtn');
   if (openYoutubeStudioBtn) openYoutubeStudioBtn.onclick = () => nav('/youtube');
-  const connectDemoBtn = document.getElementById('connectDemoBtn'); if (connectDemoBtn) connectDemoBtn.onclick = async () => { await api('/api/connections/meta/mock-connect', { method: 'POST', body: '{}' }); state.connections = await api('/api/connections'); render(); };
   document.querySelectorAll('[data-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить интеграцию Meta?')) return;
     await api(`/api/connections/${b.dataset.disconnect}/disconnect`, { method: 'POST', body: '{}' });
@@ -2502,26 +2475,6 @@ async function bind() {
     state.connections = await api('/api/connections');
     state.notice = { type: 'ok', text: 'Статус подключения обновлён.' };
     render();
-  });
-  document.querySelectorAll('[data-copy-tech]').forEach((b) => b.onclick = async () => {
-    const id = Number(b.dataset.copyTech);
-    const connection = (state.connections || []).find((x) => Number(x.id) === id);
-    if (!connection) return;
-    const text = connection.tech_log || JSON.stringify(connection, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-      state.notice = { type: 'ok', text: 'Тех.лог скопирован в буфер обмена.' };
-    } catch {
-      state.notice = { type: 'error', text: 'Не удалось скопировать тех.лог.' };
-    }
-    render();
-  });
-  document.querySelectorAll('[data-open-details]').forEach((b) => b.onclick = () => {
-    const card = b.closest('.card');
-    const details = card ? card.querySelector('details') : null;
-    if (!details) return;
-    details.open = true;
-    details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
   // Meta Page picker (explicit Page selection for multi-Page accounts).
