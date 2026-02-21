@@ -221,6 +221,16 @@ def _google_redirect_uri() -> str:
     return "http://localhost:5000/api/auth/oauth/google/callback"
 
 
+def _youtube_redirect_uri() -> str:
+    env = (os.getenv("YOUTUBE_REDIRECT_URI") or "").strip()
+    if env:
+        return env
+    base = _public_api_base_url()
+    if base:
+        return f"{base}/api/integrations/youtube/callback"
+    return "http://localhost:5000/api/integrations/youtube/callback"
+
+
 def _facebook_client_id() -> str:
     return (
         os.getenv("FB_LOGIN_APP_ID")
@@ -294,26 +304,35 @@ def _parse_iso_datetime(raw_value: str) -> datetime:
     return dt
 
 
-def _store_oauth_state(provider: str) -> str:
+def _store_oauth_state(provider: str, extra: dict | None = None) -> str:
     now = time.time()
     expired = [k for k, v in OAUTH_STATES.items() if v["exp"] < now]
     for key in expired:
         OAUTH_STATES.pop(key, None)
 
     state = secrets.token_urlsafe(24)
-    OAUTH_STATES[state] = {"provider": provider, "exp": now + OAUTH_STATE_TTL_SECONDS}
+    payload = {"provider": provider, "exp": now + OAUTH_STATE_TTL_SECONDS}
+    if extra:
+        payload.update(extra)
+    OAUTH_STATES[state] = payload
     return state
 
 
-def _consume_oauth_state(state: str, provider: str) -> bool:
+def _consume_oauth_state_meta(state: str, provider: str) -> dict | None:
     if not state:
-        return False
+        return None
     meta = OAUTH_STATES.pop(state, None)
     if not meta:
-        return False
+        return None
     if meta["provider"] != provider:
-        return False
-    return meta["exp"] >= time.time()
+        return None
+    if meta["exp"] < time.time():
+        return None
+    return meta
+
+
+def _consume_oauth_state(state: str, provider: str) -> bool:
+    return _consume_oauth_state_meta(state, provider) is not None
 
 
 def _finalize_oauth_login(email: str, provider: str, provider_user_id: str):
@@ -2076,6 +2095,7 @@ def _serialize_youtube_connection(row: SocialAccount | None) -> dict:
         "status": status,
         "channel_id": row.page_id,
         "channel_name": row.page_name,
+        "channel_picture_url": getattr(row, "page_picture_url", None),
         "updated_at": row.updated_at.isoformat() if getattr(row, "updated_at", None) else None,
     }
 
@@ -2279,6 +2299,129 @@ def youtube_status():
         return jsonify(_serialize_youtube_connection(row))
     finally:
         db.close()
+
+
+@saas_api.route("/integrations/youtube/start", methods=["POST"])
+@saas_api.route("/connections/youtube/start", methods=["POST"])
+@require_auth
+def youtube_start():
+    client_id = _google_client_id()
+    client_secret = _google_client_secret()
+    redirect_uri = _youtube_redirect_uri()
+    if not client_id or not client_secret:
+        return jsonify({"error": "Google OAuth не настроен. Укажите GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET."}), 400
+
+    state = _store_oauth_state("youtube_connect", {"user_id": g.current_user.id})
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/youtube.readonly",
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+        "prompt": "consent select_account",
+        "state": state,
+    }
+    oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return jsonify({"oauth_url": oauth_url, "redirect_uri": redirect_uri})
+
+
+@saas_api.route("/integrations/youtube/callback", methods=["GET"])
+@saas_api.route("/connections/youtube/callback", methods=["GET"])
+def youtube_callback():
+    if request.args.get("error"):
+        return redirect(_frontend_connections_url("youtube_error=oauth_denied"))
+
+    state_token = (request.args.get("state") or "").strip()
+    state_meta = _consume_oauth_state_meta(state_token, "youtube_connect")
+    if not state_meta:
+        return redirect(_frontend_connections_url("youtube_error=state_invalid"))
+
+    user_id = int(state_meta.get("user_id") or 0)
+    if not user_id:
+        return redirect(_frontend_connections_url("youtube_error=state_invalid"))
+
+    code = (request.args.get("code") or "").strip()
+    if not code:
+        return redirect(_frontend_connections_url("youtube_error=missing_code"))
+
+    client_id = _google_client_id()
+    client_secret = _google_client_secret()
+    redirect_uri = _youtube_redirect_uri()
+    if not client_id or not client_secret:
+        return redirect(_frontend_connections_url("youtube_error=google_not_configured"))
+
+    token_resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=15,
+    )
+    if not token_resp.ok:
+        return redirect(_frontend_connections_url("youtube_error=token_exchange_failed"))
+
+    token_data = token_resp.json() or {}
+    access_token = str(token_data.get("access_token") or "").strip()
+    expires_in = int(token_data.get("expires_in") or 0)
+    if not access_token:
+        return redirect(_frontend_connections_url("youtube_error=token_missing"))
+
+    yt_resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/channels",
+        params={"part": "snippet", "mine": "true", "maxResults": 1},
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=15,
+    )
+    if not yt_resp.ok:
+        return redirect(_frontend_connections_url("youtube_error=youtube_api_failed"))
+
+    yt_data = yt_resp.json() if yt_resp.content else {}
+    items = yt_data.get("items") if isinstance(yt_data, dict) else None
+    if not isinstance(items, list) or not items:
+        return redirect(_frontend_connections_url("youtube_error=no_channel"))
+
+    first = items[0] if isinstance(items[0], dict) else {}
+    snippet = first.get("snippet") if isinstance(first.get("snippet"), dict) else {}
+    thumbs = snippet.get("thumbnails") if isinstance(snippet.get("thumbnails"), dict) else {}
+    thumb_default = thumbs.get("default") if isinstance(thumbs.get("default"), dict) else {}
+    channel_id = str(first.get("id") or "").strip()
+    channel_name = str(snippet.get("title") or "").strip() or "YouTube канал"
+    channel_picture = str(thumb_default.get("url") or "").strip() or None
+
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user_id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        if not row:
+            row = SocialAccount(user_id=user_id, provider="youtube")
+            db.add(row)
+            db.flush()
+
+        row.page_id = channel_id or row.page_id or f"yt-{user_id}"
+        row.page_name = channel_name
+        row.page_picture_url = channel_picture
+        row.ig_user_id = None
+        row.ig_username = None
+        row.token_encrypted = encrypt_meta_token(access_token)
+        row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        row.last_success_at = datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
+
+    return redirect(_frontend_connections_url("youtube_connected=1"))
 
 
 @saas_api.route("/integrations/youtube/connect", methods=["POST"])

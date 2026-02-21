@@ -1188,6 +1188,12 @@ function pageConnections() {
       meta_api_error: 'Meta API вернул ошибку при получении страниц/Instagram.',
       no_pages: 'У этого Facebook-аккаунта нет доступных страниц для подключения.',
       no_ig_business: 'На выбранной странице нет Instagram Business, привязанного к странице.',
+      youtube_oauth_denied: 'Вы отменили подключение Google/YouTube.',
+      youtube_state_invalid: 'Сессия подключения YouTube устарела. Нажмите "Подключить YouTube" снова.',
+      youtube_token_exchange_failed: 'Не удалось получить токен Google для YouTube.',
+      youtube_no_channel: 'Не удалось найти канал YouTube в выбранном Google-аккаунте.',
+      youtube_api_failed: 'YouTube API вернул ошибку при чтении канала.',
+      youtube_not_configured: 'Google OAuth для YouTube не настроен.',
     };
     state.notice = { type: 'error', text: (map[err] || 'Ошибка подключения.') + (msg ? ` ${msg}` : '') };
   } else if (query.get('connected')) {
@@ -2519,10 +2525,8 @@ async function bind() {
   if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
   const connectYoutubeBtn = document.getElementById('connectYoutubeBtn');
   if (connectYoutubeBtn) connectYoutubeBtn.onclick = async () => {
-    await api('/api/integrations/youtube/connect', { method: 'POST', body: '{}' });
-    state.youtubeConnection = await api('/api/integrations/youtube/status');
-    state.notice = { type: 'ok', text: 'YouTube подключен.' };
-    render();
+    const r = await api('/api/integrations/youtube/start', { method: 'POST', body: '{}' });
+    location.href = r.oauth_url;
   };
   document.querySelectorAll('[data-youtube-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить YouTube?')) return;
@@ -3121,8 +3125,33 @@ async function render() {
     const err = query.get('error');
     const msg = query.get('message');
     const status = query.get('status');
+    const ytErr = query.get('youtube_error');
     if (query.get('connected') === '1') {
       state.notice = { type: 'ok', text: '\u0410\u043a\u043a\u0430\u0443\u043d\u0442 Facebook/Instagram \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d.' };
+      history.replaceState({}, '', '/connections');
+    } else if (query.get('youtube_connected') === '1') {
+      state.notice = { type: 'ok', text: 'YouTube канал подключен.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'oauth_denied') {
+      state.notice = { type: 'error', text: 'Вы отменили подключение Google/YouTube.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'state_invalid') {
+      state.notice = { type: 'error', text: 'Сессия подключения YouTube устарела. Запустите подключение снова.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'missing_code') {
+      state.notice = { type: 'error', text: 'Google не вернул код авторизации для YouTube.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'google_not_configured') {
+      state.notice = { type: 'error', text: 'Google OAuth для YouTube не настроен.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'token_exchange_failed' || ytErr === 'token_missing') {
+      state.notice = { type: 'error', text: 'Не удалось получить токен Google для YouTube.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'youtube_api_failed') {
+      state.notice = { type: 'error', text: 'YouTube API вернул ошибку при чтении канала.' };
+      history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'no_channel') {
+      state.notice = { type: 'error', text: 'В выбранном Google-аккаунте не найден YouTube-канал.' };
       history.replaceState({}, '', '/connections');
     } else if (err === 'state_invalid') {
       state.notice = { type: 'error', text: '\u041e\u0448\u0438\u0431\u043a\u0430 OAuth state. \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0441\u043d\u043e\u0432\u0430 \u0438\u0437 \u043f\u0430\u043d\u0435\u043b\u0438.' };

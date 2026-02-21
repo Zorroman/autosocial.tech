@@ -12,9 +12,11 @@ class Settings:
     META_REDIRECT_URI = os.getenv("META_REDIRECT_URI", "").strip()
     FB_LOGIN_REDIRECT_URI = os.getenv("FB_LOGIN_REDIRECT_URI", "").strip()
     GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    YOUTUBE_REDIRECT_URI = os.getenv("YOUTUBE_REDIRECT_URI", "").strip()
     CORS_ORIGIN = os.getenv("CORS_ORIGIN", FRONTEND_BASE_URL)
     COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
     COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+    SHOW_SOCIAL_LOGIN = os.getenv("SHOW_SOCIAL_LOGIN", "false").lower() in {"1", "true", "yes"}
 
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_PRICE_INPUT_PER_1M = float(os.getenv("OPENAI_PRICE_INPUT_PER_1M", "0.15"))
