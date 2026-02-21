@@ -37,8 +37,29 @@ def list_pages(access_token: str, include_page_access_token: bool = False):
         "access_token": access_token,
         # "picture" is used for miniatures in UI.
         "fields": fields,
+        "limit": 100,
     }
     res = requests.get(url, params=params, timeout=20).json()
+    if not isinstance(res, dict):
+        return {"error": {"message": "Invalid Meta response format"}}
+    if res.get("error"):
+        return res
+
+    all_pages = list(res.get("data") or [])
+    paging = res.get("paging") or {}
+    next_url = paging.get("next")
+    hops = 0
+    while next_url and hops < 20:
+        hops += 1
+        next_res = requests.get(next_url, timeout=20).json()
+        if not isinstance(next_res, dict):
+            break
+        if next_res.get("error"):
+            return next_res
+        all_pages.extend(next_res.get("data") or [])
+        next_url = (next_res.get("paging") or {}).get("next")
+
+    res["data"] = all_pages
     return res
 
 
