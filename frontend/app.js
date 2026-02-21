@@ -259,7 +259,7 @@ function icon(name) {
     create: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
     connections: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M7 7h.01"/><path d="M17 17h.01"/><path d="M13 5h4a2 2 0 0 1 2 2v4"/><path d="M11 19H7a2 2 0 0 1-2-2v-4"/></svg>',
     history: '<svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 3"/></svg>',
-    youtube: '<svg class="icon" viewBox="0 0 24 24"><path d="M22 12s0-3.5-.45-5.2a2.7 2.7 0 0 0-1.9-1.9C17.95 4.45 12 4.45 12 4.45s-5.95 0-7.65.45a2.7 2.7 0 0 0-1.9 1.9C2 8.5 2 12 2 12s0 3.5.45 5.2a2.7 2.7 0 0 0 1.9 1.9c1.7.45 7.65.45 7.65.45s5.95 0 7.65-.45a2.7 2.7 0 0 0 1.9-1.9C22 15.5 22 12 22 12z"/><path d="m10 15.5 5-3.5-5-3.5z"/></svg>',
+    youtube: '<svg class="icon" viewBox="0 0 24 24"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2"/><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z"/></svg>',
     billing: '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/><path d="M7 15h4"/></svg>',
     settings: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.02.02a2 2 0 0 1-2.83 2.83l-.02-.02A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.56V21a2 2 0 0 1-4 0v-.04A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.02.02a2 2 0 0 1-2.83-2.83l.02-.02A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 0 1 0-4h.04A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.02-.02a2 2 0 0 1 2.83-2.83l.02.02A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 0 1 4 0v.04A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.02-.02a2 2 0 1 1 2.83 2.83l-.02.02A1.7 1.7 0 0 0 19.4 9c.13.32.46.53.81.53H21a2 2 0 0 1 0 4h-.79c-.35 0-.68.21-.81.53z"/></svg>',
     admin: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7l8-4z"/><path d="M9.5 12.5l1.7 1.7 3.6-3.6"/></svg>',
@@ -1235,7 +1235,7 @@ function pageConnections() {
       <div class="row yt-head">
         <div>
           <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row yt-title-row"><span class="avatar yt-avatar">YT</span><h3 style="margin:0;">YouTube канал</h3></div>
+          <div class="row yt-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">YouTube канал</h3></div>
           <div class="small yt-subtitle">Сценарии роликов, таймлайн, CTA и посты для Community в одном месте.</div>
         </div>
         <div><span class="status queued">Готово к настройке</span></div>
@@ -1245,9 +1245,15 @@ function pageConnections() {
         <span class="pill">Long 120-480с</span>
         <span class="pill">ETA генерации</span>
       </div>
-      <div class="small yt-hint">Для контента откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      <ul class="small yt-list">
+        <li>Подбирает несколько заголовков и цепляющий хук.</li>
+        <li>Собирает таймлайн ролика по времени и сценам.</li>
+        <li>Готовит описание, CTA и текст для Community.</li>
+      </ul>
+      <div class="small yt-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
       <div class="cta-row yt-actions">
         <button id="openYoutubeStudioBtn" class="btn btn-primary" type="button">Подключить YouTube</button>
+        <button type="button" class="btn btn-ghost" data-link="/youtube">Открыть студио</button>
       </div>
     </article>
   `;
@@ -1283,7 +1289,7 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row" style="margin-bottom:12px;"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить demo-аккаунт</button></div>${cards}</section>${modal}`);
+  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary">Подключить Facebook</button><button id="connectDemoBtn" class="btn btn-secondary">Подключить demo-аккаунт</button></div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
