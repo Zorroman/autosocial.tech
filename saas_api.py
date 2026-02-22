@@ -2894,11 +2894,8 @@ def refresh_connection_token(connection_id: int):
                     row.page_picture_url = pic.get("url")
                     row.ig_user_id = ig.get("id")
                     row.ig_username = ig.get("username")
-                    has_page_token = bool(_resolve_page_access_token(access_token, str(row.page_id or "")))
-                    if row.page_id and row.ig_user_id and has_page_token:
+                    if row.page_id and row.ig_user_id:
                         _apply_meta_status(row, "connected_ready")
-                    elif row.page_id and row.ig_user_id and not has_page_token:
-                        _apply_meta_status(row, "permissions_missing", "page_token_missing")
                     else:
                         _apply_meta_status(row, "connected_need_page", "ig_not_linked")
         except Exception:

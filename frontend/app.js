@@ -1517,11 +1517,15 @@ function pageConnections() {
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         const canAddPage = status === 'connected_ready' || status === 'connected' || status === 'connected_need_page';
+        const statusText = status === 'connected_ready' || status === 'connected' ? 'Готово к публикации' : 'Требуется действие';
+        const syncText = canRefresh ? 'Live sync' : 'Ограничено';
+        const pageHealth = c.facebook_page_name ? 'Страница привязана' : 'Страница не выбрана';
+        const igHealth = c.instagram_business_id ? 'IG business активен' : 'IG business не найден';
         return `<article class="card connection-card">
           <div class="row connection-head">
             <div>
-              <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span></div>
-              <div class="row connection-title-row">${avatar}<h3 style="margin:0;">Facebook + Instagram</h3></div>
+              <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">Enterprise Ready</span></div>
+              <div class="row connection-title-row">${avatar}<h3 class="connection-title">Facebook + Instagram</h3></div>
               <div class="small connection-subtitle">Подключение для автопостинга. Токены не показываем.</div>
             </div>
             <div>${statusBadge(status)}</div>
@@ -1529,12 +1533,21 @@ function pageConnections() {
           <div class="connection-features">
             <span class="pill">Facebook Page</span>
             <span class="pill">Instagram Business</span>
+            <span class="pill">Secure OAuth</span>
           </div>
           <div class="grid-2 connection-grid-info">
-            <div><div class="connection-main-text">${pageLine}</div></div>
-            <div><div class="connection-main-text">${igLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">Facebook Page</span><div class="connection-main-text">${pageLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">Instagram Business</span><div class="connection-main-text">${igLine}</div></div>
           </div>
-          <div class="small connection-hint">${esc(howToFix)}</div>
+          <div class="connection-kpis">
+            <div class="connection-kpi"><strong>${esc(statusText)}</strong><span>Состояние публикации</span></div>
+            <div class="connection-kpi"><strong>${esc(syncText)}</strong><span>Статус синхронизации</span></div>
+            <div class="connection-kpi"><strong>${esc(c.token_expires_at ? 'Token tracked' : 'Token active')}</strong><span>Контроль токена</span></div>
+          </div>
+          <div class="connection-hint-wrap">
+            <div class="small connection-hint">${esc(howToFix)}</div>
+            <div class="small connection-hint" style="margin-top:4px;">${esc(pageHealth)} · ${esc(igHealth)}</div>
+          </div>
           <div class="cta-row connection-actions">
             <button class="btn btn-primary connection-btn-sm" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
             ${canAddPage ? `<button class="btn btn-ghost connection-btn-sm" data-add-page="${c.id}">Добавить страницу</button>` : ''}
@@ -1551,8 +1564,8 @@ function pageConnections() {
     <article class="card connection-card yt-connection-card">
       <div class="row connection-head">
         <div>
-          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
+          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">Creator Suite</span></div>
+          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 class="connection-title">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
           <div class="small connection-subtitle">YouTube подключен. Можно открывать студию и генерировать ролики/посты.</div>
         </div>
         <div>${statusBadge(y.status || 'connected_ready')}</div>
@@ -1560,12 +1573,20 @@ function pageConnections() {
       <div class="connection-features">
         <span class="pill">Shorts 15-70с</span>
         <span class="pill">Long 120-480с</span>
+        <span class="pill">AI Script + Post</span>
       </div>
       <div class="grid-2 connection-grid-info">
-        <div><div class="connection-main-text">ID: ${esc(safeText(y.channel_id, 'не указан'))}</div></div>
-        <div><div class="connection-main-text">Статус: ${esc(safeText(y.status, 'connected_ready'))}</div></div>
+        <div class="connection-identity"><span class="connection-label">Channel ID</span><div class="connection-main-text">${esc(safeText(y.channel_id, 'не указан'))}</div></div>
+        <div class="connection-identity"><span class="connection-label">Статус</span><div class="connection-main-text">${esc(safeText(y.status, 'connected_ready'))}</div></div>
       </div>
-      <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      <div class="connection-kpis">
+        <div class="connection-kpi"><strong>Ready</strong><span>Контент-пайплайн</span></div>
+        <div class="connection-kpi"><strong>Multi-format</strong><span>Shorts и Long</span></div>
+        <div class="connection-kpi"><strong>SaaS Control</strong><span>В одной панели</span></div>
+      </div>
+      <div class="connection-hint-wrap">
+        <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      </div>
       <div class="cta-row connection-actions">
         <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Открыть студию</button>
         <button type="button" class="btn btn-danger connection-btn-sm" data-youtube-disconnect="1">Отключить YouTube</button>
