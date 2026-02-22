@@ -226,15 +226,14 @@ def _youtube_redirect_uri() -> str:
     env = (
         os.getenv("YOUTUBE_REDIRECT_URI")
         or settings.YOUTUBE_REDIRECT_URI
-        or settings.GOOGLE_REDIRECT_URI
-        or os.getenv("GOOGLE_REDIRECT_URI")
         or ""
     ).strip()
     if env:
         return env
-    # By default reuse Google login callback to avoid redirect_uri_mismatch
-    # when only one Google OAuth callback URI is configured in Cloud Console.
-    return _google_redirect_uri()
+    base = _public_api_base_url()
+    if base:
+        return f"{base}/api/integrations/youtube/callback"
+    return "http://localhost:5000/api/integrations/youtube/callback"
 
 
 def _facebook_client_id() -> str:
