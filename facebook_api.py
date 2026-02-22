@@ -62,6 +62,8 @@ def list_pages(access_token: str, include_page_access_token: bool = False):
     # Fallback: some Pages may be visible via Business Manager endpoints
     # but not included in /me/accounts for the current token context.
     fields_biz_pages = "id,name,picture{url},instagram_business_account{id,username}"
+    if include_page_access_token:
+        fields_biz_pages = f"{fields_biz_pages},access_token,tasks"
     businesses = requests.get(
         "https://graph.facebook.com/v20.0/me/businesses",
         params={"access_token": access_token, "fields": "id,name", "limit": 50},
@@ -84,13 +86,33 @@ def list_pages(access_token: str, include_page_access_token: bool = False):
                 except Exception:
                     continue
 
-    # De-duplicate by page id.
+    # De-duplicate by page id, but never lose stronger metadata from /me/accounts.
+    # Some business endpoints may return the same page without access_token/tasks.
     unique = {}
     for p in all_pages:
         pid = str((p or {}).get("id") or "").strip()
         if not pid:
             continue
-        unique[pid] = p
+        prev = unique.get(pid) or {}
+        merged = dict(prev)
+        merged.update(p or {})
+
+        prev_token = str(prev.get("access_token") or "").strip()
+        new_token = str((p or {}).get("access_token") or "").strip()
+        if prev_token and not new_token:
+            merged["access_token"] = prev_token
+
+        prev_tasks = prev.get("tasks")
+        new_tasks = (p or {}).get("tasks")
+        if prev_tasks and not new_tasks:
+            merged["tasks"] = prev_tasks
+
+        prev_ig = prev.get("instagram_business_account")
+        new_ig = (p or {}).get("instagram_business_account")
+        if prev_ig and not new_ig:
+            merged["instagram_business_account"] = prev_ig
+
+        unique[pid] = merged
     res["data"] = list(unique.values())
     return res
 
