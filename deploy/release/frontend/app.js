@@ -423,16 +423,25 @@ const state = {
   createWizard: {
     step: 1,
     projectId: '',
+    niche: 'services',
     category: 'business',
     topic: '',
+    goal: 'sales',
+    ctaAction: 'Записаться',
+    hashtags: ['#бизнес', '#маркетинг'],
+    finalCta: 'Напишите в директ, чтобы получить консультацию.',
+    metaFormat: 'post',
+    youtubeFormat: 'description',
     quickTopicsVersion: 0,
     tone: 'friendly',
     language: 'ru',
     previewText: '',
-    previewContextKey: '',
+    generating: false,
+    generatedAt: '',
+    publishSuccess: null,
     mode: 'now',
     scheduleAt: '',
-    platforms: { facebook: true, instagram: true },
+    platforms: { facebook: true, instagram: true, youtube: false },
     mediaUrl: '',
   },
   youtubeStudio: {
@@ -1375,99 +1384,134 @@ function pageDashboard() {
   `);
 }
 
-function createPreviewContextKey(wizard) {
-  return [
-    String(wizard?.category || 'business').trim(),
-    String(wizard?.topic || '').trim().toLowerCase(),
-    String(wizard?.tone || 'friendly').trim(),
-    String(wizard?.language || 'ru').trim(),
-  ].join('|');
-}
-
 function pageCreate() {
   const w = state.createWizard;
-  const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
-  const categoryOptions = [
-    { value: 'business', label: 'Бизнес и услуги' },
-    { value: 'marketing', label: 'Маркетинг и продвижение' },
-    { value: 'fitness', label: 'Фитнес и здоровье' },
-    { value: 'ecommerce', label: 'Интернет-магазин' },
-    { value: 'beauty', label: 'Красота и уход' },
-    { value: 'auto', label: 'Авто и сервис' },
-    { value: 'fallback', label: 'Другое' },
-  ];
-  const categoryHints = {
-    business: 'Для экспертов, услуг, локального бизнеса и B2B.',
-    marketing: 'Для агентств, SMM, таргета и контент-маркетинга.',
-    fitness: 'Для тренеров, залов, wellness и нутрициологии.',
-    ecommerce: 'Для карточек товара, акций и прогрева к покупке.',
-    beauty: 'Для салонов, косметологии, мастеров красоты.',
-    auto: 'Для автосервисов, детейлинга, продажи авто.',
-    fallback: 'Универсальный режим, если ниша нестандартная.',
+  const projectOptions = state.projects.map((p) => ({ value: p.id, label: p.name }));
+  const nicheToCategory = {
+    beauty: 'beauty',
+    restaurant: 'business',
+    autoservice: 'auto',
+    shop: 'ecommerce',
+    services: 'business',
+    other: 'fallback',
   };
-  const topicTemplates = buildCreateQuickTopics(w.category, w.quickTopicsVersion || 0);
+  const nicheOptions = [
+    { value: 'beauty', label: 'Бьюти' },
+    { value: 'restaurant', label: 'Ресторан' },
+    { value: 'autoservice', label: 'Автосервис' },
+    { value: 'shop', label: 'Магазин' },
+    { value: 'services', label: 'Услуги' },
+    { value: 'other', label: 'Другое' },
+  ];
   const toneOptions = [
-    { value: 'friendly', label: 'Дружелюбный', hint: 'Простой и живой язык, без давления.' },
-    { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
-    { value: 'sales', label: 'Продающий', hint: 'Фокус на выгоде и понятном призыве к действию.' },
+    { value: 'friendly', label: 'Дружелюбный' },
+    { value: 'expert', label: 'Экспертный' },
+    { value: 'sales', label: 'Продающий' },
+    { value: 'neutral', label: 'Нейтральный' },
   ];
-  const platformLimitMap = {
-    instagram: { recMin: 120, recMax: 220, maxHashtags: 5 },
-    facebook: { recMin: 200, recMax: 400, maxHashtags: 5 },
-    youtube: { recMin: 180, recMax: 600, maxHashtags: 3 },
+  const goalOptions = [
+    { value: 'sales', label: 'Продажи' },
+    { value: 'warmup', label: 'Прогрев' },
+    { value: 'expert', label: 'Экспертность' },
+    { value: 'announce', label: 'Анонс' },
+  ];
+  const platformMetaSelected = !!(w.platforms?.facebook || w.platforms?.instagram);
+  const platformYoutubeSelected = !!w.platforms?.youtube;
+  const selectedPlatforms = [platformMetaSelected ? 'Meta' : null, platformYoutubeSelected ? 'YouTube' : null].filter(Boolean).join(' + ') || 'Не выбрано';
+  const metaConnected = (state.connections || []).some((c) => isConnectionReady(c));
+  const youtubeConnected = !!state.youtubeConnection?.connected;
+  const stepDurations = { 1: 4, 2: 3, 3: 2, 4: 1, 5: 1 };
+  const minutesLeft = stepDurations[w.step] || 2;
+  const hashtags = Array.isArray(w.hashtags) && w.hashtags.length ? w.hashtags : ['#контент', '#бизнес'];
+  const goalLabel = (goalOptions.find((g) => g.value === w.goal) || goalOptions[0]).label;
+  const ctaText = (w.finalCta || '').trim() || `CTA: ${w.ctaAction || 'Написать'}`;
+  const projectName = (state.projects.find((p) => String(p.id) === String(w.projectId)) || state.projects[0] || { name: 'Новый проект' }).name;
+  const fallbackPreviewText = ((w.topic || '').trim()
+    ? `${w.topic}\n\nСфокусируйтесь на выгоде клиента, добавьте один конкретный шаг и завершите понятным действием.\n\n${ctaText}`
+    : 'Текст поста появится здесь после ввода темы или генерации AI.');
+  const previewText = ((w.previewText || '').trim() || fallbackPreviewText).trim();
+  const activeBadge = platformYoutubeSelected && !platformMetaSelected ? 'YouTube' : 'Meta';
+  const stepTitles = {
+    1: 'Проект',
+    2: 'Платформы',
+    3: 'Контент',
+    4: 'Предпросмотр',
+    5: 'Публикация',
   };
-  const activePlatforms = [
-    w.platforms.facebook ? 'facebook' : null,
-    w.platforms.instagram ? 'instagram' : null,
-  ].filter(Boolean);
-  const previewPlatforms = activePlatforms.length ? activePlatforms : ['instagram'];
-  const previewRecMin = Math.max(...previewPlatforms.map((p) => platformLimitMap[p]?.recMin || 120));
-  const previewRecMaxRaw = Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.recMax || 220));
-  const previewRecMax = Math.max(previewRecMin, previewRecMaxRaw);
-  const previewMaxHashtags = Math.max(1, Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.maxHashtags || 5)));
-  const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
-  const buildPreviewDraft = () => {
-    const topic = (w.topic || '').trim();
-    if (!topic) return '';
-    if (String(w.language || 'ru').trim().toLowerCase() === 'en') {
-      return `${topic}\n\nWrite your key point here, then add one clear CTA.\n\n#content #marketing`;
-    }
-    return `${topic}\n\nДобавьте главный тезис по теме и один чёткий призыв к действию.\n\n#контент #бизнес`;
-  };
-  const previewContextKey = createPreviewContextKey(w);
-  const normalizedPreview = ((w.previewText || '').trim() && w.previewContextKey === previewContextKey)
-    ? (w.previewText || '').trim()
-    : buildPreviewDraft();
-  const submitLabel = w.mode === 'schedule' ? 'Создать и запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
+  const submitLabel = w.mode === 'schedule' ? 'Запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Опубликовать');
+  if (!w.niche) w.niche = 'services';
+  if (!w.goal) w.goal = 'sales';
+  if (!w.ctaAction) w.ctaAction = 'Записаться';
+  if (!w.finalCta) w.finalCta = 'Напишите в директ, чтобы получить консультацию.';
+  if (!w.category) w.category = nicheToCategory[w.niche] || 'business';
+  const topicTemplates = buildCreateQuickTopics(w.category, w.quickTopicsVersion || 0);
 
   const step1 = `
-    ${selectField('wProject', 'Проект', w.projectId, options.length ? options : [{ value: '', label: 'Нет проектов' }])}
+    <div class="wizard-step-note">Проект хранит стиль, нишу и настройки бренда.</div>
+    ${selectField('wProject', 'Проект (бренд/клиент)', w.projectId, projectOptions.length ? projectOptions : [{ value: '', label: 'Нет проектов' }])}
     <div class="field">
       <label for="wNewProject">Новый проект</label>
       <div class="cta-row">
-        <input id="wNewProject" type="text" placeholder="Например, Салон Киев" />
-        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Добавить проект</button>
+        <input id="wNewProject" type="text" placeholder="Например: Салон Glow Studio" />
+        <button id="createProjectFromCreateBtn" class="btn btn-secondary" type="button">Сохранить проект</button>
       </div>
-      <p class="small">Создайте проект прямо здесь, без выхода из мастера.</p>
-    </div>`;
+      <p class="small">Проект создается сразу и автоматически выбирается в мастере.</p>
+    </div>
+    <div class="create-grid-compact">
+      ${selectField('wNiche', 'Ниша', w.niche, nicheOptions)}
+      ${selectField('wTone', 'Тон', w.tone, toneOptions)}
+    </div>
+  `;
 
   const step2 = `
-    <div class="field">
-      <label>Платформы</label>
-      <div class="row">
-        <label><input id="wFb" type="checkbox" ${w.platforms.facebook ? 'checked' : ''}/> Facebook Page</label>
-        <label><input id="wIg" type="checkbox" ${w.platforms.instagram ? 'checked' : ''}/> Instagram Business</label>
-      </div>
-    </div>`;
+    <div class="wizard-step-note">Выберите, где публиковать контент и в каком формате его готовить.</div>
+    <div class="create-platform-grid">
+      <article class="create-platform-card ${platformMetaSelected ? 'active' : ''}">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <div class="row" style="align-items:center;gap:8px;">
+            <span class="create-platform-icon">M</span>
+            <strong>Meta (Facebook/Instagram)</strong>
+          </div>
+          <label class="create-toggle"><input id="wMeta" type="checkbox" ${platformMetaSelected ? 'checked' : ''}/> Выбрать</label>
+        </div>
+        <div class="small">Статус: ${metaConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</div>
+        ${!metaConnected ? '<button id="wConnectMeta" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
+        ${selectField('wMetaFormat', 'Формат контента', w.metaFormat || 'post', [{ value: 'post', label: 'Пост' }, { value: 'story', label: 'Текст для сторис' }])}
+      </article>
+      <article class="create-platform-card ${platformYoutubeSelected ? 'active' : ''}">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <div class="row" style="align-items:center;gap:8px;">
+            <span class="create-platform-icon yt">YT</span>
+            <strong>YouTube</strong>
+          </div>
+          <label class="create-toggle"><input id="wYoutube" type="checkbox" ${platformYoutubeSelected ? 'checked' : ''}/> Выбрать</label>
+        </div>
+        <div class="small">Статус: ${youtubeConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</div>
+        ${!youtubeConnected ? '<button id="wConnectYoutube" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
+        ${selectField('wYoutubeFormat', 'Формат контента', w.youtubeFormat || 'description', [{ value: 'description', label: 'Описание ролика' }, { value: 'community', label: 'Текст для Community' }, { value: 'shorts', label: 'Описание для Shorts' }])}
+      </article>
+    </div>
+  `;
 
   const step3 = `
-    <article class="wizard-help">
-      <h3>Что заполнить на этом шаге</h3>
-      <p class="small">1) Выберите категорию бизнеса. 2) Введите тему поста. 3) Выберите стиль текста (тон).</p>
-    </article>
-    ${selectField('wCategory', 'Категория бизнеса', w.category, categoryOptions)}
-    <p class="small wizard-inline-help">${esc(categoryHints[w.category] || categoryHints.business)}</p>
-    ${field('wTopic', 'Тема поста', 'text', w.topic, 'Например: 3 ошибки при выборе автосервиса')}
+    <div class="wizard-step-note">Сформулируйте задачу. AI соберет черновик поста за несколько секунд.</div>
+    <div class="field">
+      <label>Цель публикации</label>
+      <div class="create-goal-grid">
+        ${goalOptions.map((g) => `<label class="create-goal-item"><input type="radio" name="wGoal" value="${esc(g.value)}" ${w.goal === g.value ? 'checked' : ''} /> ${esc(g.label)}</label>`).join('')}
+      </div>
+    </div>
+    ${field('wTopic', 'О чём пост?', 'text', w.topic, 'Например: 5 ошибок в продвижении локального бизнеса')}
+    ${field('wCtaAction', 'Что должен сделать клиент?', 'text', w.ctaAction, 'Записаться / Написать / Купить / Позвонить')}
+    <div class="field">
+      <label style="margin:0 0 8px;">AI подсказки</label>
+      <div class="topic-template-row">
+        <button type="button" class="btn btn-ghost btn-topic-template" data-ai-prompt="sales">Сделай продающий пост</button>
+        <button type="button" class="btn btn-ghost btn-topic-template" data-ai-prompt="expert">Сделай экспертный пост</button>
+        <button type="button" class="btn btn-ghost btn-topic-template" data-ai-prompt="announce">Сделай анонс</button>
+        <button type="button" class="btn btn-ghost btn-topic-template" data-ai-prompt="warmup">Сделай прогрев</button>
+      </div>
+    </div>
     <div class="field">
       <div class="row" style="justify-content:space-between;align-items:center;">
         <label style="margin:0;">Быстрые темы</label>
@@ -1476,40 +1520,96 @@ function pageCreate() {
       <div id="wTopicTemplates" class="topic-template-row">
         ${topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('')}
       </div>
-      <p class="small wizard-inline-help quick-topics-help">Подбираются по категории бизнеса. Нажмите "Обновить", чтобы получить другой набор.</p>
     </div>
-    ${selectField('wTone', 'Тон текста', w.tone, toneOptions.map((t) => ({ value: t.value, label: t.label })))}
-    <p class="small wizard-inline-help">${esc((toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).hint)}</p>
-    ${selectField('wLang', 'Язык', w.language, [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
-    ${field('wMedia', 'Ссылка на изображение (необязательно)', 'text', w.mediaUrl, 'https://...')}`;
-
-  const step4 = `
-    <article class="wizard-help">
-      <h3>Предпросмотр перед публикацией</h3>
-      <p class="small">Проверьте и отредактируйте текст. Этот вариант отправится в публикацию.</p>
-    </article>
-    <div class="wizard-summary">
-      <span class="pill">Категория: ${esc((categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label)}</span>
-      <span class="pill">Тон: ${esc(toneLabel)}</span>
-      <span class="pill">Язык: ${esc(w.language === 'ru' ? 'Русский' : 'English')}</span>
+    <div class="row" style="align-items:center;gap:10px;">
+      <button id="wGenerateBtn" class="btn btn-primary" type="button">${w.generating ? 'AI готовит пост…' : 'Сгенерировать'}</button>
+      ${w.generating ? '<span class="create-ai-status"><span class="create-ai-dot"></span> AI готовит пост…</span>' : ''}
     </div>
-    ${field('wPreviewText', 'Текст поста (можно редактировать)', 'textarea', normalizedPreview, 'Введите текст публикации')}
-    <p class="small wizard-inline-help">Рекомендуем: ${previewRecMin}-${previewRecMax} символов, 2-${previewMaxHashtags} хештегов, 1 чёткий призыв к действию.</p>
   `;
 
-  const step5 = `
-    ${selectField('wMode', 'Режим публикации', w.mode, [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать на дату' }, { value: 'draft', label: 'Сохранить как черновик' }])}
-    ${w.mode === 'schedule' ? field('wSchedule', 'Дата и время публикации', 'datetime-local', w.scheduleAt) : ''}
+  const step4 = `
+    <div class="wizard-step-note">Финальная правка перед публикацией. Справа вы сразу видите итоговый вид поста.</div>
+    ${field('wPreviewText', 'Итоговый текст поста', 'textarea', previewText, 'Введите текст публикации')}
+    ${field('wHashtags', 'Хэштеги (через пробел)', 'textarea', hashtags.join(' '), '#бизнес #продажи #маркетинг')}
+    ${field('wFinalCta', 'CTA (призыв к действию)', 'text', w.finalCta, 'Напишите в директ, чтобы получить консультацию')}
+  `;
+
+  const step5 = w.publishSuccess ? `
     <article class="wizard-help">
-      <h3>Итог перед запуском</h3>
-      <p class="small">Проект: <strong>${esc((state.projects.find((p) => String(p.id) === String(w.projectId)) || state.projects[0] || { name: 'Не выбран' }).name)}</strong> · Платформы: <strong>${esc([w.platforms.facebook ? 'Facebook' : null, w.platforms.instagram ? 'Instagram' : null].filter(Boolean).join(' + ') || 'Не выбрано')}</strong></p>
+      <h3>Готово</h3>
+      <p class="small">${esc(w.publishSuccess)}</p>
+      <div class="cta-row">
+        <button id="wCreateMoreBtn" class="btn btn-secondary" type="button">Создать ещё</button>
+        <button id="wOpenCalendarBtn" class="btn btn-ghost" type="button">Открыть календарь</button>
+      </div>
+    </article>
+  ` : `
+    <div class="wizard-step-note">Выберите формат публикации и подтвердите запуск.</div>
+    ${selectField('wMode', 'Публикация', w.mode, [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать' }, { value: 'draft', label: 'Сохранить как черновик' }])}
+    ${w.mode === 'schedule' ? field('wSchedule', 'Дата и время', 'datetime-local', w.scheduleAt) : ''}
+    <article class="wizard-help">
+      <h3>Подтверждение</h3>
+      <p class="small">Проект: <strong>${esc(projectName)}</strong></p>
+      <p class="small">Платформы: <strong>${esc(selectedPlatforms)}</strong></p>
+      <p class="small">Цель: <strong>${esc(goalLabel)}</strong></p>
       <p class="small">Тема: <strong>${esc(w.topic || '—')}</strong></p>
     </article>
-    <p class="small">Планирование доступно на платных тарифах. В режиме черновика пост не публикуется.</p>
   `;
 
   const stepContent = [step1, step2, step3, step4, step5][w.step - 1] || step1;
-  return appLayout('/create', 'Создать', `<section class="card"><h2>Мастер создания поста</h2><div class="stepper"><div class="step ${w.step===1?'active':''}">1. Проект</div><div class="step ${w.step===2?'active':''}">2. Платформы</div><div class="step ${w.step===3?'active':''}">3. Контент</div><div class="step ${w.step===4?'active':''}">4. Предпросмотр</div><div class="step ${w.step===5?'active':''}">5. Публикация</div></div>${stepContent}<div class="cta-row" style="margin-top:10px;">${w.step>1?'<button id="wPrev" type="button" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" type="button" class="btn btn-primary">Далее</button>':`<button id="wSubmit" type="button" class="btn btn-primary">${esc(submitLabel)}</button>`}</div></section>`);
+  const previewCard = `
+    <article class="create-preview-card">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <span class="pill">${esc(activeBadge)}</span>
+        <span class="small">${esc(projectName)}</span>
+      </div>
+      <h3>${esc(w.topic || 'Ваш будущий пост')}</h3>
+      <div class="create-preview-text">${esc(previewText)}</div>
+      <div class="create-preview-tags">${hashtags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
+      <button class="btn btn-secondary create-preview-cta" type="button">${esc((w.ctaAction || 'Написать').trim() || 'Написать')}</button>
+    </article>
+  `;
+  const infoCard = `
+    <article class="create-info-card">
+      <h3>Что вы получите</h3>
+      <ul class="check-list">
+        <li class="done">Готовый текст</li>
+        <li class="done">Сильный CTA</li>
+        <li class="done">Хэштеги</li>
+        <li class="done">План публикации</li>
+      </ul>
+    </article>
+  `;
+
+  return appLayout('/create', 'Создать', `
+    <section class="create-wizard-shell">
+      <div class="create-wizard-grid">
+        <article class="card create-main-col">
+          <h2>Мастер создания поста</h2>
+          <p class="small">Заполните шаги слева, а справа сразу смотрите итог поста.</p>
+          <div class="create-progress-badge">Шаг ${w.step} из 5 · ~${minutesLeft} минут до готового поста</div>
+          <div class="stepper">
+            <div class="step ${w.step===1?'active':''}">1. Проект</div>
+            <div class="step ${w.step===2?'active':''}">2. Платформы</div>
+            <div class="step ${w.step===3?'active':''}">3. Контент</div>
+            <div class="step ${w.step===4?'active':''}">4. Предпросмотр</div>
+            <div class="step ${w.step===5?'active':''}">5. Публикация</div>
+          </div>
+          <h3 class="create-step-title">${esc(stepTitles[w.step] || 'Шаг')}</h3>
+          ${stepContent}
+          ${!w.publishSuccess ? `<div class="cta-row create-wizard-actions">${w.step>1?'<button id="wPrev" type="button" class="btn btn-ghost">Назад</button>':''}${w.step<5?'<button id="wNext" type="button" class="btn btn-primary">Далее</button>':`<button id="wSubmit" type="button" class="btn btn-primary">${esc(submitLabel)}</button>`}</div>` : ''}
+          <details class="create-mobile-preview">
+            <summary>Предпросмотр</summary>
+            <div class="create-mobile-preview-content">${previewCard}${infoCard}</div>
+          </details>
+        </article>
+        <aside class="create-preview-col">
+          ${previewCard}
+          ${infoCard}
+        </aside>
+      </div>
+    </section>
+  `);
 }
 function pageConnections() {
   const query = new URLSearchParams(location.search);
@@ -2754,12 +2854,92 @@ async function bind() {
       createProjectFromCreateBtn.disabled = false;
     }
   };
-  const wCategoryEl = document.getElementById('wCategory');
-  if (wCategoryEl) wCategoryEl.onchange = () => {
-    state.createWizard.category = wCategoryEl.value;
+  const nicheToCategory = {
+    beauty: 'beauty',
+    restaurant: 'business',
+    autoservice: 'auto',
+    shop: 'ecommerce',
+    services: 'business',
+    other: 'fallback',
+  };
+  const parseHashtags = (raw) => {
+    const tags = String(raw || '')
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s.startsWith('#') ? s : `#${s}`);
+    return [...new Set(tags)].slice(0, 8);
+  };
+  const buildLocalPreviewText = (wizard) => {
+    const goalMap = {
+      sales: 'Сделайте акцент на выгоде и действии клиента.',
+      warmup: 'Разогрейте интерес через историю и пользу.',
+      expert: 'Покажите экспертность через конкретные шаги.',
+      announce: 'Сделайте четкий анонс с датой и выгодой.',
+    };
+    const topic = String(wizard.topic || '').trim();
+    const cta = String(wizard.finalCta || '').trim() || `CTA: ${String(wizard.ctaAction || 'Написать').trim()}`;
+    if (!topic) return '';
+    return `${topic}\n\n${goalMap[wizard.goal] || goalMap.sales}\n\n1) Боль аудитории.\n2) Решение и польза.\n3) ${cta}`;
+  };
+  const selectedApiPlatforms = (wizard) => {
+    const meta = !!(wizard.platforms?.facebook || wizard.platforms?.instagram);
+    const youtube = !!wizard.platforms?.youtube;
+    const platforms = [];
+    if (meta) platforms.push('facebook', 'instagram');
+    if (youtube) platforms.push('youtube');
+    return [...new Set(platforms)];
+  };
+  const generatePreviewByAi = async () => {
+    const w = state.createWizard;
+    const topic = String(w.topic || '').trim();
+    if (!topic) throw new Error('Сначала заполните поле «О чём пост?»');
+    const platforms = selectedApiPlatforms(w);
+    w.generating = true;
+    w.publishSuccess = null;
+    render();
+    try {
+      const previewPayload = await api('/api/generate-preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: Number(w.projectId || state.projects[0]?.id || 0) || null,
+          topic,
+          category: w.category || 'business',
+          tone: w.tone || 'friendly',
+          language: 'ru',
+          platforms: platforms.length ? platforms : ['instagram'],
+        }),
+        timeoutMs: 90000,
+      });
+      const generated = String(previewPayload?.text || '').trim();
+      w.previewText = generated || buildLocalPreviewText(w);
+      if (!Array.isArray(w.hashtags) || w.hashtags.length === 0) {
+        const topicWord = topic.split(/\s+/).slice(0, 2).join('');
+        w.hashtags = parseHashtags(`#${topicWord} #маркетинг #бизнес`);
+      }
+      if (!w.finalCta) w.finalCta = `Напишите «ХОЧУ», чтобы ${String(w.ctaAction || 'записаться').toLowerCase()}.`;
+      w.generatedAt = new Date().toISOString();
+    } catch {
+      await new Promise((r) => setTimeout(r, 900));
+      w.previewText = buildLocalPreviewText(w);
+      if (!Array.isArray(w.hashtags) || w.hashtags.length === 0) w.hashtags = ['#контент', '#бизнес', '#маркетинг'];
+      if (!w.finalCta) w.finalCta = `Напишите «ХОЧУ», чтобы ${String(w.ctaAction || 'записаться').toLowerCase()}.`;
+      w.generatedAt = new Date().toISOString();
+    } finally {
+      w.generating = false;
+      render();
+    }
+  };
+
+  const wProjectEl = document.getElementById('wProject');
+  if (wProjectEl) wProjectEl.onchange = () => { state.createWizard.projectId = wProjectEl.value; state.createWizard.publishSuccess = null; };
+  const wNicheEl = document.getElementById('wNiche');
+  if (wNicheEl) wNicheEl.onchange = () => {
+    state.createWizard.niche = wNicheEl.value;
+    state.createWizard.category = nicheToCategory[wNicheEl.value] || 'business';
     state.createWizard.quickTopicsVersion = 0;
     state.createWizard.previewText = '';
-    state.createWizard.previewContextKey = '';
+    state.createWizard.publishSuccess = null;
     render();
   };
   const refreshTopicTemplates = () => {
@@ -2777,7 +2957,7 @@ async function bind() {
         if (topicInput) topicInput.value = topic;
         state.createWizard.topic = topic;
         state.createWizard.previewText = '';
-        state.createWizard.previewContextKey = '';
+        state.createWizard.publishSuccess = null;
         state.notice = null;
       };
     });
@@ -2791,77 +2971,127 @@ async function bind() {
   if (wTopicEl) wTopicEl.oninput = () => {
     state.createWizard.topic = wTopicEl.value;
     state.createWizard.previewText = '';
-    state.createWizard.previewContextKey = '';
+    state.createWizard.publishSuccess = null;
   };
+  const wGoalRadios = document.querySelectorAll('input[name="wGoal"]');
+  wGoalRadios.forEach((el) => {
+    el.onchange = () => {
+      state.createWizard.goal = el.value;
+      state.createWizard.publishSuccess = null;
+    };
+  });
+  const wCtaAction = document.getElementById('wCtaAction');
+  if (wCtaAction) wCtaAction.oninput = () => {
+    state.createWizard.ctaAction = wCtaAction.value;
+    state.createWizard.publishSuccess = null;
+  };
+  const wMeta = document.getElementById('wMeta');
+  if (wMeta) wMeta.onchange = () => {
+    const checked = !!wMeta.checked;
+    state.createWizard.platforms.facebook = checked;
+    state.createWizard.platforms.instagram = checked;
+    state.createWizard.publishSuccess = null;
+    render();
+  };
+  const wYoutube = document.getElementById('wYoutube');
+  if (wYoutube) wYoutube.onchange = () => {
+    state.createWizard.platforms.youtube = !!wYoutube.checked;
+    state.createWizard.publishSuccess = null;
+    render();
+  };
+  const wMetaFormat = document.getElementById('wMetaFormat');
+  if (wMetaFormat) wMetaFormat.onchange = () => { state.createWizard.metaFormat = wMetaFormat.value; };
+  const wYoutubeFormat = document.getElementById('wYoutubeFormat');
+  if (wYoutubeFormat) wYoutubeFormat.onchange = () => { state.createWizard.youtubeFormat = wYoutubeFormat.value; };
+  const wConnectMeta = document.getElementById('wConnectMeta');
+  if (wConnectMeta) wConnectMeta.onclick = async () => {
+    const r = await api('/api/integrations/meta/connect', { method: 'POST', body: '{}' });
+    location.href = r.oauth_url;
+  };
+  const wConnectYoutube = document.getElementById('wConnectYoutube');
+  if (wConnectYoutube) wConnectYoutube.onclick = async () => {
+    const r = await api('/api/integrations/youtube/start', { method: 'POST', body: '{}' });
+    location.href = r.oauth_url;
+  };
+  document.querySelectorAll('[data-ai-prompt]').forEach((btn) => {
+    btn.onclick = () => {
+      const kind = String(btn.getAttribute('data-ai-prompt') || '');
+      const map = {
+        sales: { goal: 'sales', tone: 'sales' },
+        expert: { goal: 'expert', tone: 'expert' },
+        announce: { goal: 'announce', tone: 'friendly' },
+        warmup: { goal: 'warmup', tone: 'friendly' },
+      };
+      const payload = map[kind] || map.sales;
+      state.createWizard.goal = payload.goal;
+      state.createWizard.tone = payload.tone;
+      state.createWizard.publishSuccess = null;
+      render();
+    };
+  });
   const wToneEl = document.getElementById('wTone');
   if (wToneEl) wToneEl.onchange = () => {
     state.createWizard.tone = wToneEl.value;
     state.createWizard.previewText = '';
-    state.createWizard.previewContextKey = '';
+    state.createWizard.publishSuccess = null;
     render();
   };
-  const wLangEl = document.getElementById('wLang');
-  if (wLangEl) wLangEl.onchange = () => {
-    state.createWizard.language = wLangEl.value;
-    state.createWizard.previewText = '';
-    state.createWizard.previewContextKey = '';
-    render();
-  };
+  state.createWizard.language = 'ru';
   const wModeEl = document.getElementById('wMode');
-  if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; render(); };
+  if (wModeEl) wModeEl.onchange = () => { state.createWizard.mode = wModeEl.value; state.createWizard.publishSuccess = null; render(); };
+  const wScheduleEl = document.getElementById('wSchedule');
+  if (wScheduleEl) wScheduleEl.oninput = () => { state.createWizard.scheduleAt = wScheduleEl.value; };
+  const wPreviewTextEl = document.getElementById('wPreviewText');
+  if (wPreviewTextEl) wPreviewTextEl.oninput = () => { state.createWizard.previewText = wPreviewTextEl.value; state.createWizard.publishSuccess = null; };
+  const wHashtagsEl = document.getElementById('wHashtags');
+  if (wHashtagsEl) wHashtagsEl.oninput = () => { state.createWizard.hashtags = parseHashtags(wHashtagsEl.value); state.createWizard.publishSuccess = null; };
+  const wFinalCtaEl = document.getElementById('wFinalCta');
+  if (wFinalCtaEl) wFinalCtaEl.oninput = () => { state.createWizard.finalCta = wFinalCtaEl.value; state.createWizard.publishSuccess = null; };
+  const wGenerateBtn = document.getElementById('wGenerateBtn');
+  if (wGenerateBtn) wGenerateBtn.onclick = async () => {
+    try {
+      await generatePreviewByAi();
+      state.notice = { type: 'ok', text: 'AI подготовил черновик поста. Проверьте текст и CTA.' };
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать пост.' };
+      render();
+    }
+  };
   bindTopicTemplateButtons();
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
   const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = async () => {
     try {
       const w = state.createWizard;
-      const selectedPlatforms = [
-        w.platforms.facebook ? 'facebook' : null,
-        w.platforms.instagram ? 'instagram' : null,
-      ].filter(Boolean);
-      if (w.step === 1) w.projectId = document.getElementById('wProject')?.value || w.projectId || '';
+      const selectedPlatforms = selectedApiPlatforms(w);
+      if (w.step === 1) {
+        w.projectId = document.getElementById('wProject')?.value || w.projectId || '';
+        if (!w.projectId && state.projects?.[0]?.id) w.projectId = String(state.projects[0].id);
+      }
       if (w.step === 2) {
-        w.platforms.facebook = !!document.getElementById('wFb')?.checked;
-        w.platforms.instagram = !!document.getElementById('wIg')?.checked;
-        if (!w.platforms.facebook && !w.platforms.instagram) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
+        if (!selectedPlatforms.length) { state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' }; return render(); }
       }
       if (w.step === 3) {
-        w.category = (document.getElementById('wCategory')?.value || w.category || 'business').trim();
         w.topic = (document.getElementById('wTopic')?.value || w.topic || '').trim();
-        w.tone = document.getElementById('wTone')?.value || w.tone || 'friendly';
-        w.language = document.getElementById('wLang')?.value || w.language || 'ru';
-        w.mediaUrl = (document.getElementById('wMedia')?.value || w.mediaUrl || '').trim();
-        if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна. Выберите быструю тему или введите вручную.' }; return render(); }
-        const contextKey = createPreviewContextKey(w);
-        if (!w.previewText || w.previewContextKey !== contextKey) {
+        w.ctaAction = (document.getElementById('wCtaAction')?.value || w.ctaAction || 'Записаться').trim();
+        if (!w.topic) { state.notice = { type: 'error', text: 'Укажите тему поста.' }; return render(); }
+        if (!w.previewText) {
           wNext.disabled = true;
-          wNext.textContent = 'Генерирую...';
-          const previewPayload = await api('/api/generate-preview', {
-            method: 'POST',
-            body: JSON.stringify({
-              project_id: Number(w.projectId || state.projects[0]?.id || 0) || null,
-              topic: w.topic,
-              category: w.category,
-              tone: w.tone,
-              language: w.language,
-              platforms: selectedPlatforms.length ? selectedPlatforms : ['instagram'],
-            }),
-            timeoutMs: 90000,
-          });
-          const generated = (previewPayload?.text || '').trim();
-          w.previewText = generated || buildPreviewDraft();
-          w.previewContextKey = contextKey;
+          wNext.textContent = 'AI готовит пост…';
+          await generatePreviewByAi();
         }
       }
       if (w.step === 4) {
         w.previewText = (document.getElementById('wPreviewText')?.value || '').trim();
         if (!w.previewText) { state.notice = { type: 'error', text: 'Добавьте текст в предпросмотре.' }; return render(); }
-        w.previewContextKey = createPreviewContextKey(w);
+        w.hashtags = parseHashtags(document.getElementById('wHashtags')?.value || (w.hashtags || []).join(' '));
+        w.finalCta = (document.getElementById('wFinalCta')?.value || w.finalCta || '').trim();
       }
       if (w.step === 5) {
         w.mode = document.getElementById('wMode')?.value || 'now';
         w.scheduleAt = document.getElementById('wSchedule')?.value || '';
       }
+      w.publishSuccess = null;
       w.step = Math.min(5, w.step + 1);
       render();
     } catch (e) {
@@ -2877,29 +3107,26 @@ async function bind() {
   if (wSubmit) wSubmit.onclick = async () => {
     try {
       const w = state.createWizard;
-      // Persist step 5 fields on submit as well (in case user didn't hit Next).
       w.mode = document.getElementById('wMode')?.value || w.mode || 'now';
       w.scheduleAt = document.getElementById('wSchedule')?.value || w.scheduleAt || '';
       w.previewText = (document.getElementById('wPreviewText')?.value || w.previewText || '').trim();
-      w.previewContextKey = createPreviewContextKey(w);
-
-      const hasConnectedAccount = (state.connections || []).some((c) => isConnectionReady(c));
-      if (!hasConnectedAccount) throw new Error('Сначала подключите Facebook/Instagram в разделе "Подключения".');
+      const selectedPlatforms = selectedApiPlatforms(w);
+      const metaSelected = selectedPlatforms.includes('facebook') || selectedPlatforms.includes('instagram');
+      const youtubeSelected = selectedPlatforms.includes('youtube');
+      const metaConnected = (state.connections || []).some((c) => isConnectionReady(c));
+      const youtubeConnected = !!state.youtubeConnection?.connected;
+      if (!selectedPlatforms.length) throw new Error('Выберите хотя бы одну платформу.');
+      if (metaSelected && !metaConnected) throw new Error('Сначала подключите Meta в разделе «Подключения».');
+      if (youtubeSelected && !youtubeConnected) throw new Error('Сначала подключите YouTube в разделе «Подключения».');
       if (!w.topic) throw new Error('Тема обязательна.');
       if (!w.previewText) throw new Error('Добавьте текст в предпросмотре.');
-
-      const selectedPlatforms = [
-        w.platforms.facebook ? 'facebook' : null,
-        w.platforms.instagram ? 'instagram' : null,
-      ].filter(Boolean);
-      if (!selectedPlatforms.length) throw new Error('Выберите хотя бы одну платформу.');
       const project_id = Number(w.projectId || state.projects[0]?.id || 0) || null;
       const payloadBase = {
         project_id,
         topic: w.topic,
         category: w.category,
         tone: w.tone,
-        language: w.language,
+        language: 'ru',
         media_url: w.mediaUrl || null,
         generated_text: w.previewText,
       };
@@ -2915,28 +3142,28 @@ async function bind() {
           const payload = { ...payloadBase, platform, schedule_at: scheduleAtIso };
           await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         }
-        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты созданы и запланированы для Facebook и Instagram.' : 'Пост создан и запланирован.' };
-        nav('/history');
+        w.publishSuccess = 'Публикация успешно запланирована. Вы можете создать следующий пост или открыть календарь.';
+        state.notice = { type: 'ok', text: 'Пост успешно запланирован.' };
+        render();
         return;
       }
 
-      // mode=draft: generate content only, without publishing.
       if (w.mode === 'draft') {
         for (const platform of selectedPlatforms) {
           const payload = { ...payloadBase, platform, save_as_draft: true };
           await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         }
-        state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Черновики созданы для Facebook и Instagram.' : 'Черновик сохранён. Отредактировать и опубликовать можно в истории.' };
-        nav('/history');
+        w.publishSuccess = 'Черновик сохранен. Можно создать следующий пост или перейти в календарь.';
+        state.notice = { type: 'ok', text: 'Черновик успешно сохранён.' };
+        render();
         return;
       }
 
-      // mode=now: generate content and then call publish endpoint.
       let sharedMediaUrl = (w.mediaUrl || '').trim() || null;
       const createdPosts = [];
       for (let i = 0; i < selectedPlatforms.length; i += 1) {
         const platform = selectedPlatforms[i];
-        const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
+        const platformLabel = platform === 'facebook' ? 'Facebook' : (platform === 'instagram' ? 'Instagram' : 'YouTube');
         wSubmit.textContent = `Готовлю ${platformLabel} (${i + 1}/${selectedPlatforms.length})...`;
         const payload = { ...payloadBase, platform, media_url: sharedMediaUrl };
         const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
@@ -2949,7 +3176,7 @@ async function bind() {
       for (let i = 0; i < createdPosts.length; i += 1) {
         const platform = createdPosts[i]?.platform;
         const postId = createdPosts[i]?.postId;
-        const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
+        const platformLabel = platform === 'facebook' ? 'Facebook' : (platform === 'instagram' ? 'Instagram' : 'YouTube');
         wSubmit.textContent = `Публикую ${platformLabel} (${i + 1}/${createdPosts.length})...`;
         try {
           await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 });
@@ -2960,8 +3187,9 @@ async function bind() {
       if (publishErrors.length) {
         throw new Error(`Часть публикаций не выполнена: ${publishErrors.join(' ; ')}`);
       }
-      state.notice = { type: 'ok', text: selectedPlatforms.length > 1 ? 'Посты опубликованы в Facebook и Instagram.' : 'Пост опубликован.' };
-      nav('/history');
+      w.publishSuccess = 'Пост опубликован. Отлично! Можно сразу создать следующий пост.';
+      state.notice = { type: 'ok', text: 'Публикация успешно выполнена.' };
+      render();
     } catch (e) {
       let text = e.message || 'Ошибка публикации.';
       if (String(text).includes('OpenAI: недостаточно квоты')) {
@@ -2973,10 +3201,28 @@ async function bind() {
       try {
         const mode = document.getElementById('wMode')?.value || state.createWizard.mode || 'now';
         wSubmit.disabled = false;
-        wSubmit.textContent = mode === 'schedule' ? 'Создать и запланировать' : (mode === 'draft' ? 'Сохранить как черновик' : 'Создать и опубликовать');
+        wSubmit.textContent = mode === 'schedule' ? 'Запланировать' : (mode === 'draft' ? 'Сохранить как черновик' : 'Опубликовать');
       } catch {}
     }
   };
+  const wCreateMoreBtn = document.getElementById('wCreateMoreBtn');
+  if (wCreateMoreBtn) wCreateMoreBtn.onclick = () => {
+    const currentProjectId = state.createWizard.projectId || '';
+    state.createWizard = {
+      ...state.createWizard,
+      step: 1,
+      projectId: currentProjectId,
+      topic: '',
+      previewText: '',
+      hashtags: ['#контент', '#бизнес'],
+      finalCta: 'Напишите в директ, чтобы получить консультацию.',
+      publishSuccess: null,
+      generating: false,
+    };
+    render();
+  };
+  const wOpenCalendarBtn = document.getElementById('wOpenCalendarBtn');
+  if (wOpenCalendarBtn) wOpenCalendarBtn.onclick = () => nav('/calendar');
 
   const startMetaConnect = async () => {
     const r = await api('/api/integrations/meta/connect', { method: 'POST', body: '{}' });
