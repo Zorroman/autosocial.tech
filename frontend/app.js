@@ -1448,9 +1448,10 @@ function pageDashboard() {
         <td>${fmt(m.comments)}</td>
         <td>${fmt(m.shares)}</td>
         <td>${esc(published)}</td>
+        <td><button type="button" class="btn btn-ghost dash-delete-btn" data-dash-recent-delete="${item.id}">Удалить</button></td>
       </tr>`;
     }).join('')
-    : '<tr><td colspan="8" class="small">Нет публикаций с метриками. Нажмите синхронизацию.</td></tr>';
+    : '<tr><td colspan="9" class="small">Нет публикаций с метриками. Нажмите синхронизацию.</td></tr>';
 
   return appLayout('/dashboard', 'Панель управления', `
     <section class="dash-client-shell">
@@ -1561,6 +1562,7 @@ function pageDashboard() {
               <th>Comments</th>
               <th>Shares</th>
               <th>Дата</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>${recentRows}</tbody>
@@ -3849,6 +3851,23 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       render();
     }
   };
+  document.querySelectorAll('[data-dash-recent-delete]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        const id = Number(btn.getAttribute('data-dash-recent-delete') || 0);
+        if (!id) return;
+        if (!confirm('Удалить публикацию из списка метрик?')) return;
+        setQuickLoading(btn, 'Удаляю...', true);
+        await api(`/api/dashboard/recent/${id}`, { method: 'DELETE' });
+        await loadDashboardMetrics(30);
+        state.notice = { type: 'ok', text: 'Публикация удалена.' };
+        render();
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось удалить публикацию.' };
+        render();
+      }
+    };
+  });
 
   const dashBrandDescription = document.getElementById('dashBrandDescription');
   if (dashBrandDescription) dashBrandDescription.oninput = () => {

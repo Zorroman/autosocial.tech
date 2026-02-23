@@ -2384,6 +2384,17 @@ th { color: var(--text-muted); font-weight: 600; }
   border-color: color-mix(in oklab, #ef4444 38%, var(--border));
 }
 
+.dash-delete-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-color: color-mix(in oklab, #ef4444 32%, var(--border));
+  color: #ef4444;
+}
+
+.dash-delete-btn:hover {
+  background: color-mix(in oklab, #ef4444 10%, transparent);
+}
+
 .dash-insights-grid {
   margin-top: 10px;
   display: grid;

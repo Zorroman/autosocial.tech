@@ -53,6 +53,8 @@ from saas_models import (
     CampaignAsset,
     CampaignDelivery,
     ContentBrief,
+    ContentItem,
+    ContentMetricDaily,
     ContentDraft,
     ContentStrategy,
     Project,
@@ -3918,6 +3920,26 @@ def dashboard_metrics_recent():
     db = SessionLocal()
     try:
         return jsonify(dashboard_recent(db, g.current_user.id, limit))
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/recent/<int:item_id>", methods=["DELETE"])
+@require_auth
+def dashboard_metrics_recent_delete(item_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        item = db.query(ContentItem).filter(ContentItem.id == item_id).first()
+        if not item:
+            return jsonify({"error": "Публикация не найдена"}), 404
+        if user.role != "admin" and item.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        db.query(ContentMetricDaily).filter(ContentMetricDaily.content_item_id == item.id).delete(synchronize_session=False)
+        db.delete(item)
+        db.commit()
+        return jsonify({"ok": True, "deleted_id": item_id})
     finally:
         db.close()
 
