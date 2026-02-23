@@ -379,12 +379,15 @@ function setLanguage(lang, opts = {}) {
   const normalized = normalizeLang(lang) || 'en';
   state.lang = normalized;
   document.documentElement.setAttribute('lang', normalized);
-  if (persist) localStorage.setItem('lang', normalized);
+  if (persist) {
+    localStorage.setItem('lang', normalized);
+    localStorage.setItem('siteLang', normalized);
+  }
 }
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
-  lang: normalizeLang(localStorage.getItem('lang')) || detectBrowserLang(),
+  lang: normalizeLang(localStorage.getItem('lang') || localStorage.getItem('siteLang')) || detectBrowserLang(),
   authMode: 'register',
   authChallenge: null,
   authProviders: null,
@@ -1167,7 +1170,6 @@ function pageLogin() {
   const t = loginText;
   const isRegister = state.authMode !== 'login';
   const codeStep = !!state.authChallenge;
-  const currentLang = normalizeLang(state.lang) || 'en';
   const challengeFlow = state.authChallenge?.flow || (isRegister ? 'register' : 'login');
   const flowTitle = challengeFlow === 'register' ? t('flow_title_register') : t('flow_title_login');
   const showSocialLogin = false;
@@ -1179,7 +1181,6 @@ function pageLogin() {
   const authHint = codeStep
     ? `${t('auth_hint_code_prefix')} ${esc(state.authChallenge.email || '')}.`
     : t('auth_hint_default');
-  const languageOptions = SUPPORTED_LANGS.map((lang) => `<option value="${lang}" ${lang === currentLang ? 'selected' : ''}>${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
   const painCards = [
     {
       title: 'Контент съедает рабочий день',
@@ -1331,10 +1332,6 @@ function pageLogin() {
         </div>
       </article>
       <section class="auth-panel auth-form-panel landing-2026-auth-form">
-        <div class="auth-lang-row">
-          <label for="authLang" class="small">${t('language_label')}</label>
-          <select id="authLang" class="auth-lang-select">${languageOptions}</select>
-        </div>
         ${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}
         <h2>${formTitle}</h2>
         <p class="small mobile-microcopy">${authHint}</p>
@@ -3387,12 +3384,6 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (oauthGoogleBtn && !oauthGoogleBtn.disabled) oauthGoogleBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/google/start`; };
   const oauthFacebookBtn = document.getElementById('oauthFacebookBtn');
   if (oauthFacebookBtn && !oauthFacebookBtn.disabled) oauthFacebookBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/facebook/start`; };
-  const authLang = document.getElementById('authLang');
-  if (authLang) authLang.onchange = () => {
-    setLanguage(authLang.value);
-    state.notice = null;
-    render();
-  };
 
   const authSwitchBtn = document.getElementById('authSwitchBtn');
   if (authSwitchBtn) authSwitchBtn.onclick = () => {
@@ -3809,7 +3800,11 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
         `YouTube: ${Number(sync.youtube_items || 0)}`,
       ];
       if (Array.isArray(sync.errors) && sync.errors.length) {
-        state.notice = { type: 'error', text: `Синхронизация завершена с ошибками. ${parts.join(' · ')}.` };
+        const firstError = String(sync.errors[0] || '').trim();
+        const advice = firstError.toLowerCase().includes('youtube')
+          ? ' Переподключите YouTube в разделе «Подключения».'
+          : '';
+        state.notice = { type: 'error', text: `Синхронизация завершена с ошибками. ${parts.join(' · ')}. ${firstError}${advice}`.trim() };
       } else {
         state.notice = { type: 'ok', text: `Метрики синхронизированы. ${parts.join(' · ')}.` };
       }
