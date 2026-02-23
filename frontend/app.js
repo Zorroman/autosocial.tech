@@ -4516,11 +4516,23 @@ async function render() {
     if (path === '/blog') {
       state.notice = { type: 'error', text: 'Не удалось загрузить статьи блога.' };
     } else if (Number(e?.status || 0) === 401 || Number(e?.status || 0) === 403) {
-      state.token = '';
-      localStorage.removeItem('token');
-      history.replaceState({}, '', '/login');
-      path = '/login';
-      state.notice = { type: 'error', text: 'Сессия истекла. Войдите снова.' };
+      let sessionAlive = false;
+      try {
+        await loadBase();
+        sessionAlive = true;
+      } catch {
+        sessionAlive = false;
+      }
+      if (!sessionAlive) {
+        state.token = '';
+        localStorage.removeItem('token');
+        history.replaceState({}, '', '/login');
+        path = '/login';
+        state.notice = { type: 'error', text: 'Сессия истекла. Войдите снова.' };
+      } else {
+        const details = (e?.message || '').trim();
+        state.notice = { type: 'error', text: details || 'Ошибка доступа к данным страницы. Обновите страницу.' };
+      }
     } else {
       const fallback = 'Не удалось загрузить данные страницы. Попробуйте еще раз.';
       state.notice = { type: 'error', text: e?.message || fallback };
