@@ -18,6 +18,7 @@ py -m http.server 3000 --directory frontend
 Используйте `.env.example`.
 
 Критичные для OAuth/хостинга:
+- `DATABASE_URL`
 - `FRONTEND_BASE_URL`
 - `API_BASE_URL`
 - `CORS_ORIGIN`
@@ -65,6 +66,21 @@ Meta Developers:
 - `POST /api/integrations/meta/test-post`
 - `POST /api/integrations/meta/refresh`
 - `POST /api/integrations/meta/disconnect`
+
+Dashboard metrics API:
+- `POST /api/dashboard/sync`
+- `GET /api/dashboard/summary?days=30`
+- `GET /api/dashboard/timeseries?days=30`
+- `GET /api/dashboard/insights?days=30`
+- `GET /api/dashboard/recent?limit=10`
+
+Пример ручного запуска синка:
+```bash
+curl -X POST https://api.autosocial.tech/api/dashboard/sync \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d "{}"
+```
 
 ## 5) Smoke tests
 ```bash
@@ -128,4 +144,14 @@ tail -n 200 logs/api.log
 py app.py
 py -m http.server 3000 --directory frontend
 py worker.py
+```
+
+## 10) Docker + миграции
+```bash
+docker compose up -d --build
+```
+Миграции выполняются автоматически при старте backend (см. `run_migrations()` в `app.py`).
+Для ручного прогона:
+```bash
+py migrations.py
 ```

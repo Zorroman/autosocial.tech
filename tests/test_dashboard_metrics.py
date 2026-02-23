@@ -1,0 +1,235 @@
+import importlib
+import os
+import sys
+
+import pytest
+
+
+@pytest.fixture()
+def client(tmp_path):
+    db_file = tmp_path / "dashboard_test.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    os.environ["USE_MOCK_PROVIDERS"] = "true"
+    os.environ["SYNC_JOBS"] = "true"
+    os.environ["ADMIN_EMAIL"] = "admin@test.local"
+    os.environ["ADMIN_PASSWORD"] = "adminpass123"
+    os.environ["GOOGLE_CLIENT_ID"] = ""
+    os.environ["GOOGLE_CLIENT_SECRET"] = ""
+    os.environ["FACEBOOK_APP_ID"] = ""
+    os.environ["FACEBOOK_APP_SECRET"] = ""
+    os.environ["FACEBOOK_CLIENT_ID"] = ""
+    os.environ["FACEBOOK_CLIENT_SECRET"] = ""
+    os.environ["FB_APP_ID"] = ""
+    os.environ["FB_APP_SECRET"] = ""
+    os.environ["FB_LOGIN_APP_ID"] = ""
+    os.environ["FB_LOGIN_APP_SECRET"] = ""
+    os.environ["FB_LOGIN_SCOPE"] = "public_profile,email"
+    os.environ["ENV"] = "development"
+    os.environ["SMTP_HOST"] = ""
+    os.environ["SMTP_FROM"] = ""
+    os.environ["SMTP_USER"] = ""
+    os.environ["SMTP_PASSWORD"] = ""
+
+    for name in [
+        "app",
+        "database",
+        "models",
+        "saas_models",
+        "saas_services",
+        "saas_auth",
+        "saas_api",
+        "saas_queue",
+        "saas_settings",
+        "dashboard_metrics",
+    ]:
+        if name in sys.modules:
+            del sys.modules[name]
+
+    app_module = importlib.import_module("app")
+    with app_module.app.test_client() as test_client:
+        yield test_client
+
+
+def auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def register_user(client, email="dash@test.local", password="pass12345"):
+    challenge = client.post("/api/auth/register", json={"email": email, "password": password})
+    payload = challenge.get_json() or {}
+    return client.post(
+        "/api/auth/verify-code",
+        json={"challenge_token": payload.get("challenge_token"), "code": payload.get("dev_code")},
+    )
+
+
+def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
+    reg = register_user(client)
+    assert reg.status_code == 200
+    token = reg.get_json()["token"]
+    headers = auth_headers(token)
+
+    from database import SessionLocal
+    from saas_models import ContentItem, ContentMetricDaily, SocialAccount
+    from saas_services import encrypt_meta_token
+
+    user_id = client.get("/api/me", headers=headers).get_json()["id"]
+    db = SessionLocal()
+    try:
+        db.add(
+            SocialAccount(
+                user_id=user_id,
+                provider="meta",
+                page_id="meta-page-1",
+                page_name="Meta Page",
+                token_encrypted=encrypt_meta_token("meta-user-token"),
+                status="connected_ready",
+            )
+        )
+        db.add(
+            SocialAccount(
+                user_id=user_id,
+                provider="youtube",
+                page_id="yt-channel-1",
+                page_name="YT Channel",
+                token_encrypted=encrypt_meta_token("yt-access-token"),
+                status="connected_ready",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    class FakeResponse:
+        def __init__(self, payload, ok=True, status_code=200):
+            self._payload = payload
+            self.ok = ok
+            self.status_code = status_code
+            self.text = str(payload)
+            self.content = b"1"
+
+        def json(self):
+            return self._payload
+
+    def fake_list_pages(_token, include_page_access_token=False):
+        return {
+            "data": [
+                {
+                    "id": "meta-page-1",
+                    "name": "Meta Page",
+                    "access_token": "meta-page-token",
+                }
+            ]
+        }
+
+    def fake_get(url, params=None, headers=None, timeout=20):
+        if "graph.facebook.com" in url and url.endswith("/posts"):
+            return FakeResponse(
+                {
+                    "data": [
+                        {
+                            "id": "meta-post-1",
+                            "message": "Meta post test",
+                            "created_time": "2026-02-20T10:00:00+0000",
+                            "permalink_url": "https://facebook.com/meta-post-1",
+                            "attachments": {"data": [{"type": "photo"}]},
+                        }
+                    ]
+                }
+            )
+        if "graph.facebook.com" in url and url.endswith("/insights"):
+            return FakeResponse(
+                {
+                    "data": [
+                        {"name": "post_impressions", "values": [{"value": 120}]},
+                        {"name": "post_impressions_unique", "values": [{"value": 90}]},
+                        {"name": "post_clicks", "values": [{"value": 10}]},
+                        {"name": "post_reactions_like_total", "values": [{"value": 8}]},
+                        {"name": "post_comments", "values": [{"value": 3}]},
+                        {"name": "post_shares", "values": [{"value": 2}]},
+                    ]
+                }
+            )
+        if "graph.facebook.com" in url:
+            return FakeResponse(
+                {
+                    "reactions": {"summary": {"total_count": 8}},
+                    "comments": {"summary": {"total_count": 3}},
+                    "shares": {"count": 2},
+                }
+            )
+        if "youtube/v3/channels" in url:
+            return FakeResponse(
+                {
+                    "items": [
+                        {
+                            "id": "yt-channel-1",
+                            "snippet": {"title": "YT Channel"},
+                            "contentDetails": {"relatedPlaylists": {"uploads": "uploads-1"}},
+                        }
+                    ]
+                }
+            )
+        if "youtube/v3/playlistItems" in url:
+            return FakeResponse({"items": [{"contentDetails": {"videoId": "yt-video-1"}}]})
+        if "youtube/v3/videos" in url:
+            return FakeResponse(
+                {
+                    "items": [
+                        {
+                            "id": "yt-video-1",
+                            "snippet": {
+                                "title": "YT Video 1",
+                                "description": "Video body",
+                                "publishedAt": "2026-02-21T12:00:00Z",
+                            },
+                            "statistics": {"viewCount": "200", "likeCount": "20", "commentCount": "5"},
+                            "contentDetails": {"duration": "PT2M10S"},
+                        }
+                    ]
+                }
+            )
+        return FakeResponse({}, ok=False, status_code=404)
+
+    dashboard_metrics = importlib.import_module("dashboard_metrics")
+    monkeypatch.setattr(dashboard_metrics, "list_pages", fake_list_pages)
+    monkeypatch.setattr(dashboard_metrics.requests, "get", fake_get)
+
+    first_sync = client.post("/api/dashboard/sync", json={}, headers=headers)
+    assert first_sync.status_code == 200
+    assert first_sync.get_json()["meta_items"] >= 1
+    assert first_sync.get_json()["youtube_items"] >= 1
+
+    second_sync = client.post("/api/dashboard/sync", json={}, headers=headers)
+    assert second_sync.status_code == 200
+
+    db = SessionLocal()
+    try:
+        items_count = db.query(ContentItem).filter(ContentItem.user_id == user_id).count()
+        metrics_count = (
+            db.query(ContentMetricDaily)
+            .join(ContentItem, ContentItem.id == ContentMetricDaily.content_item_id)
+            .filter(ContentItem.user_id == user_id)
+            .count()
+        )
+        assert items_count == 2
+        assert metrics_count == 2
+    finally:
+        db.close()
+
+    summary = client.get("/api/dashboard/summary?days=30", headers=headers)
+    assert summary.status_code == 200
+    assert summary.get_json()["reach"] >= 290
+    assert summary.get_json()["views"] >= 320
+
+    timeseries = client.get("/api/dashboard/timeseries?days=30", headers=headers)
+    assert timeseries.status_code == 200
+    assert len(timeseries.get_json()["points"]) == 30
+
+    insights = client.get("/api/dashboard/insights?days=30", headers=headers)
+    assert insights.status_code == 200
+    assert len(insights.get_json()["insights"]) >= 1
+
+    recent = client.get("/api/dashboard/recent?limit=10", headers=headers)
+    assert recent.status_code == 200
+    assert len(recent.get_json()["items"]) == 2
