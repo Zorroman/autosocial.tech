@@ -65,6 +65,15 @@ body {
   line-height: 1.45;
 }
 
+/* Hide Google Translate top banner; keep in-page translation only */
+html, body { top: 0 !important; margin-top: 0 !important; }
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+iframe.goog-te-banner-frame { display: none !important; }
+.skiptranslate iframe { display: none !important; }
+body > .skiptranslate { display: none !important; }
+iframe[src*="translate.google"] { display: none !important; }
+#goog-gt-tt { display: none !important; }
+
 .site-lang-switcher {
   position: fixed;
   top: 12px;
@@ -2046,6 +2055,40 @@ th { color: var(--text-muted); font-weight: 600; }
 .create-asset-image {
   max-height: 220px;
   object-fit: cover;
+}
+
+.content-ai-progress {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 12px;
+  flex-wrap: wrap;
+}
+
+.pill.active {
+  background: color-mix(in oklab, var(--brand-primary) 18%, transparent);
+  border-color: color-mix(in oklab, var(--brand-primary) 40%, var(--border));
+}
+
+.pill.done {
+  background: color-mix(in oklab, #10b981 16%, transparent);
+  border-color: color-mix(in oklab, #10b981 35%, var(--border));
+}
+
+.content-ai-card {
+  margin-top: 12px;
+}
+
+.content-ai-drafts {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.content-ai-draft-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in oklab, var(--surface-2) 90%, transparent);
 }
 
 @media (max-width: 1000px) {

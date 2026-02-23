@@ -480,6 +480,20 @@ const state = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     deliveries: [],
     publishMessage: '',
+    contentTone: 'friendly',
+    contentGoal: 'engagement',
+    contentVariants3: false,
+    contentScheduleAt: '',
+    contentGeneration: {
+      loading: false,
+      stage: 'idle', // idle | strategy | drafts | ready | error
+      error: '',
+      retryable: false,
+      briefId: null,
+      strategy: null,
+      drafts: [],
+      activePlatform: 'facebook',
+    },
     dirty: false,
   },
   campaignDetails: null,
@@ -2477,6 +2491,23 @@ function hydrateCampaignDefaults() {
   if (!c.platforms) c.platforms = { facebook: true, instagram: true, youtube: false };
   if (!c.kinds) c.kinds = { facebook: 'image_post', instagram: 'image_post', youtube: 'shorts' };
   if (!c.accountRefs) c.accountRefs = { facebook: '', instagram: '', youtube: '' };
+  if (!c.contentTone) c.contentTone = 'friendly';
+  if (!c.contentGoal) c.contentGoal = 'engagement';
+  if (typeof c.contentVariants3 !== 'boolean') c.contentVariants3 = false;
+  if (typeof c.contentScheduleAt !== 'string') c.contentScheduleAt = '';
+  if (!c.contentGeneration || typeof c.contentGeneration !== 'object') {
+    c.contentGeneration = {
+      loading: false,
+      stage: 'idle',
+      error: '',
+      retryable: false,
+      briefId: null,
+      strategy: null,
+      drafts: [],
+      activePlatform: 'facebook',
+    };
+  }
+  if (!c.contentGeneration.activePlatform) c.contentGeneration.activePlatform = 'facebook';
 }
 
 function syncCampaignKindsByMode() {
@@ -2567,7 +2598,12 @@ function pageCreateV2() {
     ${field('cwTopic', 'Тема/идея', 'text', c.topic || '', 'Например: как автосервису повысить повторные записи')}
     ${field('cwOffer', 'Цель/продукт/оффер (опционально)', 'text', c.offer || '', 'Например: диагностика подвески со скидкой')}
     ${selectField('cwProject', 'Проект (бренд/клиент)', c.projectId || '', state.projects.map((p) => ({ value: p.id, label: p.name })))}
-    ${selectField('cwLang', 'Язык', c.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+    ${selectField('cwLang', 'Язык', c.language || 'ru', [
+      { value: 'ru', label: 'Русский' },
+      { value: 'ua', label: 'Українська' },
+      { value: 'de', label: 'Deutsch' },
+      { value: 'en', label: 'English' },
+    ])}
   `;
 
   const step2 = `
@@ -2605,24 +2641,112 @@ function pageCreateV2() {
     ${(c.mode === 'video' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Video</h3>${selectField('cwDuration', 'Длительность', String(c.videoDuration || 30), [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }, { value: '120', label: '120 сек' }, { value: '240', label: '240 сек' }, { value: '480', label: '480 сек' }])}${selectField('cwRatio', 'Ориентация', c.videoAspectRatio || '9:16', [{ value: '9:16', label: '9:16' }, { value: '1:1', label: '1:1' }, { value: '16:9', label: '16:9' }])}<label class="create-toggle"><input id="cwNoFantasy" type="checkbox" ${c.noFantasy !== false ? 'checked' : ''}/> Без фантастических существ</label><label class="create-toggle"><input id="cwThumb" type="checkbox" ${c.generateThumbnail !== false ? 'checked' : ''}/> Генерировать обложку</label></article>` : ''}
   `;
 
+  const cg = c.contentGeneration || {};
+  const stage = String(cg.stage || 'idle');
+  const stageClass = (name) => (stage === name ? 'active' : (['strategy', 'drafts', 'ready'].includes(stage) && ['strategy', 'drafts', 'ready'].indexOf(stage) > ['strategy', 'drafts', 'ready'].indexOf(name) ? 'done' : ''));
+  const allDrafts = Array.isArray(cg.drafts) ? cg.drafts : [];
+  const activePlatform = String(cg.activePlatform || 'facebook').toLowerCase();
+  const platformLabels = { facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube' };
+  const platformTabs = ['facebook', 'instagram', 'youtube']
+    .filter((platform) => !!c.platforms?.[platform])
+    .map((platform) => `<button type="button" class="btn ${activePlatform === platform ? 'btn-primary' : 'btn-ghost'}" data-cw-draft-platform="${platform}">${platformLabels[platform]}</button>`)
+    .join('');
+  const draftsForActive = allDrafts
+    .filter((d) => String(d.platform || '').toLowerCase() === activePlatform)
+    .sort((a, b) => Number(a.variant || 0) - Number(b.variant || 0));
+
+  const strategyCard = cg.strategy
+    ? `
+      <article class="card content-ai-card">
+        <h3 style="margin-top:0;">Стратегия</h3>
+        <p class="small"><strong>Угол подачи:</strong> ${esc(cg.strategy.angle || '—')}</p>
+        <p class="small"><strong>УТП:</strong> ${esc(cg.strategy.usp || '—')}</p>
+        <p class="small"><strong>Аудитория:</strong> ${esc(cg.strategy.audience || '—')}</p>
+        <p class="small"><strong>Хук:</strong> ${esc((cg.strategy.hook_ideas || [])[0] || '—')}</p>
+        <p class="small"><strong>CTA:</strong> ${esc((cg.strategy.cta_variants || [])[0] || '—')}</p>
+        <p class="small"><strong>Хештеги:</strong> ${esc(((cg.strategy.hashtag_sets || [])[0] || []).join(' ') || '—')}</p>
+      </article>
+    `
+    : '';
+
+  const assetsCard = cg.strategy
+    ? `
+      <article class="card content-ai-card">
+        <h3 style="margin-top:0;">Assets</h3>
+        <p class="small"><strong>Подписи без текста на картинке:</strong></p>
+        <ul class="check-list">${((cg.strategy.visual_ideas || []).slice(0, 3)).map((idea) => `<li>${esc(idea)}</li>`).join('')}</ul>
+      </article>
+    `
+    : '';
+
+  const draftsCard = draftsForActive.length
+    ? `
+      <article class="card content-ai-card">
+        <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h3 style="margin:0;">Черновики ${esc(platformLabels[activePlatform] || activePlatform)}</h3>
+          <div class="row" style="gap:8px;align-items:center;">${platformTabs}</div>
+        </div>
+        ${field('cwContentScheduleAt', 'Дата/время для Schedule', 'datetime-local', c.contentScheduleAt || '')}
+        <div class="content-ai-drafts">
+          ${draftsForActive.map((d) => `
+            <article class="content-ai-draft-item">
+              <div class="row" style="justify-content:space-between;align-items:center;">
+                <strong>Вариант ${esc(String(d.variant || 1))}</strong>
+                <span class="pill">${esc(platformLabels[activePlatform] || activePlatform)}</span>
+              </div>
+              ${(d.title || '').trim() ? `<p class="small"><strong>Title:</strong> ${esc(d.title)}</p>` : ''}
+              <div class="small" style="white-space:pre-wrap;">${esc(d.post_text || d.description || '')}</div>
+              ${(Array.isArray(d.hashtags) && d.hashtags.length) ? `<p class="small" style="margin-top:8px;">${esc(d.hashtags.join(' '))}</p>` : ''}
+              <div class="cta-row" style="margin-top:10px;">
+                <button type="button" class="btn btn-ghost" data-cw-copy-draft="${encodeURIComponent(String(d.post_text || d.description || ''))}">Copy</button>
+                <button type="button" class="btn btn-secondary" data-cw-save-draft="${Number(d.id || 0)}">Save Draft</button>
+                <button type="button" class="btn btn-secondary" data-cw-schedule-draft="${Number(d.id || 0)}">Schedule</button>
+                <button type="button" class="btn btn-primary" data-cw-publish-draft="${Number(d.id || 0)}">Publish</button>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </article>
+    `
+    : '';
+
   const step4 = `
-    <div class="wizard-step-note">Текст и вариации.</div>
-    <div class="field"><label>Цель</label><div class="create-goal-grid">
-      <label class="create-goal-card ${c.objective === 'sales' ? 'active' : ''}"><input type="radio" name="cwGoal" value="sales" ${c.objective === 'sales' ? 'checked' : ''}/> Продажи</label>
-      <label class="create-goal-card ${c.objective === 'warmup' ? 'active' : ''}"><input type="radio" name="cwGoal" value="warmup" ${c.objective === 'warmup' ? 'checked' : ''}/> Прогрев</label>
-      <label class="create-goal-card ${c.objective === 'expert' ? 'active' : ''}"><input type="radio" name="cwGoal" value="expert" ${c.objective === 'expert' ? 'checked' : ''}/> Экспертность</label>
-      <label class="create-goal-card ${c.objective === 'announce' ? 'active' : ''}"><input type="radio" name="cwGoal" value="announce" ${c.objective === 'announce' ? 'checked' : ''}/> Анонс</label>
-    </div></div>
-    ${field('cwCaption', 'Caption', 'textarea', c.caption || '', 'Основной текст публикации')}
-    ${field('cwCta', 'CTA', 'text', c.cta || '', 'Например: Запишитесь на консультацию')}
-    ${field('cwHashtags', 'Hashtags', 'textarea', hashtags.join(' '), '#бизнес #контент #маркетинг')}
-    <div class="create-chips-row">
-      <button class="btn btn-ghost" type="button" data-cw-ai="sales">Сделай продающий пост</button>
-      <button class="btn btn-ghost" type="button" data-cw-ai="expert">Сделай экспертный пост</button>
-      <button class="btn btn-ghost" type="button" data-cw-ai="announce">Сделай анонс</button>
-      <button class="btn btn-ghost" type="button" data-cw-ai="warmup">Сделай прогрев</button>
+    <div class="wizard-step-note">Стратегия + черновики для Facebook/Instagram/YouTube.</div>
+    ${field('cwTopic', 'Тема/идея', 'textarea', c.topic || '', 'Опишите тему максимально конкретно')}
+    ${field('cwOffer', 'Цель/продукт/оффер (опционально)', 'textarea', c.offer || '', 'Если поле пустое, GPT не выдумывает продукт')}
+    <div class="grid-2">
+      ${selectField('cwContentTone', 'Тон', c.contentTone || 'friendly', [
+        { value: 'neutral', label: 'neutral' },
+        { value: 'friendly', label: 'friendly' },
+        { value: 'expert', label: 'expert' },
+        { value: 'sales', label: 'sales' },
+      ])}
+      ${selectField('cwContentGoal', 'Цель поста', c.contentGoal || 'engagement', [
+        { value: 'awareness', label: 'awareness' },
+        { value: 'engagement', label: 'engagement' },
+        { value: 'lead', label: 'lead' },
+        { value: 'sales', label: 'sales' },
+      ])}
     </div>
-    <div class="cta-row"><button id="cwGenerateText" class="btn btn-primary" type="button" ${running ? 'disabled' : ''}>Сгенерировать текст</button>${running ? '<span class="create-ai-status"><span class="create-ai-dot"></span> AI готовит пост…</span>' : ''}</div>
+    <label class="create-toggle"><input id="cwVariants3" type="checkbox" ${c.contentVariants3 ? 'checked' : ''}/> Сгенерировать 3 варианта</label>
+    <div class="content-ai-progress">
+      <span class="pill ${stageClass('strategy')}">Strategy</span>
+      <span class="pill ${stageClass('drafts')}">Drafts</span>
+      <span class="pill ${stageClass('ready')}">Ready</span>
+    </div>
+    ${(cg.error || '').trim() ? `<div class="notice error">${esc(cg.error)}</div>` : ''}
+    <div class="cta-row">
+      <button id="cwSmartGenerateBtn" class="btn btn-primary" type="button" ${cg.loading ? 'disabled' : ''}>${cg.loading ? 'Генерируем…' : 'Сгенерировать'}</button>
+      ${cg.retryable ? '<button id="cwSmartRetryBtn" class="btn btn-ghost" type="button">Retry</button>' : ''}
+    </div>
+    ${strategyCard}
+    ${draftsCard}
+    ${assetsCard}
+    <div style="margin-top:12px;">
+      ${field('cwCaption', 'Текст для общего preview', 'textarea', c.caption || '', 'Обновляется из выбранного варианта')}
+      ${field('cwCta', 'CTA', 'text', c.cta || '', 'Например: Запишитесь на консультацию')}
+      ${field('cwHashtags', 'Hashtags', 'textarea', hashtags.join(' '), '#бизнес #контент #маркетинг')}
+    </div>
   `;
 
   const step5 = `
@@ -2811,6 +2935,10 @@ async function bindCreateWizardV2(path) {
       caption: document.getElementById('cwCaption')?.value || state.createCampaign.caption || '',
       cta: document.getElementById('cwCta')?.value || state.createCampaign.cta || '',
       hashtags: parseCampaignHashtags(document.getElementById('cwHashtags')?.value || (state.createCampaign.hashtags || []).join(' ')),
+      contentTone: document.getElementById('cwContentTone')?.value || state.createCampaign.contentTone || 'friendly',
+      contentGoal: document.getElementById('cwContentGoal')?.value || state.createCampaign.contentGoal || 'engagement',
+      contentVariants3: !!document.getElementById('cwVariants3')?.checked,
+      contentScheduleAt: document.getElementById('cwContentScheduleAt')?.value || state.createCampaign.contentScheduleAt || '',
       publishMode: document.getElementById('cwPublishMode')?.value || state.createCampaign.publishMode || 'now',
       scheduledAt: document.getElementById('cwScheduleAt')?.value || state.createCampaign.scheduledAt || '',
       imageStyle: document.getElementById('cwImageStyle')?.value || state.createCampaign.imageStyle || 'реалистично',
@@ -2848,6 +2976,110 @@ async function bindCreateWizardV2(path) {
     return '';
   };
 
+  const selectedContentPlatforms = () => {
+    const p = state.createCampaign.platforms || {};
+    const out = [];
+    if (p.facebook) out.push('facebook');
+    if (p.instagram) out.push('instagram');
+    if (p.youtube) out.push('youtube');
+    return out;
+  };
+
+  const applyFirstDraftToCampaign = () => {
+    const cg = state.createCampaign.contentGeneration || {};
+    const drafts = Array.isArray(cg.drafts) ? cg.drafts : [];
+    if (!drafts.length) return;
+    const targetPlatform = String(cg.activePlatform || '').trim().toLowerCase();
+    const first = drafts.find((d) => String(d.platform || '').toLowerCase() === targetPlatform) || drafts[0];
+    if (!first) return;
+    const text = String(first.post_text || '').trim();
+    const cta = String(first.cta || '').trim();
+    const hashtags = Array.isArray(first.hashtags) ? first.hashtags : [];
+    if (text) state.createCampaign.caption = text;
+    if (cta) state.createCampaign.cta = cta;
+    if (hashtags.length) state.createCampaign.hashtags = parseCampaignHashtags(hashtags.join(' '));
+    state.createCampaign.dirty = true;
+  };
+
+  const runSmartContentGeneration = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    if (!String(c.topic || '').trim()) throw new Error('Поле "Тема/идея" обязательно.');
+    const platforms = selectedContentPlatforms();
+    if (!platforms.length) throw new Error('Выберите хотя бы одну платформу.');
+
+    c.contentGeneration = {
+      ...(c.contentGeneration || {}),
+      loading: true,
+      stage: 'strategy',
+      error: '',
+      retryable: false,
+      drafts: [],
+      strategy: null,
+    };
+    render();
+
+    try {
+      await new Promise((r) => setTimeout(r, 80));
+      const payload = {
+        topic: String(c.topic || '').trim(),
+        offer: String(c.offer || '').trim() || null,
+        language: c.language || 'ru',
+        tone: c.contentTone || 'friendly',
+        goal: c.contentGoal || 'engagement',
+        platforms,
+        variants: c.contentVariants3 ? 3 : 1,
+      };
+      const generated = await api('/api/content/generate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeoutMs: 180000,
+      });
+      c.contentGeneration.stage = 'drafts';
+      render();
+      await new Promise((r) => setTimeout(r, 80));
+      const drafts = Array.isArray(generated?.drafts) ? generated.drafts : [];
+      const activePlatform = platforms.includes(c.contentGeneration.activePlatform)
+        ? c.contentGeneration.activePlatform
+        : platforms[0];
+      c.contentGeneration = {
+        loading: false,
+        stage: 'ready',
+        error: '',
+        retryable: false,
+        briefId: generated?.brief_id || null,
+        strategy: generated?.strategy || null,
+        drafts,
+        activePlatform: activePlatform || 'facebook',
+      };
+      applyFirstDraftToCampaign();
+      render();
+    } catch (e) {
+      c.contentGeneration = {
+        ...(c.contentGeneration || {}),
+        loading: false,
+        stage: 'error',
+        error: e.message || 'Ошибка генерации контента',
+        retryable: true,
+      };
+      render();
+    }
+  };
+
+  const runDraftAction = async (action, draftId) => {
+    readLocalForm();
+    const projectId = Number(state.createCampaign.projectId || state.projects?.[0]?.id || 0) || null;
+    if (!projectId) throw new Error('Выберите проект.');
+    const endpoint = `/api/content/drafts/${Number(draftId || 0)}/${action}`;
+    const payload = { project_id: projectId };
+    if (action === 'schedule') {
+      const scheduleAtIso = localInputToIsoNoTz(state.createCampaign.contentScheduleAt || '');
+      if (!scheduleAtIso) throw new Error('Укажите дату и время для планирования.');
+      payload.schedule_at = scheduleAtIso;
+    }
+    return api(endpoint, { method: 'POST', body: JSON.stringify(payload), timeoutMs: 180000 });
+  };
+
   document.querySelectorAll('[data-cw-mode]').forEach((btn) => {
     btn.onclick = () => {
       state.createCampaign.mode = btn.getAttribute('data-cw-mode') || 'image';
@@ -2862,11 +3094,11 @@ async function bindCreateWizardV2(path) {
   bindField('cwCaption', () => update({ caption: document.getElementById('cwCaption').value }));
   bindField('cwCta', () => update({ cta: document.getElementById('cwCta').value }));
   bindField('cwHashtags', () => update({ hashtags: parseCampaignHashtags(document.getElementById('cwHashtags').value) }));
-  ['cwProject', 'cwLang', 'cwPublishMode', 'cwScheduleAt', 'cwImageStyle', 'cwDuration', 'cwRatio', 'cwKindFb', 'cwKindIg', 'cwKindYt', 'cwAccFb', 'cwAccIg'].forEach((id) => {
+  ['cwProject', 'cwLang', 'cwPublishMode', 'cwScheduleAt', 'cwImageStyle', 'cwDuration', 'cwRatio', 'cwKindFb', 'cwKindIg', 'cwKindYt', 'cwAccFb', 'cwAccIg', 'cwContentTone', 'cwContentGoal', 'cwContentScheduleAt'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.onchange = () => { readLocalForm(); render(); };
   });
-  ['cwFb', 'cwIg', 'cwYt', 'cwNoTextOnImage', 'cwNoFantasy', 'cwThumb'].forEach((id) => {
+  ['cwFb', 'cwIg', 'cwYt', 'cwNoTextOnImage', 'cwNoFantasy', 'cwThumb', 'cwVariants3'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.onchange = () => {
       const patch = {};
@@ -2876,6 +3108,7 @@ async function bindCreateWizardV2(path) {
       if (id === 'cwNoTextOnImage') patch.noTextOnImage = !!el.checked;
       if (id === 'cwNoFantasy') patch.noFantasy = !!el.checked;
       if (id === 'cwThumb') patch.generateThumbnail = !!el.checked;
+      if (id === 'cwVariants3') patch.contentVariants3 = !!el.checked;
       update(patch);
       syncCampaignKindsByMode();
       render();
@@ -2964,6 +3197,98 @@ async function bindCreateWizardV2(path) {
     const salesBtn = document.querySelector('[data-cw-ai="sales"]');
     if (salesBtn) salesBtn.click();
   };
+  const smartGenerateBtn = document.getElementById('cwSmartGenerateBtn');
+  if (smartGenerateBtn) smartGenerateBtn.onclick = async () => {
+    try {
+      await runSmartContentGeneration();
+      state.notice = { type: 'ok', text: 'Стратегия и черновики готовы.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать контент' };
+      render();
+    }
+  };
+  const smartRetryBtn = document.getElementById('cwSmartRetryBtn');
+  if (smartRetryBtn) smartRetryBtn.onclick = async () => {
+    try {
+      await runSmartContentGeneration();
+      state.notice = { type: 'ok', text: 'Повторная генерация завершена.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Retry не удался' };
+      render();
+    }
+  };
+  document.querySelectorAll('[data-cw-draft-platform]').forEach((btn) => {
+    btn.onclick = () => {
+      const platform = String(btn.getAttribute('data-cw-draft-platform') || '').trim().toLowerCase();
+      if (!platform) return;
+      state.createCampaign.contentGeneration.activePlatform = platform;
+      applyFirstDraftToCampaign();
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-copy-draft]').forEach((btn) => {
+    btn.onclick = async () => {
+      const raw = btn.getAttribute('data-cw-copy-draft') || '';
+      const text = decodeURIComponent(raw);
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const area = document.createElement('textarea');
+          area.value = text;
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand('copy');
+          area.remove();
+        }
+        state.notice = { type: 'ok', text: 'Текст скопирован.' };
+      } catch {
+        state.notice = { type: 'error', text: 'Не удалось скопировать текст.' };
+      }
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-save-draft]').forEach((btn) => {
+    btn.onclick = async () => {
+      const draftId = Number(btn.getAttribute('data-cw-save-draft') || 0);
+      if (!draftId) return;
+      try {
+        await runDraftAction('save', draftId);
+        state.notice = { type: 'ok', text: 'Черновик сохранен в историю постов.' };
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось сохранить черновик.' };
+      }
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-schedule-draft]').forEach((btn) => {
+    btn.onclick = async () => {
+      const draftId = Number(btn.getAttribute('data-cw-schedule-draft') || 0);
+      if (!draftId) return;
+      try {
+        await runDraftAction('schedule', draftId);
+        state.notice = { type: 'ok', text: 'Черновик поставлен в расписание.' };
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось запланировать.' };
+      }
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-publish-draft]').forEach((btn) => {
+    btn.onclick = async () => {
+      const draftId = Number(btn.getAttribute('data-cw-publish-draft') || 0);
+      if (!draftId) return;
+      try {
+        const out = await runDraftAction('publish', draftId);
+        state.notice = { type: 'ok', text: out?.message || 'Публикация запущена.' };
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось опубликовать.' };
+      }
+      render();
+    };
+  });
   const genImageBtn = document.getElementById('cwGenerateImage');
   if (genImageBtn) genImageBtn.onclick = async () => generateAsset('image');
   const genVideoBtn = document.getElementById('cwGenerateVideo');
