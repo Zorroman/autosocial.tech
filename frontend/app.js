@@ -444,6 +444,38 @@ const state = {
     platforms: { facebook: true, instagram: true, youtube: false },
     mediaUrl: '',
   },
+  createCampaign: {
+    step: 1,
+    campaignId: null,
+    mode: 'image',
+    topic: '',
+    offer: '',
+    language: 'ru',
+    projectId: '',
+    objective: 'sales',
+    platforms: { facebook: true, instagram: true, youtube: false },
+    kinds: { facebook: 'image_post', instagram: 'image_post', youtube: 'shorts' },
+    accountRefs: { facebook: '', instagram: '', youtube: '' },
+    imageStyle: 'реалистично',
+    noTextOnImage: true,
+    videoDuration: 30,
+    videoAspectRatio: '9:16',
+    noFantasy: true,
+    generateThumbnail: true,
+    caption: '',
+    cta: 'Напишите в директ',
+    hashtags: ['#бизнес', '#контент'],
+    generation: { imageJobId: null, videoJobId: null, running: false, statusText: '' },
+    assets: [],
+    publishMode: 'now',
+    scheduledAt: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    deliveries: [],
+    publishMessage: '',
+    dirty: false,
+  },
+  campaignDetails: null,
+  campaignList: [],
   youtubeStudio: {
     projectId: '',
     topic: '',
@@ -2297,6 +2329,268 @@ function pageSupport() {
   </section>`);
 }
 
+const CREATE_DRAFT_KEY = 'createCampaignDraftV1';
+
+function parseCampaignHashtags(raw) {
+  return [...new Set(String(raw || '')
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => (x.startsWith('#') ? x : `#${x}`))
+  )].slice(0, 30);
+}
+
+function loadCampaignDraftLocal() {
+  try {
+    const raw = localStorage.getItem(CREATE_DRAFT_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function saveCampaignDraftLocal() {
+  try {
+    const snapshot = { ...state.createCampaign, dirty: false };
+    localStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(snapshot));
+  } catch {}
+}
+
+function hydrateCampaignDefaults() {
+  const c = state.createCampaign;
+  if (!c.projectId && state.projects?.[0]?.id) c.projectId = String(state.projects[0].id);
+  if (!Array.isArray(c.hashtags)) c.hashtags = ['#бизнес', '#контент'];
+  if (!c.platforms) c.platforms = { facebook: true, instagram: true, youtube: false };
+  if (!c.kinds) c.kinds = { facebook: 'image_post', instagram: 'image_post', youtube: 'shorts' };
+  if (!c.accountRefs) c.accountRefs = { facebook: '', instagram: '', youtube: '' };
+}
+
+function syncCampaignKindsByMode() {
+  const c = state.createCampaign;
+  if (c.mode === 'image') {
+    c.kinds.facebook = 'image_post';
+    c.kinds.instagram = 'image_post';
+    c.platforms.youtube = false;
+  } else if (c.mode === 'video') {
+    c.kinds.facebook = 'video';
+    c.kinds.instagram = 'reel';
+  } else {
+    if (!['image_post', 'video'].includes(c.kinds.facebook)) c.kinds.facebook = 'image_post';
+    if (!['image_post', 'reel'].includes(c.kinds.instagram)) c.kinds.instagram = 'image_post';
+  }
+  if (c.videoDuration <= 60 && c.videoAspectRatio === '9:16') c.kinds.youtube = 'shorts';
+  if (c.videoDuration > 60 || c.videoAspectRatio !== '9:16') c.kinds.youtube = 'video';
+}
+
+function selectedCampaignPlatforms() {
+  const c = state.createCampaign;
+  return ['facebook', 'instagram', 'youtube'].filter((platform) => !!c.platforms?.[platform]);
+}
+
+async function ensureCampaignSaved() {
+  hydrateCampaignDefaults();
+  const c = state.createCampaign;
+  const payload = {
+    project_id: Number(c.projectId || state.projects?.[0]?.id || 0) || null,
+    mode: c.mode || 'image',
+    topic: String(c.topic || '').trim() || 'Новая кампания',
+    offer: String(c.offer || '').trim(),
+    objective: c.objective || 'sales',
+    caption_master: String(c.caption || '').trim(),
+    cta: String(c.cta || '').trim(),
+    hashtags_master: Array.isArray(c.hashtags) ? c.hashtags : [],
+    language: c.language || 'ru',
+    status: 'draft',
+  };
+  if (!c.campaignId) {
+    const created = await api('/api/campaigns', { method: 'POST', body: JSON.stringify(payload) });
+    c.campaignId = created?.campaign?.id || null;
+  } else {
+    await api(`/api/campaigns/${c.campaignId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  }
+  c.dirty = false;
+  saveCampaignDraftLocal();
+  return c.campaignId;
+}
+
+async function loadCampaignDetails(campaignId) {
+  if (!campaignId) return;
+  const details = await api(`/api/campaigns/${campaignId}`);
+  const c = state.createCampaign;
+  c.assets = details?.assets || [];
+  c.deliveries = details?.deliveries || [];
+  state.campaignDetails = details;
+  saveCampaignDraftLocal();
+}
+
+function pageCreateV2() {
+  hydrateCampaignDefaults();
+  syncCampaignKindsByMode();
+  const c = state.createCampaign;
+  const steps = ['Проект', 'Платформы', 'Медиа', 'Текст', 'Генерация', 'Публикация'];
+  const project = state.projects.find((p) => String(p.id) === String(c.projectId)) || state.projects[0] || null;
+  const projectName = project?.name || 'Проект не выбран';
+  const hashtags = Array.isArray(c.hashtags) ? c.hashtags : [];
+  const metaReady = (state.connections || []).filter((m) => isConnectionReady(m));
+  const fbConnected = metaReady.some((m) => !!m.page_id);
+  const igConnected = metaReady.some((m) => !!m.ig_user_id);
+  const ytConnected = !!state.youtubeConnection?.connected;
+  const running = !!c.generation?.running;
+  const assets = Array.isArray(c.assets) ? c.assets : [];
+  const imageAsset = assets.filter((a) => a.type === 'image').slice(-1)[0];
+  const videoAsset = assets.filter((a) => a.type === 'video').slice(-1)[0];
+  const thumbAsset = assets.filter((a) => a.type === 'thumbnail').slice(-1)[0];
+  const previewText = String(c.caption || '').trim() || 'Текст появится после генерации.';
+  const previewPlatform = c.platforms?.youtube ? 'YouTube' : 'Meta';
+
+  const step1 = `
+    <div class="wizard-step-note">Выберите режим публикации и тему.</div>
+    <div class="create-mode-grid">
+      <button type="button" class="create-mode-card ${c.mode === 'image' ? 'active' : ''}" data-cw-mode="image"><strong>Image + Text</strong><span>Картинка и текст для Meta</span></button>
+      <button type="button" class="create-mode-card ${c.mode === 'video' ? 'active' : ''}" data-cw-mode="video"><strong>Video + Text</strong><span>Видео и текст для YouTube/Meta</span></button>
+      <button type="button" class="create-mode-card ${c.mode === 'both' ? 'active' : ''}" data-cw-mode="both"><strong>Image + Video</strong><span>Одна идея для всех форматов</span></button>
+    </div>
+    ${field('cwTopic', 'Тема/идея', 'text', c.topic || '', 'Например: как автосервису повысить повторные записи')}
+    ${field('cwOffer', 'Цель/продукт/оффер (опционально)', 'text', c.offer || '', 'Например: диагностика подвески со скидкой')}
+    ${selectField('cwProject', 'Проект (бренд/клиент)', c.projectId || '', state.projects.map((p) => ({ value: p.id, label: p.name })))}
+    ${selectField('cwLang', 'Язык', c.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+  `;
+
+  const step2 = `
+    <div class="wizard-step-note">Выберите платформы и форматы.</div>
+    <div class="create-platform-grid">
+      <article class="create-platform-card ${c.platforms.facebook ? 'active' : ''}">
+        <div class="row" style="justify-content:space-between;align-items:center;"><strong>Facebook</strong><label class="create-toggle"><input id="cwFb" type="checkbox" ${c.platforms.facebook ? 'checked' : ''}/> Включить</label></div>
+        <p class="small">Формат: ${c.kinds.facebook}</p>
+        <p class="small">Статус: ${fbConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
+        ${!fbConnected ? '<button id="cwGoConnectionsFb" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
+        ${selectField('cwKindFb', 'Тип', c.kinds.facebook, c.mode === 'image' ? [{ value: 'image_post', label: 'Image Post' }] : (c.mode === 'video' ? [{ value: 'video', label: 'Video' }] : [{ value: 'image_post', label: 'Image Post' }, { value: 'video', label: 'Video' }]))}
+        ${selectField('cwAccFb', 'Страница', c.accountRefs.facebook || '', metaReady.filter((m) => m.page_id).map((m) => ({ value: m.page_id, label: m.page_name || m.page_id })))}
+      </article>
+      <article class="create-platform-card ${c.platforms.instagram ? 'active' : ''}">
+        <div class="row" style="justify-content:space-between;align-items:center;"><strong>Instagram</strong><label class="create-toggle"><input id="cwIg" type="checkbox" ${c.platforms.instagram ? 'checked' : ''}/> Включить</label></div>
+        <p class="small">Формат: ${c.kinds.instagram}</p>
+        <p class="small">Статус: ${igConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
+        ${!igConnected ? '<button id="cwGoConnectionsIg" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
+        ${selectField('cwKindIg', 'Тип', c.kinds.instagram, c.mode === 'image' ? [{ value: 'image_post', label: 'Image Post' }] : (c.mode === 'video' ? [{ value: 'reel', label: 'Reel' }] : [{ value: 'image_post', label: 'Image Post' }, { value: 'reel', label: 'Reel' }]))}
+        ${selectField('cwAccIg', 'Instagram Business', c.accountRefs.instagram || '', metaReady.filter((m) => m.ig_user_id).map((m) => ({ value: m.ig_user_id, label: (m.instagram_username ? `@${m.instagram_username}` : 'IG Business') + (m.page_name ? ` · ${m.page_name}` : '') })))}
+      </article>
+      <article class="create-platform-card ${c.platforms.youtube ? 'active' : ''}">
+        <div class="row" style="justify-content:space-between;align-items:center;"><strong>YouTube</strong><label class="create-toggle"><input id="cwYt" type="checkbox" ${c.platforms.youtube ? 'checked' : ''}/> Включить</label></div>
+        <p class="small">Формат: ${c.kinds.youtube}</p>
+        <p class="small">Статус: ${ytConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
+        ${!ytConnected ? '<button id="cwGoConnectionsYt" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
+        ${selectField('cwKindYt', 'Тип', c.kinds.youtube, [{ value: 'shorts', label: 'Shorts' }, { value: 'video', label: 'Video' }])}
+      </article>
+    </div>
+  `;
+
+  const step3 = `
+    <div class="wizard-step-note">Настройки медиа под выбранный режим.</div>
+    ${(c.mode === 'image' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Image</h3>${selectField('cwImageStyle', 'Стиль изображения', c.imageStyle || 'реалистично', [{ value: 'реалистично', label: 'Реалистично' }, { value: 'минимализм', label: 'Минимализм' }, { value: 'бизнес', label: 'Бизнес' }, { value: 'лайфстайл', label: 'Лайфстайл' }])}<label class="create-toggle"><input id="cwNoTextOnImage" type="checkbox" ${c.noTextOnImage !== false ? 'checked' : ''}/> Без текста на картинке</label></article>` : ''}
+    ${(c.mode === 'video' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Video</h3>${selectField('cwDuration', 'Длительность', String(c.videoDuration || 30), [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }, { value: '120', label: '120 сек' }, { value: '240', label: '240 сек' }, { value: '480', label: '480 сек' }])}${selectField('cwRatio', 'Ориентация', c.videoAspectRatio || '9:16', [{ value: '9:16', label: '9:16' }, { value: '1:1', label: '1:1' }, { value: '16:9', label: '16:9' }])}<label class="create-toggle"><input id="cwNoFantasy" type="checkbox" ${c.noFantasy !== false ? 'checked' : ''}/> Без фантастических существ</label><label class="create-toggle"><input id="cwThumb" type="checkbox" ${c.generateThumbnail !== false ? 'checked' : ''}/> Генерировать обложку</label></article>` : ''}
+  `;
+
+  const step4 = `
+    <div class="wizard-step-note">Текст и вариации.</div>
+    <div class="field"><label>Цель</label><div class="create-goal-grid">
+      <label class="create-goal-card ${c.objective === 'sales' ? 'active' : ''}"><input type="radio" name="cwGoal" value="sales" ${c.objective === 'sales' ? 'checked' : ''}/> Продажи</label>
+      <label class="create-goal-card ${c.objective === 'warmup' ? 'active' : ''}"><input type="radio" name="cwGoal" value="warmup" ${c.objective === 'warmup' ? 'checked' : ''}/> Прогрев</label>
+      <label class="create-goal-card ${c.objective === 'expert' ? 'active' : ''}"><input type="radio" name="cwGoal" value="expert" ${c.objective === 'expert' ? 'checked' : ''}/> Экспертность</label>
+      <label class="create-goal-card ${c.objective === 'announce' ? 'active' : ''}"><input type="radio" name="cwGoal" value="announce" ${c.objective === 'announce' ? 'checked' : ''}/> Анонс</label>
+    </div></div>
+    ${field('cwCaption', 'Caption', 'textarea', c.caption || '', 'Основной текст публикации')}
+    ${field('cwCta', 'CTA', 'text', c.cta || '', 'Например: Запишитесь на консультацию')}
+    ${field('cwHashtags', 'Hashtags', 'textarea', hashtags.join(' '), '#бизнес #контент #маркетинг')}
+    <div class="create-chips-row">
+      <button class="btn btn-ghost" type="button" data-cw-ai="sales">Сделай продающий пост</button>
+      <button class="btn btn-ghost" type="button" data-cw-ai="expert">Сделай экспертный пост</button>
+      <button class="btn btn-ghost" type="button" data-cw-ai="announce">Сделай анонс</button>
+      <button class="btn btn-ghost" type="button" data-cw-ai="warmup">Сделай прогрев</button>
+    </div>
+    <div class="cta-row"><button id="cwGenerateText" class="btn btn-primary" type="button" ${running ? 'disabled' : ''}>Сгенерировать текст</button>${running ? '<span class="create-ai-status"><span class="create-ai-dot"></span> AI готовит пост…</span>' : ''}</div>
+  `;
+
+  const step5 = `
+    <div class="wizard-step-note">Генерация и предпросмотр ассетов.</div>
+    <div class="cta-row">
+      ${(c.mode === 'image' || c.mode === 'both') ? `<button id="cwGenerateImage" class="btn btn-primary" type="button" ${running ? 'disabled' : ''}>${running ? 'Генерируем…' : 'Сгенерировать image'}</button>` : ''}
+      ${(c.mode === 'video' || c.mode === 'both') ? `<button id="cwGenerateVideo" class="btn btn-secondary" type="button" ${running ? 'disabled' : ''}>${running ? 'Генерируем…' : 'Сгенерировать video'}</button>` : ''}
+    </div>
+    ${(c.generation?.statusText || '').trim() ? `<p class="small">${esc(c.generation.statusText)}</p>` : ''}
+    <div class="create-asset-grid">
+      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Image</h3>${imageAsset ? `<img class="create-asset-image" src="${esc(imageAsset.storage_url)}" alt="" />` : '<p class="small">Нет image</p>'}</article>
+      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Video</h3>${videoAsset ? `<video class="create-asset-video" controls preload="metadata" src="${esc(videoAsset.storage_url)}"></video><p class="small">${esc(String(videoAsset.duration_sec || c.videoDuration || 0))} сек</p>` : '<p class="small">Нет video</p>'}</article>
+      ${thumbAsset ? `<article class="card" style="padding:12px;"><h3 style="margin-top:0;">Thumbnail</h3><img class="create-asset-image" src="${esc(thumbAsset.storage_url)}" alt="" /></article>` : ''}
+    </div>
+  `;
+
+  const deliveryRows = (Array.isArray(c.deliveries) ? c.deliveries : []).map((d) => `<tr><td>${esc(d.platform)}</td><td>${esc(d.kind)}</td><td>${esc(d.status)}</td><td>${esc(d.error_message || d.remote_id || '—')}</td></tr>`).join('');
+  const step6 = `
+    <div class="wizard-step-note">Публикация и очередь.</div>
+    ${selectField('cwPublishMode', 'Режим', c.publishMode || 'now', [{ value: 'now', label: 'Опубликовать сейчас' }, { value: 'schedule', label: 'Запланировать' }, { value: 'draft', label: 'Сохранить черновик' }])}
+    ${c.publishMode === 'schedule' ? field('cwScheduleAt', 'Дата и время', 'datetime-local', c.scheduledAt || '') : ''}
+    ${(c.publishMessage || '').trim() ? `<p class="small">${esc(c.publishMessage)}</p>` : ''}
+    ${deliveryRows ? `<div class="table-wrap"><table><thead><tr><th>Платформа</th><th>Тип</th><th>Статус</th><th>Сообщение</th></tr></thead><tbody>${deliveryRows}</tbody></table></div>` : ''}
+  `;
+  const stepContent = [step1, step2, step3, step4, step5, step6][(c.step || 1) - 1] || step1;
+
+  const previewCard = `
+    <article class="create-preview-card">
+      <div class="row" style="justify-content:space-between;align-items:center;"><span class="pill">${esc(previewPlatform)}</span><span class="small">${esc(projectName)}</span></div>
+      <h3>${esc(c.topic || 'Опишите тему')}</h3>
+      <div class="create-preview-text">${esc(previewText)}</div>
+      <div class="create-preview-tags">${hashtags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
+      <button class="btn btn-secondary create-preview-cta" type="button">${esc(c.cta || 'Оставить заявку')}</button>
+    </article>
+  `;
+  const infoCard = `
+    <article class="create-info-card">
+      <h3>Что вы получите</h3>
+      <ul class="check-list"><li class="done">Готовый текст</li><li class="done">Сильный CTA</li><li class="done">Хэштеги</li><li class="done">План публикации</li></ul>
+    </article>
+  `;
+
+  return appLayout('/create', 'Создать', `
+    <section class="create-wizard-shell">
+      <div class="create-wizard-grid">
+        <article class="card create-main-col">
+          <h2>Мастер создания публикации</h2>
+          <p class="small">Соберите кампанию с image/video и публикуйте в Meta + YouTube.</p>
+          <div class="create-progress-badge">Шаг ${c.step || 1} из 6 · ~${Math.max(1, 7 - (c.step || 1))} минут до готового поста</div>
+          <div class="stepper stepper-6">${steps.map((label, idx) => `<div class="step ${(c.step || 1) === (idx + 1) ? 'active' : ''}">${idx + 1}. ${esc(label)}</div>`).join('')}</div>
+          <h3 class="create-step-title">${esc(steps[(c.step || 1) - 1] || 'Шаг')}</h3>
+          ${stepContent}
+          <div class="cta-row create-wizard-actions">
+            ${c.step > 1 ? '<button id="cwPrev" type="button" class="btn btn-ghost">Назад</button>' : ''}
+            ${c.step < 6 ? '<button id="cwNext" type="button" class="btn btn-primary">Далее</button>' : '<button id="cwSubmitPublish" type="button" class="btn btn-primary">Подтвердить</button>'}
+          </div>
+          <details class="create-mobile-preview"><summary>Предпросмотр</summary><div class="create-mobile-preview-content">${previewCard}${infoCard}</div></details>
+        </article>
+        <aside class="create-preview-col">${previewCard}${infoCard}</aside>
+      </div>
+    </section>
+  `);
+}
+
+function pageCampaignDetailsV2() {
+  const detail = state.campaignDetails;
+  if (!detail?.campaign) return appLayout('/campaigns', 'Кампания', `<section class="card">${emptyState('Кампания не найдена', 'Ссылка устарела или кампания удалена.', 'Открыть создание', '/create')}</section>`);
+  const c = detail.campaign;
+  const deliveries = detail.deliveries || [];
+  const assets = detail.assets || [];
+  return appLayout(`/campaigns/${c.id}`, 'Кампания', `
+    <section class="grid-2">
+      <article class="card"><h2>Кампания #${c.id}</h2><p class="small">Тема: <strong>${esc(c.topic || '—')}</strong></p><p class="small">Режим: ${esc(c.mode)} · Статус: ${esc(c.status)}</p><div class="cta-row"><button class="btn btn-primary" data-link="/create">Создать ещё</button><button class="btn btn-ghost" data-link="/history">Открыть историю</button></div></article>
+      <article class="card"><h2>Ассеты</h2>${assets.length ? `<ul class="check-list">${assets.map((a) => `<li>${esc(a.type)} · <a href="${esc(a.storage_url)}" target="_blank" rel="noreferrer">Открыть</a></li>`).join('')}</ul>` : '<p class="small">Ассеты пока отсутствуют.</p>'}</article>
+      <article class="card" style="grid-column:1 / -1;"><h2>Deliveries</h2>${deliveries.length ? `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Платформа</th><th>Формат</th><th>Статус</th><th>Remote ID</th><th>Ошибка</th></tr></thead><tbody>${deliveries.map((d) => `<tr><td>${d.id}</td><td>${esc(d.platform)}</td><td>${esc(d.kind)}</td><td>${esc(d.status)}</td><td>${esc(d.remote_id || '—')}</td><td>${esc(d.error_message || '—')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small">Deliveries ещё не созданы.</p>'}</article>
+    </section>
+  `);
+}
+
 function adminUsersTable() {
   if (!state.adminUsers.length) return '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР°.</p>';
   return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.role === 'admin' ? 'admin' : u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
@@ -2309,7 +2603,8 @@ function pageAdmin() {
 }
 
 function page(path) {
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateV2, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -2322,6 +2617,16 @@ async function preload(path) {
   if (path === '/connections') {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
+  }
+  if (path === '/create') {
+    state.connections = await api('/api/connections');
+    state.youtubeConnection = await api('/api/integrations/youtube/status');
+    const campaigns = await api('/api/campaigns?limit=10');
+    state.campaignList = campaigns?.items || [];
+  }
+  if (String(path || '').startsWith('/campaigns/')) {
+    const campaignId = Number(String(path).split('/')[2] || 0);
+    if (campaignId > 0) state.campaignDetails = await api(`/api/campaigns/${campaignId}`);
   }
   if (path === '/history' || path === '/calendar') state.posts = await api('/api/posts');
   if (path === '/billing' || path === '/dashboard') state.plans = await api('/api/plans');
@@ -2340,8 +2645,271 @@ function bindCommon() {
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
 }
 
-async function bind() {
+async function bindCreateWizardV2(path) {
+  if (path !== '/create') {
+    if (window.__campaignAutosaveTimer) clearInterval(window.__campaignAutosaveTimer);
+    if (window.__campaignDeliveriesPoller) clearInterval(window.__campaignDeliveriesPoller);
+    return;
+  }
+  hydrateCampaignDefaults();
+  const c = state.createCampaign;
+  if (!window.__campaignHydratedOnce) {
+    const saved = loadCampaignDraftLocal();
+    if (saved && typeof saved === 'object') state.createCampaign = { ...state.createCampaign, ...saved };
+    window.__campaignHydratedOnce = true;
+  }
+  syncCampaignKindsByMode();
+  if (window.__campaignAutosaveTimer) clearInterval(window.__campaignAutosaveTimer);
+  window.__campaignAutosaveTimer = setInterval(async () => {
+    try {
+      if (location.pathname.replace(/\/$/, '') !== '/create') return;
+      if (!state.createCampaign.dirty) return;
+      await ensureCampaignSaved();
+    } catch {}
+  }, 2500);
+
+  const update = (patch) => {
+    state.createCampaign = { ...state.createCampaign, ...patch, dirty: true };
+    saveCampaignDraftLocal();
+  };
+  const readLocalForm = () => {
+    update({
+      topic: document.getElementById('cwTopic')?.value || state.createCampaign.topic || '',
+      offer: document.getElementById('cwOffer')?.value || state.createCampaign.offer || '',
+      projectId: document.getElementById('cwProject')?.value || state.createCampaign.projectId || '',
+      language: document.getElementById('cwLang')?.value || state.createCampaign.language || 'ru',
+      caption: document.getElementById('cwCaption')?.value || state.createCampaign.caption || '',
+      cta: document.getElementById('cwCta')?.value || state.createCampaign.cta || '',
+      hashtags: parseCampaignHashtags(document.getElementById('cwHashtags')?.value || (state.createCampaign.hashtags || []).join(' ')),
+      publishMode: document.getElementById('cwPublishMode')?.value || state.createCampaign.publishMode || 'now',
+      scheduledAt: document.getElementById('cwScheduleAt')?.value || state.createCampaign.scheduledAt || '',
+      imageStyle: document.getElementById('cwImageStyle')?.value || state.createCampaign.imageStyle || 'реалистично',
+      videoDuration: Number(document.getElementById('cwDuration')?.value || state.createCampaign.videoDuration || 30),
+      videoAspectRatio: document.getElementById('cwRatio')?.value || state.createCampaign.videoAspectRatio || '9:16',
+      noTextOnImage: !!document.getElementById('cwNoTextOnImage')?.checked,
+      noFantasy: !!document.getElementById('cwNoFantasy')?.checked,
+      generateThumbnail: !!document.getElementById('cwThumb')?.checked,
+      kinds: {
+        facebook: document.getElementById('cwKindFb')?.value || state.createCampaign.kinds.facebook,
+        instagram: document.getElementById('cwKindIg')?.value || state.createCampaign.kinds.instagram,
+        youtube: document.getElementById('cwKindYt')?.value || state.createCampaign.kinds.youtube,
+      },
+      accountRefs: {
+        facebook: document.getElementById('cwAccFb')?.value || state.createCampaign.accountRefs.facebook || '',
+        instagram: document.getElementById('cwAccIg')?.value || state.createCampaign.accountRefs.instagram || '',
+        youtube: state.youtubeConnection?.channel_id || '',
+      },
+    });
+    syncCampaignKindsByMode();
+  };
+
+  const validateStep = (step) => {
+    const w = state.createCampaign;
+    if (step === 1 && !String(w.topic || '').trim()) return 'Укажите тему/идею.';
+    if (step === 2) {
+      const platforms = selectedCampaignPlatforms();
+      if (!platforms.length) return 'Выберите минимум одну платформу.';
+      if (w.platforms.youtube && !state.youtubeConnection?.connected) return 'YouTube не подключен. Откройте Подключения.';
+      const metaReady = (state.connections || []).filter((m) => isConnectionReady(m));
+      if (w.platforms.facebook && !metaReady.some((m) => !!m.page_id)) return 'Для Facebook нет подключенной страницы.';
+      if (w.platforms.instagram && !metaReady.some((m) => !!m.ig_user_id)) return 'Для Instagram нет IG Business подключения.';
+      if (w.mode === 'image' && w.platforms.youtube) return 'В режиме image публикация в YouTube недоступна.';
+    }
+    return '';
+  };
+
+  document.querySelectorAll('[data-cw-mode]').forEach((btn) => {
+    btn.onclick = () => {
+      state.createCampaign.mode = btn.getAttribute('data-cw-mode') || 'image';
+      syncCampaignKindsByMode();
+      state.createCampaign.dirty = true;
+      render();
+    };
+  });
+  const bindField = (id, fn) => { const el = document.getElementById(id); if (el) el.oninput = fn; };
+  bindField('cwTopic', () => update({ topic: document.getElementById('cwTopic').value }));
+  bindField('cwOffer', () => update({ offer: document.getElementById('cwOffer').value }));
+  bindField('cwCaption', () => update({ caption: document.getElementById('cwCaption').value }));
+  bindField('cwCta', () => update({ cta: document.getElementById('cwCta').value }));
+  bindField('cwHashtags', () => update({ hashtags: parseCampaignHashtags(document.getElementById('cwHashtags').value) }));
+  ['cwProject', 'cwLang', 'cwPublishMode', 'cwScheduleAt', 'cwImageStyle', 'cwDuration', 'cwRatio', 'cwKindFb', 'cwKindIg', 'cwKindYt', 'cwAccFb', 'cwAccIg'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.onchange = () => { readLocalForm(); render(); };
+  });
+  ['cwFb', 'cwIg', 'cwYt', 'cwNoTextOnImage', 'cwNoFantasy', 'cwThumb'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.onchange = () => {
+      const patch = {};
+      if (id === 'cwFb') patch.platforms = { ...state.createCampaign.platforms, facebook: !!el.checked };
+      if (id === 'cwIg') patch.platforms = { ...state.createCampaign.platforms, instagram: !!el.checked };
+      if (id === 'cwYt') patch.platforms = { ...state.createCampaign.platforms, youtube: !!el.checked };
+      if (id === 'cwNoTextOnImage') patch.noTextOnImage = !!el.checked;
+      if (id === 'cwNoFantasy') patch.noFantasy = !!el.checked;
+      if (id === 'cwThumb') patch.generateThumbnail = !!el.checked;
+      update(patch);
+      syncCampaignKindsByMode();
+      render();
+    };
+  });
+  ['cwGoConnectionsFb', 'cwGoConnectionsIg', 'cwGoConnectionsYt'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = () => nav('/connections');
+  });
+
+  document.querySelectorAll('input[name="cwGoal"]').forEach((el) => {
+    el.onchange = () => update({ objective: el.value || 'sales' });
+  });
+  document.querySelectorAll('[data-cw-ai]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        readLocalForm();
+        if (!String(state.createCampaign.topic || '').trim()) throw new Error('Введите тему перед генерацией текста');
+        state.createCampaign.generation = { ...state.createCampaign.generation, running: true, statusText: 'AI готовит пост…' };
+        render();
+        const text = await api('/api/generate-preview', {
+          method: 'POST',
+          body: JSON.stringify({
+            project_id: Number(state.createCampaign.projectId || state.projects?.[0]?.id || 0) || null,
+            topic: state.createCampaign.topic,
+            language: state.createCampaign.language || 'ru',
+            tone: btn.getAttribute('data-cw-ai') || 'friendly',
+            platforms: selectedCampaignPlatforms(),
+          }),
+          timeoutMs: 90000,
+        });
+        const generated = String(text?.text || '').trim();
+        state.createCampaign.caption = generated || state.createCampaign.caption;
+        if ((!state.createCampaign.hashtags || !state.createCampaign.hashtags.length) && generated) {
+          state.createCampaign.hashtags = parseCampaignHashtags(generated);
+        }
+        state.createCampaign.generation = { ...state.createCampaign.generation, running: false, statusText: 'Текст готов' };
+        state.createCampaign.dirty = true;
+        render();
+      } catch (e) {
+        state.createCampaign.generation = { ...state.createCampaign.generation, running: false, statusText: '' };
+        state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать текст' };
+        render();
+      }
+    };
+  });
+
+  const pollJob = async (jobId) => {
+    for (let i = 0; i < 90; i += 1) {
+      const res = await api(`/api/jobs/${jobId}`);
+      const job = res?.job || {};
+      state.createCampaign.generation.statusText = `Статус генерации: ${job.status || 'queued'} (${job.progress || 0}%)`;
+      if (job.status === 'done') return true;
+      if (job.status === 'failed') throw new Error(job.error_message || 'Ошибка генерации');
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    throw new Error('Генерация заняла слишком много времени');
+  };
+
+  const generateAsset = async (kind) => {
+    readLocalForm();
+    await ensureCampaignSaved();
+    state.createCampaign.generation = { ...state.createCampaign.generation, running: true, statusText: 'Запуск генерации…' };
+    render();
+    try {
+      const endpoint = kind === 'image' ? `/api/campaigns/${state.createCampaign.campaignId}/generate-image` : `/api/campaigns/${state.createCampaign.campaignId}/generate-video`;
+      const payload = kind === 'image'
+        ? { style: state.createCampaign.imageStyle, no_text_on_image: state.createCampaign.noTextOnImage, realism: true, prompt_guards: { no_fantasy: true } }
+        : { duration_sec: state.createCampaign.videoDuration, aspect_ratio: state.createCampaign.videoAspectRatio, realism: true, prompt_guards: { no_fantasy: true }, generate_thumbnail: state.createCampaign.generateThumbnail };
+      const started = await api(endpoint, { method: 'POST', body: JSON.stringify(payload), timeoutMs: 180000 });
+      const jobId = started?.job?.id;
+      if (!jobId) throw new Error('Сервер не вернул job id');
+      await pollJob(jobId);
+      await loadCampaignDetails(state.createCampaign.campaignId);
+      state.createCampaign.generation = { ...state.createCampaign.generation, running: false, statusText: 'Генерация завершена' };
+      state.notice = { type: 'ok', text: `${kind === 'image' ? 'Изображение' : 'Видео'} готово` };
+      render();
+    } catch (e) {
+      state.createCampaign.generation = { ...state.createCampaign.generation, running: false, statusText: '' };
+      state.notice = { type: 'error', text: e.message || 'Не удалось завершить генерацию' };
+      render();
+    }
+  };
+  const genTextBtn = document.getElementById('cwGenerateText');
+  if (genTextBtn) genTextBtn.onclick = async () => {
+    const salesBtn = document.querySelector('[data-cw-ai="sales"]');
+    if (salesBtn) salesBtn.click();
+  };
+  const genImageBtn = document.getElementById('cwGenerateImage');
+  if (genImageBtn) genImageBtn.onclick = async () => generateAsset('image');
+  const genVideoBtn = document.getElementById('cwGenerateVideo');
+  if (genVideoBtn) genVideoBtn.onclick = async () => generateAsset('video');
+
+  const prevBtn = document.getElementById('cwPrev');
+  if (prevBtn) prevBtn.onclick = () => { state.createCampaign.step = Math.max(1, (state.createCampaign.step || 1) - 1); render(); };
+  const nextBtn = document.getElementById('cwNext');
+  if (nextBtn) nextBtn.onclick = async () => {
+    readLocalForm();
+    const error = validateStep(state.createCampaign.step || 1);
+    if (error) {
+      state.notice = { type: 'error', text: error };
+      render();
+      return;
+    }
+    if ((state.createCampaign.step || 1) >= 4) await ensureCampaignSaved();
+    state.createCampaign.step = Math.min(6, (state.createCampaign.step || 1) + 1);
+    render();
+  };
+
+  const submitBtn = document.getElementById('cwSubmitPublish');
+  if (submitBtn) submitBtn.onclick = async () => {
+    try {
+      readLocalForm();
+      await ensureCampaignSaved();
+      if (state.createCampaign.publishMode === 'draft') {
+        await api(`/api/campaigns/${state.createCampaign.campaignId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'draft', caption_master: state.createCampaign.caption, cta: state.createCampaign.cta, hashtags_master: state.createCampaign.hashtags }),
+        });
+        state.createCampaign.publishMessage = 'Черновик сохранён. Можно продолжить позже.';
+        state.notice = { type: 'ok', text: 'Черновик сохранён' };
+        saveCampaignDraftLocal();
+        render();
+        return;
+      }
+      const deliveries = [];
+      const w = state.createCampaign;
+      const when = w.publishMode === 'schedule'
+        ? localInputToIsoNoTz(w.scheduledAt || '')
+        : null;
+      if (w.publishMode === 'schedule' && !when) throw new Error('Укажите корректную дату и время');
+      if (w.platforms.facebook) deliveries.push({ platform: 'facebook', kind: w.kinds.facebook, account_ref: w.accountRefs.facebook || null, scheduled_at: when, caption_override: w.caption, hashtags_override: w.hashtags });
+      if (w.platforms.instagram) deliveries.push({ platform: 'instagram', kind: w.kinds.instagram, account_ref: w.accountRefs.instagram || null, scheduled_at: when, caption_override: w.caption, hashtags_override: w.hashtags });
+      if (w.platforms.youtube) deliveries.push({ platform: 'youtube', kind: w.kinds.youtube, account_ref: state.youtubeConnection?.channel_id || null, scheduled_at: when, caption_override: w.caption, hashtags_override: w.hashtags });
+      if (!deliveries.length) throw new Error('Выберите платформу для публикации');
+      const published = await api(`/api/campaigns/${w.campaignId}/publish`, { method: 'POST', body: JSON.stringify({ deliveries }), timeoutMs: 180000 });
+      state.createCampaign.deliveries = published?.deliveries || [];
+      state.createCampaign.publishMessage = 'Кампания отправлена в очередь. Отслеживаем статусы…';
+      state.notice = { type: 'ok', text: 'Публикация запущена' };
+      render();
+      if (window.__campaignDeliveriesPoller) clearInterval(window.__campaignDeliveriesPoller);
+      window.__campaignDeliveriesPoller = setInterval(async () => {
+        if (location.pathname.replace(/\/$/, '') !== '/create') return;
+        await loadCampaignDetails(state.createCampaign.campaignId);
+        const statuses = (state.createCampaign.deliveries || []).map((d) => String(d.status || '').toLowerCase());
+        if (statuses.length && statuses.every((s) => ['published', 'failed'].includes(s))) {
+          clearInterval(window.__campaignDeliveriesPoller);
+          state.createCampaign.publishMessage = 'Очередь завершена. Откройте детали кампании.';
+          state.notice = { type: 'ok', text: 'Готово. Статусы обновлены.' };
+          render();
+        } else {
+          render();
+        }
+      }, 2500);
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось отправить кампанию в публикацию' };
+      render();
+    }
+  };
+}
+
+async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   bindCommon();
+  await bindCreateWizardV2(path);
   const blogBackBtn = document.getElementById('blogBackBtn');
   if (blogBackBtn) {
     blogBackBtn.onclick = () => {

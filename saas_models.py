@@ -1,6 +1,6 @@
 ﻿from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 
 SaaSBase = declarative_base()
@@ -144,6 +144,72 @@ class Post(SaaSBase):
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Campaign(SaaSBase):
+    __tablename__ = "campaigns"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    mode = Column(String(20), nullable=False, default="image")  # image | video | both
+    topic = Column(String(500), nullable=False)
+    offer = Column(String(500), nullable=True)
+    objective = Column(String(500), nullable=True)
+    caption_master = Column(Text, nullable=True)
+    cta = Column(String(300), nullable=True)
+    hashtags_master = Column(Text, nullable=True)
+    language = Column(String(30), nullable=False, default="ru")
+    status = Column(String(20), nullable=False, default="draft")  # draft | ready | publishing | published | failed
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class CampaignAsset(SaaSBase):
+    __tablename__ = "campaign_assets"
+
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False, index=True)
+    type = Column(String(20), nullable=False)  # image | video | thumbnail
+    storage_url = Column(Text, nullable=False)
+    mime_type = Column(String(120), nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    duration_sec = Column(Integer, nullable=True)
+    size_bytes = Column(BigInteger, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class CampaignDelivery(SaaSBase):
+    __tablename__ = "campaign_deliveries"
+
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False, index=True)
+    platform = Column(String(30), nullable=False)  # facebook | instagram | youtube
+    kind = Column(String(30), nullable=False)  # image_post | reel | video | shorts
+    account_ref = Column(String(160), nullable=True)
+    caption_rendered = Column(Text, nullable=True)
+    hashtags_rendered = Column(Text, nullable=True)
+    scheduled_at = Column(DateTime, nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="queued")  # queued | uploading | processing | published | failed
+    remote_id = Column(String(255), nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class GenerationJob(SaaSBase):
+    __tablename__ = "generation_jobs"
+
+    id = Column(Integer, primary_key=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False, index=True)
+    job_type = Column(String(30), nullable=False)  # generate_image | generate_video
+    status = Column(String(20), nullable=False, default="queued")  # queued | running | done | failed
+    progress = Column(Integer, nullable=False, default=0)
+    result_json = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
 class ContentPlan(SaaSBase):

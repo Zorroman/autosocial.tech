@@ -43,6 +43,50 @@ SOCIAL_ACCOUNTS_ADDITIONAL_COLUMNS = {
     "updated_at": "DATETIME",
 }
 
+CAMPAIGNS_ADDITIONAL_COLUMNS = {
+    "project_id": "INTEGER",
+    "offer": "VARCHAR(500)",
+    "objective": "VARCHAR(500)",
+    "caption_master": "TEXT",
+    "cta": "VARCHAR(300)",
+    "hashtags_master": "TEXT",
+    "language": "VARCHAR(30) DEFAULT 'ru' NOT NULL",
+    "status": "VARCHAR(20) DEFAULT 'draft' NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+CAMPAIGN_ASSETS_ADDITIONAL_COLUMNS = {
+    "mime_type": "VARCHAR(120)",
+    "width": "INTEGER",
+    "height": "INTEGER",
+    "duration_sec": "INTEGER",
+    "size_bytes": "BIGINT",
+    "created_at": "DATETIME",
+}
+
+CAMPAIGN_DELIVERIES_ADDITIONAL_COLUMNS = {
+    "account_ref": "VARCHAR(160)",
+    "caption_rendered": "TEXT",
+    "hashtags_rendered": "TEXT",
+    "scheduled_at": "DATETIME",
+    "status": "VARCHAR(20) DEFAULT 'queued' NOT NULL",
+    "remote_id": "VARCHAR(255)",
+    "error_message": "TEXT",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+GENERATION_JOBS_ADDITIONAL_COLUMNS = {
+    "job_type": "VARCHAR(30)",
+    "status": "VARCHAR(20) DEFAULT 'queued' NOT NULL",
+    "progress": "INTEGER DEFAULT 0 NOT NULL",
+    "result_json": "TEXT",
+    "error_message": "TEXT",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
 
 def add_missing_columns(table_name: str, columns: dict) -> None:
     inspector = inspect(engine)
@@ -84,6 +128,39 @@ def run_migrations() -> None:
                 text(
                     "UPDATE social_accounts SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"
                 )
+            )
+    if "campaigns" in tables:
+        add_missing_columns("campaigns", CAMPAIGNS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE campaigns SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
+            )
+            conn.execute(
+                text("UPDATE campaigns SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+            )
+    if "campaign_assets" in tables:
+        add_missing_columns("campaign_assets", CAMPAIGN_ASSETS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE campaign_assets SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
+            )
+    if "campaign_deliveries" in tables:
+        add_missing_columns("campaign_deliveries", CAMPAIGN_DELIVERIES_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE campaign_deliveries SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
+            )
+            conn.execute(
+                text("UPDATE campaign_deliveries SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+            )
+    if "generation_jobs" in tables:
+        add_missing_columns("generation_jobs", GENERATION_JOBS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE generation_jobs SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
+            )
+            conn.execute(
+                text("UPDATE generation_jobs SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
             )
 
 

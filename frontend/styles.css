@@ -1951,6 +1951,77 @@ th { color: var(--text-muted); font-weight: 600; }
   border-radius: 22px;
 }
 
+.stepper-6 {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.create-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.create-mode-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.create-mode-card strong {
+  font-size: 14px;
+}
+
+.create-mode-card span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.create-mode-card.active {
+  border-color: color-mix(in oklab, var(--brand-primary) 48%, var(--border));
+  box-shadow: var(--shadow-sm);
+  background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+}
+
+.create-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.create-asset-image,
+.create-asset-video {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.create-asset-image {
+  max-height: 220px;
+  object-fit: cover;
+}
+
+@media (max-width: 1000px) {
+  .stepper-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .create-mode-grid {
+    grid-template-columns: 1fr;
+  }
+  .create-asset-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes landingFloat {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }

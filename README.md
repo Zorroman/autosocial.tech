@@ -103,3 +103,29 @@ npm run test:e2e
 ```bash
 tail -n 200 logs/api.log
 ```
+
+## 9) Create Wizard Flow (/create)
+Мастер `/create` работает через сущности кампании:
+- `Campaign` (общая идея, текст, режим image/video/both)
+- `CampaignAsset` (image/video/thumbnail)
+- `CampaignDelivery` (публикация по платформам)
+- `GenerationJob` (статус генерации ассетов)
+
+Основные endpoints:
+- `POST /api/campaigns`
+- `PATCH /api/campaigns/:id`
+- `GET /api/campaigns/:id`
+- `GET /api/campaigns`
+- `POST /api/campaigns/:id/generate-image`
+- `POST /api/campaigns/:id/generate-video`
+- `GET /api/jobs/:id`
+- `POST /api/campaigns/:id/publish`
+- `GET /api/deliveries/:id`
+- `GET /api/history`
+
+Локально обязательно запустить backend и frontend, а также worker (для очередей RQ, если включены соответствующие задачи):
+```bash
+py app.py
+py -m http.server 3000 --directory frontend
+py worker.py
+```

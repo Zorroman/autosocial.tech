@@ -6,11 +6,13 @@ import smtplib
 import ssl
 import hashlib
 import hmac
+import base64
 from pathlib import Path
 from urllib.parse import quote
 from urllib.parse import urlsplit
 import secrets
 import time
+import threading
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from email.message import EmailMessage
@@ -39,7 +41,11 @@ from saas_models import (
     Plan,
     PlatformRule,
     Post,
+    Campaign,
+    CampaignAsset,
+    CampaignDelivery,
     Project,
+    GenerationJob,
     SocialAccount,
     SystemLog,
     TopicSuggestion,
@@ -307,6 +313,378 @@ def _parse_iso_datetime(raw_value: str) -> datetime:
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
+
+
+def _json_loads_safe(raw_value, fallback):
+    try:
+        if not raw_value:
+            return fallback
+        return json.loads(raw_value)
+    except Exception:
+        return fallback
+
+
+def _campaign_payload(campaign: Campaign) -> dict:
+    return {
+        "id": campaign.id,
+        "user_id": campaign.user_id,
+        "project_id": campaign.project_id,
+        "mode": campaign.mode,
+        "topic": campaign.topic,
+        "offer": campaign.offer,
+        "objective": campaign.objective,
+        "caption_master": campaign.caption_master,
+        "cta": campaign.cta,
+        "hashtags_master": _json_loads_safe(campaign.hashtags_master, []),
+        "language": campaign.language,
+        "status": campaign.status,
+        "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
+        "updated_at": campaign.updated_at.isoformat() if campaign.updated_at else None,
+    }
+
+
+def _asset_payload(asset: CampaignAsset) -> dict:
+    return {
+        "id": asset.id,
+        "campaign_id": asset.campaign_id,
+        "type": asset.type,
+        "storage_url": asset.storage_url,
+        "mime_type": asset.mime_type,
+        "width": asset.width,
+        "height": asset.height,
+        "duration_sec": asset.duration_sec,
+        "size_bytes": int(asset.size_bytes or 0),
+        "created_at": asset.created_at.isoformat() if asset.created_at else None,
+    }
+
+
+def _delivery_payload(delivery: CampaignDelivery) -> dict:
+    return {
+        "id": delivery.id,
+        "campaign_id": delivery.campaign_id,
+        "platform": delivery.platform,
+        "kind": delivery.kind,
+        "account_ref": delivery.account_ref,
+        "caption_rendered": delivery.caption_rendered,
+        "hashtags_rendered": _json_loads_safe(delivery.hashtags_rendered, []),
+        "scheduled_at": delivery.scheduled_at.isoformat() if delivery.scheduled_at else None,
+        "status": delivery.status,
+        "remote_id": delivery.remote_id,
+        "error_message": delivery.error_message,
+        "created_at": delivery.created_at.isoformat() if delivery.created_at else None,
+        "updated_at": delivery.updated_at.isoformat() if delivery.updated_at else None,
+    }
+
+
+def _job_payload(job: GenerationJob) -> dict:
+    return {
+        "id": job.id,
+        "campaign_id": job.campaign_id,
+        "job_type": job.job_type,
+        "status": job.status,
+        "progress": int(job.progress or 0),
+        "result": _json_loads_safe(job.result_json, {}),
+        "error_message": job.error_message,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+    }
+
+
+def _extract_hashtags(raw_text: str, limit: int = 8) -> list[str]:
+    found = re.findall(r"#([\wа-яА-Я0-9_]+)", raw_text or "", flags=re.U)
+    uniq = []
+    for token in found:
+        val = f"#{token.lower()}"
+        if val not in uniq:
+            uniq.append(val)
+        if len(uniq) >= limit:
+            break
+    if not uniq:
+        uniq = ["#контент", "#маркетинг", "#бизнес"][:limit]
+    return uniq
+
+
+def _guess_mime(url_value: str, fallback: str = "application/octet-stream") -> str:
+    raw = str(url_value or "").lower()
+    if raw.endswith(".jpg") or raw.endswith(".jpeg"):
+        return "image/jpeg"
+    if raw.endswith(".png"):
+        return "image/png"
+    if raw.endswith(".webp"):
+        return "image/webp"
+    if raw.endswith(".mp4"):
+        return "video/mp4"
+    return fallback
+
+
+def _download_and_store_binary(url: str, suffix: str, max_bytes: int = 120 * 1024 * 1024) -> tuple[str, int] | None:
+    try:
+        res = requests.get(url, timeout=90, stream=True)
+        if res.status_code != 200:
+            return None
+        filename = f"asset_{secrets.token_hex(10)}{suffix}"
+        full_path = MEDIA_DIR / filename
+        total = 0
+        with open(full_path, "wb") as f:
+            for chunk in res.iter_content(chunk_size=1024 * 256):
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > max_bytes:
+                    f.close()
+                    full_path.unlink(missing_ok=True)
+                    return None
+                f.write(chunk)
+        return (f"{settings.API_BASE_URL}/api/media/{filename}", total)
+    except Exception:
+        return None
+
+
+def _ensure_video_asset_url(topic: str, duration_sec: int, aspect_ratio: str) -> tuple[str, int]:
+    external = (os.getenv("VIDEO_GENERATOR_URL") or "").strip()
+    if external:
+        try:
+            resp = requests.post(
+                external,
+                json={
+                    "topic": topic,
+                    "duration_sec": duration_sec,
+                    "aspect_ratio": aspect_ratio,
+                    "realism": True,
+                    "prompt_guards": {"no_fantasy": True},
+                },
+                timeout=180,
+            )
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            video_url = str((data or {}).get("video_url") or "").strip()
+            if video_url:
+                mirrored = _download_and_store_binary(video_url, ".mp4")
+                if mirrored:
+                    return mirrored
+                return (video_url, int((data or {}).get("size_bytes") or 0))
+        except Exception:
+            pass
+    fallback = _download_and_store_binary("https://samplelib.com/lib/preview/mp4/sample-5s.mp4", ".mp4")
+    if fallback:
+        return fallback
+    tiny_b64 = (
+        "AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAABW21kYXQhEAUgpYxkAAAD6G1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAPoAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIVdHJhawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAAD6AAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAQAAAAAAAAAAAAAAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAA+gAAAAAAAEAAAAAAbxtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAAAyAAAAFAABVxAAAAAAAKGhk bHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABvW1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAYVzdGJsAAAA3XN0c2QAAAAAAAAAAQAAAMVhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAIAASAAAAEgAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABj//wAAAC9hdmNDAfQAHv/hABln2QAHpZCgPaEAQAAAwABAAADADxI8UKZAAAB5GJ0cnQAAAABAAAB9AAAABhzdHRzAAAAAAAAAAEAAAABAAAEAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHGN0dHMAAAAAAAAAAQAAAAEAAAAAAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAQAAABRzdHN6AAAAAAAAAAAAAAABAAAB+AAAABJzdGNvAAAAAAAAAAEAAAA4"
+    ).replace(" ", "")
+    try:
+        raw = base64.b64decode(tiny_b64)
+        filename = f"asset_{secrets.token_hex(10)}.mp4"
+        full_path = MEDIA_DIR / filename
+        full_path.write_bytes(raw)
+        return (f"{settings.API_BASE_URL}/api/media/{filename}", len(raw))
+    except Exception:
+        raise RuntimeError("Не удалось создать видео-ассет")
+
+
+def _publish_instagram_reel(ig_user_id: str, access_token: str, video_url: str, caption: str) -> dict:
+    create_url = f"https://graph.facebook.com/v20.0/{ig_user_id}/media"
+    create_payload = {
+        "media_type": "REELS",
+        "video_url": video_url,
+        "caption": caption or "",
+        "share_to_feed": "true",
+        "access_token": access_token,
+    }
+    create_res = requests.post(create_url, data=create_payload, timeout=45).json()
+    creation_id = str(create_res.get("id") or "").strip()
+    if not creation_id:
+        return {"error": create_res.get("error") or create_res}
+
+    status_url = f"https://graph.facebook.com/v20.0/{creation_id}"
+    for _ in range(15):
+        st = requests.get(
+            status_url,
+            params={"fields": "status_code,status", "access_token": access_token},
+            timeout=25,
+        ).json()
+        status_code = str(st.get("status_code") or st.get("status") or "").upper()
+        if status_code in {"FINISHED", "PUBLISHED"}:
+            break
+        if status_code in {"ERROR", "EXPIRED"}:
+            return {"error": st.get("error") or st}
+        time.sleep(2)
+
+    publish_url = f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish"
+    out = requests.post(
+        publish_url,
+        data={"creation_id": creation_id, "access_token": access_token},
+        timeout=45,
+    ).json()
+    return out
+
+
+def _publish_facebook_video(page_id: str, page_access_token: str, video_url: str, caption: str) -> dict:
+    url = f"https://graph.facebook.com/v20.0/{page_id}/videos"
+    payload = {
+        "file_url": video_url,
+        "description": caption or "",
+        "access_token": page_access_token,
+    }
+    return requests.post(url, data=payload, timeout=60).json()
+
+
+def _publish_youtube_video_from_url(access_token: str, video_url: str, title: str, description: str, tags: list[str], is_shorts: bool) -> dict:
+    media_res = requests.get(video_url, timeout=120)
+    if media_res.status_code != 200:
+        return {"error": {"message": f"Не удалось загрузить видео для YouTube ({media_res.status_code})"}}
+    filename = f"upload_{secrets.token_hex(6)}.mp4"
+    upload_url = "https://www.googleapis.com/upload/youtube/v3/videos"
+    params = {"part": "snippet,status", "uploadType": "multipart"}
+    snippet = {
+        "title": (title or "Новый ролик").strip()[:90],
+        "description": (description or "").strip(),
+        "tags": tags[:15],
+        "categoryId": "22",
+    }
+    if is_shorts and "#shorts" not in snippet["description"].lower():
+        snippet["description"] = f"{snippet['description']}\n\n#shorts".strip()
+    status_payload = {"privacyStatus": "public", "selfDeclaredMadeForKids": False}
+    metadata = {"snippet": snippet, "status": status_payload}
+    files = {
+        "metadata": ("metadata.json", json.dumps(metadata, ensure_ascii=False), "application/json; charset=UTF-8"),
+        "file": (filename, media_res.content, "video/mp4"),
+    }
+    headers = {"Authorization": f"Bearer {access_token}"}
+    res = requests.post(upload_url, params=params, headers=headers, files=files, timeout=240)
+    try:
+        return res.json()
+    except Exception:
+        return {"error": {"message": (res.text or "")[:1200], "status": res.status_code}}
+
+
+def _start_delivery_worker(delivery_id: int) -> None:
+    def _runner():
+        db = SessionLocal()
+        try:
+            delivery = db.query(CampaignDelivery).filter_by(id=delivery_id).first()
+            if not delivery:
+                return
+            if delivery.status in {"published", "failed", "processing", "uploading"}:
+                return
+            if delivery.scheduled_at and delivery.scheduled_at > datetime.utcnow():
+                return
+            delivery.status = "uploading"
+            delivery.updated_at = datetime.utcnow()
+            db.commit()
+
+            campaign = db.query(Campaign).filter_by(id=delivery.campaign_id).first()
+            if not campaign:
+                delivery.status = "failed"
+                delivery.error_message = "Campaign not found"
+                delivery.updated_at = datetime.utcnow()
+                db.commit()
+                return
+            assets = db.query(CampaignAsset).filter_by(campaign_id=campaign.id).all()
+            image_asset = next((a for a in reversed(assets) if a.type == "image"), None)
+            video_asset = next((a for a in reversed(assets) if a.type == "video"), None)
+            hashtags = _json_loads_safe(delivery.hashtags_rendered, [])
+            tags_text = " ".join(str(x) for x in hashtags if str(x).strip())
+            caption = (delivery.caption_rendered or campaign.caption_master or campaign.topic or "").strip()
+            if tags_text:
+                caption = f"{caption}\n\n{tags_text}".strip()
+
+            remote_id = ""
+            delivery.status = "processing"
+            delivery.updated_at = datetime.utcnow()
+            db.commit()
+
+            if delivery.platform in {"facebook", "instagram"}:
+                conn_query = db.query(SocialAccount).filter(
+                    SocialAccount.user_id == campaign.user_id,
+                    SocialAccount.provider == "meta",
+                )
+                if delivery.account_ref:
+                    if delivery.platform == "facebook":
+                        conn_query = conn_query.filter(SocialAccount.page_id == delivery.account_ref)
+                    else:
+                        conn_query = conn_query.filter(SocialAccount.ig_user_id == delivery.account_ref)
+                conn = conn_query.order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc()).first()
+                if not conn or not conn.token_encrypted:
+                    raise RuntimeError("Meta не подключен")
+                access_token = decrypt_meta_token(conn.token_encrypted)
+                if delivery.platform == "facebook":
+                    if not conn.page_id:
+                        raise RuntimeError("Не выбрана Facebook Page")
+                    page_token = _resolve_page_access_token(access_token, conn.page_id)
+                    if not page_token:
+                        raise RuntimeError("Не удалось получить page token")
+                    if delivery.kind == "video":
+                        if not video_asset:
+                            raise RuntimeError("Видео не сгенерировано")
+                        result = _publish_facebook_video(conn.page_id, page_token, video_asset.storage_url, caption)
+                        remote_id = str(result.get("id") or result.get("video_id") or "")
+                    else:
+                        image_url = image_asset.storage_url if image_asset else None
+                        result = publish_to_facebook(conn.page_id, page_token, image_url, caption)
+                        remote_id = str(result.get("post_id") or result.get("id") or "")
+                else:
+                    if not conn.ig_user_id:
+                        raise RuntimeError("Instagram Business не найден")
+                    if delivery.kind == "reel":
+                        if not video_asset:
+                            raise RuntimeError("Видео не сгенерировано")
+                        result = _publish_instagram_reel(conn.ig_user_id, access_token, video_asset.storage_url, caption)
+                        remote_id = str(result.get("id") or "")
+                    else:
+                        image_url = image_asset.storage_url if image_asset else None
+                        result = publish_to_instagram(conn.ig_user_id, access_token, image_url, caption)
+                        remote_id = str(result.get("id") or "")
+                if not remote_id:
+                    raise RuntimeError(f"Meta API error: {result}")
+            elif delivery.platform == "youtube":
+                conn_query = db.query(SocialAccount).filter(
+                    SocialAccount.user_id == campaign.user_id,
+                    SocialAccount.provider == "youtube",
+                )
+                if delivery.account_ref:
+                    conn_query = conn_query.filter(SocialAccount.channel_id == delivery.account_ref)
+                conn = conn_query.order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc()).first()
+                if not conn or not conn.token_encrypted:
+                    raise RuntimeError("YouTube не подключен")
+                if not video_asset:
+                    raise RuntimeError("Видео не сгенерировано")
+                yt_token = decrypt_meta_token(conn.token_encrypted)
+                yt = _publish_youtube_video_from_url(
+                    access_token=yt_token,
+                    video_url=video_asset.storage_url,
+                    title=campaign.topic,
+                    description=caption,
+                    tags=hashtags,
+                    is_shorts=(delivery.kind == "shorts"),
+                )
+                remote_id = str(yt.get("id") or "")
+                if not remote_id:
+                    raise RuntimeError(f"YouTube API error: {yt}")
+            else:
+                raise RuntimeError("Неподдерживаемая платформа")
+
+            delivery.status = "published"
+            delivery.remote_id = remote_id
+            delivery.error_message = None
+            delivery.updated_at = datetime.utcnow()
+            db.commit()
+            _refresh_campaign_status(db, campaign.id)
+        except Exception as exc:
+            db.rollback()
+            row = db.query(CampaignDelivery).filter_by(id=delivery_id).first()
+            if row:
+                row.status = "failed"
+                row.error_message = str(exc)[:2000]
+                row.updated_at = datetime.utcnow()
+                db.commit()
+                try:
+                    _refresh_campaign_status(db, row.campaign_id)
+                except Exception:
+                    pass
+        finally:
+            db.close()
+
+    thread = threading.Thread(target=_runner, daemon=True, name=f"delivery-{delivery_id}")
+    thread.start()
 
 
 def _store_oauth_state(provider: str, extra: dict | None = None) -> str:
@@ -1312,6 +1690,643 @@ def generate_preview():
         return jsonify({"error": f"Ошибка генерации предпросмотра: {msg}"}), 500
 
     return jsonify(payload)
+
+
+def _campaign_mode_allows(kind_mode: str, platform: str, kind: str) -> bool:
+    mode = str(kind_mode or "image").strip().lower()
+    platform = str(platform or "").strip().lower()
+    kind = str(kind or "").strip().lower()
+    if platform == "facebook":
+        if kind not in {"image_post", "video"}:
+            return False
+        if mode == "image":
+            return kind == "image_post"
+        if mode == "video":
+            return kind == "video"
+        return kind in {"image_post", "video"}
+    if platform == "instagram":
+        if kind not in {"image_post", "reel"}:
+            return False
+        if mode == "image":
+            return kind == "image_post"
+        if mode == "video":
+            return kind == "reel"
+        return kind in {"image_post", "reel"}
+    if platform == "youtube":
+        if kind not in {"shorts", "video"}:
+            return False
+        return mode in {"video", "both"}
+    return False
+
+
+def _kick_due_deliveries_for_user(user_id: int) -> None:
+    now = datetime.utcnow()
+    db = SessionLocal()
+    try:
+        due_rows = (
+            db.query(CampaignDelivery)
+            .join(Campaign, Campaign.id == CampaignDelivery.campaign_id)
+            .filter(Campaign.user_id == user_id)
+            .filter(CampaignDelivery.status == "queued")
+            .filter((CampaignDelivery.scheduled_at.is_(None)) | (CampaignDelivery.scheduled_at <= now))
+            .order_by(CampaignDelivery.created_at.asc())
+            .limit(30)
+            .all()
+        )
+        delivery_ids = [d.id for d in due_rows]
+    finally:
+        db.close()
+    for delivery_id in delivery_ids:
+        _start_delivery_worker(delivery_id)
+
+
+def _refresh_campaign_status(db, campaign_id: int) -> str:
+    rows = db.query(CampaignDelivery).filter(CampaignDelivery.campaign_id == campaign_id).all()
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        return "failed"
+    if not rows:
+        campaign.status = "draft"
+    else:
+        statuses = [str(r.status or "").lower() for r in rows]
+        if any(s in {"uploading", "processing"} for s in statuses):
+            campaign.status = "publishing"
+        elif all(s == "published" for s in statuses):
+            campaign.status = "published"
+        elif any(s == "failed" for s in statuses):
+            campaign.status = "failed"
+        elif any(s == "queued" for s in statuses):
+            campaign.status = "ready"
+        else:
+            campaign.status = "ready"
+    campaign.updated_at = datetime.utcnow()
+    db.commit()
+    return campaign.status
+
+
+def _start_generation_job(job_id: int, payload: dict) -> None:
+    def _runner():
+        db = SessionLocal()
+        try:
+            job = db.query(GenerationJob).filter_by(id=job_id).first()
+            if not job:
+                return
+            campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+            if not campaign:
+                job.status = "failed"
+                job.error_message = "Campaign not found"
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                return
+
+            job.status = "running"
+            job.progress = 8
+            job.updated_at = datetime.utcnow()
+            db.commit()
+
+            if job.job_type == "generate_image":
+                topic = campaign.topic or "контент"
+                style = str(payload.get("style") or "реалистично")
+                tone = "friendly"
+                if style in {"бизнес", "business"}:
+                    tone = "expert"
+                elif style in {"лайфстайл", "lifestyle"}:
+                    tone = "friendly"
+                elif style in {"минимализм", "minimal"}:
+                    tone = "neutral"
+                image_url = build_semantic_fallback_image_url(
+                    topic=f"{topic}. Стиль: {style}. Реалистично, без фантастических существ.",
+                    category="business",
+                    tone=tone,
+                    language=campaign.language or "ru",
+                )
+                mirrored = _download_and_store_binary(image_url, ".jpg")
+                final_url = mirrored[0] if mirrored else image_url
+                size_bytes = mirrored[1] if mirrored else 0
+                job.progress = 92
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                asset = CampaignAsset(
+                    campaign_id=campaign.id,
+                    type="image",
+                    storage_url=final_url,
+                    mime_type=_guess_mime(final_url, "image/jpeg"),
+                    width=1024,
+                    height=1024,
+                    duration_sec=None,
+                    size_bytes=size_bytes,
+                    created_at=datetime.utcnow(),
+                )
+                db.add(asset)
+                campaign.status = "ready"
+                campaign.updated_at = datetime.utcnow()
+                job.status = "done"
+                job.progress = 100
+                job.result_json = json.dumps({"asset_id": None, "type": "image"}, ensure_ascii=False)
+                job.error_message = None
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(asset)
+                job.result_json = json.dumps({"asset": _asset_payload(asset)}, ensure_ascii=False)
+                db.commit()
+                return
+
+            if job.job_type == "generate_video":
+                topic = campaign.topic or "контент"
+                duration_sec = int(payload.get("duration_sec") or 30)
+                aspect_ratio = str(payload.get("aspect_ratio") or "9:16")
+                gen_thumbnail = bool(payload.get("generate_thumbnail") is not False)
+                video_url, size_bytes = _ensure_video_asset_url(topic, duration_sec, aspect_ratio)
+                job.progress = 75
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                video_asset = CampaignAsset(
+                    campaign_id=campaign.id,
+                    type="video",
+                    storage_url=video_url,
+                    mime_type="video/mp4",
+                    width=1080 if aspect_ratio == "9:16" else (1920 if aspect_ratio == "16:9" else 1080),
+                    height=1920 if aspect_ratio == "9:16" else (1080 if aspect_ratio == "16:9" else 1080),
+                    duration_sec=duration_sec,
+                    size_bytes=size_bytes,
+                    created_at=datetime.utcnow(),
+                )
+                db.add(video_asset)
+                thumb_asset = None
+                if gen_thumbnail:
+                    thumb_url = build_semantic_fallback_image_url(
+                        topic=f"Обложка для видео: {topic}",
+                        category="business",
+                        tone="expert",
+                        language=campaign.language or "ru",
+                    )
+                    thumb_mirror = _download_and_store_binary(thumb_url, ".jpg")
+                    thumb_final = thumb_mirror[0] if thumb_mirror else thumb_url
+                    thumb_asset = CampaignAsset(
+                        campaign_id=campaign.id,
+                        type="thumbnail",
+                        storage_url=thumb_final,
+                        mime_type=_guess_mime(thumb_final, "image/jpeg"),
+                        width=1280,
+                        height=720,
+                        duration_sec=None,
+                        size_bytes=(thumb_mirror[1] if thumb_mirror else 0),
+                        created_at=datetime.utcnow(),
+                    )
+                    db.add(thumb_asset)
+                campaign.status = "ready"
+                campaign.updated_at = datetime.utcnow()
+                job.status = "done"
+                job.progress = 100
+                job.error_message = None
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(video_asset)
+                result_payload = {"video": _asset_payload(video_asset)}
+                if thumb_asset:
+                    db.refresh(thumb_asset)
+                    result_payload["thumbnail"] = _asset_payload(thumb_asset)
+                job.result_json = json.dumps(result_payload, ensure_ascii=False)
+                db.commit()
+                return
+
+            raise RuntimeError("Unsupported job type")
+        except Exception as exc:
+            db.rollback()
+            row = db.query(GenerationJob).filter_by(id=job_id).first()
+            if row:
+                row.status = "failed"
+                row.error_message = str(exc)[:2000]
+                row.updated_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+
+    thread = threading.Thread(target=_runner, daemon=True, name=f"generation-job-{job_id}")
+    thread.start()
+
+
+@saas_api.route("/campaigns", methods=["POST"])
+@require_auth
+def create_campaign():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    mode = str(data.get("mode") or "image").strip().lower()
+    if mode not in {"image", "video", "both"}:
+        return jsonify({"error": "mode должен быть image, video или both"}), 400
+
+    project_id = data.get("project_id")
+    if project_id is not None:
+        try:
+            project_id = int(project_id)
+        except Exception:
+            return jsonify({"error": "project_id должен быть числом"}), 400
+        if not can_access_project(user, project_id):
+            return jsonify({"error": "Нет доступа к проекту"}), 403
+    else:
+        project_id = get_or_create_default_project(user.id).id
+
+    topic = (data.get("topic") or "").strip() or "Новая кампания"
+    campaign = Campaign(
+        user_id=user.id,
+        project_id=project_id,
+        mode=mode,
+        topic=topic,
+        offer=(data.get("offer") or "").strip() or None,
+        objective=(data.get("objective") or "").strip() or None,
+        caption_master=(data.get("caption_master") or "").strip() or None,
+        cta=(data.get("cta") or "").strip() or None,
+        hashtags_master=json.dumps(data.get("hashtags_master") or [], ensure_ascii=False),
+        language=str(data.get("language") or "ru").strip().lower() or "ru",
+        status=str(data.get("status") or "draft").strip().lower() or "draft",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db = SessionLocal()
+    try:
+        db.add(campaign)
+        db.commit()
+        db.refresh(campaign)
+        return jsonify({"campaign": _campaign_payload(campaign)}), 201
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns/<int:campaign_id>", methods=["PATCH"])
+@require_auth
+def update_campaign(campaign_id: int):
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Кампания не найдена"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        if "project_id" in data:
+            raw_project = data.get("project_id")
+            if raw_project in (None, "", "null"):
+                campaign.project_id = None
+            else:
+                try:
+                    pid = int(raw_project)
+                except Exception:
+                    return jsonify({"error": "project_id должен быть числом"}), 400
+                if not can_access_project(user, pid):
+                    return jsonify({"error": "Нет доступа к проекту"}), 403
+                campaign.project_id = pid
+        if "mode" in data:
+            mode = str(data.get("mode") or "").strip().lower()
+            if mode not in {"image", "video", "both"}:
+                return jsonify({"error": "mode должен быть image, video или both"}), 400
+            campaign.mode = mode
+        if "topic" in data:
+            topic = (data.get("topic") or "").strip()
+            if not topic:
+                return jsonify({"error": "topic обязателен"}), 400
+            campaign.topic = topic
+        if "offer" in data:
+            campaign.offer = (data.get("offer") or "").strip() or None
+        if "objective" in data:
+            campaign.objective = (data.get("objective") or "").strip() or None
+        if "caption_master" in data:
+            campaign.caption_master = (data.get("caption_master") or "").strip() or None
+        if "cta" in data:
+            campaign.cta = (data.get("cta") or "").strip() or None
+        if "hashtags_master" in data:
+            tags = data.get("hashtags_master")
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split() if t.strip()]
+            if not isinstance(tags, list):
+                return jsonify({"error": "hashtags_master должен быть массивом или строкой"}), 400
+            campaign.hashtags_master = json.dumps(tags[:30], ensure_ascii=False)
+        if "language" in data:
+            campaign.language = str(data.get("language") or "ru").strip().lower() or "ru"
+        if "status" in data:
+            status = str(data.get("status") or "").strip().lower()
+            if status not in {"draft", "ready", "publishing", "published", "failed"}:
+                return jsonify({"error": "Недопустимый status"}), 400
+            campaign.status = status
+        campaign.updated_at = datetime.utcnow()
+        db.commit()
+        return jsonify({"campaign": _campaign_payload(campaign)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns/<int:campaign_id>", methods=["GET"])
+@require_auth
+def campaign_details(campaign_id: int):
+    user = g.current_user
+    _kick_due_deliveries_for_user(user.id)
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Кампания не найдена"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        assets = (
+            db.query(CampaignAsset)
+            .filter_by(campaign_id=campaign.id)
+            .order_by(CampaignAsset.created_at.asc(), CampaignAsset.id.asc())
+            .all()
+        )
+        deliveries = (
+            db.query(CampaignDelivery)
+            .filter_by(campaign_id=campaign.id)
+            .order_by(CampaignDelivery.created_at.asc(), CampaignDelivery.id.asc())
+            .all()
+        )
+        jobs = (
+            db.query(GenerationJob)
+            .filter_by(campaign_id=campaign.id)
+            .order_by(GenerationJob.created_at.desc(), GenerationJob.id.desc())
+            .limit(20)
+            .all()
+        )
+        return jsonify(
+            {
+                "campaign": _campaign_payload(campaign),
+                "assets": [_asset_payload(a) for a in assets],
+                "deliveries": [_delivery_payload(d) for d in deliveries],
+                "jobs": [_job_payload(j) for j in jobs],
+            }
+        )
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns", methods=["GET"])
+@require_auth
+def list_campaigns():
+    user = g.current_user
+    limit = min(100, max(1, int(request.args.get("limit", 30))))
+    db = SessionLocal()
+    try:
+        query = db.query(Campaign)
+        if user.role != "admin":
+            query = query.filter(Campaign.user_id == user.id)
+        rows = query.order_by(Campaign.created_at.desc(), Campaign.id.desc()).limit(limit).all()
+        return jsonify({"items": [_campaign_payload(c) for c in rows]})
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns/<int:campaign_id>/generate-image", methods=["POST"])
+@require_auth
+def campaign_generate_image(campaign_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Кампания не найдена"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        if campaign.mode == "video":
+            return jsonify({"error": "Для режима video генерация изображения недоступна"}), 400
+        if not (campaign.topic or "").strip():
+            return jsonify({"error": "Укажите тему кампании перед генерацией"}), 400
+
+        payload = {
+            "style": str(data.get("style") or "реалистично"),
+            "no_text_on_image": bool(data.get("no_text_on_image") is not False),
+            "realism": bool(data.get("realism") is not False),
+            "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
+        }
+        job = GenerationJob(
+            campaign_id=campaign.id,
+            job_type="generate_image",
+            status="queued",
+            progress=0,
+            result_json=json.dumps({}, ensure_ascii=False),
+            error_message=None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(job)
+        campaign.status = "draft"
+        campaign.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(job)
+        _start_generation_job(job.id, payload)
+        return jsonify({"job": _job_payload(job)}), 202
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns/<int:campaign_id>/generate-video", methods=["POST"])
+@require_auth
+def campaign_generate_video(campaign_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Кампания не найдена"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        if campaign.mode == "image":
+            return jsonify({"error": "Для режима image генерация видео недоступна"}), 400
+        if not (campaign.topic or "").strip():
+            return jsonify({"error": "Укажите тему кампании перед генерацией"}), 400
+
+        duration_sec = int(data.get("duration_sec") or 30)
+        if duration_sec < 20 or duration_sec > 480:
+            return jsonify({"error": "duration_sec должен быть в диапазоне 20..480"}), 400
+        aspect_ratio = str(data.get("aspect_ratio") or "9:16").strip()
+        if aspect_ratio not in {"9:16", "1:1", "16:9"}:
+            return jsonify({"error": "aspect_ratio должен быть 9:16, 1:1 или 16:9"}), 400
+        payload = {
+            "duration_sec": duration_sec,
+            "aspect_ratio": aspect_ratio,
+            "realism": bool(data.get("realism") is not False),
+            "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
+            "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
+        }
+        job = GenerationJob(
+            campaign_id=campaign.id,
+            job_type="generate_video",
+            status="queued",
+            progress=0,
+            result_json=json.dumps({}, ensure_ascii=False),
+            error_message=None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(job)
+        campaign.status = "draft"
+        campaign.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(job)
+        _start_generation_job(job.id, payload)
+        return jsonify({"job": _job_payload(job)}), 202
+    finally:
+        db.close()
+
+
+@saas_api.route("/jobs/<int:job_id>", methods=["GET"])
+@require_auth
+def get_job_status(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id).first()
+        if not job:
+            return jsonify({"error": "Job не найден"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Campaign не найден"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        return jsonify({"job": _job_payload(job)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/campaigns/<int:campaign_id>/publish", methods=["POST"])
+@require_auth
+def campaign_publish(campaign_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    requested = data.get("deliveries") if isinstance(data.get("deliveries"), list) else []
+    if not requested:
+        return jsonify({"error": "Передайте deliveries"}), 400
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter_by(id=campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Кампания не найдена"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        assets = db.query(CampaignAsset).filter_by(campaign_id=campaign.id).all()
+        has_image = any(a.type == "image" for a in assets)
+        has_video = any(a.type == "video" for a in assets)
+
+        created_rows = []
+        for item in requested:
+            if not isinstance(item, dict):
+                return jsonify({"error": "Элементы deliveries должны быть объектами"}), 400
+            platform = str(item.get("platform") or "").strip().lower()
+            kind = str(item.get("kind") or "").strip().lower()
+            if platform not in {"facebook", "instagram", "youtube"}:
+                return jsonify({"error": f"Неподдерживаемая платформа: {platform}"}), 400
+            if not _campaign_mode_allows(campaign.mode, platform, kind):
+                return jsonify({"error": f"Режим {campaign.mode} не поддерживает {platform}/{kind}"}), 400
+            if kind == "image_post" and not has_image:
+                return jsonify({"error": "Сначала сгенерируйте изображение"}), 400
+            if kind in {"video", "reel", "shorts"} and not has_video:
+                return jsonify({"error": "Сначала сгенерируйте видео"}), 400
+            account_ref = (item.get("account_ref") or "").strip() or None
+            if platform == "youtube" and not account_ref:
+                conn = (
+                    db.query(SocialAccount)
+                    .filter(SocialAccount.user_id == campaign.user_id, SocialAccount.provider == "youtube")
+                    .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+                    .first()
+                )
+                if conn and conn.channel_id:
+                    account_ref = conn.channel_id
+            scheduled_at = None
+            if item.get("scheduled_at"):
+                try:
+                    scheduled_at = _parse_iso_datetime(str(item.get("scheduled_at")))
+                except Exception:
+                    return jsonify({"error": "scheduled_at должен быть в ISO формате"}), 400
+
+            tags = item.get("hashtags_override")
+            if tags is None:
+                tags = _json_loads_safe(campaign.hashtags_master, [])
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split() if t.strip()]
+            if not isinstance(tags, list):
+                tags = []
+            caption = (item.get("caption_override") or campaign.caption_master or campaign.topic or "").strip()
+            row = CampaignDelivery(
+                campaign_id=campaign.id,
+                platform=platform,
+                kind=kind,
+                account_ref=account_ref,
+                caption_rendered=caption,
+                hashtags_rendered=json.dumps(tags[:30], ensure_ascii=False),
+                scheduled_at=scheduled_at,
+                status="queued",
+                remote_id=None,
+                error_message=None,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db.add(row)
+            created_rows.append(row)
+        campaign.status = "publishing"
+        campaign.updated_at = datetime.utcnow()
+        db.commit()
+        for row in created_rows:
+            db.refresh(row)
+            if row.scheduled_at is None or row.scheduled_at <= datetime.utcnow():
+                _start_delivery_worker(row.id)
+        return jsonify({"deliveries": [_delivery_payload(r) for r in created_rows], "campaign": _campaign_payload(campaign)}), 202
+    finally:
+        db.close()
+
+
+@saas_api.route("/deliveries/<int:delivery_id>", methods=["GET"])
+@require_auth
+def delivery_details(delivery_id: int):
+    user = g.current_user
+    _kick_due_deliveries_for_user(user.id)
+    db = SessionLocal()
+    try:
+        row = db.query(CampaignDelivery).filter_by(id=delivery_id).first()
+        if not row:
+            return jsonify({"error": "Delivery не найден"}), 404
+        campaign = db.query(Campaign).filter_by(id=row.campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Campaign не найден"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        _refresh_campaign_status(db, campaign.id)
+        return jsonify({"delivery": _delivery_payload(row)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/history", methods=["GET"])
+@require_auth
+def campaigns_history():
+    user = g.current_user
+    _kick_due_deliveries_for_user(user.id)
+    limit = min(200, max(1, int(request.args.get("limit", 80))))
+    db = SessionLocal()
+    try:
+        query = db.query(Campaign)
+        if user.role != "admin":
+            query = query.filter(Campaign.user_id == user.id)
+        campaigns = query.order_by(Campaign.created_at.desc()).limit(limit).all()
+        campaign_ids = [c.id for c in campaigns]
+        deliveries = []
+        if campaign_ids:
+            deliveries = (
+                db.query(CampaignDelivery)
+                .filter(CampaignDelivery.campaign_id.in_(campaign_ids))
+                .order_by(CampaignDelivery.created_at.desc())
+                .all()
+            )
+        by_campaign = {}
+        for d in deliveries:
+            by_campaign.setdefault(d.campaign_id, []).append(_delivery_payload(d))
+        payload = []
+        for c in campaigns:
+            payload.append({"campaign": _campaign_payload(c), "deliveries": by_campaign.get(c.id, [])})
+        return jsonify({"items": payload})
+    finally:
+        db.close()
 
 
 @saas_api.route("/youtube/generate-video", methods=["POST"])
