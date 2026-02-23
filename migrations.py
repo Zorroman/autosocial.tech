@@ -111,6 +111,22 @@ CONTENT_DRAFTS_ADDITIONAL_COLUMNS = {
     "created_at": "DATETIME",
 }
 
+USER_TEMPLATES_ADDITIONAL_COLUMNS = {
+    "name": "VARCHAR(160) NOT NULL DEFAULT 'Шаблон'",
+    "preset_json": "TEXT DEFAULT '{}' NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+AI_SCORE_DAILY_ADDITIONAL_COLUMNS = {
+    "ai_score": "FLOAT DEFAULT 0 NOT NULL",
+    "performance": "FLOAT DEFAULT 0 NOT NULL",
+    "consistency": "FLOAT DEFAULT 0 NOT NULL",
+    "growth": "FLOAT DEFAULT 0 NOT NULL",
+    "optimization": "FLOAT DEFAULT 0 NOT NULL",
+    "created_at": "DATETIME",
+}
+
 
 def add_missing_columns(table_name: str, columns: dict) -> None:
     inspector = inspect(engine)
@@ -198,6 +214,18 @@ def run_migrations() -> None:
         add_missing_columns("content_drafts", CONTENT_DRAFTS_ADDITIONAL_COLUMNS)
         with engine.begin() as conn:
             conn.execute(text("UPDATE content_drafts SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+    if "user_templates" in tables:
+        add_missing_columns("user_templates", USER_TEMPLATES_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE user_templates SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("UPDATE user_templates SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+    if "ai_score_daily" in tables:
+        add_missing_columns("ai_score_daily", AI_SCORE_DAILY_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE ai_score_daily SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(
+                text("CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_score_daily_user_day ON ai_score_daily (user_id, day)")
+            )
     # Keep dashboard account-unification table in sync with existing social_accounts storage.
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())

@@ -165,6 +165,23 @@ class ContentMetricDaily(SaaSBase):
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
+class AiScoreDaily(SaaSBase):
+    __tablename__ = "ai_score_daily"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", name="uq_ai_score_daily_user_day"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    ai_score = Column(Float, nullable=False, default=0)
+    performance = Column(Float, nullable=False, default=0)
+    consistency = Column(Float, nullable=False, default=0)
+    growth = Column(Float, nullable=False, default=0)
+    optimization = Column(Float, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class TopicSuggestion(SaaSBase):
     __tablename__ = "topics_suggestions"
     __table_args__ = (UniqueConstraint("user_id", "project_id", "category", "topic", name="uq_topic_suggestion"),)
@@ -294,6 +311,17 @@ class ContentDraft(SaaSBase):
     cta = Column(Text, nullable=True)
     asset_ideas_json = Column(Text, nullable=False, default="[]")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class UserTemplate(SaaSBase):
+    __tablename__ = "user_templates"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    name = Column(String(160), nullable=False)
+    preset_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
 class GenerationJob(SaaSBase):

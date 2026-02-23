@@ -418,8 +418,11 @@ const state = {
     syncing: false,
     summary: null,
     timeseries: { points: [] },
+    aiScore: { current: 0, delta_7d: 0, breakdown: null, timeseries: [] },
     insights: [],
     recent: [],
+    chartMetric: 'reach',
+    recentSort: 'engagement',
   },
   plans: [],
   blog: [],
@@ -487,6 +490,16 @@ const state = {
     contentGoal: 'engagement',
     contentVariants3: false,
     contentScheduleAt: '',
+    studioMode: 'quick', // quick | pro
+    audienceType: 'b2c',
+    audienceSegment: '',
+    contentFormat: 'post',
+    forbiddenTopics: '',
+    rewriteStyle: 'короче',
+    previewPlatform: 'facebook',
+    aiAssist: { loading: false, hook: '', angles: [], ctaVariants: [] },
+    quality: { score: 0, checks: [], warnings: [] },
+    templates: [],
     contentGeneration: {
       loading: false,
       stage: 'idle', // idle | strategy | drafts | ready | error
@@ -1354,221 +1367,255 @@ function pageLogin() {
 
 function pageDashboard() {
   const stats = state.dashboardMetrics || {};
-  const summary = stats.summary || {
-    reach: 0,
-    views: 0,
-    clicks: 0,
-    likes: 0,
-    comments: 0,
-    shares: 0,
-    items: 0,
-  };
-  const byPlatform = summary.by_platform || {
-    meta: { reach: 0, views: 0, items: 0 },
-    youtube: { reach: 0, views: 0, items: 0 },
-  };
-  const points = (stats.timeseries && Array.isArray(stats.timeseries.points)) ? stats.timeseries.points : [];
+  const summary = stats.summary || { reach: 0, views: 0, likes: 0, comments: 0, shares: 0, items: 0, by_platform: {} };
+  const aiScore = stats.aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] };
+  const byPlatform = summary.by_platform || { meta: { reach: 0, views: 0, items: 0 }, youtube: { reach: 0, views: 0, items: 0 } };
+  const points = Array.isArray(stats?.timeseries?.points) ? stats.timeseries.points : [];
+  const aiPoints = Array.isArray(aiScore.timeseries) ? aiScore.timeseries : [];
   const insights = Array.isArray(stats.insights) ? stats.insights : [];
   const recent = Array.isArray(stats.recent) ? stats.recent : [];
-  const connectedMetaCount = (state.connections || []).filter((c) => isConnectionReady(c)).length;
-  const connectedYoutube = state.youtubeConnection?.connected ? 1 : 0;
-  const connectedAccountsCount = connectedMetaCount + connectedYoutube;
+  const chartMetric = stats.chartMetric || 'reach';
+  const recentSort = stats.recentSort || 'engagement';
   const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
-  const impactLabel = (k) => k === 'high' ? 'high' : (k === 'medium' ? 'medium' : 'low');
+  const pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
+  const deltaFmt = (v) => `${Number(v || 0) >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}`;
 
-  const chartHtml = (() => {
-    if (!points.length) return '<p class="small">Нет точек для графика. Нажмите «Синхронизировать метрики».</p>';
-    const width = 920;
-    const height = 260;
-    const padX = 30;
-    const padY = 20;
+  const statusLabel = (kind) => kind === 'connected' ? 'подключено' : (kind === 'expiring' ? 'токен скоро истечет' : 'требует внимания');
+  const statusClass = (kind) => kind === 'connected' ? 'is-ok' : (kind === 'expiring' ? 'is-warn' : 'is-bad');
+  const tokenExpiring = (iso) => {
+    if (!iso) return false;
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return false;
+    return (t - Date.now()) <= 1000 * 60 * 60 * 24 * 3;
+  };
+  const metaReady = (state.connections || []).filter((c) => isConnectionReady(c));
+  const metaStatus = !metaReady.length ? 'needs' : (metaReady.some((c) => tokenExpiring(c.token_expires_at)) ? 'expiring' : 'connected');
+  const ytConnected = !!state.youtubeConnection?.connected;
+  const ytStatus = ytConnected ? 'connected' : 'needs';
+
+  const metaSeries = points.map((p) => Number(p.meta_reach || 0) + Number(p.meta_views || 0));
+  const ytSeries = points.map((p) => Number(p.youtube_reach || 0) + Number(p.youtube_views || 0));
+  const buildSpark = (vals, css) => {
+    if (!vals.length) return `<div class="dash-sparkline ${css}"></div>`;
+    const width = 220;
+    const height = 46;
+    const pad = 3;
+    const maxV = Math.max(1, ...vals);
+    const minV = Math.min(...vals, 0);
+    const spread = Math.max(1, maxV - minV);
+    const xAt = (i) => pad + (vals.length <= 1 ? 0 : (i * (width - pad * 2)) / (vals.length - 1));
+    const yAt = (v) => pad + (height - pad * 2) - ((v - minV) / spread) * (height - pad * 2);
+    const d = vals.map((v, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)}`).join(' ');
+    return `<svg viewBox="0 0 ${width} ${height}" class="dash-sparkline ${css}" role="img" aria-label="sparkline"><path d="${d}"></path></svg>`;
+  };
+
+  const resolveSeries = () => {
+    if (chartMetric === 'ai_score') {
+      return aiPoints.map((p) => ({ day: p.day, value: Number(p.ai_score || 0) }));
+    }
+    if (chartMetric === 'engagement') {
+      return points.map((p) => ({ day: p.day, value: Number(p.engagement_rate || 0) * 100 }));
+    }
+    return points.map((p) => ({ day: p.day, value: Number(p[chartMetric] || 0) }));
+  };
+  const chartSeries = resolveSeries();
+  const chartStat = (() => {
+    if (!chartSeries.length) return { avg: 0, peak: 0, worst: 0, peakDay: '—', worstDay: '—' };
+    let sum = 0;
+    let peak = -1;
+    let worst = Number.POSITIVE_INFINITY;
+    let peakDay = '';
+    let worstDay = '';
+    chartSeries.forEach((p) => {
+      sum += Number(p.value || 0);
+      if (p.value > peak) { peak = Number(p.value || 0); peakDay = p.day || ''; }
+      if (p.value < worst) { worst = Number(p.value || 0); worstDay = p.day || ''; }
+    });
+    return { avg: sum / chartSeries.length, peak, worst, peakDay, worstDay };
+  })();
+  const chartUnit = chartMetric === 'engagement' ? 'percent' : (chartMetric === 'ai_score' ? 'score' : 'number');
+  const chartValue = (v) => chartUnit === 'number' ? fmt(Math.round(v)) : `${Number(v || 0).toFixed(1)}${chartUnit === 'score' ? '' : '%'}`;
+  const chartTitle = { reach: 'Охват', views: 'Просмотры', engagement: 'Вовлеченность', ai_score: 'AI-Score' }[chartMetric] || 'Охват';
+
+  const mainChartHtml = (() => {
+    if (stats.loading) return '<div class="dash-skeleton dash-skeleton-chart"></div>';
+    if (!chartSeries.length) return '<p class="small">Нет данных. Нажмите «Синхронизировать».</p>';
+    const width = 980;
+    const height = 280;
+    const padX = 28;
+    const padY = 16;
     const chartW = width - padX * 2;
     const chartH = height - padY * 2;
-    const maxValue = Math.max(
-      1,
-      ...points.map((p) =>
-        Math.max(
-          Number(p.meta_reach || 0),
-          Number(p.meta_views || 0),
-          Number(p.youtube_reach || 0),
-          Number(p.youtube_views || 0),
-        )
-      ),
-    );
-    const xAt = (i) => padX + (points.length <= 1 ? 0 : (i * chartW) / (points.length - 1));
+    const maxValue = Math.max(1, ...chartSeries.map((p) => Number(p.value || 0)));
+    const xAt = (i) => padX + (chartSeries.length <= 1 ? 0 : (i * chartW) / (chartSeries.length - 1));
     const yAt = (v) => padY + chartH - (Number(v || 0) / maxValue) * chartH;
-    const buildPath = (key) => points.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(2)} ${yAt(p[key]).toFixed(2)}`).join(' ');
-    const metaReachPath = buildPath('meta_reach');
-    const metaViewsPath = buildPath('meta_views');
-    const ytReachPath = buildPath('youtube_reach');
-    const ytViewsPath = buildPath('youtube_views');
-    const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
+    const d = chartSeries.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(2)} ${yAt(p.value).toFixed(2)}`).join(' ');
+    const xLabels = [0, Math.floor((chartSeries.length - 1) / 2), chartSeries.length - 1]
       .filter((v, i, arr) => arr.indexOf(v) === i)
-      .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 4}" text-anchor="middle">${esc((points[idx].day || '').slice(5))}</text>`)
+      .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 3}" text-anchor="middle">${esc((chartSeries[idx].day || '').slice(5))}</text>`)
       .join('');
-    return `
-      <div class="dash-chart-wrap">
-        <svg viewBox="0 0 ${width} ${height}" class="dash-chart-svg" role="img" aria-label="График Meta и YouTube reach/views за 30 дней">
-          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="dash-chart-axis"></line>
-          <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" class="dash-chart-axis"></line>
-          <path d="${metaReachPath}" class="dash-chart-line dash-chart-line-meta-reach"></path>
-          <path d="${metaViewsPath}" class="dash-chart-line dash-chart-line-meta-views"></path>
-          <path d="${ytReachPath}" class="dash-chart-line dash-chart-line-yt-reach"></path>
-          <path d="${ytViewsPath}" class="dash-chart-line dash-chart-line-yt-views"></path>
-          ${xLabels}
-        </svg>
-        <div class="dash-chart-legend">
-          <span><i class="dash-dot dash-dot-meta-reach"></i> Meta reach</span>
-          <span><i class="dash-dot dash-dot-meta-views"></i> Meta views</span>
-          <span><i class="dash-dot dash-dot-yt-reach"></i> YouTube reach</span>
-          <span><i class="dash-dot dash-dot-yt-views"></i> YouTube views</span>
-        </div>
-      </div>`;
+    return `<div class="dash-chart-wrap">
+      <svg viewBox="0 0 ${width} ${height}" class="dash-chart-svg dash-chart-svg-single" role="img" aria-label="${esc(chartTitle)}">
+        <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="dash-chart-axis"></line>
+        <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" class="dash-chart-axis"></line>
+        <path d="${d}" class="dash-chart-line dash-chart-line-primary"></path>
+        ${xLabels}
+      </svg>
+      <div class="dash-chart-stats">
+        <div><span>среднее</span><strong>${chartValue(chartStat.avg)}</strong></div>
+        <div><span>пик</span><strong>${chartValue(chartStat.peak)}</strong><small>${esc((chartStat.peakDay || '').slice(5))}</small></div>
+        <div><span>худший день</span><strong>${chartValue(chartStat.worst)}</strong><small>${esc((chartStat.worstDay || '').slice(5))}</small></div>
+      </div>
+    </div>`;
   })();
 
-  const insightsHtml = insights.length
-    ? insights
-      .map((item) => `<article class="dash-insight-card"><span class="dash-impact dash-impact-${impactLabel(item.impact)}">${esc(impactLabel(item.impact))}</span><h4>${esc(item.title || 'Инсайт')}</h4><p>${esc(item.text || '')}</p></article>`)
-      .join('')
-    : '<p class="small">Недостаточно данных для инсайтов.</p>';
+  const insightCards = (insights.slice(0, 4).map((item, idx) => {
+    const title = String(item.title || '').toLowerCase();
+    let cta = 'Открыть топ-контент';
+    let action = 'open-top-content';
+    if (title.includes('день')) {
+      cta = 'Запланировать на лучший день';
+      action = 'schedule-best-day';
+    } else if (title.includes('формат')) {
+      cta = 'Создать пост в этом формате';
+      action = 'create-format-post';
+    } else if (title.includes('регуляр')) {
+      cta = 'Запланировать на лучший день';
+      action = 'schedule-best-day';
+    }
+    const impact = String(item.impact || 'low').toLowerCase();
+    return `<article class="dash-insight-card glass-card">
+      <span class="dash-impact dash-impact-${esc(impact)}">${esc(impact.toUpperCase())}</span>
+      <h4>${esc(item.title || 'Инсайт')}</h4>
+      <p>${esc(item.text || '')}</p>
+      <button type="button" class="btn btn-ghost dash-insight-cta" data-dash-insight-action="${esc(action)}" data-dash-insight-index="${idx}">${esc(cta)}</button>
+    </article>`;
+  })).join('')) || '<p class="small">Недостаточно данных для инсайтов.</p>';
 
-  const recentRows = recent.length
-    ? recent.map((item) => {
-      const m = item.metrics || {};
-      const published = item.published_at ? new Date(item.published_at).toLocaleDateString() : '—';
-      const title = item.title || 'Публикация';
-      const platform = (item.platform || '').toUpperCase();
-      const ctype = item.content_type || 'post';
-      return `<tr>
-        <td><strong>${esc(title)}</strong><div class="small">${esc(platform)} · ${esc(ctype)}</div></td>
-        <td>${fmt(m.reach)}</td>
-        <td>${fmt(m.views)}</td>
-        <td>${fmt(m.clicks)}</td>
-        <td>${fmt(m.likes)}</td>
-        <td>${fmt(m.comments)}</td>
-        <td>${fmt(m.shares)}</td>
-        <td>${esc(published)}</td>
-        <td><button type="button" class="btn btn-ghost dash-delete-btn" data-dash-recent-delete="${item.id}">Удалить</button></td>
-      </tr>`;
-    }).join('')
-    : '<tr><td colspan="9" class="small">Нет публикаций с метриками. Нажмите синхронизацию.</td></tr>';
+  const sortedRecent = [...recent].sort((a, b) => {
+    const ma = a?.metrics || {};
+    const mb = b?.metrics || {};
+    if (recentSort === 'reach') return Number(mb.reach || 0) - Number(ma.reach || 0);
+    if (recentSort === 'views') return Number(mb.views || 0) - Number(ma.views || 0);
+    return Number(b.engagement_rate || 0) - Number(a.engagement_rate || 0);
+  });
+  const recentRows = stats.loading
+    ? '<tr><td colspan="6"><div class="dash-skeleton dash-skeleton-row"></div></td></tr>'
+    : (sortedRecent.length
+      ? sortedRecent.map((item) => {
+        const m = item.metrics || {};
+        const rate = Number(item.engagement_rate || 0) * 100;
+        const rateClass = rate >= 6 ? 'high' : (rate >= 3 ? 'medium' : 'low');
+        const published = item.published_at ? new Date(item.published_at).toLocaleDateString() : '—';
+        const title = item.title || 'Публикация';
+        const platform = (item.platform || '').toUpperCase();
+        return `<tr class="dash-row-link" data-dash-item-url="${esc(item.url || '')}">
+          <td><strong>${esc(title)}</strong><div class="small">${esc(platform)} · ${esc(item.content_type || 'post')}</div></td>
+          <td>${fmt(m.reach)}</td>
+          <td>${fmt(m.views)}</td>
+          <td><span class="dash-er-indicator ${rateClass}"></span>${rate.toFixed(2)}%</td>
+          <td>${esc(published)}</td>
+          <td><button type="button" class="btn btn-ghost dash-delete-btn" data-dash-recent-delete="${item.id}">Удалить</button></td>
+        </tr>`;
+      }).join('')
+      : '<tr><td colspan="6" class="small">Нет материалов за период.</td></tr>');
+
+  const skeletonCards = '<div class="dash-skeleton-grid"><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div></div>';
 
   return appLayout('/dashboard', 'Панель управления', `
-    <section class="dash-client-shell">
-      <header class="dash-client-head">
+    <section class="dash-client-shell dash-v2-shell">
+      <header class="dash-card dash-hero glass-card">
         <div>
-          <h2>Панель управления</h2>
-          <p class="small">Реальные метрики Meta + YouTube за последние 30 дней.</p>
+          <div class="dash-hero-topline">Ваш рост за 30 дней</div>
+          <div class="dash-hero-score-row">
+            <div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
+            <div class="dash-hero-score-meta">
+              <span>AI-Score / 100</span>
+              <strong class="${Number(aiScore.delta_7d || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_7d || 0)} за 7 дней</strong>
+            </div>
+          </div>
+          <div class="dash-hero-badge">данные: Meta + YouTube / период: 30 дней</div>
         </div>
-        <div class="cta-row">
-          <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : 'Синхронизировать метрики'}</button>
-          <button id="dashCreatePostBtn" class="btn btn-secondary">Создать пост</button>
+        <div class="dash-hero-kpis">
+          ${stats.loading ? skeletonCards : `
+            <article class="dash-kpi-card glass-card"><p>Охват</p><strong>${fmt(summary.reach)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Просмотры</p><strong>${fmt(summary.views)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Уровень вовлеченности</p><strong>${pct(summary.engagement_rate || 0)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Количество постов</p><strong>${fmt(summary.items)}</strong></article>
+          `}
+          <div class="cta-row">
+            <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : 'Синхронизировать'}</button>
+            <button id="dashCreatePostBtn" class="btn btn-secondary">Создать пост</button>
+          </div>
         </div>
       </header>
       <main class="dash-client-content">
-    <section class="dash-platform-split">
-      <article class="dash-platform-card meta">
-        <h4>Meta</h4>
-        <p>Reach: <strong>${fmt(byPlatform.meta?.reach)}</strong></p>
-        <p>Views: <strong>${fmt(byPlatform.meta?.views)}</strong></p>
-        <p class="small">Контента: ${fmt(byPlatform.meta?.items)}</p>
-      </article>
-      <article class="dash-platform-card youtube">
-        <h4>YouTube</h4>
-        <p>Reach: <strong>${fmt(byPlatform.youtube?.reach)}</strong></p>
-        <p>Views: <strong>${fmt(byPlatform.youtube?.views)}</strong></p>
-        <p class="small">Контента: ${fmt(byPlatform.youtube?.items)}</p>
-      </article>
-    </section>
-    <section class="dash-kpi-grid">
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Reach (30 дней)</p>
-        <strong>${fmt(summary.reach)}</strong>
-        <span>Охват аудитории</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Views (30 дней)</p>
-        <strong>${fmt(summary.views)}</strong>
-        <span>Просмотры контента</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Clicks (30 дней)</p>
-        <strong>${fmt(summary.clicks)}</strong>
-        <span>Переходы/клики</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Аккаунты</p>
-        <strong>${connectedAccountsCount}</strong>
-        <span>Meta: ${connectedMetaCount} · YouTube: ${connectedYoutube}</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Likes (30 дней)</p>
-        <strong>${fmt(summary.likes)}</strong>
-        <span>Лайки</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Comments (30 дней)</p>
-        <strong>${fmt(summary.comments)}</strong>
-        <span>Комментарии</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Shares (30 дней)</p>
-        <strong>${fmt(summary.shares)}</strong>
-        <span>Репосты</span>
-      </article>
-      <article class="dash-kpi-card">
-        <span class="dash-kpi-accent"></span>
-        <p>Контент-единиц</p>
-        <strong>${fmt(summary.items)}</strong>
-        <span>Материалы с метриками</span>
-      </article>
-    </section>
-    <section class="dash-card">
-      <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h3>Динамика reach / views (30 дней)</h3>
-      </div>
-      ${chartHtml}
-    </section>
-    <section class="dash-card dash-ai-card">
-      <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div>
-          <h3>AI-инсайты</h3>
-          <p class="small">Рекомендации по фактической статистике из вашей БД.</p>
-        </div>
-        <div class="cta-row">
-          <button id="dashOpenCalendarBtn" class="btn btn-secondary">Открыть календарь</button>
-        </div>
-      </div>
-      <div class="dash-insights-grid">${insightsHtml}</div>
-    </section>
-    <section class="dash-card">
-      <h3>Последние публикации</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Контент</th>
-              <th>Reach</th>
-              <th>Views</th>
-              <th>Clicks</th>
-              <th>Likes</th>
-              <th>Comments</th>
-              <th>Shares</th>
-              <th>Дата</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>${recentRows}</tbody>
-        </table>
-      </div>
-    </section>
+        <section class="dash-platform-grid">
+          <article class="dash-platform-card glass-card">
+            <div class="dash-platform-head"><h4>Meta</h4><span class="dash-status-chip ${statusClass(metaStatus)}">${statusLabel(metaStatus)}</span></div>
+            <p>Охват: <strong>${fmt(byPlatform.meta?.reach)}</strong></p>
+            <p>Просмотры: <strong>${fmt(byPlatform.meta?.views)}</strong></p>
+            <p class="small">Контент-единиц: ${fmt(byPlatform.meta?.items)}</p>
+            ${buildSpark(metaSeries, 'meta')}
+          </article>
+          <article class="dash-platform-card glass-card">
+            <div class="dash-platform-head"><h4>YouTube</h4><span class="dash-status-chip ${statusClass(ytStatus)}">${statusLabel(ytStatus)}</span></div>
+            <p>Охват: <strong>${fmt(byPlatform.youtube?.reach)}</strong></p>
+            <p>Просмотры: <strong>${fmt(byPlatform.youtube?.views)}</strong></p>
+            <p class="small">Контент-единиц: ${fmt(byPlatform.youtube?.items)}</p>
+            ${buildSpark(ytSeries, 'youtube')}
+          </article>
+        </section>
+        <section class="dash-card glass-card">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h3>Динамика метрик</h3>
+            <div class="dash-metric-switch" role="tablist" aria-label="Metric switch">
+              <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">Охват</button>
+              <button type="button" data-dash-metric="views" class="${chartMetric === 'views' ? 'active' : ''}">Просмотры</button>
+              <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">Вовлеченность</button>
+              <button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>
+            </div>
+          </div>
+          ${mainChartHtml}
+        </section>
+        <section class="dash-card dash-ai-card glass-card">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3>AI-инсайты</h3>
+              <p class="small">Лучшие точки роста на основе фактических метрик.</p>
+            </div>
+            <div class="cta-row">
+              <button id="dashApplyRecommendationsBtn" class="btn btn-secondary">Применить рекомендации</button>
+              <button id="dashOpenCalendarBtn" class="btn btn-ghost">Открыть календарь</button>
+            </div>
+          </div>
+          <div class="dash-insights-grid">${stats.loading ? skeletonCards : insightCards}</div>
+        </section>
+        <section class="dash-card glass-card">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h3>Последний контент</h3>
+            <div class="dash-sort-row">
+              <button type="button" class="${recentSort === 'reach' ? 'active' : ''}" data-dash-sort="reach">Сортировка по охвату</button>
+              <button type="button" class="${recentSort === 'views' ? 'active' : ''}" data-dash-sort="views">Сортировка по просмотрам</button>
+              <button type="button" class="${recentSort === 'engagement' ? 'active' : ''}" data-dash-sort="engagement">Сортировка по вовлеченности</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Контент</th>
+                  <th>Охват</th>
+                  <th>Просмотры</th>
+                  <th>Уровень вовлеченности</th>
+                  <th>Дата</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${recentRows}</tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </section>
   `);
@@ -2528,6 +2575,17 @@ function hydrateCampaignDefaults() {
   if (!c.contentGoal) c.contentGoal = 'engagement';
   if (typeof c.contentVariants3 !== 'boolean') c.contentVariants3 = false;
   if (typeof c.contentScheduleAt !== 'string') c.contentScheduleAt = '';
+  if (!c.studioMode) c.studioMode = 'quick';
+  if (!c.audienceType) c.audienceType = 'b2c';
+  if (typeof c.audienceSegment !== 'string') c.audienceSegment = '';
+  if (!c.contentFormat) c.contentFormat = 'post';
+  if (typeof c.forbiddenTopics !== 'string') c.forbiddenTopics = '';
+  if (!c.rewriteStyle) c.rewriteStyle = 'короче';
+  if (!c.previewPlatform) c.previewPlatform = 'facebook';
+  if (!c.activeVariant) c.activeVariant = 1;
+  if (!c.aiAssist || typeof c.aiAssist !== 'object') c.aiAssist = { loading: false, hook: '', angles: [], ctaVariants: [] };
+  if (!c.quality || typeof c.quality !== 'object') c.quality = { score: 0, checks: [], warnings: [] };
+  if (!Array.isArray(c.templates)) c.templates = [];
   if (!c.contentGeneration || typeof c.contentGeneration !== 'object') {
     c.contentGeneration = {
       loading: false,
@@ -2605,7 +2663,7 @@ function pageCreateV2() {
   hydrateCampaignDefaults();
   syncCampaignKindsByMode();
   const c = state.createCampaign;
-  const steps = ['Проект', 'Платформы', 'Медиа', 'Текст', 'Генерация', 'Публикация'];
+  const steps = ['Проект', 'Платформы', 'Медиа', 'Студия контента', 'Генерация', 'Публикация'];
   const project = state.projects.find((p) => String(p.id) === String(c.projectId)) || state.projects[0] || null;
   const projectName = project?.name || 'Проект не выбран';
   const hashtags = Array.isArray(c.hashtags) ? c.hashtags : [];
@@ -2619,14 +2677,15 @@ function pageCreateV2() {
   const videoAsset = assets.filter((a) => a.type === 'video').slice(-1)[0];
   const thumbAsset = assets.filter((a) => a.type === 'thumbnail').slice(-1)[0];
   const previewText = String(c.caption || '').trim() || 'Текст появится после генерации.';
-  const previewPlatform = c.platforms?.youtube ? 'YouTube' : 'Meta';
+  const previewPlatform = String(c.previewPlatform || 'facebook').toLowerCase();
+  const previewPlatformLabel = previewPlatform === 'youtube' ? 'YouTube' : (previewPlatform === 'instagram' ? 'Instagram' : 'Facebook');
 
   const step1 = `
-    <div class="wizard-step-note">Выберите режим публикации и тему.</div>
+    <div class="wizard-step-note">Определите тип кампании, тему и язык. Это основа для AI-генерации.</div>
     <div class="create-mode-grid">
       <button type="button" class="create-mode-card ${c.mode === 'image' ? 'active' : ''}" data-cw-mode="image"><strong>Image + Text</strong><span>Картинка и текст для Meta</span></button>
-      <button type="button" class="create-mode-card ${c.mode === 'video' ? 'active' : ''}" data-cw-mode="video"><strong>Video + Text</strong><span>Видео и текст для YouTube/Meta</span></button>
-      <button type="button" class="create-mode-card ${c.mode === 'both' ? 'active' : ''}" data-cw-mode="both"><strong>Image + Video</strong><span>Одна идея для всех форматов</span></button>
+      <button type="button" class="create-mode-card ${c.mode === 'video' ? 'active' : ''}" data-cw-mode="video"><strong>Видео + текст</strong><span>Видео и текст для YouTube/Meta</span></button>
+      <button type="button" class="create-mode-card ${c.mode === 'both' ? 'active' : ''}" data-cw-mode="both"><strong>Картинка + видео</strong><span>Одна идея для всех форматов</span></button>
     </div>
     ${field('cwTopic', 'Тема/идея', 'text', c.topic || '', 'Например: как автосервису повысить повторные записи')}
     ${field('cwOffer', 'Цель/продукт/оффер (опционально)', 'text', c.offer || '', 'Например: диагностика подвески со скидкой')}
@@ -2640,14 +2699,14 @@ function pageCreateV2() {
   `;
 
   const step2 = `
-    <div class="wizard-step-note">Выберите платформы и форматы.</div>
+    <div class="wizard-step-note">Выберите платформы, форматы и аккаунты публикации.</div>
     <div class="create-platform-grid">
       <article class="create-platform-card ${c.platforms.facebook ? 'active' : ''}">
         <div class="row" style="justify-content:space-between;align-items:center;"><strong>Facebook</strong><label class="create-toggle"><input id="cwFb" type="checkbox" ${c.platforms.facebook ? 'checked' : ''}/> Включить</label></div>
         <p class="small">Формат: ${c.kinds.facebook}</p>
         <p class="small">Статус: ${fbConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
         ${!fbConnected ? '<button id="cwGoConnectionsFb" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
-        ${selectField('cwKindFb', 'Тип', c.kinds.facebook, c.mode === 'image' ? [{ value: 'image_post', label: 'Image Post' }] : (c.mode === 'video' ? [{ value: 'video', label: 'Video' }] : [{ value: 'image_post', label: 'Image Post' }, { value: 'video', label: 'Video' }]))}
+        ${selectField('cwKindFb', 'Тип', c.kinds.facebook, c.mode === 'image' ? [{ value: 'image_post', label: 'Пост с изображением' }] : (c.mode === 'video' ? [{ value: 'video', label: 'Видео' }] : [{ value: 'image_post', label: 'Пост с изображением' }, { value: 'video', label: 'Видео' }]))}
         ${selectField('cwAccFb', 'Страница', c.accountRefs.facebook || '', metaReady.filter((m) => m.page_id).map((m) => ({ value: m.page_id, label: m.page_name || m.page_id })))}
       </article>
       <article class="create-platform-card ${c.platforms.instagram ? 'active' : ''}">
@@ -2655,7 +2714,7 @@ function pageCreateV2() {
         <p class="small">Формат: ${c.kinds.instagram}</p>
         <p class="small">Статус: ${igConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
         ${!igConnected ? '<button id="cwGoConnectionsIg" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
-        ${selectField('cwKindIg', 'Тип', c.kinds.instagram, c.mode === 'image' ? [{ value: 'image_post', label: 'Image Post' }] : (c.mode === 'video' ? [{ value: 'reel', label: 'Reel' }] : [{ value: 'image_post', label: 'Image Post' }, { value: 'reel', label: 'Reel' }]))}
+        ${selectField('cwKindIg', 'Тип', c.kinds.instagram, c.mode === 'image' ? [{ value: 'image_post', label: 'Пост с изображением' }] : (c.mode === 'video' ? [{ value: 'reel', label: 'Reel' }] : [{ value: 'image_post', label: 'Пост с изображением' }, { value: 'reel', label: 'Reel' }]))}
         ${selectField('cwAccIg', 'Instagram Business', c.accountRefs.instagram || '', metaReady.filter((m) => m.ig_user_id).map((m) => ({ value: m.ig_user_id, label: (m.instagram_username ? `@${m.instagram_username}` : 'IG Business') + (m.page_name ? ` · ${m.page_name}` : '') })))}
       </article>
       <article class="create-platform-card ${c.platforms.youtube ? 'active' : ''}">
@@ -2663,15 +2722,15 @@ function pageCreateV2() {
         <p class="small">Формат: ${c.kinds.youtube}</p>
         <p class="small">Статус: ${ytConnected ? '<span class="status success">Подключено</span>' : '<span class="status warning">Не подключено</span>'}</p>
         ${!ytConnected ? '<button id="cwGoConnectionsYt" class="btn btn-ghost connection-btn-sm" type="button">Подключить</button>' : ''}
-        ${selectField('cwKindYt', 'Тип', c.kinds.youtube, [{ value: 'shorts', label: 'Shorts' }, { value: 'video', label: 'Video' }])}
+        ${selectField('cwKindYt', 'Тип', c.kinds.youtube, [{ value: 'shorts', label: 'Shorts' }, { value: 'video', label: 'Видео' }])}
       </article>
     </div>
   `;
 
   const step3 = `
-    <div class="wizard-step-note">Настройки медиа под выбранный режим.</div>
+    <div class="wizard-step-note">Настройте генерацию медиа. Параметры сохраняются в черновик кампании.</div>
     ${(c.mode === 'image' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Image</h3>${selectField('cwImageStyle', 'Стиль изображения', c.imageStyle || 'реалистично', [{ value: 'реалистично', label: 'Реалистично' }, { value: 'минимализм', label: 'Минимализм' }, { value: 'бизнес', label: 'Бизнес' }, { value: 'лайфстайл', label: 'Лайфстайл' }])}<label class="create-toggle"><input id="cwNoTextOnImage" type="checkbox" ${c.noTextOnImage !== false ? 'checked' : ''}/> Без текста на картинке</label></article>` : ''}
-    ${(c.mode === 'video' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Video</h3>${selectField('cwDuration', 'Длительность', String(c.videoDuration || 30), [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }, { value: '120', label: '120 сек' }, { value: '240', label: '240 сек' }, { value: '480', label: '480 сек' }])}${selectField('cwRatio', 'Ориентация', c.videoAspectRatio || '9:16', [{ value: '9:16', label: '9:16' }, { value: '1:1', label: '1:1' }, { value: '16:9', label: '16:9' }])}<label class="create-toggle"><input id="cwNoFantasy" type="checkbox" ${c.noFantasy !== false ? 'checked' : ''}/> Без фантастических существ</label><label class="create-toggle"><input id="cwThumb" type="checkbox" ${c.generateThumbnail !== false ? 'checked' : ''}/> Генерировать обложку</label></article>` : ''}
+    ${(c.mode === 'video' || c.mode === 'both') ? `<article class="card" style="padding:14px;"><h3 style="margin-top:0;">Видео</h3>${selectField('cwDuration', 'Длительность', String(c.videoDuration || 30), [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }, { value: '120', label: '120 сек' }, { value: '240', label: '240 сек' }, { value: '480', label: '480 сек' }])}${selectField('cwRatio', 'Ориентация', c.videoAspectRatio || '9:16', [{ value: '9:16', label: '9:16' }, { value: '1:1', label: '1:1' }, { value: '16:9', label: '16:9' }])}<label class="create-toggle"><input id="cwNoFantasy" type="checkbox" ${c.noFantasy !== false ? 'checked' : ''}/> Без фантастических существ</label><label class="create-toggle"><input id="cwThumb" type="checkbox" ${c.generateThumbnail !== false ? 'checked' : ''}/> Генерировать обложку</label></article>` : ''}
   `;
 
   const cg = c.contentGeneration || {};
@@ -2687,6 +2746,52 @@ function pageCreateV2() {
   const draftsForActive = allDrafts
     .filter((d) => String(d.platform || '').toLowerCase() === activePlatform)
     .sort((a, b) => Number(a.variant || 0) - Number(b.variant || 0));
+  const variantIds = [...new Set(draftsForActive.map((d) => Number(d.variant_index || d.variant || 1)).filter((v) => Number.isFinite(v)))];
+  const activeVariant = Number(c.activeVariant || variantIds[0] || 1);
+  const activeDraft = draftsForActive.find((d) => Number(d.variant_index || d.variant || 1) === activeVariant) || draftsForActive[0] || null;
+  const goalOptions = [
+    { value: 'sales', label: 'Продажи' },
+    { value: 'awareness', label: 'Экспертность' },
+    { value: 'announcement', label: 'Анонс' },
+    { value: 'warmup', label: 'Прогрев' },
+    { value: 'engagement', label: 'Вовлечение' },
+    { value: 'lead', label: 'Лиды' },
+  ];
+
+  const renderPlatformPreviewText = () => {
+    const text = String(previewText || '');
+    if (previewPlatform === 'youtube') {
+      const title = String(activeDraft?.title || c.topic || 'Название ролика');
+      const desc = text.length > 520 ? `${text.slice(0, 520)}...` : text;
+      return `<div class="preview-platform-block">
+        <p class="small"><strong>Title:</strong> ${esc(title)}</p>
+        <p class="small"><strong>Description:</strong></p>
+        <p class="create-preview-text">${esc(desc || 'Описание появится после генерации.')}</p>
+      </div>`;
+    }
+    if (previewPlatform === 'instagram') {
+      const lines = text.split('\n').filter(Boolean);
+      const first = lines.slice(0, 2).join('\n');
+      const shortened = first.length > 180 ? `${first.slice(0, 180)}... more` : `${first}${lines.length > 2 ? '\n... more' : ''}`;
+      return `<p class="create-preview-text">${esc(shortened || 'Подпись для Instagram появится после генерации.')}</p>`;
+    }
+    const shortened = text.length > 260 ? `${text.slice(0, 260)}... See more` : text;
+    return `<p class="create-preview-text">${esc(shortened || 'Текст для Facebook появится после генерации.')}</p>`;
+  };
+
+  const localWarnings = [];
+  if (previewPlatform === 'instagram' && String(c.caption || '').length > 2200) localWarnings.push('Слишком длинный текст для Instagram.');
+  if (!String(c.cta || '').trim()) localWarnings.push('Нет CTA.');
+  if (!hashtags.length) localWarnings.push('Нет хештегов.');
+  const checks = Array.isArray(c.quality?.checks) && c.quality.checks.length
+    ? c.quality.checks
+    : [
+      { key: 'hook', label: 'Хук', state: 'yellow' },
+      { key: 'structure', label: 'Структура', state: 'yellow' },
+      { key: 'cta', label: 'CTA', state: 'yellow' },
+      { key: 'hashtags', label: 'Хештеги', state: 'yellow' },
+      { key: 'goal_match', label: 'Соответствие цели', state: 'yellow' },
+    ];
 
   const strategyCard = cg.strategy
     ? `
@@ -2731,10 +2836,10 @@ function pageCreateV2() {
               <div class="small" style="white-space:pre-wrap;">${esc(d.post_text || d.description || '')}</div>
               ${(Array.isArray(d.hashtags) && d.hashtags.length) ? `<p class="small" style="margin-top:8px;">${esc(d.hashtags.join(' '))}</p>` : ''}
               <div class="cta-row" style="margin-top:10px;">
-                <button type="button" class="btn btn-ghost" data-cw-copy-draft="${encodeURIComponent(String(d.post_text || d.description || ''))}">Copy</button>
-                <button type="button" class="btn btn-secondary" data-cw-save-draft="${Number(d.id || 0)}">Save Draft</button>
-                <button type="button" class="btn btn-secondary" data-cw-schedule-draft="${Number(d.id || 0)}">Schedule</button>
-                <button type="button" class="btn btn-primary" data-cw-publish-draft="${Number(d.id || 0)}">Publish</button>
+                <button type="button" class="btn btn-ghost" data-cw-copy-draft="${encodeURIComponent(String(d.post_text || d.description || ''))}">Копировать</button>
+                <button type="button" class="btn btn-secondary" data-cw-save-draft="${Number(d.id || 0)}">Сохранить</button>
+                <button type="button" class="btn btn-secondary" data-cw-schedule-draft="${Number(d.id || 0)}">Запланировать</button>
+                <button type="button" class="btn btn-primary" data-cw-publish-draft="${Number(d.id || 0)}">Опубликовать</button>
               </div>
             </article>
           `).join('')}
@@ -2744,42 +2849,80 @@ function pageCreateV2() {
     : '';
 
   const step4 = `
-    <div class="wizard-step-note">Стратегия + черновики для Facebook/Instagram/YouTube.</div>
-    ${field('cwTopic', 'Тема/идея', 'textarea', c.topic || '', 'Опишите тему максимально конкретно')}
-    ${field('cwOffer', 'Цель/продукт/оффер (опционально)', 'textarea', c.offer || '', 'Если поле пустое, GPT не выдумывает продукт')}
-    <div class="grid-2">
-      ${selectField('cwContentTone', 'Тон', c.contentTone || 'friendly', [
-        { value: 'neutral', label: 'neutral' },
-        { value: 'friendly', label: 'friendly' },
-        { value: 'expert', label: 'expert' },
-        { value: 'sales', label: 'sales' },
-      ])}
-      ${selectField('cwContentGoal', 'Цель поста', c.contentGoal || 'engagement', [
-        { value: 'awareness', label: 'awareness' },
-        { value: 'engagement', label: 'engagement' },
-        { value: 'lead', label: 'lead' },
-        { value: 'sales', label: 'sales' },
-      ])}
+    <div class="wizard-step-note">Студия контента: соберите бриф, сгенерируйте варианты и подготовьте финальный текст.</div>
+    <div class="create-studio-mode">
+      <button id="cwStudioQuick" type="button" class="btn ${c.studioMode === 'quick' ? 'btn-primary' : 'btn-ghost'}">Быстро</button>
+      <button id="cwStudioPro" type="button" class="btn ${c.studioMode === 'pro' ? 'btn-primary' : 'btn-ghost'}">Профи</button>
     </div>
-    <label class="create-toggle"><input id="cwVariants3" type="checkbox" ${c.contentVariants3 ? 'checked' : ''}/> Сгенерировать 3 варианта</label>
-    <div class="content-ai-progress">
-      <span class="pill ${stageClass('strategy')}">Strategy</span>
-      <span class="pill ${stageClass('drafts')}">Drafts</span>
-      <span class="pill ${stageClass('ready')}">Ready</span>
-    </div>
-    ${(cg.error || '').trim() ? `<div class="notice error">${esc(cg.error)}</div>` : ''}
-    <div class="cta-row">
-      <button id="cwSmartGenerateBtn" class="btn btn-primary" type="button" ${cg.loading ? 'disabled' : ''}>${cg.loading ? 'Генерируем…' : 'Сгенерировать'}</button>
-      ${cg.retryable ? '<button id="cwSmartRetryBtn" class="btn btn-ghost" type="button">Retry</button>' : ''}
-    </div>
+    <article class="card create-studio-card">
+      <h3>Brief</h3>
+      ${field('cwTopic', 'Тема/идея *', 'textarea', c.topic || '', 'Например: как сервису снизить стоимость привлечения клиента')}
+      ${field('cwOffer', 'Цель/оффер', 'textarea', c.offer || '', 'Опционально: оффер, акция или продукт')}
+      <div class="grid-2">
+        ${selectField('cwAudienceType', 'Аудитория', c.audienceType || 'b2c', [{ value: 'b2c', label: 'B2C' }, { value: 'b2b', label: 'B2B' }])}
+        ${field('cwAudienceSegment', 'Сегмент', 'text', c.audienceSegment || '', 'Например: владельцы малого бизнеса')}
+      </div>
+      <div class="grid-2">
+        ${selectField('cwContentGoal', 'Цель контента', c.contentGoal || 'engagement', goalOptions)}
+        ${selectField('cwContentFormat', 'Формат', c.contentFormat || 'post', [{ value: 'post', label: 'Пост' }, { value: 'reel', label: 'Reel' }, { value: 'video', label: 'Видео' }, { value: 'community', label: 'Сообщество' }])}
+      </div>
+      <div class="grid-2">
+        ${selectField('cwContentTone', 'Тон', c.contentTone || 'friendly', [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }, { value: 'neutral', label: 'Нейтральный' }])}
+        ${selectField('cwLang', 'Язык', c.language || 'ru', [{ value: 'ru', label: 'ru' }, { value: 'ua', label: 'ua' }, { value: 'de', label: 'de' }, { value: 'en', label: 'en' }])}
+      </div>
+      ${c.studioMode === 'pro' ? `${field('cwForbiddenTopics', 'Запрещенные темы', 'text', c.forbiddenTopics || '', 'Опционально: через запятую')}` : ''}
+      <div class="cta-row">
+        <button type="button" class="btn btn-ghost" data-cw-goal-shortcut="sales">Продажи</button>
+        <button type="button" class="btn btn-ghost" data-cw-goal-shortcut="awareness">Экспертность</button>
+        <button type="button" class="btn btn-ghost" data-cw-goal-shortcut="announcement">Анонс</button>
+        <button type="button" class="btn btn-ghost" data-cw-goal-shortcut="warmup">Прогрев</button>
+      </div>
+    </article>
+    <article class="card create-studio-card">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <h3>AI Assist</h3>
+        <button id="cwSuggestBtn" class="btn btn-secondary" type="button" ${c.aiAssist?.loading ? 'disabled' : ''}>${c.aiAssist?.loading ? 'Ищу варианты…' : 'Предложить варианты'}</button>
+      </div>
+      ${field('cwAssistHook', 'Хук', 'text', c.aiAssist?.hook || '', 'Короткая цепляющая фраза')}
+      <label>Угол подачи</label>
+      <div class="create-assist-list">${(c.aiAssist?.angles || []).map((a, i) => `<button type="button" class="btn btn-ghost" data-cw-angle="${i}">${esc(a)}</button>`).join('') || '<p class="small">Нажмите «Предложить варианты»</p>'}</div>
+      <label>CTA варианты</label>
+      <div class="create-assist-list">${(c.aiAssist?.ctaVariants || []).map((a, i) => `<button type="button" class="btn btn-ghost" data-cw-cta-variant="${i}">${esc(a)}</button>`).join('') || '<p class="small">Нажмите «Предложить варианты»</p>'}</div>
+    </article>
+    <article class="card create-studio-card">
+      <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h3 style="margin:0;">Черновики</h3>
+        <div class="row" style="gap:8px;">${platformTabs || '<span class="small">Выберите платформу</span>'}</div>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin:8px 0;">${variantIds.map((v) => `<button type="button" class="btn ${activeVariant === v ? 'btn-primary' : 'btn-ghost'}" data-cw-variant="${v}">Variant ${v}</button>`).join('') || '<span class="small">Сначала сгенерируйте варианты</span>'}</div>
+      ${cg.loading ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
+      ${(cg.error || '').trim() ? `<div class="notice error">${esc(cg.error)}</div>` : ''}
+      <div class="content-ai-progress">
+        <span class="pill ${stageClass('strategy')}">Стратегия</span>
+        <span class="pill ${stageClass('drafts')}">Черновики</span>
+        <span class="pill ${stageClass('ready')}">Готово</span>
+      </div>
+      <div class="cta-row">
+        <button id="cwSmartGenerateBtn" class="btn btn-primary" type="button" ${cg.loading ? 'disabled' : ''}>${cg.loading ? 'Генерируем…' : 'Сгенерировать'}</button>
+        <button id="cwABBtn" class="btn btn-secondary" type="button" ${cg.loading ? 'disabled' : ''}>Сделать A/B</button>
+        ${cg.retryable ? '<button id="cwSmartRetryBtn" class="btn btn-ghost" type="button">Retry</button>' : ''}
+      </div>
+      ${field('cwCaption', 'Текст публикации', 'textarea', c.caption || (activeDraft?.post_text || ''), 'Основной текст публикации')}
+      <div class="grid-2">
+        ${field('cwCta', 'Призыв к действию (CTA)', 'text', c.cta || (activeDraft?.cta || ''), 'Короткое действие для клиента')}
+        ${selectField('cwRewriteStyle', 'Улучшить текст', c.rewriteStyle || 'короче', [{ value: 'короче', label: 'короче' }, { value: 'длиннее', label: 'длиннее' }, { value: 'более продающе', label: 'более продающе' }, { value: 'более экспертно', label: 'более экспертно' }, { value: 'больше эмоций', label: 'больше эмоций' }])}
+      </div>
+      ${field('cwHashtags', 'Хештеги', 'textarea', hashtags.join(' '), '#бизнес #контент #маркетинг')}
+      <div class="cta-row">
+        <button id="cwRewriteBtn" class="btn btn-ghost" type="button">Улучшить текст</button>
+        <button id="cwSaveTemplateBtn" class="btn btn-ghost" type="button">Сохранить как шаблон</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;">
+        ${(c.templates || []).map((t) => `<button type="button" class="btn btn-ghost" data-cw-apply-template="${Number(t.id)}">${esc(t.name)}</button><button type="button" class="btn btn-ghost" data-cw-del-template="${Number(t.id)}">×</button>`).join('') || '<span class="small">Мои шаблоны пока пусты.</span>'}
+      </div>
+    </article>
     ${strategyCard}
-    ${draftsCard}
     ${assetsCard}
-    <div style="margin-top:12px;">
-      ${field('cwCaption', 'Текст для общего preview', 'textarea', c.caption || '', 'Обновляется из выбранного варианта')}
-      ${field('cwCta', 'CTA', 'text', c.cta || '', 'Например: Запишитесь на консультацию')}
-      ${field('cwHashtags', 'Hashtags', 'textarea', hashtags.join(' '), '#бизнес #контент #маркетинг')}
-    </div>
   `;
 
   const step5 = `
@@ -2790,8 +2933,8 @@ function pageCreateV2() {
     </div>
     ${(c.generation?.statusText || '').trim() ? `<p class="small">${esc(c.generation.statusText)}</p>` : ''}
     <div class="create-asset-grid">
-      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Image</h3>${imageAsset ? `<img class="create-asset-image" src="${esc(imageAsset.storage_url)}" alt="" />` : '<p class="small">Нет image</p>'}</article>
-      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Video</h3>${videoAsset ? `<video class="create-asset-video" controls preload="metadata" src="${esc(videoAsset.storage_url)}"></video><p class="small">${esc(String(videoAsset.duration_sec || c.videoDuration || 0))} сек</p>` : '<p class="small">Нет video</p>'}</article>
+      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Изображение</h3>${imageAsset ? `<img class="create-asset-image" src="${esc(imageAsset.storage_url)}" alt="" />` : '<p class="small">Изображение не сгенерировано</p>'}</article>
+      <article class="card" style="padding:12px;"><h3 style="margin-top:0;">Видео</h3>${videoAsset ? `<video class="create-asset-video" controls preload="metadata" src="${esc(videoAsset.storage_url)}"></video><p class="small">${esc(String(videoAsset.duration_sec || c.videoDuration || 0))} сек</p>` : '<p class="small">Видео не сгенерировано</p>'}</article>
       ${thumbAsset ? `<article class="card" style="padding:12px;"><h3 style="margin-top:0;">Thumbnail</h3><img class="create-asset-image" src="${esc(thumbAsset.storage_url)}" alt="" /></article>` : ''}
     </div>
   `;
@@ -2808,26 +2951,35 @@ function pageCreateV2() {
 
   const previewCard = `
     <article class="create-preview-card">
-      <div class="row" style="justify-content:space-between;align-items:center;"><span class="pill">${esc(previewPlatform)}</span><span class="small">${esc(projectName)}</span></div>
+      <div class="row" style="justify-content:space-between;align-items:center;"><span class="pill">${esc(previewPlatformLabel)}</span><span class="small">${esc(projectName)}</span></div>
+      <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button type="button" class="btn ${previewPlatform === 'facebook' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="facebook">Facebook</button>
+        <button type="button" class="btn ${previewPlatform === 'instagram' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="instagram">Instagram</button>
+        <button type="button" class="btn ${previewPlatform === 'youtube' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="youtube">YouTube</button>
+      </div>
       <h3>${esc(c.topic || 'Опишите тему')}</h3>
-      <div class="create-preview-text">${esc(previewText)}</div>
+      ${renderPlatformPreviewText()}
       <div class="create-preview-tags">${hashtags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
       <button class="btn btn-secondary create-preview-cta" type="button">${esc(c.cta || 'Оставить заявку')}</button>
+      ${localWarnings.length ? `<div class="notice error" style="margin-top:10px;">${localWarnings.map((w) => esc(w)).join('<br/>')}</div>` : ''}
     </article>
   `;
   const infoCard = `
     <article class="create-info-card">
-      <h3>Что вы получите</h3>
-      <ul class="check-list"><li class="done">Готовый текст</li><li class="done">Сильный CTA</li><li class="done">Хэштеги</li><li class="done">План публикации</li></ul>
+      <h3>Проверка качества</h3>
+      <div class="create-quality-score">${Number(c.quality?.score || 0)}<span>/100</span></div>
+      <ul class="check-list">${checks.map((it) => `<li class="${it.state === 'green' ? 'done' : (it.state === 'red' ? 'bad' : '')}">${esc(it.label)}</li>`).join('')}</ul>
+      ${(c.quality?.warnings || []).length ? `<p class="small">${(c.quality.warnings || []).map((w) => esc(w)).join(' · ')}</p>` : ''}
     </article>
   `;
+  const stickyDisabled = !(String(c.topic || '').trim() && String(c.caption || '').trim() && selectedCampaignPlatforms().length);
 
   return appLayout('/create', 'Создать', `
     <section class="create-wizard-shell">
       <div class="create-wizard-grid">
         <article class="card create-main-col">
-          <h2>Мастер создания публикации</h2>
-          <p class="small">Соберите кампанию с image/video и публикуйте в Meta + YouTube.</p>
+          <h2>Студия контента</h2>
+          <p class="small">Соберите бриф, получите варианты от AI и отправьте публикацию в очередь.</p>
           <div class="create-progress-badge">Шаг ${c.step || 1} из 6 · ~${Math.max(1, 7 - (c.step || 1))} минут до готового поста</div>
           <div class="stepper stepper-6">${steps.map((label, idx) => `<div class="step ${(c.step || 1) === (idx + 1) ? 'active' : ''}">${idx + 1}. ${esc(label)}</div>`).join('')}</div>
           <h3 class="create-step-title">${esc(steps[(c.step || 1) - 1] || 'Шаг')}</h3>
@@ -2839,6 +2991,11 @@ function pageCreateV2() {
           <details class="create-mobile-preview"><summary>Предпросмотр</summary><div class="create-mobile-preview-content">${previewCard}${infoCard}</div></details>
         </article>
         <aside class="create-preview-col">${previewCard}${infoCard}</aside>
+      </div>
+      <div class="create-sticky-bar">
+        <button id="cwStickySave" type="button" class="btn btn-secondary" ${stickyDisabled ? 'disabled' : ''}>Сохранить черновик</button>
+        <button id="cwStickySchedule" type="button" class="btn btn-ghost" ${stickyDisabled ? 'disabled' : ''}>Запланировать</button>
+        <button id="cwStickyPublish" type="button" class="btn btn-primary" ${stickyDisabled ? 'disabled' : ''}>Опубликовать</button>
       </div>
     </section>
   `);
@@ -2877,18 +3034,22 @@ function page(path) {
 }
 
 async function loadDashboardMetrics(days = 30) {
-  const [summary, timeseries, insights, recent] = await Promise.all([
+  const [summary, timeseries, aiScore, insights, recent] = await Promise.all([
     api(`/api/dashboard/summary?days=${Number(days) || 30}`),
     api(`/api/dashboard/timeseries?days=${Number(days) || 30}`),
+    api(`/api/dashboard/ai-score?days=${Number(days) || 30}`),
     api(`/api/dashboard/insights?days=${Number(days) || 30}`),
-    api('/api/dashboard/recent?limit=10'),
+    api('/api/dashboard/recent?limit=20'),
   ]);
   state.dashboardMetrics = {
     ...(state.dashboardMetrics || {}),
     summary: summary || null,
     timeseries: timeseries || { points: [] },
+    aiScore: aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] },
     insights: (insights && insights.insights) || [],
     recent: (recent && recent.items) || [],
+    chartMetric: state.dashboardMetrics?.chartMetric || 'reach',
+    recentSort: state.dashboardMetrics?.recentSort || 'engagement',
     loading: false,
   };
 }
@@ -2919,7 +3080,7 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     state.posts = await api('/api/posts');
-    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), loading: true };
+    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), loading: true, aiScore: state.dashboardMetrics?.aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] } };
     await loadDashboardMetrics(30);
   }
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
@@ -2954,6 +3115,9 @@ async function bindCreateWizardV2(path) {
       await ensureCampaignSaved();
     } catch {}
   }, 2500);
+  if (!Array.isArray(state.createCampaign.templates) || !state.createCampaign.templates.length) {
+    try { await loadTemplates(); } catch {}
+  }
 
   const update = (patch) => {
     state.createCampaign = { ...state.createCampaign, ...patch, dirty: true };
@@ -2965,11 +3129,17 @@ async function bindCreateWizardV2(path) {
       offer: document.getElementById('cwOffer')?.value || state.createCampaign.offer || '',
       projectId: document.getElementById('cwProject')?.value || state.createCampaign.projectId || '',
       language: document.getElementById('cwLang')?.value || state.createCampaign.language || 'ru',
+      studioMode: document.getElementById('cwStudioMode')?.value || state.createCampaign.studioMode || 'quick',
       caption: document.getElementById('cwCaption')?.value || state.createCampaign.caption || '',
       cta: document.getElementById('cwCta')?.value || state.createCampaign.cta || '',
       hashtags: parseCampaignHashtags(document.getElementById('cwHashtags')?.value || (state.createCampaign.hashtags || []).join(' ')),
       contentTone: document.getElementById('cwContentTone')?.value || state.createCampaign.contentTone || 'friendly',
       contentGoal: document.getElementById('cwContentGoal')?.value || state.createCampaign.contentGoal || 'engagement',
+      contentFormat: document.getElementById('cwContentFormat')?.value || state.createCampaign.contentFormat || 'post',
+      audienceType: document.getElementById('cwAudienceType')?.value || state.createCampaign.audienceType || 'b2c',
+      audienceSegment: document.getElementById('cwAudienceSegment')?.value || state.createCampaign.audienceSegment || '',
+      forbiddenTopics: document.getElementById('cwForbiddenTopics')?.value || state.createCampaign.forbiddenTopics || '',
+      rewriteStyle: document.getElementById('cwRewriteStyle')?.value || state.createCampaign.rewriteStyle || 'короче',
       contentVariants3: !!document.getElementById('cwVariants3')?.checked,
       contentScheduleAt: document.getElementById('cwContentScheduleAt')?.value || state.createCampaign.contentScheduleAt || '',
       publishMode: document.getElementById('cwPublishMode')?.value || state.createCampaign.publishMode || 'now',
@@ -2989,6 +3159,14 @@ async function bindCreateWizardV2(path) {
         facebook: document.getElementById('cwAccFb')?.value || state.createCampaign.accountRefs.facebook || '',
         instagram: document.getElementById('cwAccIg')?.value || state.createCampaign.accountRefs.instagram || '',
         youtube: state.youtubeConnection?.channel_id || '',
+      },
+      aiAssist: {
+        ...(state.createCampaign.aiAssist || {}),
+        hook: document.getElementById('cwAssistHook')?.value || state.createCampaign.aiAssist?.hook || '',
+        angles: String(document.getElementById('cwAssistAngles')?.value || (state.createCampaign.aiAssist?.angles || []).join(' | '))
+          .split('|').map((x) => x.trim()).filter(Boolean).slice(0, 3),
+        ctaVariants: String(document.getElementById('cwAssistCtas')?.value || (state.createCampaign.aiAssist?.ctaVariants || []).join(' | '))
+          .split('|').map((x) => x.trim()).filter(Boolean).slice(0, 3),
       },
     });
     syncCampaignKindsByMode();
@@ -3055,15 +3233,16 @@ async function bindCreateWizardV2(path) {
     try {
       await new Promise((r) => setTimeout(r, 80));
       const payload = {
+        mode: c.studioMode || 'quick',
         topic: String(c.topic || '').trim(),
         offer: String(c.offer || '').trim() || null,
         language: c.language || 'ru',
         tone: c.contentTone || 'friendly',
         goal: c.contentGoal || 'engagement',
         platforms,
-        variants: c.contentVariants3 ? 3 : 1,
+        variants: c.studioMode === 'quick' ? 1 : (c.contentVariants3 ? 3 : 2),
       };
-      const generated = await api('/api/content/generate', {
+      const generated = await api('/api/create/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
         timeoutMs: 180000,
@@ -3085,6 +3264,12 @@ async function bindCreateWizardV2(path) {
         drafts,
         activePlatform: activePlatform || 'facebook',
       };
+      c.quality = {
+        score: Number(generated?.quality?.score || 0),
+        checks: Array.isArray(generated?.quality?.checks) ? generated.quality.checks : [],
+        warnings: Array.isArray(generated?.warnings) ? generated.warnings : (Array.isArray(generated?.quality?.warnings) ? generated.quality.warnings : []),
+      };
+      c.contentGeneration.debugCode = generated?.debug_code || '';
       applyFirstDraftToCampaign();
       render();
     } catch (e) {
@@ -3097,6 +3282,124 @@ async function bindCreateWizardV2(path) {
       };
       render();
     }
+  };
+
+  const runQualityCheck = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    const out = await api('/api/create/quality-check', {
+      method: 'POST',
+      body: JSON.stringify({
+        caption: c.caption || '',
+        cta: c.cta || '',
+        hashtags: c.hashtags || [],
+        goal: c.contentGoal || 'engagement',
+      }),
+    });
+    const q = out?.quality || {};
+    c.quality = {
+      score: Number(q.score || 0),
+      checks: Array.isArray(q.checks) ? q.checks : [],
+      warnings: Array.isArray(q.warnings) ? q.warnings : [],
+    };
+    c.dirty = true;
+    render();
+  };
+
+  const runSuggest = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    if (!String(c.topic || '').trim()) throw new Error('Введите тему/идею');
+    c.aiAssist = { ...(c.aiAssist || {}), loading: true };
+    render();
+    const out = await api('/api/create/suggest', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic: c.topic || '',
+        offer: c.offer || '',
+        goal: c.contentGoal || 'engagement',
+        tone: c.contentTone || 'friendly',
+        language: c.language || 'ru',
+      }),
+    });
+    const s = out?.suggestions || {};
+    c.aiAssist = {
+      loading: false,
+      hook: String(s.hook || ''),
+      angles: Array.isArray(s.angles) ? s.angles : [],
+      ctaVariants: Array.isArray(s.cta_variants) ? s.cta_variants : [],
+    };
+    if (!c.cta && c.aiAssist.ctaVariants?.[0]) c.cta = c.aiAssist.ctaVariants[0];
+    c.dirty = true;
+    render();
+  };
+
+  const runRewrite = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    if (!String(c.caption || '').trim()) throw new Error('Введите текст для улучшения');
+    const out = await api('/api/create/rewrite', {
+      method: 'POST',
+      body: JSON.stringify({
+        caption: c.caption,
+        instruction: c.rewriteStyle || 'короче',
+        goal: c.contentGoal || 'engagement',
+        tone: c.contentTone || 'friendly',
+        language: c.language || 'ru',
+      }),
+    });
+    const first = (out?.drafts || [])[0] || {};
+    c.caption = String(first.caption || c.caption || '');
+    c.cta = String(first.cta || c.cta || '');
+    if (Array.isArray(first.hashtags) && first.hashtags.length) c.hashtags = parseCampaignHashtags(first.hashtags.join(' '));
+    c.dirty = true;
+    render();
+    await runQualityCheck();
+  };
+
+  async function loadTemplates() {
+    const out = await api('/api/create/templates');
+    state.createCampaign.templates = Array.isArray(out?.items) ? out.items : [];
+    render();
+  }
+
+  const saveTemplate = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    const name = `Шаблон ${new Date().toLocaleDateString('ru-RU')}`;
+    await api('/api/create/templates', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        preset: {
+          tone: c.contentTone || 'friendly',
+          goal: c.contentGoal || 'engagement',
+          cta: c.cta || '',
+          hashtags: c.hashtags || [],
+          format: c.contentFormat || 'post',
+        },
+      }),
+    });
+    await loadTemplates();
+  };
+
+  const applyTemplate = (id) => {
+    const t = (state.createCampaign.templates || []).find((x) => Number(x.id) === Number(id));
+    if (!t) return;
+    const p = t.preset || {};
+    update({
+      contentTone: p.tone || state.createCampaign.contentTone,
+      contentGoal: p.goal || state.createCampaign.contentGoal,
+      contentFormat: p.format || state.createCampaign.contentFormat,
+      cta: p.cta || state.createCampaign.cta,
+      hashtags: Array.isArray(p.hashtags) && p.hashtags.length ? parseCampaignHashtags(p.hashtags.join(' ')) : state.createCampaign.hashtags,
+    });
+    render();
+  };
+
+  const deleteTemplate = async (id) => {
+    await api(`/api/create/templates/${Number(id)}`, { method: 'DELETE' });
+    await loadTemplates();
   };
 
   const runDraftAction = async (action, draftId) => {
@@ -3121,13 +3424,17 @@ async function bindCreateWizardV2(path) {
       render();
     };
   });
+  const studioQuickBtn = document.getElementById('cwStudioQuick');
+  if (studioQuickBtn) studioQuickBtn.onclick = () => { update({ studioMode: 'quick' }); render(); };
+  const studioProBtn = document.getElementById('cwStudioPro');
+  if (studioProBtn) studioProBtn.onclick = () => { update({ studioMode: 'pro' }); render(); };
   const bindField = (id, fn) => { const el = document.getElementById(id); if (el) el.oninput = fn; };
   bindField('cwTopic', () => update({ topic: document.getElementById('cwTopic').value }));
   bindField('cwOffer', () => update({ offer: document.getElementById('cwOffer').value }));
   bindField('cwCaption', () => update({ caption: document.getElementById('cwCaption').value }));
   bindField('cwCta', () => update({ cta: document.getElementById('cwCta').value }));
   bindField('cwHashtags', () => update({ hashtags: parseCampaignHashtags(document.getElementById('cwHashtags').value) }));
-  ['cwProject', 'cwLang', 'cwPublishMode', 'cwScheduleAt', 'cwImageStyle', 'cwDuration', 'cwRatio', 'cwKindFb', 'cwKindIg', 'cwKindYt', 'cwAccFb', 'cwAccIg', 'cwContentTone', 'cwContentGoal', 'cwContentScheduleAt'].forEach((id) => {
+  ['cwProject', 'cwLang', 'cwStudioMode', 'cwPublishMode', 'cwScheduleAt', 'cwImageStyle', 'cwDuration', 'cwRatio', 'cwKindFb', 'cwKindIg', 'cwKindYt', 'cwAccFb', 'cwAccIg', 'cwContentTone', 'cwContentGoal', 'cwContentFormat', 'cwAudienceType', 'cwRewriteStyle', 'cwContentScheduleAt'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.onchange = () => { readLocalForm(); render(); };
   });
@@ -3234,6 +3541,7 @@ async function bindCreateWizardV2(path) {
   if (smartGenerateBtn) smartGenerateBtn.onclick = async () => {
     try {
       await runSmartContentGeneration();
+      await runQualityCheck();
       state.notice = { type: 'ok', text: 'Стратегия и черновики готовы.' };
       render();
     } catch (e) {
@@ -3245,10 +3553,96 @@ async function bindCreateWizardV2(path) {
   if (smartRetryBtn) smartRetryBtn.onclick = async () => {
     try {
       await runSmartContentGeneration();
+      await runQualityCheck();
       state.notice = { type: 'ok', text: 'Повторная генерация завершена.' };
       render();
     } catch (e) {
       state.notice = { type: 'error', text: e.message || 'Retry не удался' };
+      render();
+    }
+  };
+  const suggestBtn = document.getElementById('cwSuggestBtn');
+  if (suggestBtn) suggestBtn.onclick = async () => {
+    try {
+      await runSuggest();
+      state.notice = { type: 'ok', text: 'AI подсказки готовы.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось получить подсказки' };
+      render();
+    }
+  };
+  const rewriteBtn = document.getElementById('cwRewriteBtn');
+  if (rewriteBtn) rewriteBtn.onclick = async () => {
+    try {
+      await runRewrite();
+      state.notice = { type: 'ok', text: 'Текст улучшен.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось улучшить текст' };
+      render();
+    }
+  };
+  const abBtn = document.getElementById('cwABBtn');
+  if (abBtn) abBtn.onclick = async () => {
+    try {
+      state.createCampaign.contentVariants3 = true;
+      await runSmartContentGeneration();
+      await runQualityCheck();
+      state.notice = { type: 'ok', text: 'A/B варианты обновлены.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось сделать A/B варианты' };
+      render();
+    }
+  };
+  const saveTemplateBtn = document.getElementById('cwSaveTemplateBtn');
+  if (saveTemplateBtn) saveTemplateBtn.onclick = async () => {
+    try {
+      await saveTemplate();
+      state.notice = { type: 'ok', text: 'Шаблон сохранен.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось сохранить шаблон' };
+      render();
+    }
+  };
+  const stickySave = document.getElementById('cwStickySave');
+  if (stickySave) stickySave.onclick = async () => {
+    try {
+      readLocalForm();
+      await ensureCampaignSaved();
+      await api(`/api/campaigns/${state.createCampaign.campaignId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'draft', caption_master: state.createCampaign.caption, cta: state.createCampaign.cta, hashtags_master: state.createCampaign.hashtags }),
+      });
+      state.notice = { type: 'ok', text: 'Черновик сохранен.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось сохранить черновик' };
+      render();
+    }
+  };
+  const stickySchedule = document.getElementById('cwStickySchedule');
+  if (stickySchedule) stickySchedule.onclick = () => {
+    state.createCampaign.publishMode = 'schedule';
+    state.createCampaign.step = 6;
+    render();
+  };
+  const stickyPublish = document.getElementById('cwStickyPublish');
+  if (stickyPublish) stickyPublish.onclick = () => {
+    state.createCampaign.publishMode = 'now';
+    state.createCampaign.step = 6;
+    render();
+  };
+  const qualityBtn = document.getElementById('cwQualityCheckBtn');
+  if (qualityBtn) qualityBtn.onclick = async () => {
+    try {
+      await runQualityCheck();
+      state.notice = { type: 'ok', text: 'Quality check обновлен.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось выполнить quality check' };
       render();
     }
   };
@@ -3258,6 +3652,69 @@ async function bindCreateWizardV2(path) {
       if (!platform) return;
       state.createCampaign.contentGeneration.activePlatform = platform;
       applyFirstDraftToCampaign();
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-preview]').forEach((btn) => {
+    btn.onclick = () => {
+      state.createCampaign.previewPlatform = btn.getAttribute('data-cw-preview') || 'facebook';
+      applyFirstDraftToCampaign();
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-variant]').forEach((btn) => {
+    btn.onclick = () => {
+      state.createCampaign.activeVariant = Number(btn.getAttribute('data-cw-variant') || 1);
+      applyFirstDraftToCampaign();
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-angle]').forEach((btn) => {
+    btn.onclick = () => {
+      const idx = Number(btn.getAttribute('data-cw-angle') || 0);
+      const val = (state.createCampaign.aiAssist?.angles || [])[idx];
+      if (!val) return;
+      state.createCampaign.offer = val;
+      state.createCampaign.dirty = true;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-cta-variant]').forEach((btn) => {
+    btn.onclick = () => {
+      const idx = Number(btn.getAttribute('data-cw-cta-variant') || 0);
+      const val = (state.createCampaign.aiAssist?.ctaVariants || [])[idx];
+      if (!val) return;
+      state.createCampaign.cta = val;
+      state.createCampaign.dirty = true;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cw-goal-shortcut]').forEach((btn) => {
+    btn.onclick = async () => {
+      const goal = String(btn.getAttribute('data-cw-goal-shortcut') || 'engagement');
+      state.createCampaign.contentGoal = goal;
+      state.createCampaign.dirty = true;
+      render();
+      try {
+        await runSmartContentGeneration();
+        await runQualityCheck();
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать вариант' };
+        render();
+      }
+    };
+  });
+  document.querySelectorAll('[data-cw-apply-template]').forEach((btn) => {
+    btn.onclick = () => applyTemplate(btn.getAttribute('data-cw-apply-template'));
+  });
+  document.querySelectorAll('[data-cw-del-template]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await deleteTemplate(btn.getAttribute('data-cw-del-template'));
+        state.notice = { type: 'ok', text: 'Шаблон удален.' };
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Не удалось удалить шаблон' };
+      }
       render();
     };
   });
@@ -3824,6 +4281,21 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => nav('/create');
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
   if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
+  const dashApplyRecommendationsBtn = document.getElementById('dashApplyRecommendationsBtn');
+  if (dashApplyRecommendationsBtn) dashApplyRecommendationsBtn.onclick = () => {
+    const insights = Array.isArray(state.dashboardMetrics?.insights) ? state.dashboardMetrics.insights : [];
+    const bestFormat = insights.find((i) => String(i?.title || '').toLowerCase().includes('формат'));
+    const bestDay = insights.find((i) => String(i?.title || '').toLowerCase().includes('день'));
+    state.createCampaign = {
+      ...state.createCampaign,
+      contentTone: 'friendly',
+      contentGoal: 'engagement',
+      topic: String(bestFormat?.text || bestDay?.text || state.createCampaign.topic || '').slice(0, 240),
+      dirty: true,
+    };
+    state.notice = { type: 'ok', text: 'Рекомендации применены. Параметры перенесены в Create.' };
+    nav('/create', { keepNotice: true });
+  };
   const dashSyncMetricsBtn = document.getElementById('dashSyncMetricsBtn');
   if (dashSyncMetricsBtn) dashSyncMetricsBtn.onclick = async () => {
     try {
@@ -3851,6 +4323,49 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       render();
     }
   };
+  document.querySelectorAll('[data-dash-metric]').forEach((btn) => {
+    btn.onclick = () => {
+      const metric = String(btn.getAttribute('data-dash-metric') || 'reach');
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), chartMetric: metric };
+      render();
+    };
+  });
+  document.querySelectorAll('[data-dash-sort]').forEach((btn) => {
+    btn.onclick = () => {
+      const sort = String(btn.getAttribute('data-dash-sort') || 'engagement');
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), recentSort: sort };
+      render();
+    };
+  });
+  document.querySelectorAll('[data-dash-insight-action]').forEach((btn) => {
+    btn.onclick = () => {
+      const action = String(btn.getAttribute('data-dash-insight-action') || '');
+      if (action === 'open-top-content') {
+        nav('/history');
+        return;
+      }
+      if (action === 'schedule-best-day') {
+        nav('/calendar');
+        return;
+      }
+      if (action === 'create-format-post') {
+        state.createCampaign = { ...state.createCampaign, contentGoal: 'engagement', contentTone: 'friendly', dirty: true };
+        nav('/create');
+      }
+    };
+  });
+  document.querySelectorAll('.dash-row-link').forEach((row) => {
+    row.onclick = (event) => {
+      const target = event.target;
+      if (target && target.closest && target.closest('[data-dash-recent-delete]')) return;
+      const url = String(row.getAttribute('data-dash-item-url') || '').trim();
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        nav('/history');
+      }
+    };
+  });
   document.querySelectorAll('[data-dash-recent-delete]').forEach((btn) => {
     btn.onclick = async () => {
       try {
@@ -5058,6 +5573,7 @@ async function render() {
     }
   }
   if (currentRender !== renderVersion) return;
+  document.body.setAttribute('data-route', path);
   document.getElementById('app').innerHTML = decodeMojibake(page(path));
   if (currentRender !== renderVersion) return;
   await bind(path);

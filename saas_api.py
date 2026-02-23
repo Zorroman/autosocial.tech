@@ -21,6 +21,7 @@ import requests
 from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
 
 from dashboard_metrics import (
+    dashboard_ai_score,
     dashboard_insights,
     dashboard_recent,
     dashboard_summary,
@@ -36,7 +37,12 @@ from facebook_api import (
     publish_to_instagram,
 )
 from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
-from content_pipeline import OpenAIClientError, generate_strategy_and_drafts
+from content_pipeline import (
+    OpenAIClientError,
+    generate_quick_suggestions,
+    generate_strategy_and_drafts,
+    rewrite_caption_safe,
+)
 from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
 from saas_models import (
     AuthEmailChallenge,
@@ -59,6 +65,7 @@ from saas_models import (
     ContentStrategy,
     Project,
     GenerationJob,
+    UserTemplate,
     SocialAccount,
     SystemLog,
     TopicSuggestion,
@@ -415,6 +422,98 @@ def _extract_hashtags(raw_text: str, limit: int = 8) -> list[str]:
     if not uniq:
         uniq = ["#контент", "#маркетинг", "#бизнес"][:limit]
     return uniq
+
+
+def _normalize_create_goal(value: str) -> str:
+    key = str(value or "").strip().lower()
+    mapping = {
+        "sales": "sales",
+        "продажи": "sales",
+        "lead": "lead",
+        "leads": "lead",
+        "лиды": "lead",
+        "awareness": "awareness",
+        "expertise": "awareness",
+        "экспертность": "awareness",
+        "announcement": "engagement",
+        "анонс": "engagement",
+        "warmup": "engagement",
+        "прогрев": "engagement",
+        "engagement": "engagement",
+    }
+    return mapping.get(key, "engagement")
+
+
+def _normalize_create_tone(value: str) -> str:
+    key = str(value or "").strip().lower()
+    mapping = {
+        "friendly": "friendly",
+        "дружелюбный": "friendly",
+        "expert": "expert",
+        "экспертный": "expert",
+        "sales": "sales",
+        "продающий": "sales",
+        "neutral": "neutral",
+        "нейтральный": "neutral",
+    }
+    return mapping.get(key, "friendly")
+
+
+def _quality_check_payload(caption: str, cta: str, hashtags: list[str], goal: str) -> dict:
+    text = str(caption or "").strip()
+    cta_text = str(cta or "").strip()
+    tags = [str(x).strip() for x in (hashtags or []) if str(x).strip()]
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+
+    has_hook = bool(re.search(r"[!?]", text[:220])) or text.count("\n") >= 1
+    has_structure = len(paragraphs) >= 2 or bool(re.search(r"(^|\n)\s*[\-\d]\)|(^|\n)\s*\d+\.", text))
+    has_cta = bool(cta_text) or bool(re.search(r"(напишите|оставьте|перейдите|запишитесь|купите|позвоните)", text.lower()))
+    hashtags_ok = 3 <= len(tags) <= 15
+
+    goal_norm = _normalize_create_goal(goal)
+    text_low = text.lower()
+    if goal_norm == "sales":
+        goal_match = bool(re.search(r"(скидк|цена|выгод|куп|закаж|оффер|предложени)", text_low))
+    elif goal_norm == "lead":
+        goal_match = bool(re.search(r"(заявк|форм|оставьте|контакт|напишите)", text_low))
+    elif goal_norm == "awareness":
+        goal_match = len(text) >= 280 and has_structure
+    else:
+        goal_match = bool("?" in text) or bool(re.search(r"(как вы|а вы|что думаете)", text_low))
+
+    score = 0
+    score += 20 if has_hook else 0
+    score += 20 if has_structure else 0
+    score += 20 if has_cta else 0
+    score += 10 if hashtags_ok else 0
+    score += 30 if goal_match else 0
+
+    checks = [
+        {"key": "hook", "label": "Хук", "state": "green" if has_hook else "yellow"},
+        {"key": "structure", "label": "Структура", "state": "green" if has_structure else "yellow"},
+        {"key": "cta", "label": "CTA", "state": "green" if has_cta else "red"},
+        {"key": "hashtags", "label": "Хештеги", "state": "green" if hashtags_ok else "yellow"},
+        {"key": "goal_match", "label": "Соответствие цели", "state": "green" if goal_match else "yellow"},
+    ]
+
+    warnings = []
+    if len(text) < 120:
+        warnings.append("Текст выглядит коротким, можно усилить деталями.")
+    if not has_cta:
+        warnings.append("Добавьте CTA: что клиент должен сделать после прочтения.")
+    if not hashtags_ok:
+        warnings.append("Рекомендуется 3-15 хештегов.")
+    return {"score": int(score), "checks": checks, "warnings": warnings}
+
+
+def _template_payload(row: UserTemplate) -> dict:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "preset": _json_loads_safe(row.preset_json, {}),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
 
 
 def _guess_mime(url_value: str, fallback: str = "application/octet-stream") -> str:
@@ -1898,12 +1997,274 @@ def content_generate():
 
     return jsonify(
         {
+            "status": generated.status,
             "brief_id": brief.id,
             "strategy": generated.strategy,
             "drafts": [_content_draft_payload(d) for d in draft_rows],
+            "warnings": generated.warnings or [],
+            "debug_code": generated.debug_code or "",
             "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
         }
     )
+
+
+@saas_api.route("/create/suggest", methods=["POST"])
+@require_auth
+def create_suggest():
+    data = request.get_json(silent=True) or {}
+    topic = (data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"status": "error", "drafts": [], "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
+    try:
+        suggestions = generate_quick_suggestions(
+            topic=topic,
+            offer=(data.get("offer") or "").strip() or None,
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+        )
+        return jsonify(
+            {
+                "status": suggestions.get("status", "ok"),
+                "suggestions": {
+                    "hook": suggestions.get("hook") or "",
+                    "angles": suggestions.get("angles") or [],
+                    "cta_variants": suggestions.get("cta_variants") or [],
+                },
+                "drafts": [],
+                "warnings": suggestions.get("warnings") or [],
+                "debug_code": suggestions.get("debug_code") or "",
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "drafts": [], "warnings": [str(exc)], "debug_code": "suggest_error"}), 500
+
+
+@saas_api.route("/create/rewrite", methods=["POST"])
+@require_auth
+def create_rewrite():
+    data = request.get_json(silent=True) or {}
+    caption = (data.get("caption") or "").strip()
+    if not caption:
+        return jsonify({"status": "error", "drafts": [], "warnings": ["caption is required"], "debug_code": "missing_caption"}), 400
+    try:
+        rewritten = rewrite_caption_safe(
+            caption=caption,
+            instruction=(data.get("instruction") or "короче").strip(),
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+        )
+        return jsonify(
+            {
+                "status": rewritten.get("status") or "ok",
+                "drafts": [
+                    {
+                        "caption": rewritten.get("caption") or "",
+                        "cta": rewritten.get("cta") or "",
+                        "hashtags": rewritten.get("hashtags") or [],
+                    }
+                ],
+                "warnings": rewritten.get("warnings") or [],
+                "debug_code": rewritten.get("debug_code") or "",
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "drafts": [], "warnings": [str(exc)], "debug_code": "rewrite_error"}), 500
+
+
+@saas_api.route("/create/quality-check", methods=["POST"])
+@require_auth
+def create_quality_check():
+    data = request.get_json(silent=True) or {}
+    caption = (data.get("caption") or "").strip()
+    cta = (data.get("cta") or "").strip()
+    tags_raw = data.get("hashtags")
+    tags = []
+    if isinstance(tags_raw, str):
+        tags = [t for t in tags_raw.split() if t.strip()]
+    elif isinstance(tags_raw, list):
+        tags = [str(t).strip() for t in tags_raw if str(t).strip()]
+    result = _quality_check_payload(caption=caption, cta=cta, hashtags=tags, goal=str(data.get("goal") or "engagement"))
+    return jsonify({"status": "ok", "drafts": [], "quality": result, "warnings": result.get("warnings") or [], "debug_code": ""})
+
+
+@saas_api.route("/create/generate", methods=["POST"])
+@require_auth
+def create_generate():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+
+    topic = (data.get("topic") or "").strip()
+    offer_raw = data.get("offer")
+    offer = (offer_raw or "").strip() if offer_raw is not None else None
+    offer = offer if offer else None
+    language = (data.get("language") or "ru").strip().lower()
+    tone = _normalize_create_tone(data.get("tone") or "friendly")
+    goal = _normalize_create_goal(data.get("goal") or "engagement")
+    mode = str(data.get("mode") or "pro").strip().lower()
+    try:
+        variants = int(data.get("variants") or (1 if mode == "quick" else 3))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "drafts": [], "warnings": ["variants должен быть числом 1..3"], "debug_code": "bad_variants"}), 400
+    variants = max(1, min(variants, 3))
+    platforms_raw = data.get("platforms") if isinstance(data.get("platforms"), list) else []
+    platforms = []
+    for item in platforms_raw:
+        key = str(item or "").strip().lower()
+        if key in {"facebook", "instagram", "youtube"} and key not in platforms:
+            platforms.append(key)
+    if not topic:
+        return jsonify({"status": "error", "drafts": [], "warnings": ["Поле 'Тема/идея' обязательно"], "debug_code": "missing_topic"}), 400
+    if not platforms:
+        return jsonify({"status": "error", "drafts": [], "warnings": ["Выберите хотя бы одну платформу"], "debug_code": "missing_platforms"}), 400
+
+    try:
+        generated = generate_strategy_and_drafts(
+            topic=topic,
+            offer=offer,
+            language=language,
+            tone=tone,
+            goal=goal,
+            platforms=platforms,
+            variants=variants,
+        )
+    except OpenAIClientError as exc:
+        msg = str(exc)
+        if "429" in msg.lower():
+            return jsonify({"status": "error", "drafts": [], "warnings": ["GPT временно перегружен. Повторите позже."], "debug_code": "openai_429"}), 429
+        return jsonify({"status": "error", "drafts": [], "warnings": [f"GPT error: {msg}"], "debug_code": "openai_error"}), 502
+    except ValueError as exc:
+        return jsonify({"status": "error", "drafts": [], "warnings": [str(exc)], "debug_code": "validation_error"}), 400
+    except Exception as exc:
+        return jsonify({"status": "error", "drafts": [], "warnings": [f"Ошибка генерации: {exc}"], "debug_code": "unknown_error"}), 500
+
+    db = SessionLocal()
+    try:
+        brief = ContentBrief(
+            user_id=user.id,
+            topic=topic,
+            offer=offer,
+            language=language,
+            tone=tone,
+            goal=goal,
+            platforms_json=json.dumps(platforms, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+        )
+        db.add(brief)
+        db.flush()
+
+        strategy_row = ContentStrategy(
+            brief_id=brief.id,
+            strategy_json=json.dumps(generated.strategy, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+        )
+        db.add(strategy_row)
+
+        draft_rows = []
+        for row in generated.drafts:
+            draft = ContentDraft(
+                brief_id=brief.id,
+                platform=str(row.get("platform") or "").strip().lower(),
+                variant_index=int(row.get("variant_index") or 1),
+                post_text=(row.get("post_text") or "").strip(),
+                title=(row.get("title") or None),
+                description=(row.get("description") or None),
+                hashtags_json=json.dumps(row.get("hashtags") or [], ensure_ascii=False),
+                cta=(row.get("cta") or None),
+                asset_ideas_json=json.dumps(row.get("asset_ideas") or [], ensure_ascii=False),
+                created_at=datetime.utcnow(),
+            )
+            db.add(draft)
+            draft_rows.append(draft)
+        db.commit()
+        for row in draft_rows:
+            db.refresh(row)
+        db.refresh(brief)
+    finally:
+        db.close()
+
+    safe_drafts = [_content_draft_payload(d) for d in draft_rows]
+    quality = _quality_check_payload(
+        caption=(safe_drafts[0]["post_text"] if safe_drafts else ""),
+        cta=(safe_drafts[0]["cta"] if safe_drafts else ""),
+        hashtags=(safe_drafts[0]["hashtags"] if safe_drafts else []),
+        goal=goal,
+    )
+    return jsonify(
+        {
+            "status": generated.status or "ok",
+            "brief_id": brief.id,
+            "strategy": generated.strategy,
+            "drafts": safe_drafts,
+            "quality": quality,
+            "warnings": (generated.warnings or []) + (quality.get("warnings") or []),
+            "debug_code": generated.debug_code or "",
+            "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
+        }
+    )
+
+
+@saas_api.route("/create/templates", methods=["GET"])
+@require_auth
+def create_templates_list():
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(UserTemplate)
+            .filter(UserTemplate.user_id == user.id)
+            .order_by(UserTemplate.updated_at.desc(), UserTemplate.id.desc())
+            .limit(100)
+            .all()
+        )
+        return jsonify({"status": "ok", "items": [_template_payload(r) for r in rows], "warnings": [], "debug_code": ""})
+    finally:
+        db.close()
+
+
+@saas_api.route("/create/templates", methods=["POST"])
+@require_auth
+def create_templates_save():
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    preset = data.get("preset") if isinstance(data.get("preset"), dict) else {}
+    if not name:
+        return jsonify({"status": "error", "warnings": ["name is required"], "debug_code": "missing_name"}), 400
+    db = SessionLocal()
+    try:
+        row = UserTemplate(
+            user_id=user.id,
+            name=name[:160],
+            preset_json=json.dumps(preset, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return jsonify({"status": "ok", "item": _template_payload(row), "warnings": [], "debug_code": ""}), 201
+    finally:
+        db.close()
+
+
+@saas_api.route("/create/templates/<int:template_id>", methods=["DELETE"])
+@require_auth
+def create_templates_delete(template_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        row = db.query(UserTemplate).filter(UserTemplate.id == template_id).first()
+        if not row:
+            return jsonify({"status": "error", "warnings": ["template not found"], "debug_code": "not_found"}), 404
+        if row.user_id != user.id and user.role != "admin":
+            return jsonify({"status": "error", "warnings": ["Недостаточно прав"], "debug_code": "forbidden"}), 403
+        db.delete(row)
+        db.commit()
+        return jsonify({"status": "ok", "deleted_id": template_id, "warnings": [], "debug_code": ""})
+    finally:
+        db.close()
 
 
 @saas_api.route("/content/briefs", methods=["GET"])
@@ -3887,6 +4248,19 @@ def dashboard_metrics_summary():
     db = SessionLocal()
     try:
         return jsonify(dashboard_summary(db, g.current_user.id, days))
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/ai-score", methods=["GET"])
+@require_auth
+def dashboard_metrics_ai_score():
+    days = int((request.args.get("days") or "30").strip() or 30)
+    db = SessionLocal()
+    try:
+        payload = dashboard_ai_score(db, g.current_user.id, days, persist=True)
+        db.commit()
+        return jsonify(payload)
     finally:
         db.close()
 

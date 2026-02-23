@@ -70,6 +70,7 @@ Meta Developers:
 Dashboard metrics API:
 - `POST /api/dashboard/sync`
 - `GET /api/dashboard/summary?days=30`
+- `GET /api/dashboard/ai-score?days=30`
 - `GET /api/dashboard/timeseries?days=30`
 - `GET /api/dashboard/insights?days=30`
 - `GET /api/dashboard/recent?limit=10`
@@ -85,9 +86,24 @@ curl -X POST https://api.autosocial.tech/api/dashboard/sync \
 ## 5) Smoke tests
 ```bash
 bash tests/smoke/run_smoke.sh
+py -m pytest tests/test_dashboard_metrics.py -q
 ```
 Отчет:
 - `tests/reports/smoke-YYYYMMDD-HHMMSS.txt`
+
+Проверка AI-Score вручную:
+```bash
+curl -X GET "http://localhost:5000/api/dashboard/ai-score?days=30" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Проверка данных в БД:
+```sql
+SELECT user_id, day, ai_score, performance, consistency, growth, optimization
+FROM ai_score_daily
+ORDER BY day DESC
+LIMIT 30;
+```
 
 ## 6) E2E tests (Playwright)
 ```bash
@@ -138,6 +154,20 @@ tail -n 200 logs/api.log
 - `POST /api/campaigns/:id/publish`
 - `GET /api/deliveries/:id`
 - `GET /api/history`
+
+Creator Studio API (текст + AI assist + quality + шаблоны):
+- `POST /api/create/suggest` — быстрые варианты (hook/angles/cta)
+- `POST /api/create/generate` — генерация draft-вариантов (quick/pro режим)
+- `POST /api/create/rewrite` — улучшение существующего текста
+- `POST /api/create/quality-check` — score/checks/warnings для текущего поста
+- `GET /api/create/templates`
+- `POST /api/create/templates`
+- `DELETE /api/create/templates/:id`
+
+Стабильность генерации:
+- optional JSON-поля больше не валят генерацию
+- для strategy/drafts добавлена мягкая нормализация и fallback цепочка
+- API возвращает safe payload (`status`, `warnings`, `debug_code`) даже при partial-результате
 
 Локально обязательно запустить backend и frontend, а также worker (для очередей RQ, если включены соответствующие задачи):
 ```bash
