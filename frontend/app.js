@@ -1363,6 +1363,10 @@ function pageDashboard() {
     shares: 0,
     items: 0,
   };
+  const byPlatform = summary.by_platform || {
+    meta: { reach: 0, views: 0, items: 0 },
+    youtube: { reach: 0, views: 0, items: 0 },
+  };
   const points = (stats.timeseries && Array.isArray(stats.timeseries.points)) ? stats.timeseries.points : [];
   const insights = Array.isArray(stats.insights) ? stats.insights : [];
   const recent = Array.isArray(stats.recent) ? stats.recent : [];
@@ -1380,28 +1384,44 @@ function pageDashboard() {
     const padY = 20;
     const chartW = width - padX * 2;
     const chartH = height - padY * 2;
-    const maxValue = Math.max(1, ...points.map((p) => Math.max(Number(p.reach || 0), Number(p.views || 0))));
+    const maxValue = Math.max(
+      1,
+      ...points.map((p) =>
+        Math.max(
+          Number(p.meta_reach || 0),
+          Number(p.meta_views || 0),
+          Number(p.youtube_reach || 0),
+          Number(p.youtube_views || 0),
+        )
+      ),
+    );
     const xAt = (i) => padX + (points.length <= 1 ? 0 : (i * chartW) / (points.length - 1));
     const yAt = (v) => padY + chartH - (Number(v || 0) / maxValue) * chartH;
     const buildPath = (key) => points.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(2)} ${yAt(p[key]).toFixed(2)}`).join(' ');
-    const reachPath = buildPath('reach');
-    const viewsPath = buildPath('views');
+    const metaReachPath = buildPath('meta_reach');
+    const metaViewsPath = buildPath('meta_views');
+    const ytReachPath = buildPath('youtube_reach');
+    const ytViewsPath = buildPath('youtube_views');
     const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
       .filter((v, i, arr) => arr.indexOf(v) === i)
       .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 4}" text-anchor="middle">${esc((points[idx].day || '').slice(5))}</text>`)
       .join('');
     return `
       <div class="dash-chart-wrap">
-        <svg viewBox="0 0 ${width} ${height}" class="dash-chart-svg" role="img" aria-label="График reach и views за 30 дней">
+        <svg viewBox="0 0 ${width} ${height}" class="dash-chart-svg" role="img" aria-label="График Meta и YouTube reach/views за 30 дней">
           <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="dash-chart-axis"></line>
           <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" class="dash-chart-axis"></line>
-          <path d="${reachPath}" class="dash-chart-line dash-chart-line-reach"></path>
-          <path d="${viewsPath}" class="dash-chart-line dash-chart-line-views"></path>
+          <path d="${metaReachPath}" class="dash-chart-line dash-chart-line-meta-reach"></path>
+          <path d="${metaViewsPath}" class="dash-chart-line dash-chart-line-meta-views"></path>
+          <path d="${ytReachPath}" class="dash-chart-line dash-chart-line-yt-reach"></path>
+          <path d="${ytViewsPath}" class="dash-chart-line dash-chart-line-yt-views"></path>
           ${xLabels}
         </svg>
         <div class="dash-chart-legend">
-          <span><i class="dash-dot dash-dot-reach"></i> Reach</span>
-          <span><i class="dash-dot dash-dot-views"></i> Views</span>
+          <span><i class="dash-dot dash-dot-meta-reach"></i> Meta reach</span>
+          <span><i class="dash-dot dash-dot-meta-views"></i> Meta views</span>
+          <span><i class="dash-dot dash-dot-yt-reach"></i> YouTube reach</span>
+          <span><i class="dash-dot dash-dot-yt-views"></i> YouTube views</span>
         </div>
       </div>`;
   })();
@@ -1445,6 +1465,20 @@ function pageDashboard() {
         </div>
       </header>
       <main class="dash-client-content">
+    <section class="dash-platform-split">
+      <article class="dash-platform-card meta">
+        <h4>Meta</h4>
+        <p>Reach: <strong>${fmt(byPlatform.meta?.reach)}</strong></p>
+        <p>Views: <strong>${fmt(byPlatform.meta?.views)}</strong></p>
+        <p class="small">Контента: ${fmt(byPlatform.meta?.items)}</p>
+      </article>
+      <article class="dash-platform-card youtube">
+        <h4>YouTube</h4>
+        <p>Reach: <strong>${fmt(byPlatform.youtube?.reach)}</strong></p>
+        <p>Views: <strong>${fmt(byPlatform.youtube?.views)}</strong></p>
+        <p class="small">Контента: ${fmt(byPlatform.youtube?.items)}</p>
+      </article>
+    </section>
     <section class="dash-kpi-grid">
       <article class="dash-kpi-card">
         <span class="dash-kpi-accent"></span>

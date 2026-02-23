@@ -483,6 +483,38 @@ def dashboard_summary(db: Session, user_id: int, days: int) -> dict[str, Any]:
         .filter(ContentItem.user_id == user_id, ContentMetricDaily.day >= start_day)
         .first()
     )
+    by_platform_rows = (
+        db.query(
+            ContentItem.platform,
+            func.coalesce(func.sum(ContentMetricDaily.reach), 0),
+            func.coalesce(func.sum(ContentMetricDaily.views), 0),
+            func.coalesce(func.sum(ContentMetricDaily.clicks), 0),
+            func.coalesce(func.sum(ContentMetricDaily.likes), 0),
+            func.coalesce(func.sum(ContentMetricDaily.comments), 0),
+            func.coalesce(func.sum(ContentMetricDaily.shares), 0),
+            func.coalesce(func.count(func.distinct(ContentMetricDaily.content_item_id)), 0),
+        )
+        .join(ContentItem, ContentItem.id == ContentMetricDaily.content_item_id)
+        .filter(ContentItem.user_id == user_id, ContentMetricDaily.day >= start_day)
+        .group_by(ContentItem.platform)
+        .all()
+    )
+    by_platform: dict[str, dict[str, int]] = {
+        "meta": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+        "youtube": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+    }
+    for platform, reach, views, clicks, likes, comments, shares, items in by_platform_rows:
+        key = "youtube" if str(platform or "").lower() == "youtube" else "meta"
+        by_platform[key] = {
+            "reach": _to_int(reach),
+            "views": _to_int(views),
+            "clicks": _to_int(clicks),
+            "likes": _to_int(likes),
+            "comments": _to_int(comments),
+            "shares": _to_int(shares),
+            "items": _to_int(items),
+        }
+
     return {
         "days": days,
         "from_day": start_day.isoformat(),
@@ -495,6 +527,7 @@ def dashboard_summary(db: Session, user_id: int, days: int) -> dict[str, Any]:
         "comments": _to_int(row[5] if row else 0),
         "shares": _to_int(row[6] if row else 0),
         "items": _to_int(row[7] if row else 0),
+        "by_platform": by_platform,
     }
 
 
@@ -507,6 +540,10 @@ def dashboard_timeseries(db: Session, user_id: int, days: int) -> dict[str, Any]
             "reach": 0,
             "views": 0,
             "impressions": 0,
+            "meta_reach": 0,
+            "meta_views": 0,
+            "youtube_reach": 0,
+            "youtube_views": 0,
         }
         for i in range(days)
     }
@@ -530,7 +567,37 @@ def dashboard_timeseries(db: Session, user_id: int, days: int) -> dict[str, Any]
             "reach": _to_int(reach),
             "views": _to_int(views),
             "impressions": _to_int(impressions),
+            "meta_reach": points.get(key, {}).get("meta_reach", 0),
+            "meta_views": points.get(key, {}).get("meta_views", 0),
+            "youtube_reach": points.get(key, {}).get("youtube_reach", 0),
+            "youtube_views": points.get(key, {}).get("youtube_views", 0),
         }
+
+    by_platform_rows = (
+        db.query(
+            ContentMetricDaily.day,
+            ContentItem.platform,
+            func.coalesce(func.sum(ContentMetricDaily.reach), 0),
+            func.coalesce(func.sum(ContentMetricDaily.views), 0),
+        )
+        .join(ContentItem, ContentItem.id == ContentMetricDaily.content_item_id)
+        .filter(ContentItem.user_id == user_id, ContentMetricDaily.day >= start_day)
+        .group_by(ContentMetricDaily.day, ContentItem.platform)
+        .order_by(ContentMetricDaily.day.asc())
+        .all()
+    )
+    for day, platform, reach, views in by_platform_rows:
+        key = day.isoformat()
+        point = points.get(key)
+        if not point:
+            continue
+        if str(platform or "").lower() == "youtube":
+            point["youtube_reach"] = _to_int(reach)
+            point["youtube_views"] = _to_int(views)
+        else:
+            point["meta_reach"] = _to_int(reach)
+            point["meta_views"] = _to_int(views)
+
     return {"days": days, "points": [points[k] for k in sorted(points.keys())]}
 
 
@@ -698,4 +765,3 @@ def dashboard_insights(db: Session, user_id: int, days: int) -> dict[str, Any]:
         )
 
     return {"days": days, "insights": insights[:5]}
-
