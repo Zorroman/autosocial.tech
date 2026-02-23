@@ -1434,6 +1434,25 @@ th { color: var(--text-muted); font-weight: 600; }
   max-width: 620px;
 }
 
+.landing-2026-cta-proof {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.landing-2026-cta-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
 .landing-2026-hero-visual {
   display: grid;
   place-items: center;

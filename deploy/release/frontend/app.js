@@ -1161,6 +1161,11 @@ function pageLogin() {
           <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
           <a class="btn btn-secondary cta__button" href="#landingHow">Как это работает</a>
         </div>
+        <div class="landing-2026-cta-proof">
+          <span class="landing-2026-cta-pill">7 дней бесплатно</span>
+          <span class="landing-2026-cta-pill">Без карты</span>
+          <span class="landing-2026-cta-pill">Отмена в любой момент</span>
+        </div>
       </div>
       <div class="landing-2026-hero-visual">
         <div class="landing-2026-mockup">
@@ -1234,6 +1239,11 @@ function pageLogin() {
       <h2>Готовы перевести SMM на системный автопилот?</h2>
       <p>Запустите AutoSocial.tech и получайте стабильный контент-поток без перегруза команды.</p>
       <button id="finalRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
+      <div class="landing-2026-cta-proof" style="justify-content:center;">
+        <span class="landing-2026-cta-pill">7 дней бесплатно</span>
+        <span class="landing-2026-cta-pill">Без карты</span>
+        <span class="landing-2026-cta-pill">Отмена в любой момент</span>
+      </div>
     </section>
 
     <section class="landing-2026-auth-wrap">
