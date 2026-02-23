@@ -1,6 +1,6 @@
 ﻿from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 
 SaaSBase = declarative_base()
@@ -106,6 +106,65 @@ class IntegrationConnection(SaaSBase):
 SocialAccount = IntegrationConnection
 
 
+class ConnectedAccount(SaaSBase):
+    __tablename__ = "connected_accounts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", "external_id", name="uq_connected_account_user_platform_external"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    platform = Column(String(20), nullable=False, index=True)  # meta | youtube
+    external_id = Column(String(255), nullable=False)
+    display_name = Column(String(255), nullable=True)
+    access_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ContentItem(SaaSBase):
+    __tablename__ = "content_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", "external_id", name="uq_content_item_user_platform_external"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    platform = Column(String(20), nullable=False, index=True)  # meta | youtube
+    external_id = Column(String(255), nullable=False)
+    account_id = Column(Integer, ForeignKey("connected_accounts.id"), nullable=False, index=True)
+    content_type = Column(String(40), nullable=False, default="post")
+    title = Column(String(500), nullable=True)
+    message = Column(Text, nullable=True)
+    url = Column(Text, nullable=True)
+    published_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ContentMetricDaily(SaaSBase):
+    __tablename__ = "content_metrics_daily"
+    __table_args__ = (
+        UniqueConstraint("content_item_id", "day", name="uq_content_metrics_daily_item_day"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    content_item_id = Column(Integer, ForeignKey("content_items.id"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    impressions = Column(Integer, nullable=False, default=0)
+    reach = Column(Integer, nullable=False, default=0)
+    views = Column(Integer, nullable=False, default=0)
+    clicks = Column(Integer, nullable=False, default=0)
+    likes = Column(Integer, nullable=False, default=0)
+    comments = Column(Integer, nullable=False, default=0)
+    shares = Column(Integer, nullable=False, default=0)
+    watch_time_seconds = Column(BigInteger, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class TopicSuggestion(SaaSBase):
     __tablename__ = "topics_suggestions"
     __table_args__ = (UniqueConstraint("user_id", "project_id", "category", "topic", name="uq_topic_suggestion"),)
@@ -196,6 +255,45 @@ class CampaignDelivery(SaaSBase):
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ContentBrief(SaaSBase):
+    __tablename__ = "content_briefs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    topic = Column(Text, nullable=False)
+    offer = Column(Text, nullable=True)
+    language = Column(String(20), nullable=False, default="ru")
+    tone = Column(String(40), nullable=False, default="neutral")
+    goal = Column(String(40), nullable=False, default="engagement")
+    platforms_json = Column(Text, nullable=False, default="[]")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ContentStrategy(SaaSBase):
+    __tablename__ = "content_strategies"
+
+    id = Column(Integer, primary_key=True)
+    brief_id = Column(Integer, ForeignKey("content_briefs.id"), nullable=False, index=True)
+    strategy_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ContentDraft(SaaSBase):
+    __tablename__ = "content_drafts"
+
+    id = Column(Integer, primary_key=True)
+    brief_id = Column(Integer, ForeignKey("content_briefs.id"), nullable=False, index=True)
+    platform = Column(String(30), nullable=False, index=True)  # facebook | instagram | youtube
+    variant_index = Column(Integer, nullable=False, default=1)
+    post_text = Column(Text, nullable=False)
+    title = Column(String(300), nullable=True)
+    description = Column(Text, nullable=True)
+    hashtags_json = Column(Text, nullable=False, default="[]")
+    cta = Column(Text, nullable=True)
+    asset_ideas_json = Column(Text, nullable=False, default="[]")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
 class GenerationJob(SaaSBase):

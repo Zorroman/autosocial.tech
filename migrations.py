@@ -162,6 +162,38 @@ def run_migrations() -> None:
             conn.execute(
                 text("UPDATE generation_jobs SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
             )
+    # Keep dashboard account-unification table in sync with existing social_accounts storage.
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "social_accounts" in tables and "connected_accounts" in tables:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO connected_accounts
+                        (user_id, platform, external_id, display_name, access_token, refresh_token, token_expires_at, created_at, updated_at)
+                    SELECT
+                        sa.user_id,
+                        CASE WHEN LOWER(COALESCE(sa.provider, '')) = 'youtube' THEN 'youtube' ELSE 'meta' END AS platform,
+                        COALESCE(NULLIF(TRIM(sa.page_id), ''), 'account-' || CAST(sa.id AS VARCHAR)) AS external_id,
+                        sa.page_name,
+                        sa.token_encrypted,
+                        NULL,
+                        sa.token_expires_at,
+                        COALESCE(sa.created_at, CURRENT_TIMESTAMP),
+                        COALESCE(sa.updated_at, sa.created_at, CURRENT_TIMESTAMP)
+                    FROM social_accounts sa
+                    WHERE sa.user_id IS NOT NULL
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM connected_accounts ca
+                        WHERE ca.user_id = sa.user_id
+                          AND ca.platform = CASE WHEN LOWER(COALESCE(sa.provider, '')) = 'youtube' THEN 'youtube' ELSE 'meta' END
+                          AND ca.external_id = COALESCE(NULLIF(TRIM(sa.page_id), ''), 'account-' || CAST(sa.id AS VARCHAR))
+                      )
+                    """
+                )
+            )
 
 
 if __name__ == "__main__":
