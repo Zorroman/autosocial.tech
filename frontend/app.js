@@ -451,17 +451,6 @@ const state = {
     videoResult: null,
     postResult: null,
   },
-  dashboardUI: {
-    tab: 'overview',
-  },
-  dashboardComposer: {
-    topic: '',
-    tone: 'friendly',
-    platform: 'meta',
-    output: '',
-    loading: false,
-  },
-  dashboardBrand: null,
   aiWizard: null,
 };
 
@@ -643,6 +632,8 @@ function icon(name) {
     admin: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7l8-4z"/><path d="M9.5 12.5l1.7 1.7 3.6-3.6"/></svg>',
     blog: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
     contact: '<svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    support: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 18h.01"/><path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-2.9 2.5-2.9 4"/><circle cx="12" cy="12" r="9"/></svg>',
+    logout: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   };
   return icons[name] || icons.dashboard;
 }
@@ -1084,21 +1075,23 @@ function WizardContainer(params) {
 }
 
 function appLayout(path, title, body) {
-  const links = [
-    ['/dashboard', 'РџР°РЅРµР»СЊ', 'dashboard'],
-    ['/create', 'РЎРѕР·РґР°С‚СЊ', 'create'],
-    ['/youtube', 'YouTube Studio', 'youtube'],
-    ['/connections', 'РџРѕРґРєР»СЋС‡РµРЅРёСЏ', 'connections'],
-    ['/history', 'Календарь', 'history'],
-    ['/billing', 'РўР°СЂРёС„С‹', 'billing'],
-    ['/settings', 'РќР°СЃС‚СЂРѕР№РєРё', 'settings'],
-    ['/blog', 'Р‘Р»РѕРі', 'blog'],
-    ['/contact', 'РљРѕРЅС‚Р°РєС‚С‹', 'contact'],
-  ];
-  if (state.user?.role === 'admin') links.push(['/admin', 'РђРґРјРёРЅ', 'admin']);
+  const isAdminArea = path.startsWith('/admin');
+  const links = isAdminArea
+    ? [['/admin', 'Админ', 'admin']]
+    : [
+        ['/dashboard', 'Панель', 'dashboard'],
+        ['/create', 'Создать', 'create'],
+        ['/calendar', 'Календарь', 'history'],
+        ['/connections', 'Подключения', 'connections'],
+        ['/history', 'История', 'history'],
+        ['/settings', 'Настройки бренда', 'settings'],
+        ['/billing', 'Биллинг', 'billing'],
+        ['/support', 'Поддержка', 'support'],
+      ];
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
+  const logoutNav = !isAdminArea ? `<button type="button" id="sidebarLogoutBtn" class="nav-link nav-link-logout">${icon('logout')}<span>Выйти</span></button>` : '';
   const footer = `<div class="footer-note"><div class="small">Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.</div><div class="small">Stripe защищенные платежи · SSL защищено · GDPR совместимо</div></div>`;
-  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM РњРµРЅРµРґР¶РµСЂ</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°' : 'РўС‘РјРЅР°СЏ С‚РµРјР°'}</button><button id="logoutBtn" class="btn btn-secondary">Р’С‹Р№С‚Рё</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
+  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM менеджер</div></div></div>${navHtml}${logoutNav}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
   const t = loginText;
@@ -1293,31 +1286,12 @@ function pageLogin() {
 }
 
 function pageDashboard() {
-  if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
-  if (!state.dashboardComposer) state.dashboardComposer = { topic: '', tone: 'friendly', platform: 'meta', output: '', loading: false };
-  if (!state.dashboardBrand) {
-    try {
-      const raw = localStorage.getItem('dashboardBrandSettings');
-      state.dashboardBrand = raw ? JSON.parse(raw) : { description: '', audience: '', ctaStyle: 'value' };
-    } catch {
-      state.dashboardBrand = { description: '', audience: '', ctaStyle: 'value' };
-    }
-  }
-
   const ui = {
-    overview: 'Обзор',
-    create: 'Создать',
-    calendar: 'Календарь',
-    connections: 'Подключения',
-    history: 'История',
-    brand: 'Настройки бренда',
-    billing: 'Биллинг',
     kpi_posts: 'Постов в этом месяце',
     kpi_scheduled: 'Запланировано',
     kpi_connected: 'Подключено аккаунтов',
     kpi_summary: 'Сводка (пока без аналитики)',
   };
-  const tab = String(state.dashboardUI.tab || 'overview').toLowerCase();
   const b = state.billing || { usage: {}, limits: {}, credits_left: 0, approx_posts_left: 0, plan: 'free' };
   const posts = state.posts || [];
   const usedMonth = Number(b.usage.posts_per_month || 0);
@@ -1326,71 +1300,59 @@ function pageDashboard() {
   const connectedMetaCount = (state.connections || []).filter((c) => isConnectionReady(c)).length;
   const connectedYoutube = state.youtubeConnection?.connected ? 1 : 0;
   const connectedAccountsCount = connectedMetaCount + connectedYoutube;
-  const topPlanBadge = planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'));
   const unlimitedMonth = monthLimit >= 1000000000;
-  const composer = state.dashboardComposer;
-  const brand = state.dashboardBrand;
-  const pageTitleMap = {
-    overview: 'Рабочий стол',
-    create: 'Создание контента',
-    calendar: 'Календарь публикаций',
-    connections: 'Подключения аккаунтов',
-    history: 'История публикаций',
-    brand: 'Параметры бренда',
-    billing: 'Тариф и биллинг',
-  };
-  const activeTitle = pageTitleMap[tab] || pageTitleMap.overview;
-
-  const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const first = new Date(y, m, 1);
-  const shift = (first.getDay() + 6) % 7;
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const calCells = [];
-  for (let i = 0; i < shift; i += 1) calCells.push('<div class="dash-cal-empty"></div>');
-  for (let d = 1; d <= daysInMonth; d += 1) {
-    const hasPosts = posts.some((p) => {
-      const dt = p.schedule_at ? new Date(p.schedule_at) : (p.created_at ? new Date(p.created_at) : null);
-      return dt && dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
-    });
-    calCells.push(`<button type="button" class="dash-cal-day ${hasPosts ? 'has-posts' : ''}"><span>${d}</span><small>${hasPosts ? 'есть контент' : 'свободно'}</small></button>`);
-  }
-
-  const scheduledCards = posts
-    .filter((p) => String(p.status || '').toLowerCase() === 'scheduled')
-    .slice(0, 6)
-    .map((p) => `<article class="dash-scheduled-card"><h4>${esc(p.topic || 'Пост без темы')}</h4><p>${esc((p.generated_text || '').slice(0, 120) || 'Черновик без текста')}</p><div class="small">${new Date(p.schedule_at || p.created_at).toLocaleString()} · ${esc(p.platform || '—')}</div></article>`)
-    .join('');
 
   const latestPosts = posts
     .slice(0, 6)
     .map((p) => `<li class="dash-recent-item"><div><strong>${esc(p.topic || 'Пост без темы')}</strong><p class="small">${esc((p.generated_text || '').slice(0, 120) || 'Текст пока не заполнен')}</p></div><div class="small">${new Date(p.created_at).toLocaleDateString()}</div></li>`)
     .join('');
 
-  const overviewSection = `
+  return appLayout('/dashboard', 'Панель управления', `
+    <section class="dash-client-shell">
+      <header class="dash-client-head">
+        <div>
+          <h2>Панель управления</h2>
+          <p class="small">Ключевые показатели, быстрые действия и подсказки AI в одном экране.</p>
+        </div>
+      </header>
+      <main class="dash-client-content">
     <section class="dash-kpi-grid">
       <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
         <p>${ui.kpi_posts}</p>
         <strong>${usedMonth}</strong>
         <span>${unlimitedMonth ? 'Без лимита по тарифу' : `Лимит: ${monthLimit}`}</span>
       </article>
       <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
         <p>${ui.kpi_scheduled}</p>
         <strong>${scheduledCount}</strong>
         <span>Постов ждут публикации</span>
       </article>
       <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
         <p>${ui.kpi_connected}</p>
         <strong>${connectedAccountsCount}</strong>
         <span>Meta: ${connectedMetaCount} · YouTube: ${connectedYoutube}</span>
       </article>
       <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
         <p>${ui.kpi_summary}</p>
         <strong>${connectedAccountsCount > 0 ? '+18%' : '—'}</strong>
         <span>${connectedAccountsCount > 0 ? 'Пока демонстрационная метрика до подключения аналитики' : 'Подключите аккаунты для метрик'}</span>
       </article>
+    </section>
+    <section class="dash-card dash-ai-card">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h3>AI-рекомендации</h3>
+          <ul class="dash-ai-list">
+            <li>Вы давно не публиковали — создать пост?</li>
+            <li>Сгенерировать контент на основе тренда</li>
+          </ul>
+        </div>
+        <button id="dashCreatePostBtn" class="btn btn-primary">Создать пост</button>
+      </div>
     </section>
     <section class="dash-card">
       <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1405,169 +1367,10 @@ function pageDashboard() {
       </div>
     </section>
     <section class="dash-card">
-      <h3>Последние материалы</h3>
+      <h3>Последние публикации</h3>
       ${latestPosts ? `<ul class="dash-recent-list">${latestPosts}</ul>` : '<p class="small">Пока нет публикаций. Создайте первый пост во вкладке «Создать».</p>'}
     </section>
-  `;
-
-  const createSection = `
-    <section class="dash-card">
-      <h3>Создать контент</h3>
-      <div class="grid-2" style="gap:12px;">
-        ${field('dashTopic', 'Тема', 'text', composer.topic || '', 'Например: как локальному бизнесу получать заявки из соцсетей')}
-        ${selectField('dashTone', 'Тон', composer.tone || 'friendly', [
-          { value: 'friendly', label: 'Дружелюбный' },
-          { value: 'expert', label: 'Экспертный' },
-          { value: 'sales', label: 'Продающий' },
-          { value: 'neutral', label: 'Нейтральный' },
-        ])}
-      </div>
-      ${selectField('dashPlatform', 'Платформа', composer.platform || 'meta', [
-        { value: 'meta', label: 'Meta (Facebook/Instagram)' },
-        { value: 'youtube', label: 'YouTube' },
-      ])}
-      <div class="cta-row">
-        <button id="dashGenerateBtn" class="btn btn-primary">${composer.loading ? 'Генерация...' : 'Сгенерировать'}</button>
-      </div>
-    </section>
-    <section class="dash-card">
-      <h3>Результат</h3>
-      <div class="field">
-        <label for="dashOutput">Редактируемый текст</label>
-        <textarea id="dashOutput" placeholder="Сгенерированный текст появится здесь">${esc(composer.output || '')}</textarea>
-      </div>
-      <div class="cta-row">
-        <button id="dashSaveDraftBtn" class="btn btn-secondary" ${(composer.output || '').trim() ? '' : 'disabled'}>Сохранить</button>
-        <button id="dashScheduleBtn" class="btn btn-ghost" ${(composer.output || '').trim() ? '' : 'disabled'}>Запланировать</button>
-      </div>
-    </section>
-  `;
-
-  const calendarSection = `
-    <section class="dash-card">
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-        <h3 style="margin:0;">Календарь публикаций</h3>
-        <span class="small">${now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}</span>
-      </div>
-      <div class="dash-cal-grid">
-        ${dayLabels.map((d) => `<div class="dash-cal-weekday">${d}</div>`).join('')}
-        ${calCells.join('')}
-      </div>
-    </section>
-    <section class="dash-card">
-      <h3>Запланированные посты</h3>
-      <div class="dash-scheduled-list">
-        ${scheduledCards || '<p class="small">Пока нет запланированных постов. Сгенерируйте контент и выберите расписание.</p>'}
-      </div>
-      <div class="dash-drag-placeholder">Drag & drop placeholder: перетаскивание появится в следующем релизе</div>
-    </section>
-  `;
-
-  const connectionsSection = `
-    <section class="dash-kpi-grid">
-      <article class="dash-card">
-        <h3>Meta</h3>
-        <p class="small">Facebook + Instagram</p>
-        ${connectedMetaCount > 0 ? '<span class="status success">Подключен</span>' : '<span class="status warning">Не подключен</span>'}
-        <div class="cta-row" style="margin-top:10px;">
-          <button id="dashConnectMetaBtn" class="btn btn-primary">Подключить Meta</button>
-        </div>
-        <div class="small" style="margin-top:8px;">Безопасный OAuth · токены скрыты</div>
-      </article>
-      <article class="dash-card">
-        <h3>YouTube</h3>
-        <p class="small">Канал и студия</p>
-        ${connectedYoutube > 0 ? '<span class="status success">Подключен</span>' : '<span class="status warning">Не подключен</span>'}
-        <div class="cta-row" style="margin-top:10px;">
-          <button id="dashConnectYoutubeBtn" class="btn btn-primary">Подключить YouTube</button>
-        </div>
-        <div class="small" style="margin-top:8px;">Безопасный API · шифрованный транспорт</div>
-      </article>
-    </section>
-  `;
-
-  const brandSection = `
-    <section class="dash-card">
-      <h3>Настройки бренда</h3>
-      ${field('dashBrandDescription', 'Описание бренда', 'textarea', brand.description || '', 'Чем вы полезны рынку, какие сильные стороны нужно отражать в контенте')}
-      ${field('dashBrandAudience', 'Целевая аудитория', 'text', brand.audience || '', 'Например: владельцы локального бизнеса 25-45')}
-      ${selectField('dashBrandCtaStyle', 'Стиль CTA', brand.ctaStyle || 'value', [
-        { value: 'value', label: 'Через пользу' },
-        { value: 'direct', label: 'Прямой оффер' },
-        { value: 'soft', label: 'Мягкий приглашение' },
-      ])}
-      <div class="cta-row">
-        <button id="dashSaveBrandBtn" class="btn btn-primary">Сохранить настройки</button>
-      </div>
-    </section>
-  `;
-
-  const billingSection = `
-    <section class="dash-kpi-grid">
-      <article class="dash-card">
-        <h3>Текущий план</h3>
-        <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap;">${topPlanBadge}</div>
-        <p class="small" style="margin-top:8px;">Кредиты: ${esc(b.credits_left || 0)} · Примерно ${esc(b.approx_posts_left || 0)} постов</p>
-        <div style="margin-top:10px;">${progressBar(usedMonth, Math.max(monthLimit || usedMonth || 1, 1))}</div>
-      </article>
-      <article class="dash-card">
-        <h3>Использование</h3>
-        <p class="small">Постов в месяце: ${usedMonth} / ${unlimitedMonth ? 'без лимита' : monthLimit}</p>
-        <p class="small">Запланировано: ${scheduledCount}</p>
-        <div class="cta-row" style="margin-top:10px;">
-          <button id="dashUpgradeBtn" class="btn btn-primary">Улучшить тариф</button>
-          <button id="dashManageBillingBtn" class="btn btn-secondary">Управление подпиской</button>
-        </div>
-      </article>
-    </section>
-  `;
-
-  const historySection = `
-    <section class="dash-card">
-      <h3>История публикаций и черновиков</h3>
-      ${latestPosts ? `<ul class="dash-recent-list">${latestPosts}</ul>` : '<p class="small">История пока пустая. Создайте первый пост во вкладке «Создать».</p>'}
-      <div class="cta-row" style="margin-top:10px;">
-        <button class="btn btn-secondary" data-link="/history">Открыть полный раздел истории</button>
-      </div>
-    </section>
-  `;
-
-  const tabContentMap = {
-    overview: overviewSection,
-    create: createSection,
-    calendar: calendarSection,
-    connections: connectionsSection,
-    history: historySection,
-    brand: brandSection,
-    billing: billingSection,
-  };
-
-  const navItems = [
-    ['overview', ui.overview],
-    ['create', ui.create],
-    ['calendar', ui.calendar],
-    ['connections', ui.connections],
-    ['history', ui.history],
-    ['brand', ui.brand],
-    ['billing', ui.billing],
-  ];
-
-  return appLayout('/dashboard', 'Панель', `
-    <section class="dash-client-shell">
-      <header class="dash-client-head">
-        <div>
-          <h2>${esc(activeTitle)}</h2>
-          <p class="small">Единая рабочая зона для контента, публикаций и подключений.</p>
-        </div>
-        <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;">
-          ${topPlanBadge}
-          <button id="dashUpgradeTopBtn" class="btn btn-primary">Улучшить тариф</button>
-        </div>
-      </header>
-      <nav class="dash-client-tabs" aria-label="Разделы dashboard">
-        ${navItems.map(([key, label]) => `<button type="button" class="dash-tab-btn ${tab === key ? 'active' : ''}" data-dashboard-tab="${key}">${esc(label)}</button>`).join('')}
-      </nav>
-      <main class="dash-client-content">${tabContentMap[tab] || overviewSection}</main>
+      </main>
     </section>
   `);
 }
@@ -1971,7 +1774,7 @@ function pricingCards() {
   </div>`;
 }
 
-function pageHistory() {
+function pageHistory(showCalendar = false) {
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
   const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
   const today = new Date();
@@ -2184,7 +1987,12 @@ function pageHistory() {
     </div>
   </div>`;
 
-  return appLayout('/history','Календарь',`${plannerBoard}<section class="card"><h2>Архив публикаций</h2>${table}</section>${modal}${editModal}`);
+  const calendarSection = showCalendar ? plannerBoard : '';
+  return appLayout(showCalendar ? '/calendar' : '/history', showCalendar ? 'Календарь' : 'История', `${calendarSection}<section class="card"><h2>Архив публикаций</h2>${table}</section>${modal}${editModal}`);
+}
+
+function pageCalendar() {
+  return pageHistory(true);
 }
 
 function pageBilling() {
@@ -2238,7 +2046,28 @@ function pageBilling() {
 }
 
 function pageSettings() {
-  return appLayout('/settings','РќР°СЃС‚СЂРѕР№РєРё',`<section class="grid-2"><article class="card"><h2>РџСЂРѕС„РёР»СЊ</h2>${field('profileEmail','Email','text',state.user?.email || '')}<button id="saveProfileBtn" class="btn btn-primary">РЎРѕС…СЂР°РЅРёС‚СЊ РїСЂРѕС„РёР»СЊ</button></article><article class="card"><h2>РџР°СЂРѕР»СЊ</h2>${field('curPass','РўРµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ','password')}${field('newPass','РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ','password')}<button id="savePassBtn" class="btn btn-secondary">РћР±РЅРѕРІРёС‚СЊ РїР°СЂРѕР»СЊ</button></article></section>`);
+  if (!state.dashboardBrand) {
+    try {
+      const raw = localStorage.getItem('dashboardBrandSettings');
+      state.dashboardBrand = raw ? JSON.parse(raw) : { description: '', audience: '', ctaStyle: 'value' };
+    } catch {
+      state.dashboardBrand = { description: '', audience: '', ctaStyle: 'value' };
+    }
+  }
+  const brand = state.dashboardBrand || { description: '', audience: '', ctaStyle: 'value' };
+  return appLayout('/settings', 'Настройки бренда', `<section class="dash-card">
+    <h3>Параметры бренда</h3>
+    ${field('dashBrandDescription', 'Описание бренда', 'textarea', brand.description || '', 'Чем вы полезны клиентам и какой стиль нужно держать в публикациях')}
+    ${field('dashBrandAudience', 'Целевая аудитория', 'text', brand.audience || '', 'Например: владельцы малого бизнеса 25-45')}
+    ${selectField('dashBrandCtaStyle', 'Стиль CTA', brand.ctaStyle || 'value', [
+      { value: 'value', label: 'Через пользу' },
+      { value: 'direct', label: 'Прямой оффер' },
+      { value: 'soft', label: 'Мягкий призыв' },
+    ])}
+    <div class="cta-row">
+      <button id="dashSaveBrandBtn" class="btn btn-primary">Сохранить настройки</button>
+    </div>
+  </section>`);
 }
 
 function pageBlog() {
@@ -2347,6 +2176,26 @@ function pageContact() {
   return appLayout('/contact','РљРѕРЅС‚Р°РєС‚С‹',`<section class="grid-2"><article class="card"><h2>РљРѕРЅС‚Р°РєС‚С‹</h2><p class="small">РќСѓР¶РЅР° РїРѕРјРѕС‰СЊ СЃ РѕРЅР±РѕСЂРґРёРЅРіРѕРј, РЅР°СЃС‚СЂРѕР№РєРѕР№ Meta РёР»Рё Р±РёР»Р»РёРЅРіРѕРј?</p><p><strong>Email:</strong> support@autosocial-gpt.local</p><p><strong>РљРѕРјРїР°РЅРёСЏ:</strong> AutoSocial GPT SaaS</p><p><strong>Р’СЂРµРјСЏ СЂР°Р±РѕС‚С‹:</strong> РџРЅ-РџС‚ 09:00-18:00 UTC</p></article><article class="card"><h2>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ Рё СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ</h2><ul class="small"><li>Р‘РµР·РѕРїР°СЃРЅС‹Рµ РїР»Р°С‚РµР¶Рё Stripe</li><li>SSL-С€РёС„СЂРѕРІР°РЅРёРµ СЃРѕРµРґРёРЅРµРЅРёР№</li><li>РЎРѕРѕС‚РІРµС‚СЃС‚РІРёРµ GDPR</li><li>Р‘РµР· СЃРєСЂС‹С‚С‹С… РїР»Р°С‚РµР¶РµР№</li></ul></article></section>`);
 }
 
+function pageSupport() {
+  return appLayout('/support', 'Поддержка', `<section class="grid-2">
+    <article class="card">
+      <h2>Поддержка</h2>
+      <p class="small">Поможем с подключением Meta, YouTube и настройкой публикаций.</p>
+      <p><strong>Email:</strong> support@autosocial.tech</p>
+      <p><strong>Часы поддержки:</strong> Пн-Пт 09:00-18:00 UTC</p>
+    </article>
+    <article class="card">
+      <h2>Безопасность</h2>
+      <ul class="small">
+        <li>Безопасные платежи Stripe</li>
+        <li>SSL-шифрование</li>
+        <li>Соответствие GDPR</li>
+        <li>Без скрытых платежей</li>
+      </ul>
+    </article>
+  </section>`);
+}
+
 function adminUsersTable() {
   if (!state.adminUsers.length) return '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР°.</p>';
   return `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Email</th><th>Р РѕР»СЊ</th><th>РўР°СЂРёС„</th><th>РљСЂРµРґРёС‚С‹</th><th>Р‘РёР»Р»РёРЅРі</th><th>РЎРѕР·РґР°РЅ</th></tr></thead><tbody>${state.adminUsers.map((u)=>`<tr><td>${u.id}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${planBadge(u.role === 'admin' ? 'admin' : u.plan)}</td><td>${u.credits_left}</td><td>${esc(u.billing_status || 'вЂ”')}</td><td>${new Date(u.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table></div>`;
@@ -2359,7 +2208,7 @@ function pageAdmin() {
 }
 
 function page(path) {
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact };
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreate, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -2373,7 +2222,7 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
   }
-  if (path === '/history') state.posts = await api('/api/posts');
+  if (path === '/history' || path === '/calendar') state.posts = await api('/api/posts');
   if (path === '/billing' || path === '/dashboard') state.plans = await api('/api/plans');
   if (path === '/dashboard') {
     state.connections = await api('/api/connections');
@@ -2384,8 +2233,8 @@ async function preload(path) {
 }
 async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.projects = await api('/api/projects'); }
 function bindCommon() {
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) logoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
+  const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+  if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
   const themeToggle = document.getElementById('themeToggleBtn');
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
 }
@@ -2819,156 +2668,11 @@ async function bind() {
     }
   };
 
-  // Dashboard 2026 workspace interactions
-  const dashTabButtons = document.querySelectorAll('[data-dashboard-tab]');
-  dashTabButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const key = String(btn.getAttribute('data-dashboard-tab') || '').trim();
-      if (!key) return;
-      if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
-      state.dashboardUI.tab = key;
-      render();
-    };
-  });
-
-  const dashUpgradeTopBtn = document.getElementById('dashUpgradeTopBtn');
-  if (dashUpgradeTopBtn) dashUpgradeTopBtn.onclick = () => nav('/billing');
-  const dashUpgradeBtn = document.getElementById('dashUpgradeBtn');
-  if (dashUpgradeBtn) dashUpgradeBtn.onclick = () => nav('/billing');
-  const dashManageBillingBtn = document.getElementById('dashManageBillingBtn');
-  if (dashManageBillingBtn) dashManageBillingBtn.onclick = () => nav('/billing');
+  // Dashboard interactions
   const dashCreatePostBtn = document.getElementById('dashCreatePostBtn');
-  if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => {
-    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
-    state.dashboardUI.tab = 'create';
-    render();
-  };
+  if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => nav('/create');
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
-  if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => {
-    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
-    state.dashboardUI.tab = 'calendar';
-    render();
-  };
-
-  const dashTopic = document.getElementById('dashTopic');
-  if (dashTopic) dashTopic.oninput = () => {
-    state.dashboardComposer = { ...(state.dashboardComposer || {}), topic: dashTopic.value };
-  };
-  const dashTone = document.getElementById('dashTone');
-  if (dashTone) dashTone.onchange = () => {
-    state.dashboardComposer = { ...(state.dashboardComposer || {}), tone: dashTone.value };
-  };
-  const dashPlatform = document.getElementById('dashPlatform');
-  if (dashPlatform) dashPlatform.onchange = () => {
-    state.dashboardComposer = { ...(state.dashboardComposer || {}), platform: dashPlatform.value };
-  };
-  const dashOutput = document.getElementById('dashOutput');
-  if (dashOutput) dashOutput.oninput = () => {
-    state.dashboardComposer = { ...(state.dashboardComposer || {}), output: dashOutput.value };
-  };
-
-  const dashGenerateBtn = document.getElementById('dashGenerateBtn');
-  if (dashGenerateBtn) dashGenerateBtn.onclick = async () => {
-    try {
-      const c = state.dashboardComposer || {};
-      const topic = String(c.topic || '').trim();
-      if (!topic) throw new Error('Введите тему для генерации.');
-      const toneMap = {
-        friendly: 'дружелюбном',
-        expert: 'экспертном',
-        sales: 'продающем',
-        neutral: 'нейтральном',
-      };
-      const platformLabel = c.platform === 'youtube' ? 'YouTube' : 'Meta';
-      state.dashboardComposer = { ...c, loading: true };
-      render();
-      // Fast deterministic first draft in dashboard workspace.
-      const draft = `${topic}\n\n${platformLabel}: пост в ${toneMap[c.tone] || 'дружелюбном'} тоне.\n\n1) Боль аудитории.\n2) Практический шаг.\n3) Призыв к действию.\n\nCTA: Напишите «ХОЧУ», чтобы получить консультацию.`;
-      state.dashboardComposer = { ...(state.dashboardComposer || {}), output: draft, loading: false };
-      state.notice = { type: 'ok', text: 'Черновик готов. Отредактируйте текст и сохраните.' };
-      render();
-    } catch (e) {
-      state.dashboardComposer = { ...(state.dashboardComposer || {}), loading: false };
-      state.notice = { type: 'error', text: e.message || 'Ошибка генерации.' };
-      render();
-    }
-  };
-
-  const dashSaveDraftBtn = document.getElementById('dashSaveDraftBtn');
-  if (dashSaveDraftBtn) dashSaveDraftBtn.onclick = async () => {
-    try {
-      const c = state.dashboardComposer || {};
-      const topic = String(c.topic || '').trim();
-      const text = String(c.output || '').trim();
-      if (!topic || !text) throw new Error('Нужны тема и текст для сохранения.');
-      const projectId = Number(state.projects?.[0]?.id || 0);
-      const payload = {
-        project_id: projectId || null,
-        platform: c.platform === 'youtube' ? 'youtube' : 'facebook',
-        topic,
-        generated_text: text,
-        tone: c.tone || 'friendly',
-        language: 'ru',
-        save_as_draft: true,
-      };
-      await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
-      state.notice = { type: 'ok', text: 'Черновик сохранён.' };
-      nav('/history', { keepNotice: true });
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось сохранить черновик.' };
-      render();
-    }
-  };
-
-  const dashScheduleBtn = document.getElementById('dashScheduleBtn');
-  if (dashScheduleBtn) dashScheduleBtn.onclick = async () => {
-    try {
-      const c = state.dashboardComposer || {};
-      const topic = String(c.topic || '').trim();
-      const text = String(c.output || '').trim();
-      if (!topic || !text) throw new Error('Нужны тема и текст для планирования.');
-      const dt = new Date(Date.now() + 60 * 60 * 1000);
-      const scheduleAt = dt.toISOString();
-      const projectId = Number(state.projects?.[0]?.id || 0);
-      const payload = {
-        project_id: projectId || null,
-        platform: c.platform === 'youtube' ? 'youtube' : 'facebook',
-        topic,
-        generated_text: text,
-        tone: c.tone || 'friendly',
-        language: 'ru',
-        schedule_at: scheduleAt,
-      };
-      await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
-      state.notice = { type: 'ok', text: 'Пост запланирован на ближайший час.' };
-      nav('/history', { keepNotice: true });
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось запланировать пост.' };
-      render();
-    }
-  };
-
-  const dashConnectMetaBtn = document.getElementById('dashConnectMetaBtn');
-  if (dashConnectMetaBtn) dashConnectMetaBtn.onclick = async () => {
-    try {
-      const r = await api('/api/integrations/meta/connect', { method: 'POST', body: '{}' });
-      location.href = r.oauth_url;
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось запустить подключение Meta.' };
-      render();
-    }
-  };
-
-  const dashConnectYoutubeBtn = document.getElementById('dashConnectYoutubeBtn');
-  if (dashConnectYoutubeBtn) dashConnectYoutubeBtn.onclick = async () => {
-    try {
-      const r = await api('/api/integrations/youtube/start', { method: 'POST', body: '{}' });
-      location.href = r.oauth_url;
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось запустить подключение YouTube.' };
-      render();
-    }
-  };
+  if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
 
   const dashBrandDescription = document.getElementById('dashBrandDescription');
   if (dashBrandDescription) dashBrandDescription.oninput = () => {

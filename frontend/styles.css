@@ -145,6 +145,10 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
   box-shadow: var(--shadow-sm);
 }
 
+.nav-link-logout {
+  margin-top: 8px;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -1796,12 +1800,11 @@ th { color: var(--text-muted); font-weight: 600; }
 /* Dashboard client workspace */
 .dash-client-shell {
   display: grid;
-  gap: 14px;
+  gap: 22px;
 }
 
 .dash-client-head,
-.dash-card,
-.dash-tab-btn {
+.dash-card {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: color-mix(in oklab, var(--surface) 92%, transparent);
@@ -1825,49 +1828,34 @@ th { color: var(--text-muted); font-weight: 600; }
   font-size: clamp(24px, 2vw, 34px);
 }
 
-.dash-client-tabs {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.dash-tab-btn {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.dash-tab-btn:hover {
-  transform: translateY(-1px);
-}
-
-.dash-tab-btn.active {
-  color: var(--text);
-  border-color: color-mix(in oklab, var(--brand-primary) 45%, var(--border));
-  background: color-mix(in oklab, var(--surface-2) 92%, transparent);
-}
-
 .dash-client-content {
   display: grid;
-  gap: 12px;
+  gap: 18px;
 }
 
 .dash-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .dash-kpi-card {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: color-mix(in oklab, var(--surface-2) 88%, transparent);
   box-shadow: var(--shadow-sm);
-  padding: 16px;
+  padding: 18px;
+}
+
+.dash-kpi-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+  background: var(--btn-grad);
 }
 
 .dash-kpi-card p {
@@ -1891,12 +1879,26 @@ th { color: var(--text-muted); font-weight: 600; }
 }
 
 .dash-card {
-  padding: 16px;
+  padding: 18px;
 }
 
 .dash-card h3 {
   margin: 0 0 8px;
   font-size: 21px;
+}
+
+.dash-ai-card {
+  background:
+    radial-gradient(circle at 95% 10%, rgba(59, 130, 246, 0.12), transparent 28%),
+    color-mix(in oklab, var(--surface) 94%, transparent);
+}
+
+.dash-ai-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
 }
 
 .dash-cal-grid {
@@ -2005,17 +2007,11 @@ th { color: var(--text-muted); font-weight: 600; }
   .dash-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .dash-client-tabs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 760px) {
   .dash-client-head {
     padding: 12px;
-  }
-  .dash-client-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .dash-kpi-grid {
     grid-template-columns: 1fr;
