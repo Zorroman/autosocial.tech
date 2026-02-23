@@ -21,9 +21,90 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div id="siteLangSwitcher" class="site-lang-switcher">
+      <label for="siteLangSelect">Language</label>
+      <select id="siteLangSelect" aria-label="Site language">
+        <option value="ru">Русский</option>
+        <option value="uk">Українська</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+      </select>
+    </div>
+    <div id="google_translate_element" style="display:none;"></div>
     <div id="app"></div>
     <script src="/wizard_utils.js?v=yt-oauth-fix-28"></script>
-    <script src="/app.js?v=dashboard-2026-34"></script>
+    <script>
+      (function () {
+        var defaultLang = 'ru';
+        var allowed = ['ru', 'uk', 'en', 'es', 'de', 'fr'];
+        var select = document.getElementById('siteLangSelect');
+        function normalizeLang(v) {
+          var raw = String(v || '').toLowerCase().trim();
+          if (!raw) return '';
+          var shortCode = raw.split('-')[0];
+          return allowed.indexOf(shortCode) >= 0 ? shortCode : '';
+        }
+        function setCookie(name, value, days) {
+          var expires = '';
+          if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+            expires = '; expires=' + date.toUTCString();
+          }
+          document.cookie = name + '=' + value + expires + '; path=/; SameSite=Lax';
+        }
+        function removeCookie(name) {
+          document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
+        }
+        function applyLang(lang) {
+          var normalized = normalizeLang(lang) || defaultLang;
+          localStorage.setItem('siteLang', normalized);
+          document.documentElement.setAttribute('lang', normalized);
+          if (normalized === defaultLang) {
+            removeCookie('googtrans');
+          } else {
+            setCookie('googtrans', '/ru/' + normalized, 365);
+          }
+          window.location.reload();
+        }
+        function detectInitialLang() {
+          var saved = normalizeLang(localStorage.getItem('siteLang'));
+          if (saved) return saved;
+          var browserLang = normalizeLang(navigator.language || '');
+          return browserLang || defaultLang;
+        }
+        window.__applySiteLanguage = applyLang;
+        window.googleTranslateElementInit = function () {
+          if (!window.google || !google.translate || !google.translate.TranslateElement) return;
+          new google.translate.TranslateElement(
+            {
+              pageLanguage: 'ru',
+              includedLanguages: 'ru,uk,en,es,de,fr',
+              autoDisplay: false,
+              layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+            },
+            'google_translate_element'
+          );
+        };
+        var initial = detectInitialLang();
+        document.documentElement.setAttribute('lang', initial);
+        if (initial === defaultLang) {
+          removeCookie('googtrans');
+        } else {
+          setCookie('googtrans', '/ru/' + initial, 365);
+        }
+        if (select) {
+          select.value = initial;
+          select.addEventListener('change', function () {
+            applyLang(select.value);
+          });
+        }
+      })();
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script src="/app.js?v=dashboard-2026-35"></script>
   </body>
 </html>
 

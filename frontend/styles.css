@@ -65,6 +65,38 @@ body {
   line-height: 1.45;
 }
 
+.site-lang-switcher {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 10px;
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px);
+}
+
+.site-lang-switcher label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.site-lang-switcher select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 
@@ -1528,6 +1560,12 @@ th { color: var(--text-muted); font-weight: 600; }
 @media (max-width: 700px) {
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .stepper { grid-template-columns: 1fr 1fr; }
+  .site-lang-switcher {
+    top: auto;
+    bottom: 10px;
+    right: 10px;
+    left: auto;
+  }
 }
 
 /* Landing copy polish */
