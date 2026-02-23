@@ -87,6 +87,30 @@ GENERATION_JOBS_ADDITIONAL_COLUMNS = {
     "updated_at": "DATETIME",
 }
 
+CONTENT_BRIEFS_ADDITIONAL_COLUMNS = {
+    "offer": "TEXT",
+    "language": "VARCHAR(20) DEFAULT 'ru' NOT NULL",
+    "tone": "VARCHAR(40) DEFAULT 'neutral' NOT NULL",
+    "goal": "VARCHAR(40) DEFAULT 'engagement' NOT NULL",
+    "platforms_json": "TEXT DEFAULT '[]' NOT NULL",
+    "created_at": "DATETIME",
+}
+
+CONTENT_STRATEGIES_ADDITIONAL_COLUMNS = {
+    "strategy_json": "TEXT",
+    "created_at": "DATETIME",
+}
+
+CONTENT_DRAFTS_ADDITIONAL_COLUMNS = {
+    "variant_index": "INTEGER DEFAULT 1 NOT NULL",
+    "title": "VARCHAR(300)",
+    "description": "TEXT",
+    "hashtags_json": "TEXT DEFAULT '[]' NOT NULL",
+    "cta": "TEXT",
+    "asset_ideas_json": "TEXT DEFAULT '[]' NOT NULL",
+    "created_at": "DATETIME",
+}
+
 
 def add_missing_columns(table_name: str, columns: dict) -> None:
     inspector = inspect(engine)
@@ -162,6 +186,18 @@ def run_migrations() -> None:
             conn.execute(
                 text("UPDATE generation_jobs SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
             )
+    if "content_briefs" in tables:
+        add_missing_columns("content_briefs", CONTENT_BRIEFS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE content_briefs SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+    if "content_strategies" in tables:
+        add_missing_columns("content_strategies", CONTENT_STRATEGIES_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE content_strategies SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+    if "content_drafts" in tables:
+        add_missing_columns("content_drafts", CONTENT_DRAFTS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE content_drafts SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
     # Keep dashboard account-unification table in sync with existing social_accounts storage.
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
