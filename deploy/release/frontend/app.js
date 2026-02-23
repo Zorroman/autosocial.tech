@@ -1158,8 +1158,8 @@ function pageLogin() {
         <h1>Создавайте до 30 постов в месяц за 5 минут и публикуйте автоматически.</h1>
         <p>AutoSocial.tech генерирует готовый контент под ваш бизнес, собирает календарь публикаций и запускает автопостинг в Meta + YouTube без ручной рутины.</p>
         <div class="cta-row">
-          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
-          <a class="btn btn-secondary cta__button" href="#landingHow">See How It Works</a>
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
+          <a class="btn btn-secondary cta__button" href="#landingHow">Как это работает</a>
         </div>
       </div>
       <div class="landing-2026-hero-visual">
@@ -1196,7 +1196,7 @@ function pageLogin() {
     <section class="landing-2026-demo">
       <h2>Демо платформы</h2>
       <p>Здесь будет видео-обзор и живой walkthrough интерфейса.</p>
-      <div class="landing-2026-demo-box">Interactive product demo placeholder</div>
+      <div class="landing-2026-demo-box">Здесь будет интерактивное демо продукта</div>
     </section>
 
     <section class="landing-2026-section">
@@ -1213,12 +1213,12 @@ function pageLogin() {
       </div>
       <div class="landing-2026-pricing">
         ${pricing.map((p, idx) => `<article class="landing-2026-card landing-2026-price ${idx === 1 ? 'is-featured' : ''}">
-          ${idx === 1 ? '<span class="landing-2026-popular">Most Popular</span>' : ''}
+          ${idx === 1 ? '<span class="landing-2026-popular">Самый популярный</span>' : ''}
           <h3>${p.name}</h3>
           <p class="landing-2026-price-value">${p.price}<span>/month</span></p>
           <p class="small">${p.desc}</p>
           <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
-          <button class="btn ${idx === 1 ? 'btn-primary' : 'btn-secondary'} connection-btn-sm">${idx === 2 ? 'Запросить демо' : 'Start Free Trial'}</button>
+          <button class="btn ${idx === 1 ? 'btn-primary' : 'btn-secondary'} connection-btn-sm">${idx === 2 ? 'Запросить демо' : 'Начать бесплатно'}</button>
         </article>`).join('')}
       </div>
     </section>
@@ -1233,7 +1233,7 @@ function pageLogin() {
     <section class="landing-2026-final">
       <h2>Готовы перевести SMM на системный автопилот?</h2>
       <p>Запустите AutoSocial.tech и получайте стабильный контент-поток без перегруза команды.</p>
-      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
+      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
     </section>
 
     <section class="landing-2026-auth-wrap">
