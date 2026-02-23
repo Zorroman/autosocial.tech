@@ -1,0 +1,145 @@
+import importlib
+import os
+import sys
+
+import pytest
+
+
+@pytest.fixture()
+def client(tmp_path):
+    db_file = tmp_path / "content_test.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    os.environ["USE_MOCK_PROVIDERS"] = "true"
+    os.environ["SYNC_JOBS"] = "true"
+    os.environ["ADMIN_EMAIL"] = "admin@test.local"
+    os.environ["ADMIN_PASSWORD"] = "adminpass123"
+    os.environ["GOOGLE_CLIENT_ID"] = ""
+    os.environ["GOOGLE_CLIENT_SECRET"] = ""
+    os.environ["FACEBOOK_APP_ID"] = ""
+    os.environ["FACEBOOK_APP_SECRET"] = ""
+    os.environ["FACEBOOK_CLIENT_ID"] = ""
+    os.environ["FACEBOOK_CLIENT_SECRET"] = ""
+    os.environ["FB_APP_ID"] = ""
+    os.environ["FB_APP_SECRET"] = ""
+    os.environ["FB_LOGIN_APP_ID"] = ""
+    os.environ["FB_LOGIN_APP_SECRET"] = ""
+    os.environ["FB_LOGIN_SCOPE"] = "public_profile,email"
+    os.environ["ENV"] = "development"
+    os.environ["SMTP_HOST"] = ""
+    os.environ["SMTP_FROM"] = ""
+    os.environ["SMTP_USER"] = ""
+    os.environ["SMTP_PASSWORD"] = ""
+
+    for name in [
+        "app",
+        "database",
+        "models",
+        "saas_models",
+        "saas_services",
+        "saas_auth",
+        "saas_api",
+        "saas_queue",
+        "saas_settings",
+        "content_pipeline",
+        "openai_client",
+    ]:
+        if name in sys.modules:
+            del sys.modules[name]
+
+    app_module = importlib.import_module("app")
+    with app_module.app.test_client() as test_client:
+        yield test_client
+
+
+def auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def register_user(client, email="user@test.local", password="pass12345"):
+    challenge = client.post("/api/auth/register", json={"email": email, "password": password})
+    assert challenge.status_code == 200
+    payload = challenge.get_json() or {}
+    return client.post(
+        "/api/auth/verify-code",
+        json={"challenge_token": payload["challenge_token"], "code": payload["dev_code"]},
+    )
+
+
+def test_content_pipeline_strategy_validator_accepts_valid_payload():
+    from content_pipeline import validate_strategy_payload
+
+    payload = {
+        "audience": "SMB owners",
+        "angle": "Practical approach",
+        "context": "Need practical steps",
+        "usp": "Simple framework",
+        "structure": "Hook -> steps -> CTA",
+        "key_points": ["A", "B", "C"],
+        "hook_ideas": ["H1", "H2", "H3", "H4", "H5"],
+        "objections_answers": [
+            {"objection": "No time", "answer": "Reuse assets"},
+            {"objection": "No team", "answer": "Start with one channel"},
+            {"objection": "No budget", "answer": "Use organic first"},
+        ],
+        "cta_variants": ["CTA1", "CTA2", "CTA3"],
+        "hashtag_sets": [["#a", "#b", "#c"], ["#d", "#e", "#f"]],
+        "visual_ideas": ["v1", "v2", "v3", "v4", "v5"],
+    }
+    validate_strategy_payload(payload)
+
+
+def test_content_pipeline_draft_validator_accepts_valid_payload():
+    from content_pipeline import validate_draft_payload
+
+    payload = {
+        "platform": "youtube",
+        "variant_index": 1,
+        "post_text": "Main script text",
+        "title": "Title",
+        "description": "Long description",
+        "hashtags": ["#a", "#b", "#c"],
+        "cta": "Subscribe",
+        "asset_ideas": ["v1", "v2", "v3"],
+        "pinned_comment_text": "Tell me your case",
+    }
+    validate_draft_payload(payload)
+
+
+def test_content_generate_saves_brief_strategy_and_drafts(client):
+    from database import SessionLocal
+    from saas_models import ContentBrief, ContentDraft, ContentStrategy
+
+    reg = register_user(client, "content-gen@test.local", "pass12345")
+    assert reg.status_code == 200
+    token = reg.get_json()["token"]
+
+    resp = client.post(
+        "/api/content/generate",
+        json={
+            "topic": "How a local service can increase repeat sales",
+            "offer": "",
+            "language": "ru",
+            "tone": "friendly",
+            "goal": "engagement",
+            "platforms": ["facebook", "instagram", "youtube"],
+            "variants": 3,
+        },
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["brief_id"] > 0
+    assert isinstance(payload.get("strategy"), dict)
+    assert len(payload.get("drafts") or []) == 9
+
+    brief_id = payload["brief_id"]
+    db = SessionLocal()
+    try:
+        brief = db.query(ContentBrief).filter(ContentBrief.id == brief_id).first()
+        assert brief is not None
+        strategy = db.query(ContentStrategy).filter(ContentStrategy.brief_id == brief_id).first()
+        assert strategy is not None
+        drafts = db.query(ContentDraft).filter(ContentDraft.brief_id == brief_id).all()
+        assert len(drafts) == 9
+    finally:
+        db.close()
