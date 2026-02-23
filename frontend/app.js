@@ -631,12 +631,19 @@ async function api(path, options = {}) {
   let payload;
   try { payload = JSON.parse(text); } catch { payload = text; }
   if (!res.ok) {
+    const makeErr = (message) => {
+      const err = new Error(message);
+      err.status = res.status;
+      err.path = path;
+      err.payload = payload;
+      return err;
+    };
     if (typeof payload === 'string') {
       const htmlResponse = /<html|<!doctype/i.test(payload);
-      if (htmlResponse) throw new Error(`Ошибка сервера (${res.status}). Повторите позже.`);
-      throw new Error(payload || `Ошибка запроса (${res.status})`);
+      if (htmlResponse) throw makeErr(`Ошибка сервера (${res.status}). Повторите позже.`);
+      throw makeErr(payload || `Ошибка запроса (${res.status})`);
     }
-    throw new Error(payload.error || `Ошибка запроса (${res.status})`);
+    throw makeErr(payload.error || `Ошибка запроса (${res.status})`);
   }
   return payload;
 }
@@ -4505,15 +4512,18 @@ async function render() {
     } else if (path === '/blog') {
       await preload(path);
     }
-  } catch {
+  } catch (e) {
     if (path === '/blog') {
       state.notice = { type: 'error', text: 'Не удалось загрузить статьи блога.' };
-    } else {
+    } else if (Number(e?.status || 0) === 401 || Number(e?.status || 0) === 403) {
       state.token = '';
       localStorage.removeItem('token');
       history.replaceState({}, '', '/login');
       path = '/login';
-      state.notice = { type: 'error', text: 'РЎРµСЃСЃРёСЏ РёСЃС‚РµРєР»Р°. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°.' };
+      state.notice = { type: 'error', text: 'Сессия истекла. Войдите снова.' };
+    } else {
+      const fallback = 'Не удалось загрузить данные страницы. Попробуйте еще раз.';
+      state.notice = { type: 'error', text: e?.message || fallback };
     }
   }
   if (currentRender !== renderVersion) return;
