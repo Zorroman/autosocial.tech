@@ -2192,6 +2192,117 @@ th { color: var(--text-muted); font-weight: 600; }
   color: var(--text-muted);
 }
 
+.dash-chart-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+}
+
+.dash-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+.dash-chart-axis {
+  stroke: color-mix(in oklab, var(--text-muted) 35%, var(--border));
+  stroke-width: 1;
+}
+
+.dash-chart-line {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.dash-chart-line-reach {
+  stroke: #0ea5e9;
+}
+
+.dash-chart-line-views {
+  stroke: #7c3aed;
+}
+
+.dash-chart-legend {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dash-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+}
+
+.dash-dot-reach {
+  background: #0ea5e9;
+}
+
+.dash-dot-views {
+  background: #7c3aed;
+}
+
+.dash-insights-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dash-insight-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  padding: 12px;
+}
+
+.dash-insight-card h4 {
+  margin: 8px 0 6px;
+  font-size: 15px;
+}
+
+.dash-insight-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.dash-impact {
+  display: inline-flex;
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.dash-impact-high {
+  color: #b91c1c;
+  border-color: color-mix(in oklab, #ef4444 45%, var(--border));
+  background: color-mix(in oklab, #ef4444 10%, var(--surface));
+}
+
+.dash-impact-medium {
+  color: #a16207;
+  border-color: color-mix(in oklab, #f59e0b 45%, var(--border));
+  background: color-mix(in oklab, #f59e0b 12%, var(--surface));
+}
+
+.dash-impact-low {
+  color: #166534;
+  border-color: color-mix(in oklab, #22c55e 45%, var(--border));
+  background: color-mix(in oklab, #22c55e 12%, var(--surface));
+}
+
 .dash-cal-grid {
   margin-top: 10px;
   display: grid;
@@ -2314,5 +2425,8 @@ th { color: var(--text-muted); font-weight: 600; }
   .dash-recent-item {
     flex-direction: column;
     gap: 6px;
+  }
+  .dash-insights-grid {
+    grid-template-columns: 1fr;
   }
 }

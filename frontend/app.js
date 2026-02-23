@@ -410,6 +410,14 @@ const state = {
     query: '',
   },
   posts: [],
+  dashboardMetrics: {
+    loading: false,
+    syncing: false,
+    summary: null,
+    timeseries: { points: [] },
+    insights: [],
+    recent: [],
+  },
   plans: [],
   blog: [],
   adminUsers: [],
@@ -1334,89 +1342,185 @@ function pageLogin() {
 }
 
 function pageDashboard() {
-  const ui = {
-    kpi_posts: 'Постов в этом месяце',
-    kpi_scheduled: 'Запланировано',
-    kpi_connected: 'Подключено аккаунтов',
-    kpi_summary: 'Сводка (пока без аналитики)',
+  const stats = state.dashboardMetrics || {};
+  const summary = stats.summary || {
+    reach: 0,
+    views: 0,
+    clicks: 0,
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    items: 0,
   };
-  const b = state.billing || { usage: {}, limits: {}, credits_left: 0, approx_posts_left: 0, plan: 'free' };
-  const posts = state.posts || [];
-  const usedMonth = Number(b.usage.posts_per_month || 0);
-  const monthLimit = Number(b.limits.posts_per_month || 0);
-  const scheduledCount = posts.filter((p) => String(p.status || '').toLowerCase() === 'scheduled').length;
+  const points = (stats.timeseries && Array.isArray(stats.timeseries.points)) ? stats.timeseries.points : [];
+  const insights = Array.isArray(stats.insights) ? stats.insights : [];
+  const recent = Array.isArray(stats.recent) ? stats.recent : [];
   const connectedMetaCount = (state.connections || []).filter((c) => isConnectionReady(c)).length;
   const connectedYoutube = state.youtubeConnection?.connected ? 1 : 0;
   const connectedAccountsCount = connectedMetaCount + connectedYoutube;
-  const unlimitedMonth = monthLimit >= 1000000000;
+  const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
+  const impactLabel = (k) => k === 'high' ? 'high' : (k === 'medium' ? 'medium' : 'low');
 
-  const latestPosts = posts
-    .slice(0, 6)
-    .map((p) => `<li class="dash-recent-item"><div><strong>${esc(p.topic || 'Пост без темы')}</strong><p class="small">${esc((p.generated_text || '').slice(0, 120) || 'Текст пока не заполнен')}</p></div><div class="small">${new Date(p.created_at).toLocaleDateString()}</div></li>`)
-    .join('');
+  const chartHtml = (() => {
+    if (!points.length) return '<p class="small">Нет точек для графика. Нажмите «Синхронизировать метрики».</p>';
+    const width = 920;
+    const height = 260;
+    const padX = 30;
+    const padY = 20;
+    const chartW = width - padX * 2;
+    const chartH = height - padY * 2;
+    const maxValue = Math.max(1, ...points.map((p) => Math.max(Number(p.reach || 0), Number(p.views || 0))));
+    const xAt = (i) => padX + (points.length <= 1 ? 0 : (i * chartW) / (points.length - 1));
+    const yAt = (v) => padY + chartH - (Number(v || 0) / maxValue) * chartH;
+    const buildPath = (key) => points.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(2)} ${yAt(p[key]).toFixed(2)}`).join(' ');
+    const reachPath = buildPath('reach');
+    const viewsPath = buildPath('views');
+    const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
+      .filter((v, i, arr) => arr.indexOf(v) === i)
+      .map((idx) => `<text x="${xAt(idx).toFixed(1)}" y="${height - 4}" text-anchor="middle">${esc((points[idx].day || '').slice(5))}</text>`)
+      .join('');
+    return `
+      <div class="dash-chart-wrap">
+        <svg viewBox="0 0 ${width} ${height}" class="dash-chart-svg" role="img" aria-label="График reach и views за 30 дней">
+          <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" class="dash-chart-axis"></line>
+          <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" class="dash-chart-axis"></line>
+          <path d="${reachPath}" class="dash-chart-line dash-chart-line-reach"></path>
+          <path d="${viewsPath}" class="dash-chart-line dash-chart-line-views"></path>
+          ${xLabels}
+        </svg>
+        <div class="dash-chart-legend">
+          <span><i class="dash-dot dash-dot-reach"></i> Reach</span>
+          <span><i class="dash-dot dash-dot-views"></i> Views</span>
+        </div>
+      </div>`;
+  })();
+
+  const insightsHtml = insights.length
+    ? insights
+      .map((item) => `<article class="dash-insight-card"><span class="dash-impact dash-impact-${impactLabel(item.impact)}">${esc(impactLabel(item.impact))}</span><h4>${esc(item.title || 'Инсайт')}</h4><p>${esc(item.text || '')}</p></article>`)
+      .join('')
+    : '<p class="small">Недостаточно данных для инсайтов.</p>';
+
+  const recentRows = recent.length
+    ? recent.map((item) => {
+      const m = item.metrics || {};
+      const published = item.published_at ? new Date(item.published_at).toLocaleDateString() : '—';
+      const title = item.title || 'Публикация';
+      const platform = (item.platform || '').toUpperCase();
+      const ctype = item.content_type || 'post';
+      return `<tr>
+        <td><strong>${esc(title)}</strong><div class="small">${esc(platform)} · ${esc(ctype)}</div></td>
+        <td>${fmt(m.reach)}</td>
+        <td>${fmt(m.views)}</td>
+        <td>${fmt(m.clicks)}</td>
+        <td>${fmt(m.likes)}</td>
+        <td>${fmt(m.comments)}</td>
+        <td>${fmt(m.shares)}</td>
+        <td>${esc(published)}</td>
+      </tr>`;
+    }).join('')
+    : '<tr><td colspan="8" class="small">Нет публикаций с метриками. Нажмите синхронизацию.</td></tr>';
 
   return appLayout('/dashboard', 'Панель управления', `
     <section class="dash-client-shell">
       <header class="dash-client-head">
         <div>
           <h2>Панель управления</h2>
-          <p class="small">Ключевые показатели, быстрые действия и подсказки AI в одном экране.</p>
+          <p class="small">Реальные метрики Meta + YouTube за последние 30 дней.</p>
+        </div>
+        <div class="cta-row">
+          <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : 'Синхронизировать метрики'}</button>
+          <button id="dashCreatePostBtn" class="btn btn-secondary">Создать пост</button>
         </div>
       </header>
       <main class="dash-client-content">
     <section class="dash-kpi-grid">
       <article class="dash-kpi-card">
         <span class="dash-kpi-accent"></span>
-        <p>${ui.kpi_posts}</p>
-        <strong>${usedMonth}</strong>
-        <span>${unlimitedMonth ? 'Без лимита по тарифу' : `Лимит: ${monthLimit}`}</span>
+        <p>Reach (30 дней)</p>
+        <strong>${fmt(summary.reach)}</strong>
+        <span>Охват аудитории</span>
       </article>
       <article class="dash-kpi-card">
         <span class="dash-kpi-accent"></span>
-        <p>${ui.kpi_scheduled}</p>
-        <strong>${scheduledCount}</strong>
-        <span>Постов ждут публикации</span>
+        <p>Views (30 дней)</p>
+        <strong>${fmt(summary.views)}</strong>
+        <span>Просмотры контента</span>
       </article>
       <article class="dash-kpi-card">
         <span class="dash-kpi-accent"></span>
-        <p>${ui.kpi_connected}</p>
+        <p>Clicks (30 дней)</p>
+        <strong>${fmt(summary.clicks)}</strong>
+        <span>Переходы/клики</span>
+      </article>
+      <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
+        <p>Аккаунты</p>
         <strong>${connectedAccountsCount}</strong>
         <span>Meta: ${connectedMetaCount} · YouTube: ${connectedYoutube}</span>
       </article>
       <article class="dash-kpi-card">
         <span class="dash-kpi-accent"></span>
-        <p>${ui.kpi_summary}</p>
-        <strong>${connectedAccountsCount > 0 ? '+18%' : '—'}</strong>
-        <span>${connectedAccountsCount > 0 ? 'Пока демонстрационная метрика до подключения аналитики' : 'Подключите аккаунты для метрик'}</span>
+        <p>Likes (30 дней)</p>
+        <strong>${fmt(summary.likes)}</strong>
+        <span>Лайки</span>
       </article>
-    </section>
-    <section class="dash-card dash-ai-card">
-      <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-        <div>
-          <h3>AI-рекомендации</h3>
-          <ul class="dash-ai-list">
-            <li>Вы давно не публиковали — создать пост?</li>
-            <li>Сгенерировать контент на основе тренда</li>
-          </ul>
-        </div>
-        <button id="dashCreatePostBtn" class="btn btn-primary">Создать пост</button>
-      </div>
+      <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
+        <p>Comments (30 дней)</p>
+        <strong>${fmt(summary.comments)}</strong>
+        <span>Комментарии</span>
+      </article>
+      <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
+        <p>Shares (30 дней)</p>
+        <strong>${fmt(summary.shares)}</strong>
+        <span>Репосты</span>
+      </article>
+      <article class="dash-kpi-card">
+        <span class="dash-kpi-accent"></span>
+        <p>Контент-единиц</p>
+        <strong>${fmt(summary.items)}</strong>
+        <span>Материалы с метриками</span>
+      </article>
     </section>
     <section class="dash-card">
       <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3>Динамика reach / views (30 дней)</h3>
+      </div>
+      ${chartHtml}
+    </section>
+    <section class="dash-card dash-ai-card">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div>
-          <h3>Быстрые действия</h3>
-          <p class="small">Запустите создание поста или проверьте очередь публикаций.</p>
+          <h3>AI-инсайты</h3>
+          <p class="small">Рекомендации по фактической статистике из вашей БД.</p>
         </div>
         <div class="cta-row">
-          <button id="dashCreatePostBtn" class="btn btn-primary">Создать пост</button>
           <button id="dashOpenCalendarBtn" class="btn btn-secondary">Открыть календарь</button>
         </div>
       </div>
+      <div class="dash-insights-grid">${insightsHtml}</div>
     </section>
     <section class="dash-card">
       <h3>Последние публикации</h3>
-      ${latestPosts ? `<ul class="dash-recent-list">${latestPosts}</ul>` : '<p class="small">Пока нет публикаций. Создайте первый пост во вкладке «Создать».</p>'}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Контент</th>
+              <th>Reach</th>
+              <th>Views</th>
+              <th>Clicks</th>
+              <th>Likes</th>
+              <th>Comments</th>
+              <th>Shares</th>
+              <th>Дата</th>
+            </tr>
+          </thead>
+          <tbody>${recentRows}</tbody>
+        </table>
+      </div>
     </section>
       </main>
     </section>
@@ -2615,6 +2719,23 @@ function page(path) {
   return (routes[path] || pageDashboard)();
 }
 
+async function loadDashboardMetrics(days = 30) {
+  const [summary, timeseries, insights, recent] = await Promise.all([
+    api(`/api/dashboard/summary?days=${Number(days) || 30}`),
+    api(`/api/dashboard/timeseries?days=${Number(days) || 30}`),
+    api(`/api/dashboard/insights?days=${Number(days) || 30}`),
+    api('/api/dashboard/recent?limit=10'),
+  ]);
+  state.dashboardMetrics = {
+    ...(state.dashboardMetrics || {}),
+    summary: summary || null,
+    timeseries: timeseries || { points: [] },
+    insights: (insights && insights.insights) || [],
+    recent: (recent && recent.items) || [],
+    loading: false,
+  };
+}
+
 async function preload(path) {
   if (path === '/blog') {
     state.blog = await api('/api/blog/posts');
@@ -2641,6 +2762,8 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     state.posts = await api('/api/posts');
+    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), loading: true };
+    await loadDashboardMetrics(30);
   }
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
 }
@@ -3349,6 +3472,29 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => nav('/create');
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
   if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
+  const dashSyncMetricsBtn = document.getElementById('dashSyncMetricsBtn');
+  if (dashSyncMetricsBtn) dashSyncMetricsBtn.onclick = async () => {
+    try {
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), syncing: true };
+      render();
+      const sync = await api('/api/dashboard/sync', { method: 'POST', body: JSON.stringify({}) });
+      await loadDashboardMetrics(30);
+      const parts = [
+        `Meta: ${Number(sync.meta_items || 0)}`,
+        `YouTube: ${Number(sync.youtube_items || 0)}`,
+      ];
+      if (Array.isArray(sync.errors) && sync.errors.length) {
+        state.notice = { type: 'error', text: `Синхронизация завершена с ошибками. ${parts.join(' · ')}.` };
+      } else {
+        state.notice = { type: 'ok', text: `Метрики синхронизированы. ${parts.join(' · ')}.` };
+      }
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось синхронизировать метрики.' };
+    } finally {
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), syncing: false };
+      render();
+    }
+  };
 
   const dashBrandDescription = document.getElementById('dashBrandDescription');
   if (dashBrandDescription) dashBrandDescription.oninput = () => {
