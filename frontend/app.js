@@ -1106,79 +1106,147 @@ function pageLogin() {
     ? `${t('auth_hint_code_prefix')} ${esc(state.authChallenge.email || '')}.`
     : t('auth_hint_default');
   const languageOptions = SUPPORTED_LANGS.map((lang) => `<option value="${lang}" ${lang === currentLang ? 'selected' : ''}>${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
+  const painCards = [
+    {
+      title: 'Контент съедает рабочий день',
+      text: 'Команды тратят часы на идеи, тексты и ручную доработку каждого поста.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
+    },
+    {
+      title: 'Публикации выходят хаотично',
+      text: 'Без единого процесса контент публикуется нерегулярно, охваты проседают.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3.5" y="4.5" width="17" height="16" rx="2.4"></rect><path d="M8 3v3.5M16 3v3.5M3.5 9h17"></path></svg>',
+    },
+    {
+      title: 'Слабые CTA и конверсия',
+      text: 'Посты без структуры и оффера не превращают просмотры в заявки.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><path d="M4 18h16M7 14l3-3 3 2 4-5"></path><circle cx="17" cy="8" r="1.1"></circle></svg>',
+    },
+    {
+      title: 'Рост упирается в людей',
+      text: 'Чтобы вести больше проектов, приходится нанимать, а не масштабировать систему.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="7" height="7" rx="1.4"></rect><rect x="14" y="4" width="7" height="7" rx="1.4"></rect><rect x="8.5" y="13" width="7" height="7" rx="1.4"></rect></svg>',
+    },
+  ];
+  const features = [
+    ['AI-контент по вашей нише', 'Темы, хуки, структура текста и CTA, адаптированные под цель бизнеса.'],
+    ['YouTube Studio режим', 'Сценарий ролика, таймлайн и тексты для Community-постов в одном потоке.'],
+    ['Meta автопубликация', 'Публикации и планирование в Facebook и Instagram без ручной рутины.'],
+    ['Календарь контента', 'Контроль публикаций на неделю и месяц, без потери ритма.'],
+    ['Командная работа', 'Удобно для in-house и агентств: понятные процессы и прозрачный статус.'],
+    ['Масштабирование без хаоса', 'Больше аккаунтов и контента без роста операционной нагрузки.'],
+  ];
+  const pricing = [
+    { name: 'Starter', price: '€29', desc: 'Для малого бизнеса', points: ['120 постов/мес', 'Meta-публикация', 'Базовые AI-шаблоны'] },
+    { name: 'Growth', price: '€79', desc: 'Для растущей команды', points: ['500 постов/мес', 'Meta + YouTube', 'Календарь и приоритет'] },
+    { name: 'Agency', price: '€199', desc: 'Для агентств', points: ['Безлимит проектов', 'Командные роли', 'Расширенные лимиты'] },
+  ];
 
-  return `<div class="auth-wrap page">
-    <div class="auth-shell reveal">
-      <section class="auth-panel auth-hero-panel">
-        <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:18px;"/>
+  return `<div class="landing-2026 page">
+    <header class="landing-2026-topbar">
+      <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT"/>
+      <div class="landing-2026-top-actions">
+        <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
+        <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
+        <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
+      </div>
+    </header>
 
-        <div class="hero-block">
-          <h1 class="hero__title">${t('hero_title')}</h1>
-          <p class="hero__subtitle auth-subtitle">${t('hero_subtitle')}</p>
-          <div class="cta-row">
-            <button id="heroRegisterBtn" class="btn btn-primary cta__button">${t('hero_cta')}</button>
+    <section class="landing-2026-hero reveal">
+      <div class="landing-2026-hero-copy">
+        <span class="landing-2026-chip">AI SaaS Platform for SMM teams</span>
+        <h1>Автоматизируйте контент и публикации в соцсетях на уровне 2026 SaaS.</h1>
+        <p>AutoSocial.tech помогает командам создавать контент, планировать публикации и масштабировать Meta + YouTube без ручного хаоса.</p>
+        <div class="cta-row">
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
+          <a class="btn btn-secondary cta__button" href="#landingHow">See How It Works</a>
+        </div>
+      </div>
+      <div class="landing-2026-hero-visual">
+        <div class="landing-2026-mockup">
+          <div class="landing-2026-mock-head">
+            <span></span><span></span><span></span>
           </div>
-          <p class="small hero__microcopy">${t('hero_microcopy')}</p>
-        </div>
-
-        <div class="features-block">
-          <h3>${t('features_title')}</h3>
-          <ul class="auth-benefits">
-            <li class="features__item">${t('features_1')}</li>
-            <li class="features__item">${t('features_2')}</li>
-            <li class="features__item">${t('features_3')}</li>
-            <li class="features__item">${t('features_4')}</li>
-            <li class="features__item">${t('features_5')}</li>
-          </ul>
-        </div>
-
-        <div class="how-block">
-          <h3>${t('how_title')}</h3>
-          <ul class="check-list">
-            <li class="done"><strong>${t('how_1_title')}</strong><br/><span class="small">${t('how_1_text')}</span></li>
-            <li class="done"><strong>${t('how_2_title')}</strong><br/><span class="small">${t('how_2_text')}</span></li>
-            <li class="done"><strong>${t('how_3_title')}</strong><br/><span class="small">${t('how_3_text')}</span></li>
-          </ul>
-        </div>
-
-        <div class="trust-block">
-          <h3>${t('trust_title')}</h3>
-          <ul class="auth-benefits">
-            <li class="features__item">${t('trust_1')}</li>
-            <li class="features__item">${t('trust_2')}</li>
-            <li class="features__item">${t('trust_3')}</li>
-            <li class="features__item">${t('trust_4')}</li>
-          </ul>
-          <blockquote class="auth-quote">${t('quote')}</blockquote>
-        </div>
-
-        <div class="final-cta-block">
-          <h3>${t('final_title')}</h3>
-          <div class="cta-row">
-            <button id="finalRegisterBtn" class="btn btn-primary cta__button">${t('final_cta_account')}</button>
-            <button id="finalPricingBtn" class="btn btn-secondary cta__button">${t('final_cta_pricing')}</button>
+          <div class="landing-2026-mock-grid">
+            <div class="landing-2026-skeleton lg"></div>
+            <div class="landing-2026-skeleton"></div>
+            <div class="landing-2026-skeleton"></div>
+            <div class="landing-2026-skeleton wide"></div>
           </div>
-          <p class="small">${t('final_note')}</p>
         </div>
+      </div>
+    </section>
 
+    <section class="landing-2026-section">
+      <h2>Почему контент-система у большинства не работает</h2>
+      <div class="landing-2026-grid-4">
+        ${painCards.map((c) => `<article class="landing-2026-card"><div class="landing-2026-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p></article>`).join('')}
+      </div>
+    </section>
+
+    <section id="landingHow" class="landing-2026-section">
+      <h2>Как это работает</h2>
+      <div class="landing-2026-steps">
+        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Подключите каналы</h3><p>Meta и YouTube через защищенный OAuth.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Задайте тему и цель</h3><p>AI соберет контент под ваш рынок и формат.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Публикуйте по расписанию</h3><p>Запускайте автопостинг и держите стабильный ритм.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-2026-demo">
+      <h2>Демо платформы</h2>
+      <p>Здесь будет видео-обзор и живой walkthrough интерфейса.</p>
+      <div class="landing-2026-demo-box">Interactive product demo placeholder</div>
+    </section>
+
+    <section class="landing-2026-section">
+      <h2>Функции, которые дают результат</h2>
+      <div class="landing-2026-grid-3">
+        ${features.map(([title, text]) => `<article class="landing-2026-card landing-2026-feature"><h3>${title}</h3><p>${text}</p></article>`).join('')}
+      </div>
+    </section>
+
+    <section class="landing-2026-section">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <h2 style="margin:0;">Прозрачные тарифы</h2>
+        <button id="finalPricingBtn" class="btn btn-ghost" type="button">${t('footer_pricing')}</button>
+      </div>
+      <div class="landing-2026-pricing">
+        ${pricing.map((p, idx) => `<article class="landing-2026-card landing-2026-price ${idx === 1 ? 'is-featured' : ''}">
+          ${idx === 1 ? '<span class="landing-2026-popular">Most Popular</span>' : ''}
+          <h3>${p.name}</h3>
+          <p class="landing-2026-price-value">${p.price}<span>/month</span></p>
+          <p class="small">${p.desc}</p>
+          <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
+          <button class="btn ${idx === 1 ? 'btn-primary' : 'btn-secondary'} connection-btn-sm">${idx === 2 ? 'Запросить демо' : 'Start Free Trial'}</button>
+        </article>`).join('')}
+      </div>
+    </section>
+
+    <section class="landing-2026-trust">
+      <span class="landing-2026-trust-pill">GDPR compliant</span>
+      <span class="landing-2026-trust-pill">Secure API</span>
+      <span class="landing-2026-trust-pill">Encrypted data</span>
+      <span class="landing-2026-trust-pill">Hosted in EU</span>
+    </section>
+
+    <section class="landing-2026-final">
+      <h2>Готовы перевести SMM на системный автопилот?</h2>
+      <p>Запустите AutoSocial.tech и получайте стабильный контент-поток без перегруза команды.</p>
+      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
+    </section>
+
+    <section class="landing-2026-auth-wrap">
+      <article class="landing-2026-auth-info landing-2026-card">
+        <h3>Создайте аккаунт за минуту</h3>
+        <p>Подтверждение по email, без карты на старте. После входа вы сразу попадете в мастер создания контента и подключений.</p>
         <div class="trust-row">
           <span class="trust-chip">SSL</span>
           <span class="trust-chip">GDPR</span>
           <span class="trust-chip">Stripe</span>
         </div>
-
-        <div class="hero-visual auth-hero-visual">
-          <img src="/assets/brand/hero-mockup.svg" alt="Интерфейс AutoSocial GPT"/>
-        </div>
-
-        <div class="landing-footer-links">
-          <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
-          <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
-          <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
-        </div>
-      </section>
-
-      <section class="auth-panel auth-form-panel">
+      </article>
+      <section class="auth-panel auth-form-panel landing-2026-auth-form">
         <div class="auth-lang-row">
           <label for="authLang" class="small">${t('language_label')}</label>
           <select id="authLang" class="auth-lang-select">${languageOptions}</select>
@@ -1199,7 +1267,7 @@ function pageLogin() {
           <button id="authSwitchBtn" class="btn btn-link" type="button" ${codeStep ? 'disabled' : ''}>${switchLabel}</button>
         </div>
       </section>
-    </div>
+    </section>
   </div>`;
 }
 

@@ -23,9 +23,368 @@ const _defaultApiBase = _isLocal
   ? 'http://127.0.0.1:5000'
   : `${window.location.protocol}//api.${_rootHost}`;
 const API_BASE = _savedApiAllowed ? _savedApiBase : _defaultApiBase;
+const SUPPORTED_LANGS = ['ru', 'en', 'es', 'de', 'fr', 'uk'];
+const LANGUAGE_LABELS = {
+  ru: 'Русский',
+  en: 'English',
+  es: 'Español',
+  de: 'Deutsch',
+  fr: 'Français',
+  uk: 'Українська',
+};
+const LOGIN_I18N = {
+  ru: {
+    language_label: 'Язык',
+    form_title_register: 'Создать аккаунт',
+    form_title_login: 'Войти',
+    flow_title_register: 'Подтвердите регистрацию',
+    flow_title_login: 'Подтвердите вход',
+    submit_get_code: 'Получить код',
+    submit_verify_code: 'Подтвердить код',
+    switch_text_register: 'Уже есть аккаунт?',
+    switch_text_login: 'Нет аккаунта?',
+    switch_label_register: 'Войти',
+    switch_label_login: 'Создать',
+    auth_hint_default: 'Введите email и пароль. Отправим 4-значный код на почту.',
+    auth_hint_code_prefix: 'Код отправлен на',
+    hero_title: 'AutoSocial GPT — AI-ассистент для контента и автопостинга.',
+    hero_subtitle: 'Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.',
+    hero_cta: 'Начать бесплатно по email',
+    hero_microcopy: 'Без привязки карт сейчас — начните с Free плана.',
+    features_title: 'Всё, что нужно для SMM — в одной панели',
+    features_1: 'Генерация уникального контента на основе AI',
+    features_2: 'Автопостинг по расписанию в Facebook и Instagram',
+    features_3: 'Интеллектуальные шаблоны для любых ниш',
+    features_4: 'Планировщик, который думает за вас',
+    features_5: 'Метрики и аналитика для роста',
+    how_title: 'Как AutoSocial GPT помогает вашему бизнесу',
+    how_1_title: 'Создавайте контент за секунды',
+    how_1_text: 'Введите тему или ключевое сообщение — получите готовые посты с хештегами и CTA.',
+    how_2_title: 'Планируйте. Автоматизируйте. Забывайте о ручной публикации',
+    how_2_text: 'Настройте расписание — и система публикует сама.',
+    how_3_title: 'Следите за эффективностью',
+    how_3_text: 'Показы, вовлечённость, рост аудитории — всё в одной панели.',
+    trust_title: 'Почему маркетологи выбирают AutoSocial GPT',
+    trust_1: 'Экономит до 10 часов в неделю на публикациях',
+    trust_2: 'Генерирует контент, основанный на бест-практиках SMM',
+    trust_3: 'Интеграции с Facebook + Instagram Business',
+    trust_4: 'SSL / GDPR-ready. Готово к оплате.',
+    quote: '“AutoSocial GPT перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB',
+    final_title: 'Готовы автоматизировать свои соцсети?',
+    final_cta_account: 'Создать аккаунт по email',
+    final_cta_pricing: 'Узнать тарифы',
+    final_note: 'Начните с Free плана. Обновление на Pro доступно в любой момент.',
+    footer_pricing: 'Тарифы',
+    footer_privacy: 'Политика конфиденциальности',
+    footer_support: 'Поддержка',
+    field_email: 'Email',
+    field_password: 'Пароль',
+    field_code: 'Код из письма',
+    placeholder_email: 'you@company.com',
+    placeholder_password: 'Минимум 8 символов',
+    placeholder_code: '4 цифры',
+    resend_code: 'Отправить код повторно',
+    back_to_auth: 'Изменить email/пароль',
+  },
+  en: {
+    language_label: 'Language',
+    form_title_register: 'Create account',
+    form_title_login: 'Sign in',
+    flow_title_register: 'Confirm registration',
+    flow_title_login: 'Confirm sign-in',
+    submit_get_code: 'Get code',
+    submit_verify_code: 'Verify code',
+    switch_text_register: 'Already have an account?',
+    switch_text_login: "Don't have an account?",
+    switch_label_register: 'Sign in',
+    switch_label_login: 'Create',
+    auth_hint_default: 'Enter email and password. We will send a 4-digit code.',
+    auth_hint_code_prefix: 'Code sent to',
+    hero_title: 'AutoSocial GPT — AI assistant for content and autoposting.',
+    hero_subtitle: 'Create content, schedule posts, and manage Facebook + Instagram from one place automatically.',
+    hero_cta: 'Start free with email',
+    hero_microcopy: 'No card required now — start on the Free plan.',
+    features_title: 'Everything you need for SMM in one panel',
+    features_1: 'AI-powered unique content generation',
+    features_2: 'Scheduled autoposting to Facebook and Instagram',
+    features_3: 'Smart templates for any niche',
+    features_4: 'A planner that thinks ahead for you',
+    features_5: 'Metrics and analytics for growth',
+    how_title: 'How AutoSocial GPT helps your business',
+    how_1_title: 'Create content in seconds',
+    how_1_text: 'Enter a topic or key message and get ready-to-post drafts with hashtags and CTA.',
+    how_2_title: 'Plan. Automate. Stop manual posting',
+    how_2_text: 'Set a schedule and the platform publishes automatically.',
+    how_3_title: 'Track performance',
+    how_3_text: 'Reach, engagement, and audience growth in one dashboard.',
+    trust_title: 'Why marketers choose AutoSocial GPT',
+    trust_1: 'Saves up to 10 hours per week on publishing',
+    trust_2: 'Generates content based on SMM best practices',
+    trust_3: 'Facebook + Instagram Business integrations',
+    trust_4: 'SSL / GDPR-ready. Billing-ready.',
+    quote: '"AutoSocial GPT put our social media on autopilot — posting got consistent and engagement grew." — SMB marketer',
+    final_title: 'Ready to automate your social media?',
+    final_cta_account: 'Create account with email',
+    final_cta_pricing: 'See pricing',
+    final_note: 'Start with Free. Upgrade to Pro anytime.',
+    footer_pricing: 'Pricing',
+    footer_privacy: 'Privacy policy',
+    footer_support: 'Support',
+    field_email: 'Email',
+    field_password: 'Password',
+    field_code: 'Code from email',
+    placeholder_email: 'you@company.com',
+    placeholder_password: 'Minimum 8 characters',
+    placeholder_code: '4 digits',
+    resend_code: 'Resend code',
+    back_to_auth: 'Change email/password',
+  },
+  es: {
+    language_label: 'Idioma',
+    form_title_register: 'Crear cuenta',
+    form_title_login: 'Iniciar sesión',
+    flow_title_register: 'Confirmar registro',
+    flow_title_login: 'Confirmar inicio de sesión',
+    submit_get_code: 'Obtener código',
+    submit_verify_code: 'Confirmar código',
+    switch_text_register: '¿Ya tienes cuenta?',
+    switch_text_login: '¿No tienes cuenta?',
+    switch_label_register: 'Entrar',
+    switch_label_login: 'Crear',
+    auth_hint_default: 'Introduce email y contraseña. Enviaremos un código de 4 dígitos.',
+    auth_hint_code_prefix: 'Código enviado a',
+    hero_title: 'AutoSocial GPT — asistente de IA para contenido y autopublicación.',
+    hero_subtitle: 'Crea contenido, programa publicaciones y gestiona Facebook + Instagram desde un solo lugar automáticamente.',
+    hero_cta: 'Empezar gratis con email',
+    hero_microcopy: 'Sin tarjeta por ahora: empieza con el plan Free.',
+    features_title: 'Todo lo que necesitas para SMM en un panel',
+    features_1: 'Generación de contenido único con IA',
+    features_2: 'Autopublicación programada en Facebook e Instagram',
+    features_3: 'Plantillas inteligentes para cualquier nicho',
+    features_4: 'Planificador que piensa por ti',
+    features_5: 'Métricas y analítica para crecer',
+    how_title: 'Cómo AutoSocial GPT ayuda a tu negocio',
+    how_1_title: 'Crea contenido en segundos',
+    how_1_text: 'Introduce un tema o mensaje clave y obtén borradores con hashtags y CTA.',
+    how_2_title: 'Planifica. Automatiza. Olvida la publicación manual',
+    how_2_text: 'Configura un horario y la plataforma publica sola.',
+    how_3_title: 'Mide resultados',
+    how_3_text: 'Alcance, interacción y crecimiento en un solo panel.',
+    trust_title: 'Por qué los marketers eligen AutoSocial GPT',
+    trust_1: 'Ahorra hasta 10 horas por semana en publicaciones',
+    trust_2: 'Genera contenido con buenas prácticas de SMM',
+    trust_3: 'Integraciones con Facebook + Instagram Business',
+    trust_4: 'Listo para SSL / GDPR y pagos.',
+    quote: '"AutoSocial GPT puso nuestras redes en piloto automático: publicamos más y mejoró la interacción." — Marketer SMB',
+    final_title: '¿Listo para automatizar tus redes sociales?',
+    final_cta_account: 'Crear cuenta con email',
+    final_cta_pricing: 'Ver precios',
+    final_note: 'Empieza con Free. Pasa a Pro cuando quieras.',
+    footer_pricing: 'Precios',
+    footer_privacy: 'Política de privacidad',
+    footer_support: 'Soporte',
+    field_email: 'Email',
+    field_password: 'Contraseña',
+    field_code: 'Código del correo',
+    placeholder_email: 'you@company.com',
+    placeholder_password: 'Mínimo 8 caracteres',
+    placeholder_code: '4 dígitos',
+    resend_code: 'Reenviar código',
+    back_to_auth: 'Cambiar email/contraseña',
+  },
+  de: {
+    language_label: 'Sprache',
+    form_title_register: 'Konto erstellen',
+    form_title_login: 'Anmelden',
+    flow_title_register: 'Registrierung bestätigen',
+    flow_title_login: 'Anmeldung bestätigen',
+    submit_get_code: 'Code erhalten',
+    submit_verify_code: 'Code bestätigen',
+    switch_text_register: 'Schon ein Konto?',
+    switch_text_login: 'Noch kein Konto?',
+    switch_label_register: 'Anmelden',
+    switch_label_login: 'Erstellen',
+    auth_hint_default: 'E-Mail und Passwort eingeben. Wir senden einen 4-stelligen Code.',
+    auth_hint_code_prefix: 'Code gesendet an',
+    hero_title: 'AutoSocial GPT — KI-Assistent für Content und Auto-Posting.',
+    hero_subtitle: 'Inhalte erstellen, Beiträge planen und Facebook + Instagram automatisch an einem Ort verwalten.',
+    hero_cta: 'Kostenlos mit E-Mail starten',
+    hero_microcopy: 'Keine Karte nötig — starte mit dem Free-Plan.',
+    features_title: 'Alles für SMM in einem Dashboard',
+    features_1: 'Einzigartige Content-Erstellung mit KI',
+    features_2: 'Geplantes Auto-Posting für Facebook und Instagram',
+    features_3: 'Intelligente Vorlagen für jede Nische',
+    features_4: 'Planer, der für dich vorausdenkt',
+    features_5: 'Metriken und Analysen für Wachstum',
+    how_title: 'So hilft AutoSocial GPT deinem Business',
+    how_1_title: 'Content in Sekunden erstellen',
+    how_1_text: 'Thema oder Kernbotschaft eingeben und fertige Entwürfe mit Hashtags und CTA erhalten.',
+    how_2_title: 'Planen. Automatisieren. Manuelles Posten vergessen',
+    how_2_text: 'Zeitplan festlegen und die Plattform veröffentlicht automatisch.',
+    how_3_title: 'Leistung verfolgen',
+    how_3_text: 'Reichweite, Engagement und Wachstum in einem Panel.',
+    trust_title: 'Warum Marketer AutoSocial GPT wählen',
+    trust_1: 'Spart bis zu 10 Stunden pro Woche beim Publizieren',
+    trust_2: 'Generiert Content nach SMM-Best-Practices',
+    trust_3: 'Integrationen mit Facebook + Instagram Business',
+    trust_4: 'SSL / DSGVO-ready. Zahlungsbereit.',
+    quote: '"AutoSocial GPT hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und höheres Engagement." — SMB-Marketer',
+    final_title: 'Bereit, deine Social Media zu automatisieren?',
+    final_cta_account: 'Konto per E-Mail erstellen',
+    final_cta_pricing: 'Preise ansehen',
+    final_note: 'Mit Free starten. Jederzeit auf Pro wechseln.',
+    footer_pricing: 'Preise',
+    footer_privacy: 'Datenschutz',
+    footer_support: 'Support',
+    field_email: 'E-Mail',
+    field_password: 'Passwort',
+    field_code: 'Code aus E-Mail',
+    placeholder_email: 'you@company.com',
+    placeholder_password: 'Mindestens 8 Zeichen',
+    placeholder_code: '4 Ziffern',
+    resend_code: 'Code erneut senden',
+    back_to_auth: 'E-Mail/Passwort ändern',
+  },
+  fr: {
+    language_label: 'Langue',
+    form_title_register: 'Créer un compte',
+    form_title_login: 'Se connecter',
+    flow_title_register: "Confirmer l'inscription",
+    flow_title_login: 'Confirmer la connexion',
+    submit_get_code: 'Obtenir le code',
+    submit_verify_code: 'Confirmer le code',
+    switch_text_register: 'Vous avez déjà un compte ?',
+    switch_text_login: "Vous n'avez pas de compte ?",
+    switch_label_register: 'Se connecter',
+    switch_label_login: 'Créer',
+    auth_hint_default: 'Entrez e-mail et mot de passe. Nous enverrons un code à 4 chiffres.',
+    auth_hint_code_prefix: 'Code envoyé à',
+    hero_title: "AutoSocial GPT — assistant IA pour le contenu et l'auto-publication.",
+    hero_subtitle: 'Créez du contenu, planifiez des publications et gérez Facebook + Instagram automatiquement depuis un seul endroit.',
+    hero_cta: 'Commencer gratuitement par e-mail',
+    hero_microcopy: "Pas de carte requise pour l'instant — commencez avec Free.",
+    features_title: 'Tout pour le SMM dans un seul panneau',
+    features_1: 'Génération de contenu unique avec IA',
+    features_2: 'Auto-publication planifiée sur Facebook et Instagram',
+    features_3: 'Modèles intelligents pour tous les secteurs',
+    features_4: 'Planificateur qui anticipe pour vous',
+    features_5: 'Métriques et analyses pour la croissance',
+    how_title: 'Comment AutoSocial GPT aide votre business',
+    how_1_title: 'Créez du contenu en quelques secondes',
+    how_1_text: 'Entrez un sujet ou un message clé et obtenez des brouillons avec hashtags et CTA.',
+    how_2_title: 'Planifiez. Automatisez. Oubliez le manuel',
+    how_2_text: 'Définissez un planning et la plateforme publie automatiquement.',
+    how_3_title: 'Suivez les performances',
+    how_3_text: "Portée, engagement et croissance dans un seul tableau de bord.",
+    trust_title: 'Pourquoi les marketeurs choisissent AutoSocial GPT',
+    trust_1: "Jusqu'à 10 heures gagnées par semaine",
+    trust_2: 'Contenu basé sur les bonnes pratiques SMM',
+    trust_3: 'Intégrations Facebook + Instagram Business',
+    trust_4: 'Prêt pour SSL / RGPD et paiement.',
+    quote: '"AutoSocial GPT a mis nos réseaux en pilote automatique: plus de régularité et plus d engagement." — Marketeur SMB',
+    final_title: 'Prêt à automatiser vos réseaux sociaux ?',
+    final_cta_account: 'Créer un compte par e-mail',
+    final_cta_pricing: 'Voir les tarifs',
+    final_note: 'Commencez avec Free. Passez à Pro à tout moment.',
+    footer_pricing: 'Tarifs',
+    footer_privacy: 'Politique de confidentialité',
+    footer_support: 'Support',
+    field_email: 'E-mail',
+    field_password: 'Mot de passe',
+    field_code: 'Code reçu par e-mail',
+    placeholder_email: 'you@company.com',
+    placeholder_password: '8 caractères minimum',
+    placeholder_code: '4 chiffres',
+    resend_code: 'Renvoyer le code',
+    back_to_auth: 'Changer e-mail/mot de passe',
+  },
+  uk: {
+    language_label: 'Мова',
+    form_title_register: 'Створити акаунт',
+    form_title_login: 'Увійти',
+    flow_title_register: 'Підтвердьте реєстрацію',
+    flow_title_login: 'Підтвердьте вхід',
+    submit_get_code: 'Отримати код',
+    submit_verify_code: 'Підтвердити код',
+    switch_text_register: 'Вже є акаунт?',
+    switch_text_login: 'Немає акаунта?',
+    switch_label_register: 'Увійти',
+    switch_label_login: 'Створити',
+    auth_hint_default: 'Введіть email і пароль. Ми надішлемо 4-значний код.',
+    auth_hint_code_prefix: 'Код надіслано на',
+    hero_title: 'AutoSocial GPT — AI-асистент для контенту й автопостингу.',
+    hero_subtitle: 'Створюйте контент, плануйте публікації та керуйте Facebook + Instagram з одного місця автоматично.',
+    hero_cta: 'Почати безкоштовно через email',
+    hero_microcopy: 'Без привʼязки картки зараз — почніть із Free плану.',
+    features_title: 'Усе для SMM в одній панелі',
+    features_1: 'Генерація унікального контенту на базі AI',
+    features_2: 'Автопостинг за розкладом у Facebook та Instagram',
+    features_3: 'Розумні шаблони для будь-якої ніші',
+    features_4: 'Планувальник, що думає за вас',
+    features_5: 'Метрики та аналітика для зростання',
+    how_title: 'Як AutoSocial GPT допомагає вашому бізнесу',
+    how_1_title: 'Створюйте контент за секунди',
+    how_1_text: 'Вкажіть тему або ключове повідомлення — отримайте готові пости з хештегами та CTA.',
+    how_2_title: 'Плануйте. Автоматизуйте. Забудьте про ручні публікації',
+    how_2_text: 'Налаштуйте графік — і система публікує сама.',
+    how_3_title: 'Відстежуйте ефективність',
+    how_3_text: 'Охоплення, залученість і зростання аудиторії — все в одній панелі.',
+    trust_title: 'Чому маркетологи обирають AutoSocial GPT',
+    trust_1: 'Економить до 10 годин на тиждень',
+    trust_2: 'Генерує контент на основі найкращих SMM-практик',
+    trust_3: 'Інтеграції з Facebook + Instagram Business',
+    trust_4: 'SSL / GDPR-ready. Готово до оплати.',
+    quote: '«AutoSocial GPT перевів наші соцмережі на автопілот — публікацій стало більше, а залученість зросла.» — Маркетолог, SMB',
+    final_title: 'Готові автоматизувати свої соцмережі?',
+    final_cta_account: 'Створити акаунт через email',
+    final_cta_pricing: 'Дізнатися тарифи',
+    final_note: 'Почніть з Free плану. Перехід на Pro доступний у будь-який момент.',
+    footer_pricing: 'Тарифи',
+    footer_privacy: 'Політика конфіденційності',
+    footer_support: 'Підтримка',
+    field_email: 'Email',
+    field_password: 'Пароль',
+    field_code: 'Код з листа',
+    placeholder_email: 'you@company.com',
+    placeholder_password: 'Мінімум 8 символів',
+    placeholder_code: '4 цифри',
+    resend_code: 'Надіслати код повторно',
+    back_to_auth: 'Змінити email/пароль',
+  },
+};
+function normalizeLang(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const simple = raw.split('-')[0];
+  return SUPPORTED_LANGS.includes(simple) ? simple : '';
+}
+function detectBrowserLang() {
+  const langs = Array.isArray(navigator.languages) && navigator.languages.length
+    ? navigator.languages
+    : [navigator.language || navigator.userLanguage || 'en'];
+  for (const lang of langs) {
+    const normalized = normalizeLang(lang);
+    if (normalized) return normalized;
+  }
+  return 'en';
+}
+function loginText(key) {
+  const lang = normalizeLang(state.lang) || 'en';
+  const dict = LOGIN_I18N[lang] || LOGIN_I18N.en;
+  if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
+  return LOGIN_I18N.en[key] || key;
+}
+function setLanguage(lang, opts = {}) {
+  const { persist = true } = opts;
+  const normalized = normalizeLang(lang) || 'en';
+  state.lang = normalized;
+  document.documentElement.setAttribute('lang', normalized);
+  if (persist) localStorage.setItem('lang', normalized);
+}
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
+  lang: normalizeLang(localStorage.getItem('lang')) || detectBrowserLang(),
   authMode: 'register',
   authChallenge: null,
   authProviders: null,
@@ -200,6 +559,7 @@ function setTheme(theme) {
   localStorage.setItem('theme', state.theme);
 }
 setTheme(state.theme);
+setLanguage(state.lang, { persist: false });
 
 async function api(path, options = {}) {
   const { timeoutMs = 45000, ...fetchOptions } = options || {};
@@ -730,109 +1090,184 @@ function appLayout(path, title, body) {
   return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM РњРµРЅРµРґР¶РµСЂ</div></div></div>${navHtml}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°' : 'РўС‘РјРЅР°СЏ С‚РµРјР°'}</button><button id="logoutBtn" class="btn btn-secondary">Р’С‹Р№С‚Рё</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
+  const t = loginText;
   const isRegister = state.authMode !== 'login';
   const codeStep = !!state.authChallenge;
+  const currentLang = normalizeLang(state.lang) || 'en';
   const challengeFlow = state.authChallenge?.flow || (isRegister ? 'register' : 'login');
-  const flowTitle = challengeFlow === 'register' ? 'Подтвердите регистрацию' : 'Подтвердите вход';
+  const flowTitle = challengeFlow === 'register' ? t('flow_title_register') : t('flow_title_login');
   const showSocialLogin = false;
-  const formTitle = codeStep ? flowTitle : (isRegister ? 'Создать аккаунт' : 'Войти');
-  const submitLabel = codeStep ? 'Подтвердить код' : 'Получить код';
-  const switchText = isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
-  const switchLabel = isRegister ? 'Войти' : 'Создать';
+  const formTitle = codeStep ? flowTitle : (isRegister ? t('form_title_register') : t('form_title_login'));
+  const submitLabel = codeStep ? t('submit_verify_code') : t('submit_get_code');
+  const switchText = isRegister ? t('switch_text_register') : t('switch_text_login');
+  const switchLabel = isRegister ? t('switch_label_register') : t('switch_label_login');
   const socialBlock = showSocialLogin ? `<div class="social-auth-row"></div>` : '';
   const authHint = codeStep
-    ? `Код отправлен на ${esc(state.authChallenge.email || '')}.`
-    : 'Введите email и пароль. Отправим 4-значный код на почту.';
+    ? `${t('auth_hint_code_prefix')} ${esc(state.authChallenge.email || '')}.`
+    : t('auth_hint_default');
+  const languageOptions = SUPPORTED_LANGS.map((lang) => `<option value="${lang}" ${lang === currentLang ? 'selected' : ''}>${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
+  const painCards = [
+    {
+      title: 'Контент съедает рабочий день',
+      text: 'Команды тратят часы на идеи, тексты и ручную доработку каждого поста.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
+    },
+    {
+      title: 'Публикации выходят хаотично',
+      text: 'Без единого процесса контент публикуется нерегулярно, охваты проседают.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3.5" y="4.5" width="17" height="16" rx="2.4"></rect><path d="M8 3v3.5M16 3v3.5M3.5 9h17"></path></svg>',
+    },
+    {
+      title: 'Слабые CTA и конверсия',
+      text: 'Посты без структуры и оффера не превращают просмотры в заявки.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><path d="M4 18h16M7 14l3-3 3 2 4-5"></path><circle cx="17" cy="8" r="1.1"></circle></svg>',
+    },
+    {
+      title: 'Рост упирается в людей',
+      text: 'Чтобы вести больше проектов, приходится нанимать, а не масштабировать систему.',
+      icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="7" height="7" rx="1.4"></rect><rect x="14" y="4" width="7" height="7" rx="1.4"></rect><rect x="8.5" y="13" width="7" height="7" rx="1.4"></rect></svg>',
+    },
+  ];
+  const features = [
+    ['AI-контент по вашей нише', 'Темы, хуки, структура текста и CTA, адаптированные под цель бизнеса.'],
+    ['YouTube Studio режим', 'Сценарий ролика, таймлайн и тексты для Community-постов в одном потоке.'],
+    ['Meta автопубликация', 'Публикации и планирование в Facebook и Instagram без ручной рутины.'],
+    ['Календарь контента', 'Контроль публикаций на неделю и месяц, без потери ритма.'],
+    ['Командная работа', 'Удобно для in-house и агентств: понятные процессы и прозрачный статус.'],
+    ['Масштабирование без хаоса', 'Больше аккаунтов и контента без роста операционной нагрузки.'],
+  ];
+  const pricing = [
+    { name: 'Starter', price: '€29', desc: 'Для малого бизнеса', points: ['120 постов/мес', 'Meta-публикация', 'Базовые AI-шаблоны'] },
+    { name: 'Growth', price: '€79', desc: 'Для растущей команды', points: ['500 постов/мес', 'Meta + YouTube', 'Календарь и приоритет'] },
+    { name: 'Agency', price: '€199', desc: 'Для агентств', points: ['Безлимит проектов', 'Командные роли', 'Расширенные лимиты'] },
+  ];
 
-  return `<div class="auth-wrap page">
-    <div class="auth-shell reveal">
-      <section class="auth-panel auth-hero-panel">
-        <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT" style="max-width:420px;margin-bottom:18px;"/>
+  return `<div class="landing-2026 page">
+    <header class="landing-2026-topbar">
+      <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT"/>
+      <div class="landing-2026-top-actions">
+        <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
+        <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
+        <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
+      </div>
+    </header>
 
-        <div class="hero-block">
-          <h1 class="hero__title">AutoSocial GPT — AI-ассистент для контента и автопостинга.</h1>
-          <p class="hero__subtitle auth-subtitle">Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.</p>
-          <div class="cta-row">
-            <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно по email</button>
+    <section class="landing-2026-hero reveal">
+      <div class="landing-2026-hero-copy">
+        <span class="landing-2026-chip">AI SaaS Platform for SMM teams</span>
+        <h1>Автоматизируйте контент и публикации в соцсетях на уровне 2026 SaaS.</h1>
+        <p>AutoSocial.tech помогает командам создавать контент, планировать публикации и масштабировать Meta + YouTube без ручного хаоса.</p>
+        <div class="cta-row">
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
+          <a class="btn btn-secondary cta__button" href="#landingHow">See How It Works</a>
+        </div>
+      </div>
+      <div class="landing-2026-hero-visual">
+        <div class="landing-2026-mockup">
+          <div class="landing-2026-mock-head">
+            <span></span><span></span><span></span>
           </div>
-          <p class="small hero__microcopy">Без привязки карт сейчас — начните с Free плана.</p>
-        </div>
-
-        <div class="features-block">
-          <h3>Всё, что нужно для SMM — в одной панели</h3>
-          <ul class="auth-benefits">
-            <li class="features__item">Генерация уникального контента на основе AI</li>
-            <li class="features__item">Автопостинг по расписанию в Facebook и Instagram</li>
-            <li class="features__item">Интеллектуальные шаблоны для любых ниш</li>
-            <li class="features__item">Планировщик, который думает за вас</li>
-            <li class="features__item">Метрики и аналитика для роста</li>
-          </ul>
-        </div>
-
-        <div class="how-block">
-          <h3>Как AutoSocial GPT помогает вашему бизнесу</h3>
-          <ul class="check-list">
-            <li class="done"><strong>Создавайте контент за секунды</strong><br/><span class="small">Введите тему или ключевое сообщение — получите готовые посты с хештегами и CTA.</span></li>
-            <li class="done"><strong>Планируйте. Автоматизируйте. Забывайте о ручной публикации</strong><br/><span class="small">Настройте расписание — и система публикует сама.</span></li>
-            <li class="done"><strong>Следите за эффективностью</strong><br/><span class="small">Показы, вовлечённость, рост аудитории — всё в одной панели.</span></li>
-          </ul>
-        </div>
-
-        <div class="trust-block">
-          <h3>Почему маркетологи выбирают AutoSocial GPT</h3>
-          <ul class="auth-benefits">
-            <li class="features__item">Экономит до 10 часов в неделю на публикациях</li>
-            <li class="features__item">Генерирует контент, основанный на бест-практиках SMM</li>
-            <li class="features__item">Интеграции с Facebook + Instagram Business</li>
-            <li class="features__item">SSL / GDPR-ready. Готово к оплате.</li>
-          </ul>
-          <blockquote class="auth-quote">“AutoSocial GPT перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB</blockquote>
-        </div>
-
-        <div class="final-cta-block">
-          <h3>Готовы автоматизировать свои соцсети?</h3>
-          <div class="cta-row">
-            <button id="finalRegisterBtn" class="btn btn-primary cta__button">Создать аккаунт по email</button>
-            <button id="finalPricingBtn" class="btn btn-secondary cta__button">Узнать тарифы</button>
+          <div class="landing-2026-mock-grid">
+            <div class="landing-2026-skeleton lg"></div>
+            <div class="landing-2026-skeleton"></div>
+            <div class="landing-2026-skeleton"></div>
+            <div class="landing-2026-skeleton wide"></div>
           </div>
-          <p class="small">Начните с Free плана. Обновление на Pro доступно в любой момент.</p>
         </div>
+      </div>
+    </section>
 
+    <section class="landing-2026-section">
+      <h2>Почему контент-система у большинства не работает</h2>
+      <div class="landing-2026-grid-4">
+        ${painCards.map((c) => `<article class="landing-2026-card"><div class="landing-2026-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p></article>`).join('')}
+      </div>
+    </section>
+
+    <section id="landingHow" class="landing-2026-section">
+      <h2>Как это работает</h2>
+      <div class="landing-2026-steps">
+        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Подключите каналы</h3><p>Meta и YouTube через защищенный OAuth.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Задайте тему и цель</h3><p>AI соберет контент под ваш рынок и формат.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Публикуйте по расписанию</h3><p>Запускайте автопостинг и держите стабильный ритм.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-2026-demo">
+      <h2>Демо платформы</h2>
+      <p>Здесь будет видео-обзор и живой walkthrough интерфейса.</p>
+      <div class="landing-2026-demo-box">Interactive product demo placeholder</div>
+    </section>
+
+    <section class="landing-2026-section">
+      <h2>Функции, которые дают результат</h2>
+      <div class="landing-2026-grid-3">
+        ${features.map(([title, text]) => `<article class="landing-2026-card landing-2026-feature"><h3>${title}</h3><p>${text}</p></article>`).join('')}
+      </div>
+    </section>
+
+    <section class="landing-2026-section">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <h2 style="margin:0;">Прозрачные тарифы</h2>
+        <button id="finalPricingBtn" class="btn btn-ghost" type="button">${t('footer_pricing')}</button>
+      </div>
+      <div class="landing-2026-pricing">
+        ${pricing.map((p, idx) => `<article class="landing-2026-card landing-2026-price ${idx === 1 ? 'is-featured' : ''}">
+          ${idx === 1 ? '<span class="landing-2026-popular">Most Popular</span>' : ''}
+          <h3>${p.name}</h3>
+          <p class="landing-2026-price-value">${p.price}<span>/month</span></p>
+          <p class="small">${p.desc}</p>
+          <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
+          <button class="btn ${idx === 1 ? 'btn-primary' : 'btn-secondary'} connection-btn-sm">${idx === 2 ? 'Запросить демо' : 'Start Free Trial'}</button>
+        </article>`).join('')}
+      </div>
+    </section>
+
+    <section class="landing-2026-trust">
+      <span class="landing-2026-trust-pill">GDPR compliant</span>
+      <span class="landing-2026-trust-pill">Secure API</span>
+      <span class="landing-2026-trust-pill">Encrypted data</span>
+      <span class="landing-2026-trust-pill">Hosted in EU</span>
+    </section>
+
+    <section class="landing-2026-final">
+      <h2>Готовы перевести SMM на системный автопилот?</h2>
+      <p>Запустите AutoSocial.tech и получайте стабильный контент-поток без перегруза команды.</p>
+      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
+    </section>
+
+    <section class="landing-2026-auth-wrap">
+      <article class="landing-2026-auth-info landing-2026-card">
+        <h3>Создайте аккаунт за минуту</h3>
+        <p>Подтверждение по email, без карты на старте. После входа вы сразу попадете в мастер создания контента и подключений.</p>
         <div class="trust-row">
           <span class="trust-chip">SSL</span>
           <span class="trust-chip">GDPR</span>
           <span class="trust-chip">Stripe</span>
         </div>
-
-        <div class="hero-visual auth-hero-visual">
-          <img src="/assets/brand/hero-mockup.svg" alt="Интерфейс AutoSocial GPT"/>
+      </article>
+      <section class="auth-panel auth-form-panel landing-2026-auth-form">
+        <div class="auth-lang-row">
+          <label for="authLang" class="small">${t('language_label')}</label>
+          <select id="authLang" class="auth-lang-select">${languageOptions}</select>
         </div>
-
-        <div class="landing-footer-links">
-          <button class="btn btn-link" data-link="/billing" type="button">Тарифы</button>
-          <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">Политика конфиденциальности</a>
-          <button class="btn btn-link" data-link="/contact" type="button">Поддержка</button>
-        </div>
-      </section>
-
-      <section class="auth-panel auth-form-panel">
         ${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}
         <h2>${formTitle}</h2>
         <p class="small mobile-microcopy">${authHint}</p>
         ${socialBlock}
-        ${codeStep ? '' : field('authEmail', 'Email', 'email', '', 'you@company.com')}
-        ${codeStep ? '' : field('authPassword', 'Пароль', 'password', '', 'Минимум 8 символов')}
-        ${codeStep ? field('authCode', 'Код из письма', 'text', '', '4 цифры') : ''}
+        ${codeStep ? '' : field('authEmail', t('field_email'), 'email', '', t('placeholder_email'))}
+        ${codeStep ? '' : field('authPassword', t('field_password'), 'password', '', t('placeholder_password'))}
+        ${codeStep ? field('authCode', t('field_code'), 'text', '', t('placeholder_code')) : ''}
         ${codeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
-        ${codeStep ? '<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">Отправить код повторно</button>' : ''}
-        ${codeStep ? '<button id="authBackBtn" class="btn btn-link" type="button">Изменить email/пароль</button>' : ''}
+        ${codeStep ? `<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">${t('resend_code')}</button>` : ''}
+        ${codeStep ? `<button id="authBackBtn" class="btn btn-link" type="button">${t('back_to_auth')}</button>` : ''}
         <div class="auth-switch-row">
           <span class="small">${switchText}</span>
           <button id="authSwitchBtn" class="btn btn-link" type="button" ${codeStep ? 'disabled' : ''}>${switchLabel}</button>
         </div>
       </section>
-    </div>
+    </section>
   </div>`;
 }
 
@@ -970,19 +1405,6 @@ function createPreviewContextKey(wizard) {
 
 function pageCreate() {
   const w = state.createWizard;
-  const hashText = (input) => {
-    let h = 2166136261;
-    for (const ch of String(input || '')) {
-      h ^= ch.charCodeAt(0);
-      h = Math.imul(h, 16777619);
-    }
-    return Math.abs(h >>> 0);
-  };
-  const pick = (arr, seed, offset = 0) => arr[(seed + offset) % arr.length];
-  const extractTopicTags = (topic) => {
-    const words = Array.from(new Set(String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []));
-    return words.filter((word) => word.length > 3).slice(0, 3).map((word) => `#${word}`);
-  };
   const options = state.projects.map((p) => ({ value: p.id, label: p.name }));
   const categoryOptions = [
     { value: 'business', label: 'Бизнес и услуги' },
@@ -1008,96 +1430,28 @@ function pageCreate() {
     { value: 'expert', label: 'Экспертный', hint: 'Больше фактов, структуры и пользы.' },
     { value: 'sales', label: 'Продающий', hint: 'Фокус на выгоде и понятном призыве к действию.' },
   ];
+  const platformLimitMap = {
+    instagram: { recMin: 120, recMax: 220, maxHashtags: 5 },
+    facebook: { recMin: 200, recMax: 400, maxHashtags: 5 },
+    youtube: { recMin: 180, recMax: 600, maxHashtags: 3 },
+  };
+  const activePlatforms = [
+    w.platforms.facebook ? 'facebook' : null,
+    w.platforms.instagram ? 'instagram' : null,
+  ].filter(Boolean);
+  const previewPlatforms = activePlatforms.length ? activePlatforms : ['instagram'];
+  const previewRecMin = Math.max(...previewPlatforms.map((p) => platformLimitMap[p]?.recMin || 120));
+  const previewRecMaxRaw = Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.recMax || 220));
+  const previewRecMax = Math.max(previewRecMin, previewRecMaxRaw);
+  const previewMaxHashtags = Math.max(1, Math.min(...previewPlatforms.map((p) => platformLimitMap[p]?.maxHashtags || 5)));
   const toneLabel = (toneOptions.find((t) => t.value === w.tone) || toneOptions[0]).label;
   const buildPreviewDraft = () => {
-    const topic = (w.topic || '').trim() || 'Польза для клиента';
-    const lang = String(w.language || 'ru').trim().toLowerCase();
-    const seed = hashText(createPreviewContextKey(w));
-    const topicWords = (String(topic || '').toLowerCase().match(/[a-zа-яё0-9]+/gi) || []).filter((word) => word.length > 3);
-    const focusA = topicWords[0] || 'результат';
-    const focusB = topicWords[1] || 'качество';
-    const focusC = topicWords[2] || 'сроки';
-    const categoryTagMap = {
-      business: ['#бизнес', '#услуги', '#рост'],
-      marketing: ['#маркетинг', '#smm', '#лиды'],
-      fitness: ['#фитнес', '#здоровье', '#тренировки'],
-      ecommerce: ['#ecommerce', '#интернетмагазин', '#продажи'],
-      beauty: ['#красота', '#уход', '#процедуры'],
-      auto: ['#авто', '#автосервис', '#сто'],
-      fallback: ['#контент', '#продвижение', '#клиенты'],
-    };
-    const toneRu = {
-      friendly: {
-        hooks: ['Разберем без сложных терминов', 'Покажем на понятных примерах', 'Сохраняйте, чтобы применить сразу'],
-        ctas: ['Напишите в комментариях, если хотите разбор под ваш случай.', 'Сохраните пост и отправьте коллеге.', 'Если нужен персональный план, напишите в директ.'],
-      },
-      expert: {
-        hooks: ['Коротко по фактам и практике', 'Разбор на основе типичных кейсов', 'Структурируем, чтобы было легко внедрить'],
-        ctas: ['Готовы внедрять? Оставьте запрос на аудит.', 'Сохраните чек-лист и сравните с текущим процессом.', 'Нужна консультация по вашей нише? Напишите нам.'],
-      },
-      sales: {
-        hooks: ['Сфокусируемся на выгоде и результате', 'Покажем, где теряются деньги и как это исправить', 'Дадим алгоритм, который приводит к заявкам'],
-        ctas: ['Хотите такой же результат? Напишите "СТАРТ" в директ.', 'Готовы усилить продажи? Отправьте сообщение прямо сейчас.', 'Оставьте заявку и получите план на 7 дней.'],
-      },
-    };
-    const toneKey = toneRu[w.tone] ? w.tone : 'friendly';
-    const toneData = toneRu[toneKey];
-    const tags = Array.from(new Set([...(categoryTagMap[w.category] || categoryTagMap.fallback), ...extractTopicTags(topic)])).slice(0, 5).join(' ');
-    const ruBodyVariants = [
-      [
-        `1) Где в теме «${topic}» теряются деньги/время: проверьте ${focusA} и ${focusB}.`,
-        `2) Что должно быть в хорошем решении: четкие KPI, понятные этапы и контроль по ${focusC}.`,
-        `3) Как внедрить за 24 часа: выберите 1 действие по теме «${topic}» и запустите тест.`,
-      ],
-      [
-        `1) Антипаттерн: решения по теме «${topic}» принимаются без критериев.`,
-        `2) Рабочий подход: сравнивайте варианты по итоговой ценности, а не только по цене.`,
-        `3) Быстрый шаг: зафиксируйте один измеримый результат по «${topic}» на эту неделю.`,
-      ],
-      [
-        `1) Начните с диагностики: что сейчас мешает в теме «${topic}».`,
-        `2) Составьте чек-лист из 3 пунктов: ${focusA}, ${focusB}, ${focusC}.`,
-        `3) Примите решение по фактам и назначьте ответственного за внедрение.`,
-      ],
-    ];
-    if (lang === 'en') {
-      const cta = pick([
-        'Comment "PLAN" and we will send you a practical checklist.',
-        'Save this post and share it with your team.',
-        'Need a tailored strategy? Send us a direct message.',
-      ], seed, 3);
-      const enBody = pick([
-        [
-          `Step 1: Identify where "${topic}" currently breaks your process.`,
-          `Step 2: Define 2-3 measurable criteria before choosing an option.`,
-          `Step 3: Run a small 7-day test and compare outcomes.`,
-        ],
-        [
-          `Step 1: Audit your current approach to "${topic}".`,
-          `Step 2: Prioritize long-term value over short-term price.`,
-          `Step 3: Assign an owner and deadline for implementation.`,
-        ],
-      ], seed, 4);
-      return [
-        `${topic}: what to check before you make a decision`,
-        '',
-        `Most teams lose results here because they skip the basics. Here is a practical breakdown for "${topic}".`,
-        ...enBody,
-        '',
-        `${cta}`,
-        tags || '#content #marketing #growth',
-      ].join('\n');
+    const topic = (w.topic || '').trim();
+    if (!topic) return '';
+    if (String(w.language || 'ru').trim().toLowerCase() === 'en') {
+      return `${topic}\n\nWrite your key point here, then add one clear CTA.\n\n#content #marketing`;
     }
-    const ruBody = pick(ruBodyVariants, seed, 2);
-    return [
-      `${topic}: что важно проверить до принятия решения`,
-      '',
-      `${pick(toneData.hooks, seed)}. Тема «${topic}» напрямую влияет на результат в категории «${(categoryOptions.find((c) => c.value === w.category) || categoryOptions[0]).label}».`,
-      ...ruBody,
-      '',
-      pick(toneData.ctas, seed, 1),
-      tags || '#контент #маркетинг #продажи',
-    ].join('\n');
+    return `${topic}\n\nДобавьте главный тезис по теме и один чёткий призыв к действию.\n\n#контент #бизнес`;
   };
   const previewContextKey = createPreviewContextKey(w);
   const normalizedPreview = ((w.previewText || '').trim() && w.previewContextKey === previewContextKey)
@@ -1159,7 +1513,7 @@ function pageCreate() {
       <span class="pill">Язык: ${esc(w.language === 'ru' ? 'Русский' : 'English')}</span>
     </div>
     ${field('wPreviewText', 'Текст поста (можно редактировать)', 'textarea', normalizedPreview, 'Введите текст публикации')}
-    <p class="small wizard-inline-help">Рекомендуем: 500-1200 символов, 3-5 хештегов, 1 чёткий призыв к действию.</p>
+    <p class="small wizard-inline-help">Рекомендуем: ${previewRecMin}-${previewRecMax} символов, 2-${previewMaxHashtags} хештегов, 1 чёткий призыв к действию.</p>
   `;
 
   const step5 = `
@@ -1231,11 +1585,15 @@ function pageConnections() {
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         const canAddPage = status === 'connected_ready' || status === 'connected' || status === 'connected_need_page';
+        const statusText = status === 'connected_ready' || status === 'connected' ? 'Готово к публикации' : 'Требуется действие';
+        const syncText = canRefresh ? 'Live sync' : 'Ограничено';
+        const pageHealth = c.facebook_page_name ? 'Страница привязана' : 'Страница не выбрана';
+        const igHealth = c.instagram_business_id ? 'IG business активен' : 'IG business не найден';
         return `<article class="card connection-card">
           <div class="row connection-head">
             <div>
-              <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span></div>
-              <div class="row connection-title-row">${avatar}<h3 style="margin:0;">Facebook + Instagram</h3></div>
+              <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">Enterprise Ready</span></div>
+              <div class="row connection-title-row">${avatar}<h3 class="connection-title">Facebook + Instagram</h3></div>
               <div class="small connection-subtitle">Подключение для автопостинга. Токены не показываем.</div>
             </div>
             <div>${statusBadge(status)}</div>
@@ -1243,12 +1601,21 @@ function pageConnections() {
           <div class="connection-features">
             <span class="pill">Facebook Page</span>
             <span class="pill">Instagram Business</span>
+            <span class="pill">Secure OAuth</span>
           </div>
           <div class="grid-2 connection-grid-info">
-            <div><div class="connection-main-text">${pageLine}</div></div>
-            <div><div class="connection-main-text">${igLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">Facebook Page</span><div class="connection-main-text">${pageLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">Instagram Business</span><div class="connection-main-text">${igLine}</div></div>
           </div>
-          <div class="small connection-hint">${esc(howToFix)}</div>
+          <div class="connection-kpis">
+            <div class="connection-kpi"><strong>${esc(statusText)}</strong><span>Состояние публикации</span></div>
+            <div class="connection-kpi"><strong>${esc(syncText)}</strong><span>Статус синхронизации</span></div>
+            <div class="connection-kpi"><strong>${esc(c.token_expires_at ? 'Token tracked' : 'Token active')}</strong><span>Контроль токена</span></div>
+          </div>
+          <div class="connection-hint-wrap">
+            <div class="small connection-hint">${esc(howToFix)}</div>
+            <div class="small connection-hint" style="margin-top:4px;">${esc(pageHealth)} · ${esc(igHealth)}</div>
+          </div>
           <div class="cta-row connection-actions">
             <button class="btn btn-primary connection-btn-sm" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
             ${canAddPage ? `<button class="btn btn-ghost connection-btn-sm" data-add-page="${c.id}">Добавить страницу</button>` : ''}
@@ -1265,8 +1632,8 @@ function pageConnections() {
     <article class="card connection-card yt-connection-card">
       <div class="row connection-head">
         <div>
-          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span></div>
-          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 style="margin:0;">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
+          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">Creator Suite</span></div>
+          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 class="connection-title">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
           <div class="small connection-subtitle">YouTube подключен. Можно открывать студию и генерировать ролики/посты.</div>
         </div>
         <div>${statusBadge(y.status || 'connected_ready')}</div>
@@ -1274,12 +1641,20 @@ function pageConnections() {
       <div class="connection-features">
         <span class="pill">Shorts 15-70с</span>
         <span class="pill">Long 120-480с</span>
+        <span class="pill">AI Script + Post</span>
       </div>
       <div class="grid-2 connection-grid-info">
-        <div><div class="connection-main-text">ID: ${esc(safeText(y.channel_id, 'не указан'))}</div></div>
-        <div><div class="connection-main-text">Статус: ${esc(safeText(y.status, 'connected_ready'))}</div></div>
+        <div class="connection-identity"><span class="connection-label">Channel ID</span><div class="connection-main-text">${esc(safeText(y.channel_id, 'не указан'))}</div></div>
+        <div class="connection-identity"><span class="connection-label">Статус</span><div class="connection-main-text">${esc(safeText(y.status, 'connected_ready'))}</div></div>
       </div>
-      <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      <div class="connection-kpis">
+        <div class="connection-kpi"><strong>Ready</strong><span>Контент-пайплайн</span></div>
+        <div class="connection-kpi"><strong>Multi-format</strong><span>Shorts и Long</span></div>
+        <div class="connection-kpi"><strong>SaaS Control</strong><span>В одной панели</span></div>
+      </div>
+      <div class="connection-hint-wrap">
+        <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+      </div>
       <div class="cta-row connection-actions">
         <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Открыть студию</button>
         <button type="button" class="btn btn-danger connection-btn-sm" data-youtube-disconnect="1">Отключить YouTube</button>
@@ -1860,6 +2235,12 @@ async function bind() {
   if (oauthGoogleBtn && !oauthGoogleBtn.disabled) oauthGoogleBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/google/start`; };
   const oauthFacebookBtn = document.getElementById('oauthFacebookBtn');
   if (oauthFacebookBtn && !oauthFacebookBtn.disabled) oauthFacebookBtn.onclick = () => { window.location.href = `${API_BASE}/api/auth/oauth/facebook/start`; };
+  const authLang = document.getElementById('authLang');
+  if (authLang) authLang.onchange = () => {
+    setLanguage(authLang.value);
+    state.notice = null;
+    render();
+  };
 
   const authSwitchBtn = document.getElementById('authSwitchBtn');
   if (authSwitchBtn) authSwitchBtn.onclick = () => {
@@ -2377,9 +2758,13 @@ async function bind() {
   bindTopicTemplateButtons();
 
   const wPrev = document.getElementById('wPrev'); if (wPrev) wPrev.onclick = () => { state.createWizard.step = Math.max(1, state.createWizard.step - 1); render(); };
-  const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = () => {
+  const wNext = document.getElementById('wNext'); if (wNext) wNext.onclick = async () => {
     try {
       const w = state.createWizard;
+      const selectedPlatforms = [
+        w.platforms.facebook ? 'facebook' : null,
+        w.platforms.instagram ? 'instagram' : null,
+      ].filter(Boolean);
       if (w.step === 1) w.projectId = document.getElementById('wProject')?.value || w.projectId || '';
       if (w.step === 2) {
         w.platforms.facebook = !!document.getElementById('wFb')?.checked;
@@ -2395,7 +2780,22 @@ async function bind() {
         if (!w.topic) { state.notice = { type: 'error', text: 'Тема обязательна. Выберите быструю тему или введите вручную.' }; return render(); }
         const contextKey = createPreviewContextKey(w);
         if (!w.previewText || w.previewContextKey !== contextKey) {
-          w.previewText = '';
+          wNext.disabled = true;
+          wNext.textContent = 'Генерирую...';
+          const previewPayload = await api('/api/generate-preview', {
+            method: 'POST',
+            body: JSON.stringify({
+              project_id: Number(w.projectId || state.projects[0]?.id || 0) || null,
+              topic: w.topic,
+              category: w.category,
+              tone: w.tone,
+              language: w.language,
+              platforms: selectedPlatforms.length ? selectedPlatforms : ['instagram'],
+            }),
+            timeoutMs: 90000,
+          });
+          const generated = (previewPayload?.text || '').trim();
+          w.previewText = generated || buildPreviewDraft();
           w.previewContextKey = contextKey;
         }
       }
@@ -2413,6 +2813,9 @@ async function bind() {
     } catch (e) {
       state.notice = { type: 'error', text: `Не удалось перейти к следующему шагу: ${e?.message || 'ошибка формы'}` };
       render();
+    } finally {
+      wNext.disabled = false;
+      wNext.textContent = 'Далее';
     }
   };
 
@@ -2477,7 +2880,10 @@ async function bind() {
       // mode=now: generate content and then call publish endpoint.
       let sharedMediaUrl = (w.mediaUrl || '').trim() || null;
       const createdPosts = [];
-      for (const platform of selectedPlatforms) {
+      for (let i = 0; i < selectedPlatforms.length; i += 1) {
+        const platform = selectedPlatforms[i];
+        const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
+        wSubmit.textContent = `Готовлю ${platformLabel} (${i + 1}/${selectedPlatforms.length})...`;
         const payload = { ...payloadBase, platform, media_url: sharedMediaUrl };
         const created = await api('/api/generate', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 });
         const postId = created?.id;
@@ -2486,15 +2892,16 @@ async function bind() {
         createdPosts.push({ platform, postId });
       }
       const publishErrors = [];
-      const publishResults = await Promise.allSettled(
-        createdPosts.map(({ postId }) => api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 })),
-      );
-      for (let i = 0; i < publishResults.length; i += 1) {
-        if (publishResults[i].status === 'fulfilled') continue;
+      for (let i = 0; i < createdPosts.length; i += 1) {
         const platform = createdPosts[i]?.platform;
+        const postId = createdPosts[i]?.postId;
         const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
-        const reason = publishResults[i]?.reason;
-        publishErrors.push(`${platformLabel}: ${reason?.message || 'ошибка публикации'}`);
+        wSubmit.textContent = `Публикую ${platformLabel} (${i + 1}/${createdPosts.length})...`;
+        try {
+          await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 });
+        } catch (reason) {
+          publishErrors.push(`${platformLabel}: ${reason?.message || 'ошибка публикации'}`);
+        }
       }
       if (publishErrors.length) {
         throw new Error(`Часть публикаций не выполнена: ${publishErrors.join(' ; ')}`);
@@ -2543,10 +2950,18 @@ async function bind() {
     render();
   });
   document.querySelectorAll('[data-refresh]').forEach((b) => b.onclick = async () => {
-    await api(`/api/connections/${b.dataset.refresh}/refresh-token`, { method: 'POST', body: '{}' });
-    state.connections = await api('/api/connections');
-    state.notice = { type: 'ok', text: 'Статус подключения обновлён.' };
-    render();
+    try {
+      setQuickLoading(b, 'Проверяю...', true);
+      await api(`/api/connections/${b.dataset.refresh}/refresh-token`, { method: 'POST', body: '{}' });
+      state.connections = await api('/api/connections');
+      state.notice = { type: 'ok', text: 'Статус подключения обновлён.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось обновить токен.' };
+      render();
+    } finally {
+      setQuickLoading(b, 'Проверяю...', false);
+    }
   });
 
   // Meta Page picker (explicit Page selection for multi-Page accounts).
