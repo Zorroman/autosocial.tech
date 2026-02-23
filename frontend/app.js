@@ -1627,6 +1627,7 @@ function pageConnections() {
       youtube_state_invalid: 'Сессия подключения YouTube устарела. Нажмите "Подключить YouTube" снова.',
       youtube_token_exchange_failed: 'Не удалось получить токен Google для YouTube.',
       youtube_no_channel: 'Не удалось найти канал YouTube в выбранном Google-аккаунте.',
+      youtube_api_not_enabled: 'YouTube Data API не включен в Google Cloud проекте для этого OAuth клиента.',
       youtube_api_failed: 'YouTube API вернул ошибку при чтении канала.',
       youtube_not_configured: 'Google OAuth для YouTube не настроен.',
     };

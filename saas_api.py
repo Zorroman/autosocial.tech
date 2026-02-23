@@ -731,12 +731,34 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
         timeout=15,
     )
     if not yt_resp.ok:
-        return redirect(_frontend_connections_url("youtube_error=youtube_api_failed"))
+        details = ""
+        try:
+            payload = yt_resp.json() if yt_resp.content else {}
+            if isinstance(payload, dict):
+                err = payload.get("error")
+                if isinstance(err, dict):
+                    msg = str(err.get("message") or "").strip()
+                    code = str(err.get("code") or "").strip()
+                    if code and msg:
+                        details = f"[{code}] {msg}"
+                    elif msg:
+                        details = msg
+        except Exception:
+            details = ""
+        current_app.logger.warning(
+            "youtube channel read failed user_id=%s status=%s details=%s",
+            user_id,
+            yt_resp.status_code,
+            details[:500],
+        )
+        if "has not been used in project" in details or "is disabled" in details:
+            return redirect(_frontend_connections_url(f"youtube_error=youtube_api_not_enabled&message={quote(details[:220])}"))
+        return redirect(_frontend_connections_url(f"youtube_error=youtube_api_failed&message={quote(details[:220])}"))
 
     yt_data = yt_resp.json() if yt_resp.content else {}
     items = yt_data.get("items") if isinstance(yt_data, dict) else None
     if not isinstance(items, list) or not items:
-        return redirect(_frontend_connections_url("youtube_error=no_channel"))
+        return redirect(_frontend_connections_url("youtube_error=no_channel&message=В%20этом%20Google-аккаунте%20нет%20YouTube-канала.%20Создайте%20канал%20и%20повторите."))
 
     first = items[0] if isinstance(items[0], dict) else {}
     snippet = first.get("snippet") if isinstance(first.get("snippet"), dict) else {}
