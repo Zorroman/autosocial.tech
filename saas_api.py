@@ -36,6 +36,7 @@ from facebook_api import (
     publish_to_instagram,
 )
 from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
+from content_pipeline import OpenAIClientError, generate_strategy_and_drafts
 from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
 from saas_models import (
     AuthEmailChallenge,
@@ -51,6 +52,9 @@ from saas_models import (
     Campaign,
     CampaignAsset,
     CampaignDelivery,
+    ContentBrief,
+    ContentDraft,
+    ContentStrategy,
     Project,
     GenerationJob,
     SocialAccount,
@@ -1697,6 +1701,391 @@ def generate_preview():
         return jsonify({"error": f"Ошибка генерации предпросмотра: {msg}"}), 500
 
     return jsonify(payload)
+
+
+def _json_loads_list(raw: str) -> list:
+    try:
+        value = json.loads(raw or "[]")
+        return value if isinstance(value, list) else []
+    except Exception:
+        return []
+
+
+def _json_loads_dict(raw: str) -> dict:
+    try:
+        value = json.loads(raw or "{}")
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
+
+
+def _content_brief_payload(row: ContentBrief) -> dict:
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "topic": row.topic,
+        "offer": row.offer,
+        "language": row.language,
+        "tone": row.tone,
+        "goal": row.goal,
+        "platforms": _json_loads_list(row.platforms_json),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _content_draft_payload(row: ContentDraft) -> dict:
+    return {
+        "id": row.id,
+        "brief_id": row.brief_id,
+        "platform": row.platform,
+        "variant": row.variant_index,
+        "post_text": row.post_text,
+        "title": row.title,
+        "description": row.description,
+        "hashtags": _json_loads_list(row.hashtags_json),
+        "cta": row.cta,
+        "asset_ideas": _json_loads_list(row.asset_ideas_json),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _create_post_from_content_draft(
+    *,
+    user: AppUser,
+    draft: ContentDraft,
+    brief: ContentBrief,
+    project_id: int,
+    schedule_at: datetime | None,
+):
+    if not can_access_project(user, project_id):
+        return None, (jsonify({"error": "У вас нет доступа к проекту"}), 403)
+
+    generated_text = (draft.post_text or "").strip()
+    if draft.platform == "youtube":
+        title = (draft.title or "").strip()
+        description = (draft.description or "").strip()
+        if title or description:
+            generated_text = f"Title: {title}\n\n{description or generated_text}".strip()
+
+    try:
+        post = create_post_and_charge(
+            user_id=user.id,
+            project_id=project_id,
+            platform=draft.platform,
+            topic=(brief.topic or "").strip()[:500] or "Контент-идея",
+            category="content_brief",
+            tone=brief.tone or "neutral",
+            language=brief.language or "ru",
+            prompt_text=(brief.offer or "").strip(),
+            media_url=None,
+            schedule_at=schedule_at,
+            variant_count=1,
+            translation=False,
+            long_post_mode=(draft.platform in {"facebook", "instagram"}),
+            generated_text_override=generated_text,
+            save_as_draft=(schedule_at is None),
+        )
+        return post, None
+    except RuntimeError as exc:
+        return None, (jsonify({"error": str(exc)}), 429)
+    except Exception as exc:
+        msg = str(exc)
+        if "insufficient_quota" in msg or "You exceeded your current quota" in msg:
+            return None, (jsonify({"error": "OpenAI: недостаточно квоты для сохранения черновика."}), 402)
+        if "Error code: 429" in msg:
+            return None, (jsonify({"error": "OpenAI: rate limit/429. Повторите позже."}), 429)
+        return None, (jsonify({"error": f"Ошибка сохранения черновика: {msg}"}), 500)
+
+
+@saas_api.route("/content/generate", methods=["POST"])
+@require_auth
+def content_generate():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+
+    topic = (data.get("topic") or "").strip()
+    offer_raw = data.get("offer")
+    offer = (offer_raw or "").strip() if offer_raw is not None else None
+    offer = offer if offer else None
+    language = (data.get("language") or "ru").strip().lower()
+    tone = (data.get("tone") or "neutral").strip().lower()
+    goal = (data.get("goal") or "engagement").strip().lower()
+    try:
+        variants = int(data.get("variants") or 1)
+    except (TypeError, ValueError):
+        return jsonify({"error": "variants должен быть числом 1..3"}), 400
+    platforms_raw = data.get("platforms") if isinstance(data.get("platforms"), list) else []
+    platforms = []
+    for item in platforms_raw:
+        key = str(item or "").strip().lower()
+        if key in {"facebook", "instagram", "youtube"} and key not in platforms:
+            platforms.append(key)
+
+    if not topic:
+        return jsonify({"error": "Поле 'Тема/идея' обязательно"}), 400
+    if not platforms:
+        return jsonify({"error": "Выберите хотя бы одну платформу"}), 400
+    if variants not in {1, 2, 3}:
+        return jsonify({"error": "variants должен быть 1..3"}), 400
+
+    try:
+        generated = generate_strategy_and_drafts(
+            topic=topic,
+            offer=offer,
+            language=language,
+            tone=tone,
+            goal=goal,
+            platforms=platforms,
+            variants=variants,
+        )
+    except OpenAIClientError as exc:
+        msg = str(exc)
+        if "429" in msg.lower():
+            return jsonify({"error": "GPT временно перегружен. Нажмите Retry через 20-30 секунд."}), 429
+        return jsonify({"error": f"GPT error: {msg}"}), 502
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Ошибка генерации контента: {exc}"}), 500
+
+    db = SessionLocal()
+    try:
+        brief = ContentBrief(
+            user_id=user.id,
+            topic=topic,
+            offer=offer,
+            language=language,
+            tone=tone,
+            goal=goal,
+            platforms_json=json.dumps(platforms, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+        )
+        db.add(brief)
+        db.flush()
+
+        strategy_row = ContentStrategy(
+            brief_id=brief.id,
+            strategy_json=json.dumps(generated.strategy, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+        )
+        db.add(strategy_row)
+
+        draft_rows = []
+        for row in generated.drafts:
+            draft = ContentDraft(
+                brief_id=brief.id,
+                platform=str(row.get("platform") or "").strip().lower(),
+                variant_index=int(row.get("variant_index") or 1),
+                post_text=(row.get("post_text") or "").strip(),
+                title=(row.get("title") or None),
+                description=(row.get("description") or None),
+                hashtags_json=json.dumps(row.get("hashtags") or [], ensure_ascii=False),
+                cta=(row.get("cta") or None),
+                asset_ideas_json=json.dumps(row.get("asset_ideas") or [], ensure_ascii=False),
+                created_at=datetime.utcnow(),
+            )
+            db.add(draft)
+            draft_rows.append(draft)
+
+        db.commit()
+        for row in draft_rows:
+            db.refresh(row)
+        db.refresh(brief)
+    finally:
+        db.close()
+
+    return jsonify(
+        {
+            "brief_id": brief.id,
+            "strategy": generated.strategy,
+            "drafts": [_content_draft_payload(d) for d in draft_rows],
+            "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
+        }
+    )
+
+
+@saas_api.route("/content/briefs", methods=["GET"])
+@require_auth
+def content_briefs_list():
+    user = g.current_user
+    limit = max(1, min(int(request.args.get("limit") or 20), 100))
+    db = SessionLocal()
+    try:
+        query = db.query(ContentBrief)
+        if user.role != "admin":
+            query = query.filter(ContentBrief.user_id == user.id)
+        rows = query.order_by(ContentBrief.created_at.desc()).limit(limit).all()
+        return jsonify([_content_brief_payload(r) for r in rows])
+    finally:
+        db.close()
+
+
+@saas_api.route("/content/briefs/<int:brief_id>", methods=["GET"])
+@require_auth
+def content_brief_details(brief_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        brief = db.query(ContentBrief).filter(ContentBrief.id == brief_id).first()
+        if not brief:
+            return jsonify({"error": "brief not found"}), 404
+        if user.role != "admin" and brief.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        strategy = (
+            db.query(ContentStrategy)
+            .filter(ContentStrategy.brief_id == brief.id)
+            .order_by(ContentStrategy.created_at.desc())
+            .first()
+        )
+        drafts = (
+            db.query(ContentDraft)
+            .filter(ContentDraft.brief_id == brief.id)
+            .order_by(ContentDraft.platform.asc(), ContentDraft.variant_index.asc(), ContentDraft.id.asc())
+            .all()
+        )
+        return jsonify(
+            {
+                "brief": _content_brief_payload(brief),
+                "strategy": _json_loads_dict(strategy.strategy_json) if strategy else {},
+                "drafts": [_content_draft_payload(d) for d in drafts],
+            }
+        )
+    finally:
+        db.close()
+
+
+@saas_api.route("/content/drafts/<int:draft_id>/schedule", methods=["POST"])
+@require_auth
+def content_draft_schedule(draft_id: int):
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    project_id_raw = data.get("project_id")
+    schedule_at_raw = (data.get("schedule_at") or "").strip()
+    if not schedule_at_raw:
+        return jsonify({"error": "Передайте schedule_at"}), 400
+    try:
+        schedule_at = _parse_iso_datetime(schedule_at_raw)
+    except Exception:
+        return jsonify({"error": "schedule_at должен быть в ISO формате"}), 400
+
+    billing = get_billing_summary(user)
+    if not billing["limits"].get("can_schedule"):
+        return jsonify({"error": "Планирование доступно только на платных тарифах"}), 403
+
+    db = SessionLocal()
+    try:
+        draft = db.query(ContentDraft).filter(ContentDraft.id == draft_id).first()
+        if not draft:
+            return jsonify({"error": "draft not found"}), 404
+        brief = db.query(ContentBrief).filter(ContentBrief.id == draft.brief_id).first()
+        if not brief:
+            return jsonify({"error": "brief not found"}), 404
+        if user.role != "admin" and brief.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+    finally:
+        db.close()
+
+    try:
+        project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
+    except Exception:
+        return jsonify({"error": "project_id должен быть числом"}), 400
+
+    post, err = _create_post_from_content_draft(
+        user=user,
+        draft=draft,
+        brief=brief,
+        project_id=project_id,
+        schedule_at=schedule_at,
+    )
+    if err:
+        return err
+    return jsonify({"ok": True, "post_id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat() if post.schedule_at else None})
+
+
+@saas_api.route("/content/drafts/<int:draft_id>/save", methods=["POST"])
+@require_auth
+def content_draft_save(draft_id: int):
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    project_id_raw = data.get("project_id")
+
+    db = SessionLocal()
+    try:
+        draft = db.query(ContentDraft).filter(ContentDraft.id == draft_id).first()
+        if not draft:
+            return jsonify({"error": "draft not found"}), 404
+        brief = db.query(ContentBrief).filter(ContentBrief.id == draft.brief_id).first()
+        if not brief:
+            return jsonify({"error": "brief not found"}), 404
+        if user.role != "admin" and brief.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+    finally:
+        db.close()
+
+    try:
+        project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
+    except Exception:
+        return jsonify({"error": "project_id должен быть числом"}), 400
+
+    post, err = _create_post_from_content_draft(
+        user=user,
+        draft=draft,
+        brief=brief,
+        project_id=project_id,
+        schedule_at=None,
+    )
+    if err:
+        return err
+    return jsonify({"ok": True, "post_id": post.id, "status": post.status})
+
+
+@saas_api.route("/content/drafts/<int:draft_id>/publish", methods=["POST"])
+@require_auth
+def content_draft_publish(draft_id: int):
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    project_id_raw = data.get("project_id")
+
+    db = SessionLocal()
+    try:
+        draft = db.query(ContentDraft).filter(ContentDraft.id == draft_id).first()
+        if not draft:
+            return jsonify({"error": "draft not found"}), 404
+        brief = db.query(ContentBrief).filter(ContentBrief.id == draft.brief_id).first()
+        if not brief:
+            return jsonify({"error": "brief not found"}), 404
+        if user.role != "admin" and brief.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+    finally:
+        db.close()
+
+    try:
+        project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
+    except Exception:
+        return jsonify({"error": "project_id должен быть числом"}), 400
+
+    post, err = _create_post_from_content_draft(
+        user=user,
+        draft=draft,
+        brief=brief,
+        project_id=project_id,
+        schedule_at=None,
+    )
+    if err:
+        return err
+
+    if draft.platform == "youtube":
+        # Keep behavior explicit: youtube direct publish is not supported in /posts publish flow.
+        return jsonify({"ok": True, "post_id": post.id, "status": post.status, "message": "YouTube draft сохранен. Для публикации используйте существующий YouTube/Campaign flow."}), 202
+
+    db = SessionLocal()
+    try:
+        publish_user = db.query(AppUser).filter(AppUser.id == user.id).first()
+        g.current_user = publish_user
+        return publish_post(post.id)
+    finally:
+        db.close()
 
 
 def _campaign_mode_allows(kind_mode: str, platform: str, kind: str) -> bool:
