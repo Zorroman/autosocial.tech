@@ -453,8 +453,6 @@ const state = {
   },
   dashboardUI: {
     tab: 'overview',
-    collapsed: false,
-    drawerOpen: false,
   },
   dashboardComposer: {
     topic: '',
@@ -1295,7 +1293,7 @@ function pageLogin() {
 }
 
 function pageDashboard() {
-  if (!state.dashboardUI) state.dashboardUI = { tab: 'overview', collapsed: false, drawerOpen: false };
+  if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
   if (!state.dashboardComposer) state.dashboardComposer = { topic: '', tone: 'friendly', platform: 'meta', output: '', loading: false };
   if (!state.dashboardBrand) {
     try {
@@ -1306,18 +1304,20 @@ function pageDashboard() {
     }
   }
 
-  const t = {
+  const ui = {
     overview: 'Обзор',
-    generate: 'Генерация контента',
+    create: 'Создать',
     calendar: 'Календарь',
-    connections: 'Подключенные аккаунты',
+    connections: 'Подключения',
     history: 'История',
     brand: 'Настройки бренда',
     billing: 'Биллинг',
-    support: 'Поддержка',
-    logout: 'Выйти',
+    kpi_posts: 'Постов в этом месяце',
+    kpi_scheduled: 'Запланировано',
+    kpi_connected: 'Подключено аккаунтов',
+    kpi_summary: 'Сводка (пока без аналитики)',
   };
-  const tab = String(state.dashboardUI.tab || 'overview');
+  const tab = String(state.dashboardUI.tab || 'overview').toLowerCase();
   const b = state.billing || { usage: {}, limits: {}, credits_left: 0, approx_posts_left: 0, plan: 'free' };
   const posts = state.posts || [];
   const usedMonth = Number(b.usage.posts_per_month || 0);
@@ -1326,22 +1326,18 @@ function pageDashboard() {
   const connectedMetaCount = (state.connections || []).filter((c) => isConnectionReady(c)).length;
   const connectedYoutube = state.youtubeConnection?.connected ? 1 : 0;
   const connectedAccountsCount = connectedMetaCount + connectedYoutube;
-  const topPlan = planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'));
-  const email = String(state.user?.email || '');
-  const avatarLetter = (email[0] || 'U').toUpperCase();
-  const canSchedule = !!b.limits.can_schedule;
+  const topPlanBadge = planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'));
   const unlimitedMonth = monthLimit >= 1000000000;
-  const monthMax = unlimitedMonth ? Math.max(usedMonth, 1) : Math.max(monthLimit, 1);
   const composer = state.dashboardComposer;
   const brand = state.dashboardBrand;
   const pageTitleMap = {
-    overview: 'Dashboard overview',
-    generate: 'Generate content',
-    calendar: 'Content calendar',
-    connections: 'Connected accounts',
-    history: 'History',
-    brand: 'Brand settings',
-    billing: 'Billing',
+    overview: 'Рабочий стол',
+    create: 'Создание контента',
+    calendar: 'Календарь публикаций',
+    connections: 'Подключения аккаунтов',
+    history: 'История публикаций',
+    brand: 'Параметры бренда',
+    billing: 'Тариф и биллинг',
   };
   const activeTitle = pageTitleMap[tab] || pageTitleMap.overview;
 
@@ -1368,44 +1364,55 @@ function pageDashboard() {
     .map((p) => `<article class="dash-scheduled-card"><h4>${esc(p.topic || 'Пост без темы')}</h4><p>${esc((p.generated_text || '').slice(0, 120) || 'Черновик без текста')}</p><div class="small">${new Date(p.schedule_at || p.created_at).toLocaleString()} · ${esc(p.platform || '—')}</div></article>`)
     .join('');
 
+  const latestPosts = posts
+    .slice(0, 6)
+    .map((p) => `<li class="dash-recent-item"><div><strong>${esc(p.topic || 'Пост без темы')}</strong><p class="small">${esc((p.generated_text || '').slice(0, 120) || 'Текст пока не заполнен')}</p></div><div class="small">${new Date(p.created_at).toLocaleDateString()}</div></li>`)
+    .join('');
+
   const overviewSection = `
-    <section class="dash-content-grid">
+    <section class="dash-kpi-grid">
       <article class="dash-kpi-card">
-        <p>Постов в этом месяце</p>
+        <p>${ui.kpi_posts}</p>
         <strong>${usedMonth}</strong>
         <span>${unlimitedMonth ? 'Без лимита по тарифу' : `Лимит: ${monthLimit}`}</span>
       </article>
       <article class="dash-kpi-card">
-        <p>Запланировано</p>
+        <p>${ui.kpi_scheduled}</p>
         <strong>${scheduledCount}</strong>
         <span>Постов ждут публикации</span>
       </article>
       <article class="dash-kpi-card">
-        <p>Подключено аккаунтов</p>
+        <p>${ui.kpi_connected}</p>
         <strong>${connectedAccountsCount}</strong>
         <span>Meta: ${connectedMetaCount} · YouTube: ${connectedYoutube}</span>
       </article>
       <article class="dash-kpi-card">
-        <p>Engagement summary</p>
+        <p>${ui.kpi_summary}</p>
         <strong>${connectedAccountsCount > 0 ? '+18%' : '—'}</strong>
-        <span>${connectedAccountsCount > 0 ? 'Placeholder до подключения аналитики' : 'Подключите аккаунты для метрик'}</span>
+        <span>${connectedAccountsCount > 0 ? 'Пока демонстрационная метрика до подключения аналитики' : 'Подключите аккаунты для метрик'}</span>
       </article>
     </section>
-    <section class="dash-panel-card">
+    <section class="dash-card">
       <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div>
-          <h3>Быстрый запуск контента</h3>
-          <p class="small">Сгенерируйте новый пост и отправьте в календарь за пару кликов.</p>
+          <h3>Быстрые действия</h3>
+          <p class="small">Запустите создание поста или проверьте очередь публикаций.</p>
         </div>
-        <button class="btn btn-primary" data-dashboard-tab="generate">Generate New Content</button>
+        <div class="cta-row">
+          <button id="dashCreatePostBtn" class="btn btn-primary">Создать пост</button>
+          <button id="dashOpenCalendarBtn" class="btn btn-secondary">Открыть календарь</button>
+        </div>
       </div>
-      <div style="margin-top:12px;">${progressBar(usedMonth, monthMax)}</div>
+    </section>
+    <section class="dash-card">
+      <h3>Последние материалы</h3>
+      ${latestPosts ? `<ul class="dash-recent-list">${latestPosts}</ul>` : '<p class="small">Пока нет публикаций. Создайте первый пост во вкладке «Создать».</p>'}
     </section>
   `;
 
-  const generateSection = `
-    <section class="dash-panel-card">
-      <h3>Generate Content</h3>
+  const createSection = `
+    <section class="dash-card">
+      <h3>Создать контент</h3>
       <div class="grid-2" style="gap:12px;">
         ${field('dashTopic', 'Тема', 'text', composer.topic || '', 'Например: как локальному бизнесу получать заявки из соцсетей')}
         ${selectField('dashTone', 'Тон', composer.tone || 'friendly', [
@@ -1420,10 +1427,10 @@ function pageDashboard() {
         { value: 'youtube', label: 'YouTube' },
       ])}
       <div class="cta-row">
-        <button id="dashGenerateBtn" class="btn btn-primary">${composer.loading ? 'Генерация...' : 'Generate'}</button>
+        <button id="dashGenerateBtn" class="btn btn-primary">${composer.loading ? 'Генерация...' : 'Сгенерировать'}</button>
       </div>
     </section>
-    <section class="dash-panel-card">
+    <section class="dash-card">
       <h3>Результат</h3>
       <div class="field">
         <label for="dashOutput">Редактируемый текст</label>
@@ -1437,7 +1444,7 @@ function pageDashboard() {
   `;
 
   const calendarSection = `
-    <section class="dash-panel-card">
+    <section class="dash-card">
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
         <h3 style="margin:0;">Календарь публикаций</h3>
         <span class="small">${now.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}</span>
@@ -1447,7 +1454,7 @@ function pageDashboard() {
         ${calCells.join('')}
       </div>
     </section>
-    <section class="dash-panel-card">
+    <section class="dash-card">
       <h3>Запланированные посты</h3>
       <div class="dash-scheduled-list">
         ${scheduledCards || '<p class="small">Пока нет запланированных постов. Сгенерируйте контент и выберите расписание.</p>'}
@@ -1457,31 +1464,31 @@ function pageDashboard() {
   `;
 
   const connectionsSection = `
-    <section class="dash-content-grid">
-      <article class="dash-panel-card">
+    <section class="dash-kpi-grid">
+      <article class="dash-card">
         <h3>Meta</h3>
         <p class="small">Facebook + Instagram</p>
-        ${connectedMetaCount > 0 ? '<span class="status success">Connected</span>' : '<span class="status warning">Not connected</span>'}
+        ${connectedMetaCount > 0 ? '<span class="status success">Подключен</span>' : '<span class="status warning">Не подключен</span>'}
         <div class="cta-row" style="margin-top:10px;">
           <button id="dashConnectMetaBtn" class="btn btn-primary">Подключить Meta</button>
         </div>
-        <div class="small" style="margin-top:8px;">Secure OAuth · токены скрыты</div>
+        <div class="small" style="margin-top:8px;">Безопасный OAuth · токены скрыты</div>
       </article>
-      <article class="dash-panel-card">
+      <article class="dash-card">
         <h3>YouTube</h3>
         <p class="small">Канал и студия</p>
-        ${connectedYoutube > 0 ? '<span class="status success">Connected</span>' : '<span class="status warning">Not connected</span>'}
+        ${connectedYoutube > 0 ? '<span class="status success">Подключен</span>' : '<span class="status warning">Не подключен</span>'}
         <div class="cta-row" style="margin-top:10px;">
           <button id="dashConnectYoutubeBtn" class="btn btn-primary">Подключить YouTube</button>
         </div>
-        <div class="small" style="margin-top:8px;">Secure API · encrypted transport</div>
+        <div class="small" style="margin-top:8px;">Безопасный API · шифрованный транспорт</div>
       </article>
     </section>
   `;
 
   const brandSection = `
-    <section class="dash-panel-card">
-      <h3>Brand Settings</h3>
+    <section class="dash-card">
+      <h3>Настройки бренда</h3>
       ${field('dashBrandDescription', 'Описание бренда', 'textarea', brand.description || '', 'Чем вы полезны рынку, какие сильные стороны нужно отражать в контенте')}
       ${field('dashBrandAudience', 'Целевая аудитория', 'text', brand.audience || '', 'Например: владельцы локального бизнеса 25-45')}
       ${selectField('dashBrandCtaStyle', 'Стиль CTA', brand.ctaStyle || 'value', [
@@ -1496,85 +1503,71 @@ function pageDashboard() {
   `;
 
   const billingSection = `
-    <section class="dash-content-grid">
-      <article class="dash-panel-card">
+    <section class="dash-kpi-grid">
+      <article class="dash-card">
         <h3>Текущий план</h3>
-        <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap;">${topPlan}</div>
+        <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap;">${topPlanBadge}</div>
         <p class="small" style="margin-top:8px;">Кредиты: ${esc(b.credits_left || 0)} · Примерно ${esc(b.approx_posts_left || 0)} постов</p>
-        <div style="margin-top:10px;">${progressBar(usedMonth, monthMax)}</div>
+        <div style="margin-top:10px;">${progressBar(usedMonth, Math.max(monthLimit || usedMonth || 1, 1))}</div>
       </article>
-      <article class="dash-panel-card">
-        <h3>Usage</h3>
+      <article class="dash-card">
+        <h3>Использование</h3>
         <p class="small">Постов в месяце: ${usedMonth} / ${unlimitedMonth ? 'без лимита' : monthLimit}</p>
         <p class="small">Запланировано: ${scheduledCount}</p>
         <div class="cta-row" style="margin-top:10px;">
-          <button id="dashUpgradeBtn" class="btn btn-primary">Upgrade plan</button>
-          <button id="dashManageBillingBtn" class="btn btn-secondary">Manage subscription</button>
+          <button id="dashUpgradeBtn" class="btn btn-primary">Улучшить тариф</button>
+          <button id="dashManageBillingBtn" class="btn btn-secondary">Управление подпиской</button>
         </div>
       </article>
     </section>
   `;
 
+  const historySection = `
+    <section class="dash-card">
+      <h3>История публикаций и черновиков</h3>
+      ${latestPosts ? `<ul class="dash-recent-list">${latestPosts}</ul>` : '<p class="small">История пока пустая. Создайте первый пост во вкладке «Создать».</p>'}
+      <div class="cta-row" style="margin-top:10px;">
+        <button class="btn btn-secondary" data-link="/history">Открыть полный раздел истории</button>
+      </div>
+    </section>
+  `;
+
   const tabContentMap = {
     overview: overviewSection,
-    generate: generateSection,
+    create: createSection,
     calendar: calendarSection,
     connections: connectionsSection,
-    history: `<section class="dash-panel-card"><h3>История публикаций</h3><button class="btn btn-secondary" data-link="/history">Открыть историю</button></section>`,
+    history: historySection,
     brand: brandSection,
     billing: billingSection,
   };
 
   const navItems = [
-    ['overview', t.overview],
-    ['generate', t.generate],
-    ['calendar', t.calendar],
-    ['connections', t.connections],
-    ['history', t.history],
-    ['brand', t.brand],
-    ['billing', t.billing],
+    ['overview', ui.overview],
+    ['create', ui.create],
+    ['calendar', ui.calendar],
+    ['connections', ui.connections],
+    ['history', ui.history],
+    ['brand', ui.brand],
+    ['billing', ui.billing],
   ];
 
   return appLayout('/dashboard', 'Панель', `
-    <section class="dashboard-2026-shell ${state.dashboardUI.collapsed ? 'is-collapsed' : ''} ${state.dashboardUI.drawerOpen ? 'drawer-open' : ''}">
-      <button id="dashDrawerBackdrop" class="dashboard-2026-backdrop" aria-label="Close menu"></button>
-      <aside class="dashboard-2026-sidebar">
-        <div class="dashboard-2026-side-head">
-          <div class="dashboard-2026-logo"><img src="/assets/brand/logo-icon.svg" alt="AutoSocial"/></div>
-          <div>
-            <div class="dashboard-2026-brand">AutoSocial.tech</div>
-            <div class="small">Client Dashboard</div>
-          </div>
-          <button id="dashCollapseBtn" class="btn btn-ghost dashboard-2026-collapse-btn" aria-label="Collapse sidebar">≡</button>
+    <section class="dash-client-shell">
+      <header class="dash-client-head">
+        <div>
+          <h2>${esc(activeTitle)}</h2>
+          <p class="small">Единая рабочая зона для контента, публикаций и подключений.</p>
         </div>
-        <nav class="dashboard-2026-side-nav" aria-label="Dashboard navigation">
-          ${navItems.map(([key, label]) => `<button type="button" class="dashboard-2026-nav-btn ${tab === key ? 'active' : ''}" data-dashboard-tab="${key}">${esc(label)}</button>`).join('')}
-        </nav>
-        <div class="dashboard-2026-side-foot">
-          <button type="button" class="dashboard-2026-nav-btn" data-link="/contact">${esc(t.support)}</button>
-          <button type="button" id="dashLogoutBtn" class="dashboard-2026-nav-btn danger">${esc(t.logout)}</button>
+        <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;">
+          ${topPlanBadge}
+          <button id="dashUpgradeTopBtn" class="btn btn-primary">Улучшить тариф</button>
         </div>
-      </aside>
-      <div class="dashboard-2026-main">
-        <header class="dashboard-2026-topbar">
-          <div class="dashboard-2026-title-wrap">
-            <button id="dashDrawerBtn" class="btn btn-ghost dashboard-2026-drawer-btn" aria-label="Open menu">☰</button>
-            <div>
-              <h2>${esc(activeTitle)}</h2>
-              <p class="small">Современная рабочая зона в стиле landing 2026</p>
-            </div>
-          </div>
-          <div class="dashboard-2026-top-actions">
-            <div class="dashboard-2026-plan">${topPlan}</div>
-            <button id="dashUpgradeTopBtn" class="btn btn-primary">Upgrade</button>
-            <button type="button" class="dashboard-2026-user">
-              <span class="dashboard-2026-avatar">${esc(avatarLetter)}</span>
-              <span>${esc(email || 'user@autosocial.tech')}</span>
-            </button>
-          </div>
-        </header>
-        <main class="dashboard-2026-content">${tabContentMap[tab] || overviewSection}</main>
-      </div>
+      </header>
+      <nav class="dash-client-tabs" aria-label="Разделы dashboard">
+        ${navItems.map(([key, label]) => `<button type="button" class="dash-tab-btn ${tab === key ? 'active' : ''}" data-dashboard-tab="${key}">${esc(label)}</button>`).join('')}
+      </nav>
+      <main class="dash-client-content">${tabContentMap[tab] || overviewSection}</main>
     </section>
   `);
 }
@@ -2832,41 +2825,11 @@ async function bind() {
     btn.onclick = () => {
       const key = String(btn.getAttribute('data-dashboard-tab') || '').trim();
       if (!key) return;
-      if (!state.dashboardUI) state.dashboardUI = { tab: 'overview', collapsed: false, drawerOpen: false };
+      if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
       state.dashboardUI.tab = key;
-      state.dashboardUI.drawerOpen = false;
       render();
     };
   });
-
-  const dashCollapseBtn = document.getElementById('dashCollapseBtn');
-  if (dashCollapseBtn) dashCollapseBtn.onclick = () => {
-    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview', collapsed: false, drawerOpen: false };
-    state.dashboardUI.collapsed = !state.dashboardUI.collapsed;
-    render();
-  };
-
-  const dashDrawerBtn = document.getElementById('dashDrawerBtn');
-  if (dashDrawerBtn) dashDrawerBtn.onclick = () => {
-    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview', collapsed: false, drawerOpen: false };
-    state.dashboardUI.drawerOpen = true;
-    render();
-  };
-
-  const dashDrawerBackdrop = document.getElementById('dashDrawerBackdrop');
-  if (dashDrawerBackdrop) dashDrawerBackdrop.onclick = () => {
-    if (!state.dashboardUI) return;
-    state.dashboardUI.drawerOpen = false;
-    render();
-  };
-
-  const dashLogoutBtn = document.getElementById('dashLogoutBtn');
-  if (dashLogoutBtn) dashLogoutBtn.onclick = () => {
-    state.token = '';
-    localStorage.removeItem('token');
-    state.user = null;
-    nav('/login');
-  };
 
   const dashUpgradeTopBtn = document.getElementById('dashUpgradeTopBtn');
   if (dashUpgradeTopBtn) dashUpgradeTopBtn.onclick = () => nav('/billing');
@@ -2874,6 +2837,18 @@ async function bind() {
   if (dashUpgradeBtn) dashUpgradeBtn.onclick = () => nav('/billing');
   const dashManageBillingBtn = document.getElementById('dashManageBillingBtn');
   if (dashManageBillingBtn) dashManageBillingBtn.onclick = () => nav('/billing');
+  const dashCreatePostBtn = document.getElementById('dashCreatePostBtn');
+  if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => {
+    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
+    state.dashboardUI.tab = 'create';
+    render();
+  };
+  const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
+  if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => {
+    if (!state.dashboardUI) state.dashboardUI = { tab: 'overview' };
+    state.dashboardUI.tab = 'calendar';
+    render();
+  };
 
   const dashTopic = document.getElementById('dashTopic');
   if (dashTopic) dashTopic.oninput = () => {
