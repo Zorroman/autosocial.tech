@@ -3861,6 +3861,7 @@ async function render() {
     const msg = query.get('message');
     const status = query.get('status');
     const ytErr = query.get('youtube_error');
+    const ytMsg = query.get('message');
     if (query.get('connected') === '1') {
       state.notice = { type: 'ok', text: '\u0410\u043a\u043a\u0430\u0443\u043d\u0442 Facebook/Instagram \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d.' };
       history.replaceState({}, '', '/connections');
@@ -3882,11 +3883,14 @@ async function render() {
     } else if (ytErr === 'token_exchange_failed' || ytErr === 'token_missing') {
       state.notice = { type: 'error', text: 'Не удалось получить токен Google для YouTube.' };
       history.replaceState({}, '', '/connections');
+    } else if (ytErr === 'youtube_api_not_enabled') {
+      state.notice = { type: 'error', text: ytMsg ? `YouTube Data API не включен: ${ytMsg}` : 'YouTube Data API v3 не включен в Google Cloud проекте.' };
+      history.replaceState({}, '', '/connections');
     } else if (ytErr === 'youtube_api_failed') {
-      state.notice = { type: 'error', text: 'YouTube API вернул ошибку при чтении канала.' };
+      state.notice = { type: 'error', text: ytMsg ? `YouTube API: ${ytMsg}` : 'YouTube API вернул ошибку при чтении канала.' };
       history.replaceState({}, '', '/connections');
     } else if (ytErr === 'no_channel') {
-      state.notice = { type: 'error', text: 'В выбранном Google-аккаунте не найден YouTube-канал.' };
+      state.notice = { type: 'error', text: ytMsg || 'В выбранном Google-аккаунте не найден YouTube-канал.' };
       history.replaceState({}, '', '/connections');
     } else if (err === 'state_invalid') {
       state.notice = { type: 'error', text: '\u041e\u0448\u0438\u0431\u043a\u0430 OAuth state. \u0417\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0441\u043d\u043e\u0432\u0430 \u0438\u0437 \u043f\u0430\u043d\u0435\u043b\u0438.' };
