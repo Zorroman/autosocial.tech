@@ -20,6 +20,13 @@ from email.message import EmailMessage
 import requests
 from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
 
+from dashboard_metrics import (
+    dashboard_insights,
+    dashboard_recent,
+    dashboard_summary,
+    dashboard_timeseries,
+    sync_dashboard_metrics_for_user,
+)
 from database import SessionLocal
 from facebook_api import (
     exchange_code_for_token,
@@ -3466,6 +3473,62 @@ def list_connections():
                 continue
             rows.append(row)
         return jsonify([_serialize_connection(row) for row in rows])
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/sync", methods=["POST"])
+@require_auth
+def dashboard_sync_metrics():
+    db = SessionLocal()
+    try:
+        max_items = int((request.get_json(silent=True) or {}).get("max_items_per_account") or 25)
+        result = sync_dashboard_metrics_for_user(db, g.current_user.id, max_items_per_account=max_items)
+        return jsonify(result)
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/summary", methods=["GET"])
+@require_auth
+def dashboard_metrics_summary():
+    days = int((request.args.get("days") or "30").strip() or 30)
+    db = SessionLocal()
+    try:
+        return jsonify(dashboard_summary(db, g.current_user.id, days))
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/timeseries", methods=["GET"])
+@require_auth
+def dashboard_metrics_timeseries():
+    days = int((request.args.get("days") or "30").strip() or 30)
+    db = SessionLocal()
+    try:
+        return jsonify(dashboard_timeseries(db, g.current_user.id, days))
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/insights", methods=["GET"])
+@require_auth
+def dashboard_metrics_insights():
+    days = int((request.args.get("days") or "30").strip() or 30)
+    db = SessionLocal()
+    try:
+        return jsonify(dashboard_insights(db, g.current_user.id, days))
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/recent", methods=["GET"])
+@require_auth
+def dashboard_metrics_recent():
+    limit = int((request.args.get("limit") or "10").strip() or 10)
+    db = SessionLocal()
+    try:
+        return jsonify(dashboard_recent(db, g.current_user.id, limit))
     finally:
         db.close()
 
