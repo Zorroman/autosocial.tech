@@ -3230,11 +3230,30 @@ async function bind() {
     location.href = r.oauth_url;
   };
   const connectMetaBtn = document.getElementById('connectMetaBtn');
-  if (connectMetaBtn) connectMetaBtn.onclick = async () => startMetaConnect();
+  if (connectMetaBtn) connectMetaBtn.onclick = async () => {
+    try {
+      setQuickLoading(connectMetaBtn, 'Открываю...', true);
+      await startMetaConnect();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось запустить подключение Facebook.' };
+      render();
+    } finally {
+      setQuickLoading(connectMetaBtn, 'Открываю...', false);
+    }
+  };
   const connectYoutubeBtn = document.getElementById('connectYoutubeBtn');
   if (connectYoutubeBtn) connectYoutubeBtn.onclick = async () => {
-    const r = await api('/api/integrations/youtube/start', { method: 'POST', body: '{}' });
-    location.href = r.oauth_url;
+    try {
+      setQuickLoading(connectYoutubeBtn, 'Открываю...', true);
+      const r = await api('/api/integrations/youtube/start', { method: 'POST', body: '{}' });
+      if (!r?.oauth_url) throw new Error('Сервер не вернул OAuth ссылку для YouTube.');
+      location.href = r.oauth_url;
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось запустить подключение YouTube.' };
+      render();
+    } finally {
+      setQuickLoading(connectYoutubeBtn, 'Открываю...', false);
+    }
   };
   document.querySelectorAll('[data-youtube-disconnect]').forEach((b) => b.onclick = async () => {
     if (!confirm('Отключить YouTube?')) return;
