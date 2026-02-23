@@ -1155,8 +1155,8 @@ function pageLogin() {
     <section class="landing-2026-hero reveal">
       <div class="landing-2026-hero-copy">
         <span class="landing-2026-chip">AI SaaS Platform for SMM teams</span>
-        <h1>Автоматизируйте контент и публикации в соцсетях на уровне 2026 SaaS.</h1>
-        <p>AutoSocial.tech помогает командам создавать контент, планировать публикации и масштабировать Meta + YouTube без ручного хаоса.</p>
+        <h1>Создавайте до 30 постов в месяц за 5 минут и публикуйте автоматически.</h1>
+        <p>AutoSocial.tech генерирует готовый контент под ваш бизнес, собирает календарь публикаций и запускает автопостинг в Meta + YouTube без ручной рутины.</p>
         <div class="cta-row">
           <button id="heroRegisterBtn" class="btn btn-primary cta__button">Start Free Trial</button>
           <a class="btn btn-secondary cta__button" href="#landingHow">See How It Works</a>
