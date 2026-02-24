@@ -1,7 +1,24 @@
-﻿import os
+import os
+from pathlib import Path
 
 
 class Settings:
+    BASE_DIR = Path(os.getenv("BASE_DIR", Path(__file__).resolve().parent)).resolve()
+    CACHE_DIR = (BASE_DIR / "cache").resolve()
+    OUTPUT_DIR = (BASE_DIR / "output").resolve()
+    FOOTAGE_CACHE_DIR = (CACHE_DIR / "footage").resolve()
+    OUTPUT_VIDEOS_DIR = (OUTPUT_DIR / "videos").resolve()
+    OUTPUT_AUDIO_DIR = (OUTPUT_DIR / "audio").resolve()
+    OUTPUT_SUBTITLES_DIR = (OUTPUT_DIR / "subtitles").resolve()
+    OUTPUT_MANIFESTS_DIR = (OUTPUT_DIR / "manifests").resolve()
+    FFMPEG_BIN = os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg"
+    FFPROBE_BIN = os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe"
+    VIDEO_RENDER_CONCURRENCY = max(1, int(os.getenv("VIDEO_RENDER_CONCURRENCY", "2")))
+    OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts").strip() or "gpt-4o-mini-tts"
+    OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "eddy").strip() or "eddy"
+    VIDEO_BG_MUSIC_ENABLED = os.getenv("VIDEO_BG_MUSIC_ENABLED", "false").lower() in {"1", "true", "yes"}
+    VIDEO_BG_MUSIC_PATH = os.getenv("VIDEO_BG_MUSIC_PATH", "").strip()
+
     USE_MOCK_PROVIDERS = os.getenv("USE_MOCK_PROVIDERS", "false").lower() in {"1", "true", "yes"}
     MOCK_META = os.getenv("MOCK_META", "false").lower() in {"1", "true", "yes"}
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -42,3 +59,14 @@ class Settings:
 
 
 settings = Settings()
+
+for _path in (
+    settings.CACHE_DIR,
+    settings.OUTPUT_DIR,
+    settings.FOOTAGE_CACHE_DIR,
+    settings.OUTPUT_VIDEOS_DIR,
+    settings.OUTPUT_AUDIO_DIR,
+    settings.OUTPUT_SUBTITLES_DIR,
+    settings.OUTPUT_MANIFESTS_DIR,
+):
+    _path.mkdir(parents=True, exist_ok=True)

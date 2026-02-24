@@ -1,0 +1,91 @@
+import os
+from pathlib import Path
+
+import requests
+
+from footage.types import VideoResult
+
+from ._common import cache_key, cached_file_path, download_to_path, get_cached_path, remember_cache
+
+
+API_URL = "https://pixabay.com/api/videos/"
+
+
+def _api_key() -> str:
+    return (os.getenv("PIXABAY_API_KEY") or "").strip()
+
+
+def search_videos(
+    query: str,
+    orientation: str,
+    min_duration: int,
+    max_duration: int,
+    limit: int,
+) -> list[VideoResult]:
+    key = _api_key()
+    if not key:
+        return []
+    try:
+        res = requests.get(
+            API_URL,
+            params={
+                "key": key,
+                "q": query,
+                "video_type": "all",
+                "per_page": min(200, max(30, limit * 5)),
+                "safesearch": "true",
+                "order": "popular",
+            },
+            timeout=40,
+        )
+        if res.status_code != 200:
+            return []
+        payload = res.json() if res.content else {}
+        hits = payload.get("hits") or []
+        out: list[VideoResult] = []
+        for item in hits:
+            duration = int(item.get("duration") or 0)
+            if duration < min_duration or duration > max_duration:
+                continue
+            videos = item.get("videos") or {}
+            file_item = videos.get("large") or videos.get("medium") or videos.get("small") or videos.get("tiny") or {}
+            download_url = str(file_item.get("url") or "").strip()
+            width = int(file_item.get("width") or 0)
+            height = int(file_item.get("height") or 0)
+            if not download_url:
+                continue
+            inferred = "vertical" if height > width else "horizontal"
+            if orientation == "vertical" and inferred != "vertical":
+                continue
+            if orientation == "horizontal" and inferred != "horizontal":
+                continue
+            tags = [x.strip() for x in str(item.get("tags") or "").split(",") if x.strip()]
+            out.append(
+                VideoResult(
+                    provider="pixabay",
+                    video_id=str(item.get("id") or ""),
+                    duration=duration,
+                    width=width,
+                    height=height,
+                    page_url=str(item.get("pageURL") or ""),
+                    download_url=download_url,
+                    tags=tags,
+                    orientation=inferred,
+                )
+            )
+            if len(out) >= limit:
+                break
+        return out
+    except Exception:
+        return []
+
+
+def download_video(video_result: VideoResult, target_path: Path) -> str:
+    key = cache_key(video_result.provider, video_result.video_id, video_result.download_url)
+    cached = get_cached_path(key)
+    if cached:
+        return str(cached)
+    target = cached_file_path(key, ext=target_path.suffix or ".mp4")
+    saved = download_to_path(video_result.download_url, target)
+    remember_cache(key, saved)
+    return str(saved)
