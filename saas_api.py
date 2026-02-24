@@ -2627,6 +2627,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                             style=str(payload.get("style") or "educational"),
                             use_lecture_txt=True,
                             reuse_manifest=bool(payload.get("reuse_manifest")),
+                            reuse_from_job_id=(int(payload.get("reuse_from_job_id")) if str(payload.get("reuse_from_job_id", "")).isdigit() else None),
                         )
                         break
                     except Exception as exc:
@@ -2973,6 +2974,7 @@ def campaign_generate_video(campaign_id: int):
             "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
             "style": str(data.get("style") or "educational"),
             "reuse_manifest": bool(data.get("reuse_manifest") is True),
+            "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
         }
         job = GenerationJob(
             campaign_id=campaign.id,
@@ -3098,6 +3100,7 @@ def video_generate():
                 "generate_thumbnail": True,
                 "style": style,
                 "reuse_manifest": bool(data.get("reuse_manifest") is True),
+                "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
             },
         )
         return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status}), 202

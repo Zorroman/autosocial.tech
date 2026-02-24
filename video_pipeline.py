@@ -52,6 +52,27 @@ def _load_manifest_if_possible(job_id: int) -> dict | None:
     return None
 
 
+def _find_reusable_manifest(topic: str, orientation: str, target_seconds: int) -> dict | None:
+    manifests = sorted(settings.OUTPUT_MANIFESTS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for p in manifests:
+        try:
+            payload = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("topic") or "").strip().lower() != str(topic or "").strip().lower():
+            continue
+        if str(payload.get("orientation") or "").strip().lower() != str(orientation or "").strip().lower():
+            continue
+        if int(payload.get("target_seconds") or 0) != int(target_seconds):
+            continue
+        out_rel = ((payload.get("render") or {}).get("out_path") or "").strip()
+        if out_rel and _from_rel(out_rel).exists():
+            return payload
+    return None
+
+
 def generate_video_job_payload(
     *,
     job_id: int,
@@ -64,11 +85,18 @@ def generate_video_job_payload(
     style: str,
     use_lecture_txt: bool = True,
     reuse_manifest: bool = False,
+    reuse_from_job_id: int | None = None,
 ) -> dict:
     target_seconds = max(20, min(480, int(target_seconds or 30)))
     orientation = "vertical" if aspect_ratio == "9:16" else "horizontal"
     if reuse_manifest:
-        old = _load_manifest_if_possible(job_id)
+        old = None
+        if reuse_from_job_id:
+            old = _load_manifest_if_possible(int(reuse_from_job_id))
+        if not old:
+            old = _load_manifest_if_possible(job_id)
+        if not old:
+            old = _find_reusable_manifest(topic=topic, orientation=orientation, target_seconds=target_seconds)
         if old:
             out_rel = ((old.get("render") or {}).get("out_path") or "").strip()
             if out_rel:
