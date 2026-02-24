@@ -127,6 +127,20 @@ AI_SCORE_DAILY_ADDITIONAL_COLUMNS = {
     "created_at": "DATETIME",
 }
 
+AI_SCORES_DAILY_ADDITIONAL_COLUMNS = {
+    "score_total": "FLOAT DEFAULT 0 NOT NULL",
+    "score_json": "TEXT DEFAULT '{}' NOT NULL",
+    "created_at": "DATETIME",
+}
+
+FORECASTS_ADDITIONAL_COLUMNS = {
+    "horizon_days": "INTEGER DEFAULT 7 NOT NULL",
+    "forecast_json": "TEXT DEFAULT '{}' NOT NULL",
+    "based_on_from": "DATE",
+    "based_on_to": "DATE",
+    "created_at": "DATETIME",
+}
+
 
 def add_missing_columns(table_name: str, columns: dict) -> None:
     inspector = inspect(engine)
@@ -226,6 +240,18 @@ def run_migrations() -> None:
             conn.execute(
                 text("CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_score_daily_user_day ON ai_score_daily (user_id, day)")
             )
+    if "ai_scores_daily" in tables:
+        add_missing_columns("ai_scores_daily", AI_SCORES_DAILY_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE ai_scores_daily SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(
+                text("CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_scores_daily_user_day ON ai_scores_daily (user_id, day)")
+            )
+    if "forecasts" in tables:
+        add_missing_columns("forecasts", FORECASTS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE forecasts SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecasts_user_horizon ON forecasts (user_id, horizon_days, created_at)"))
     # Keep dashboard account-unification table in sync with existing social_accounts storage.
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())

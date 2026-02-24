@@ -22,6 +22,7 @@ from flask import Blueprint, current_app, g, jsonify, redirect, request, send_fr
 
 from dashboard_metrics import (
     dashboard_ai_score,
+    dashboard_forecast,
     dashboard_insights,
     dashboard_recent,
     dashboard_summary,
@@ -4259,6 +4260,20 @@ def dashboard_metrics_ai_score():
     db = SessionLocal()
     try:
         payload = dashboard_ai_score(db, g.current_user.id, days, persist=True)
+        db.commit()
+        return jsonify(payload)
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/forecast", methods=["GET"])
+@require_auth
+def dashboard_metrics_forecast():
+    horizon = int((request.args.get("horizon") or "7").strip() or 7)
+    days = int((request.args.get("days") or "90").strip() or 90)
+    db = SessionLocal()
+    try:
+        payload = dashboard_forecast(db, g.current_user.id, horizon=horizon, days=days, persist=True)
         db.commit()
         return jsonify(payload)
     finally:

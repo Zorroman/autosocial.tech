@@ -2941,6 +2941,97 @@ th { color: var(--text-muted); font-weight: 600; }
   background: color-mix(in oklab, var(--surface-2) 85%, transparent);
 }
 
+.dash-v2-shell .dash-kpi-card small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dash-v2-shell .dash-kpi-card small.is-positive { color: #0f766e; }
+.dash-v2-shell .dash-kpi-card small.is-negative { color: #b91c1c; }
+
+.dash-forecast-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dash-forecast-scenarios {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dash-forecast-scenarios > div {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--surface-2) 78%, transparent);
+}
+
+.dash-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(3px);
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.dash-modal {
+  width: min(840px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.dash-breakdown-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+}
+
+.dash-breakdown-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  background: color-mix(in oklab, var(--surface-2) 82%, transparent);
+}
+
+.dash-mini-progress {
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  margin: 8px 0;
+}
+
+.dash-mini-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--btn-grad);
+}
+
+.dash-confidence {
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+}
+
+.dash-confidence.high { color: #166534; border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.12); }
+.dash-confidence.medium { color: #a16207; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.12); }
+.dash-confidence.low { color: #b91c1c; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.12); }
+
 .dash-row-link {
   cursor: pointer;
 }
@@ -3002,6 +3093,10 @@ th { color: var(--text-muted); font-weight: 600; }
     grid-template-columns: 1fr;
   }
   .dash-chart-stats {
+    grid-template-columns: 1fr;
+  }
+  .dash-forecast-grid,
+  .dash-forecast-scenarios {
     grid-template-columns: 1fr;
   }
   .dash-sort-row {

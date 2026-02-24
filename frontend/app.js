@@ -419,6 +419,9 @@ const state = {
     summary: null,
     timeseries: { points: [] },
     aiScore: { current: 0, delta_7d: 0, breakdown: null, timeseries: [] },
+    forecast: { horizon_days: 7, confidence: { level: 'low', reasons: [] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } },
+    forecastHorizon: 7,
+    aiBreakdownOpen: false,
     insights: [],
     recent: [],
     chartMetric: 'reach',
@@ -1368,8 +1371,12 @@ function pageLogin() {
 function pageDashboard() {
   const stats = state.dashboardMetrics || {};
   const summary = stats.summary || { reach: 0, views: 0, likes: 0, comments: 0, shares: 0, items: 0, by_platform: {} };
-  const aiScore = stats.aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] };
-  const byPlatform = summary.by_platform || { meta: { reach: 0, views: 0, items: 0 }, youtube: { reach: 0, views: 0, items: 0 } };
+  const current = summary.current || summary;
+  const prev = summary.prev || { reach: 0, views: 0, clicks: 0, likes: 0, comments: 0, shares: 0, items: 0, engagement_rate: 0 };
+  const delta = summary.delta || {};
+  const aiScore = stats.aiScore || { current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [] };
+  const forecast = stats.forecast || { horizon_days: 7, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, scenarios: { current: {}, plus30: {} }, points: [] };
+  const byPlatform = summary.by_platform || current.by_platform || { meta: { reach: 0, views: 0, items: 0 }, youtube: { reach: 0, views: 0, items: 0 } };
   const points = Array.isArray(stats?.timeseries?.points) ? stats.timeseries.points : [];
   const aiPoints = Array.isArray(aiScore.timeseries) ? aiScore.timeseries : [];
   const insights = Array.isArray(stats.insights) ? stats.insights : [];
@@ -1379,6 +1386,11 @@ function pageDashboard() {
   const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
   const pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
   const deltaFmt = (v) => `${Number(v || 0) >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}`;
+  const deltaLabel = (obj) => {
+    const abs = Number(obj?.abs || 0);
+    const p = Number(obj?.pct || 0) * 100;
+    return `${abs >= 0 ? '+' : ''}${abs.toFixed(1)} (${p >= 0 ? '+' : ''}${p.toFixed(1)}%)`;
+  };
 
   const statusLabel = (kind) => kind === 'connected' ? 'подключено' : (kind === 'expiring' ? 'токен скоро истечет' : 'требует внимания');
   const statusClass = (kind) => kind === 'connected' ? 'is-ok' : (kind === 'expiring' ? 'is-warn' : 'is-bad');
@@ -1490,7 +1502,7 @@ function pageDashboard() {
       <p>${esc(item.text || '')}</p>
       <button type="button" class="btn btn-ghost dash-insight-cta" data-dash-insight-action="${esc(action)}" data-dash-insight-index="${idx}">${esc(cta)}</button>
     </article>`;
-  })).join('')) || '<p class="small">Недостаточно данных для инсайтов.</p>';
+  }).join('')) || '<p class="small">Недостаточно данных для инсайтов.</p>';
 
   const sortedRecent = [...recent].sort((a, b) => {
     const ma = a?.metrics || {};
@@ -1531,17 +1543,18 @@ function pageDashboard() {
             <div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
             <div class="dash-hero-score-meta">
               <span>AI-Score / 100</span>
-              <strong class="${Number(aiScore.delta_7d || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_7d || 0)} за 7 дней</strong>
+              <strong class="${Number(aiScore.delta_vs_prev_period || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_vs_prev_period || 0)} к прошлым 30 дням</strong>
             </div>
           </div>
           <div class="dash-hero-badge">данные: Meta + YouTube / период: 30 дней</div>
+          <button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>
         </div>
         <div class="dash-hero-kpis">
           ${stats.loading ? skeletonCards : `
-            <article class="dash-kpi-card glass-card"><p>Охват</p><strong>${fmt(summary.reach)}</strong></article>
-            <article class="dash-kpi-card glass-card"><p>Просмотры</p><strong>${fmt(summary.views)}</strong></article>
-            <article class="dash-kpi-card glass-card"><p>Уровень вовлеченности</p><strong>${pct(summary.engagement_rate || 0)}</strong></article>
-            <article class="dash-kpi-card glass-card"><p>Количество постов</p><strong>${fmt(summary.items)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Охват</p><strong>${fmt(current.reach)}</strong><small class="${Number(delta?.reach?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.reach)}</small></article>
+            <article class="dash-kpi-card glass-card"><p>Просмотры</p><strong>${fmt(current.views)}</strong><small class="${Number(delta?.views?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.views)}</small></article>
+            <article class="dash-kpi-card glass-card"><p>Уровень вовлеченности</p><strong>${pct(current.engagement_rate || 0)}</strong><small class="${Number(delta?.engagement_rate?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.engagement_rate)}</small></article>
+            <article class="dash-kpi-card glass-card"><p>Количество постов</p><strong>${fmt(current.items)}</strong><small class="${Number(delta?.items?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.items)}</small></article>
           `}
           <div class="cta-row">
             <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : 'Синхронизировать'}</button>
@@ -1577,6 +1590,27 @@ function pageDashboard() {
             </div>
           </div>
           ${mainChartHtml}
+        </section>
+        <section class="dash-card glass-card">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3>Прогноз</h3>
+              <p class="small">На ${Number(forecast.horizon_days || 7)} дней · confidence: <strong>${esc(forecast?.confidence?.level || 'low')}</strong> · ${esc((forecast?.confidence?.reasons || []).join(', ') || 'недостаточно данных')}</p>
+            </div>
+            <div class="dash-sort-row">
+              <button type="button" data-dash-forecast-horizon="7" class="${Number(stats.forecastHorizon || 7) === 7 ? 'active' : ''}">7 дней</button>
+              <button type="button" data-dash-forecast-horizon="30" class="${Number(stats.forecastHorizon || 7) === 30 ? 'active' : ''}">30 дней</button>
+            </div>
+          </div>
+          <div class="dash-forecast-grid">
+            <article class="dash-kpi-card glass-card"><p>Прогноз Reach</p><strong>${fmt(forecast?.totals?.reach || 0)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Прогноз Views</p><strong>${fmt(forecast?.totals?.views || 0)}</strong></article>
+            <article class="dash-kpi-card glass-card"><p>Прогноз Engagement</p><strong>${pct(forecast?.totals?.engagement_rate_avg || 0)}</strong></article>
+          </div>
+          <div class="dash-forecast-scenarios">
+            <div><strong>Текущий темп</strong><p class="small">${Number(forecast?.scenarios?.current?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.current?.reach || 0)}</p></div>
+            <div><strong>+30% частоты</strong><p class="small">${Number(forecast?.scenarios?.plus30?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.plus30?.reach || 0)}</p></div>
+          </div>
         </section>
         <section class="dash-card dash-ai-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1617,6 +1651,41 @@ function pageDashboard() {
           </div>
         </section>
       </main>
+      ${stats.aiBreakdownOpen ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
+        <div class="dash-modal glass-card">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;">Из чего складывается AI-Score</h3>
+            <button id="dashAiBreakdownClose" type="button" class="btn btn-ghost">Закрыть</button>
+          </div>
+          <p class="small">Период: ${esc(aiScore?.breakdown?.period?.from || '—')} → ${esc(aiScore?.breakdown?.period?.to || '—')}</p>
+          <div class="dash-breakdown-list">
+            ${(Array.isArray(aiScore?.breakdown?.factors) && aiScore.breakdown.factors.length)
+              ? aiScore.breakdown.factors.map((f) => {
+                const score = Number(f?.score || 0);
+                const weight = Math.max(Number(f?.weight || 1), 1);
+                const ratio = Math.max(0, Math.min(100, (score / weight) * 100));
+                const conf = String(f?.confidence || 'low');
+                const confText = conf === 'high' ? 'Высокая' : (conf === 'medium' ? 'Средняя' : 'Низкая');
+                const actionPath = String(f?.key || '').includes('timing') ? '/calendar' : '/create';
+                return `<article class="dash-breakdown-item">
+                  <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+                    <strong>${esc(f?.title || 'Фактор')}</strong>
+                    <span class="dash-confidence ${esc(conf)}">${esc(confText)}</span>
+                  </div>
+                  <div class="small">Вес ${weight} · ${score.toFixed(1)} балла</div>
+                  <div class="dash-mini-progress"><span style="width:${ratio.toFixed(1)}%"></span></div>
+                  <p class="small">${esc(f?.how_to_improve || '—')}</p>
+                  <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+                    <small>Ожидаемый эффект: ${esc(f?.expected_gain || '—')}</small>
+                    <button type="button" class="btn btn-ghost" data-link="${actionPath}">Применить</button>
+                  </div>
+                </article>`;
+              }).join('')
+              : '<p class="small">Недостаточно данных. Нажмите «Синхронизировать».</p>'
+            }
+          </div>
+        </div>
+      </div>` : ''}
     </section>
   `);
 }
@@ -2586,6 +2655,7 @@ function hydrateCampaignDefaults() {
   if (!c.aiAssist || typeof c.aiAssist !== 'object') c.aiAssist = { loading: false, hook: '', angles: [], ctaVariants: [] };
   if (!c.quality || typeof c.quality !== 'object') c.quality = { score: 0, checks: [], warnings: [] };
   if (!Array.isArray(c.templates)) c.templates = [];
+  if (typeof c.templatesLoaded !== 'boolean') c.templatesLoaded = false;
   if (!c.contentGeneration || typeof c.contentGeneration !== 'object') {
     c.contentGeneration = {
       loading: false,
@@ -3034,18 +3104,29 @@ function page(path) {
 }
 
 async function loadDashboardMetrics(days = 30) {
+  const safe = async (url, fallback) => {
+    try {
+      const data = await api(url);
+      return data ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const forecastHorizon = Number(state.dashboardMetrics?.forecastHorizon || 7) >= 30 ? 30 : 7;
   const [summary, timeseries, aiScore, insights, recent] = await Promise.all([
-    api(`/api/dashboard/summary?days=${Number(days) || 30}`),
-    api(`/api/dashboard/timeseries?days=${Number(days) || 30}`),
-    api(`/api/dashboard/ai-score?days=${Number(days) || 30}`),
-    api(`/api/dashboard/insights?days=${Number(days) || 30}`),
-    api('/api/dashboard/recent?limit=20'),
+    safe(`/api/dashboard/summary?days=${Number(days) || 30}`, null),
+    safe(`/api/dashboard/timeseries?days=${Number(days) || 30}`, { points: [] }),
+    safe(`/api/dashboard/ai-score?days=${Number(days) || 30}`, { current: 0, delta_7d: 0, breakdown: null, timeseries: [] }),
+    safe(`/api/dashboard/insights?days=${Number(days) || 30}`, { insights: [] }),
+    safe('/api/dashboard/recent?limit=20', { items: [] }),
   ]);
+  const forecast = await safe(`/api/dashboard/forecast?horizon=${forecastHorizon}&days=90`, { horizon_days: forecastHorizon, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } });
   state.dashboardMetrics = {
     ...(state.dashboardMetrics || {}),
     summary: summary || null,
     timeseries: timeseries || { points: [] },
     aiScore: aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] },
+    forecast: forecast || { horizon_days: forecastHorizon, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } },
     insights: (insights && insights.insights) || [],
     recent: (recent && recent.items) || [],
     chartMetric: state.dashboardMetrics?.chartMetric || 'reach',
@@ -3069,6 +3150,16 @@ async function preload(path) {
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     const campaigns = await api('/api/campaigns?limit=10');
     state.campaignList = campaigns?.items || [];
+    if (!state.createCampaign?.templatesLoaded) {
+      try {
+        const out = await api('/api/create/templates');
+        state.createCampaign.templates = Array.isArray(out?.items) ? out.items : [];
+        state.createCampaign.templatesLoaded = true;
+      } catch {
+        state.createCampaign.templates = Array.isArray(state.createCampaign.templates) ? state.createCampaign.templates : [];
+        state.createCampaign.templatesLoaded = true;
+      }
+    }
   }
   if (String(path || '').startsWith('/campaigns/')) {
     const campaignId = Number(String(path).split('/')[2] || 0);
@@ -3080,7 +3171,14 @@ async function preload(path) {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     state.posts = await api('/api/posts');
-    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), loading: true, aiScore: state.dashboardMetrics?.aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] } };
+    state.dashboardMetrics = {
+      ...(state.dashboardMetrics || {}),
+      loading: true,
+      aiScore: state.dashboardMetrics?.aiScore || { current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [] },
+      forecast: state.dashboardMetrics?.forecast || { horizon_days: 7, confidence: { level: 'low', reasons: [] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } },
+      forecastHorizon: state.dashboardMetrics?.forecastHorizon || 7,
+      aiBreakdownOpen: !!state.dashboardMetrics?.aiBreakdownOpen,
+    };
     await loadDashboardMetrics(30);
   }
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
@@ -3115,10 +3213,6 @@ async function bindCreateWizardV2(path) {
       await ensureCampaignSaved();
     } catch {}
   }, 2500);
-  if (!Array.isArray(state.createCampaign.templates) || !state.createCampaign.templates.length) {
-    try { await loadTemplates(); } catch {}
-  }
-
   const update = (patch) => {
     state.createCampaign = { ...state.createCampaign, ...patch, dirty: true };
     saveCampaignDraftLocal();
@@ -3360,6 +3454,7 @@ async function bindCreateWizardV2(path) {
   async function loadTemplates() {
     const out = await api('/api/create/templates');
     state.createCampaign.templates = Array.isArray(out?.items) ? out.items : [];
+    state.createCampaign.templatesLoaded = true;
     render();
   }
 
@@ -4281,6 +4376,23 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => nav('/create');
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
   if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
+  const dashAiBreakdownBtn = document.getElementById('dashAiBreakdownBtn');
+  if (dashAiBreakdownBtn) dashAiBreakdownBtn.onclick = () => {
+    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), aiBreakdownOpen: true };
+    render();
+  };
+  const dashAiBreakdownClose = document.getElementById('dashAiBreakdownClose');
+  if (dashAiBreakdownClose) dashAiBreakdownClose.onclick = () => {
+    state.dashboardMetrics = { ...(state.dashboardMetrics || {}), aiBreakdownOpen: false };
+    render();
+  };
+  const dashAiModalBackdrop = document.getElementById('dashAiModalBackdrop');
+  if (dashAiModalBackdrop) dashAiModalBackdrop.onclick = (event) => {
+    if (event.target === dashAiModalBackdrop) {
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), aiBreakdownOpen: false };
+      render();
+    }
+  };
   const dashApplyRecommendationsBtn = document.getElementById('dashApplyRecommendationsBtn');
   if (dashApplyRecommendationsBtn) dashApplyRecommendationsBtn.onclick = () => {
     const insights = Array.isArray(state.dashboardMetrics?.insights) ? state.dashboardMetrics.insights : [];
@@ -4334,6 +4446,15 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     btn.onclick = () => {
       const sort = String(btn.getAttribute('data-dash-sort') || 'engagement');
       state.dashboardMetrics = { ...(state.dashboardMetrics || {}), recentSort: sort };
+      render();
+    };
+  });
+  document.querySelectorAll('[data-dash-forecast-horizon]').forEach((btn) => {
+    btn.onclick = async () => {
+      const horizon = Number(btn.getAttribute('data-dash-forecast-horizon') || 7) >= 30 ? 30 : 7;
+      state.dashboardMetrics = { ...(state.dashboardMetrics || {}), forecastHorizon: horizon, loading: true };
+      render();
+      await loadDashboardMetrics(30);
       render();
     };
   });

@@ -71,6 +71,7 @@ Dashboard metrics API:
 - `POST /api/dashboard/sync`
 - `GET /api/dashboard/summary?days=30`
 - `GET /api/dashboard/ai-score?days=30`
+- `GET /api/dashboard/forecast?horizon=7&days=90`
 - `GET /api/dashboard/timeseries?days=30`
 - `GET /api/dashboard/insights?days=30`
 - `GET /api/dashboard/recent?limit=10`
@@ -103,6 +104,16 @@ SELECT user_id, day, ai_score, performance, consistency, growth, optimization
 FROM ai_score_daily
 ORDER BY day DESC
 LIMIT 30;
+
+SELECT user_id, day, score_total
+FROM ai_scores_daily
+ORDER BY day DESC
+LIMIT 30;
+
+SELECT user_id, horizon_days, based_on_from, based_on_to
+FROM forecasts
+ORDER BY created_at DESC
+LIMIT 10;
 ```
 
 ## 6) E2E tests (Playwright)

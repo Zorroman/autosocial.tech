@@ -70,7 +70,7 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     headers = auth_headers(token)
 
     from database import SessionLocal
-    from saas_models import ContentItem, ContentMetricDaily, SocialAccount
+    from saas_models import AiScoreDaily, AiScoreDailyV2, Forecast, ContentItem, ContentMetricDaily, SocialAccount
     from saas_services import encrypt_meta_token
 
     user_id = client.get("/api/me", headers=headers).get_json()["id"]
@@ -221,10 +221,32 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     assert summary.status_code == 200
     assert summary.get_json()["reach"] >= 290
     assert summary.get_json()["views"] >= 320
+    assert "ai_score" in summary.get_json()
+    assert "current" in summary.get_json()
+    assert "prev" in summary.get_json()
+    assert "delta" in summary.get_json()
 
     timeseries = client.get("/api/dashboard/timeseries?days=30", headers=headers)
     assert timeseries.status_code == 200
     assert len(timeseries.get_json()["points"]) == 30
+
+    ai_score = client.get("/api/dashboard/ai-score?days=30", headers=headers)
+    assert ai_score.status_code == 200
+    ai_payload = ai_score.get_json()
+    assert "current" in ai_payload
+    assert "delta_7d" in ai_payload
+    assert "delta_vs_prev_period" in ai_payload
+    assert "breakdown" in ai_payload
+    assert len((ai_payload.get("breakdown") or {}).get("factors") or []) == 5
+    assert len(ai_payload.get("timeseries") or []) == 30
+
+    forecast = client.get("/api/dashboard/forecast?horizon=7&days=90", headers=headers)
+    assert forecast.status_code == 200
+    forecast_payload = forecast.get_json()
+    assert int(forecast_payload.get("horizon_days") or 0) == 7
+    assert len(forecast_payload.get("points") or []) == 7
+    assert float((forecast_payload.get("totals") or {}).get("reach") or 0) >= 0
+    assert float((forecast_payload.get("totals") or {}).get("views") or 0) >= 0
 
     insights = client.get("/api/dashboard/insights?days=30", headers=headers)
     assert insights.status_code == 200
@@ -233,3 +255,14 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     recent = client.get("/api/dashboard/recent?limit=10", headers=headers)
     assert recent.status_code == 200
     assert len(recent.get_json()["items"]) == 2
+
+    db = SessionLocal()
+    try:
+        stored_scores = db.query(AiScoreDaily).filter(AiScoreDaily.user_id == user_id).count()
+        assert stored_scores >= 1
+        stored_scores_v2 = db.query(AiScoreDailyV2).filter(AiScoreDailyV2.user_id == user_id).count()
+        assert stored_scores_v2 >= 1
+        stored_forecasts = db.query(Forecast).filter(Forecast.user_id == user_id).count()
+        assert stored_forecasts >= 1
+    finally:
+        db.close()

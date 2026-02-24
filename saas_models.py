@@ -182,6 +182,32 @@ class AiScoreDaily(SaaSBase):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class AiScoreDailyV2(SaaSBase):
+    __tablename__ = "ai_scores_daily"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", name="uq_ai_scores_daily_user_day"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    score_total = Column(Float, nullable=False, default=0)
+    score_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Forecast(SaaSBase):
+    __tablename__ = "forecasts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    horizon_days = Column(Integer, nullable=False, default=7, index=True)
+    forecast_json = Column(Text, nullable=False, default="{}")
+    based_on_from = Column(Date, nullable=True, index=True)
+    based_on_to = Column(Date, nullable=True, index=True)
+
+
 class TopicSuggestion(SaaSBase):
     __tablename__ = "topics_suggestions"
     __table_args__ = (UniqueConstraint("user_id", "project_id", "category", "topic", name="uq_topic_suggestion"),)
