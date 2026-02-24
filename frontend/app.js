@@ -3592,10 +3592,21 @@ async function bindCreateWizardV2(path) {
   });
 
   const pollJob = async (jobId) => {
+    const stageLabels = {
+      queued: 'в очереди',
+      running: 'выполняется',
+      downloading: 'скачивание футажей',
+      rendering: 'рендер видео',
+      uploading: 'подготовка к публикации',
+      done: 'готово',
+      failed: 'ошибка',
+    };
     for (let i = 0; i < 90; i += 1) {
       const res = await api(`/api/jobs/${jobId}`);
       const job = res?.job || {};
-      state.createCampaign.generation.statusText = `Статус генерации: ${job.status || 'queued'} (${job.progress || 0}%)`;
+      const statusKey = String(job.status || 'queued').toLowerCase();
+      const statusLabel = stageLabels[statusKey] || statusKey;
+      state.createCampaign.generation.statusText = `Статус генерации: ${statusLabel} (${job.progress || 0}%)`;
       if (job.status === 'done') return true;
       if (job.status === 'failed') throw new Error(job.error_message || 'Ошибка генерации');
       await new Promise((r) => setTimeout(r, 2000));
