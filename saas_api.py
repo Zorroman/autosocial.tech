@@ -100,12 +100,14 @@ from stripe_service import (
     process_stripe_event,
     verify_and_construct_event,
 )
+from video_pipeline import generate_video_job_payload
 
 saas_api = Blueprint("saas_api", __name__, url_prefix="/api")
 OAUTH_STATES = {}
 OAUTH_STATE_TTL_SECONDS = 600
 MEDIA_DIR = Path(__file__).resolve().with_name("generated_media")
 MEDIA_DIR.mkdir(exist_ok=True)
+LEGACY_MEDIA_DIR = MEDIA_DIR
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 AUTH_CODE_TTL_SECONDS = max(120, int(os.getenv("AUTH_CODE_TTL_SECONDS", "600")))
 AUTH_CODE_COOLDOWN_SECONDS = max(10, int(os.getenv("AUTH_CODE_COOLDOWN_SECONDS", "45")))
@@ -211,13 +213,22 @@ def _public_api_base_url() -> str:
 
 @saas_api.route('/media/<path:filename>', methods=['GET'])
 def serve_generated_media(filename: str):
-    safe_name = os.path.basename((filename or '').strip())
-    if not safe_name:
+    rel = str(filename or "").strip().lstrip("/")
+    if not rel:
         return jsonify({'error': 'file_not_found'}), 404
-    full_path = MEDIA_DIR / safe_name
-    if not full_path.exists():
-        return jsonify({'error': 'file_not_found'}), 404
-    return send_from_directory(MEDIA_DIR, safe_name)
+    candidates = []
+    rel_path = Path(rel)
+    candidates.append((settings.BASE_DIR / rel_path).resolve())
+    candidates.append((LEGACY_MEDIA_DIR / os.path.basename(rel)).resolve())
+    for full_path in candidates:
+        if not full_path.exists():
+            continue
+        in_base = settings.BASE_DIR == full_path or settings.BASE_DIR in full_path.parents
+        in_legacy = LEGACY_MEDIA_DIR == full_path or LEGACY_MEDIA_DIR in full_path.parents
+        if not in_base and not in_legacy:
+            continue
+        return send_from_directory(str(full_path.parent), full_path.name)
+    return jsonify({'error': 'file_not_found'}), 404
 
 
 def _youtube_length_bounds(video_type: str) -> tuple[int, int]:
@@ -2596,10 +2607,44 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 duration_sec = int(payload.get("duration_sec") or 30)
                 aspect_ratio = str(payload.get("aspect_ratio") or "9:16")
                 gen_thumbnail = bool(payload.get("generate_thumbnail") is not False)
-                video_url, size_bytes = _ensure_video_asset_url(topic, duration_sec, aspect_ratio)
-                job.progress = 75
+                duration_sec = max(20, min(480, duration_sec))
+                job.status = "downloading"
+                job.progress = 20
                 job.updated_at = datetime.utcnow()
                 db.commit()
+                produced = None
+                last_video_error = "video_generation_failed"
+                for _attempt in range(2):
+                    try:
+                        produced = generate_video_job_payload(
+                            campaign_id=campaign.id,
+                            topic=topic,
+                            offer=campaign.offer,
+                            language=campaign.language or "ru",
+                            target_seconds=duration_sec,
+                            aspect_ratio=aspect_ratio,
+                            style=str(payload.get("style") or "educational"),
+                            use_lecture_txt=True,
+                        )
+                        break
+                    except Exception as exc:
+                        last_video_error = str(exc)
+                if not produced:
+                    raise RuntimeError(last_video_error)
+                job.status = "rendering"
+                job.progress = 82
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                video_url = str(produced.get("video_url") or "").strip()
+                if not video_url:
+                    raise RuntimeError("video_render_failed")
+                local_video_path = str(produced.get("video_local_path") or "").strip()
+                size_bytes = 0
+                if local_video_path:
+                    try:
+                        size_bytes = int(Path(local_video_path).stat().st_size)
+                    except Exception:
+                        size_bytes = 0
                 video_asset = CampaignAsset(
                     campaign_id=campaign.id,
                     type="video",
@@ -2634,6 +2679,10 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         created_at=datetime.utcnow(),
                     )
                     db.add(thumb_asset)
+                job.status = "uploading"
+                job.progress = 95
+                job.updated_at = datetime.utcnow()
+                db.commit()
                 campaign.status = "ready"
                 campaign.updated_at = datetime.utcnow()
                 job.status = "done"
@@ -2642,7 +2691,19 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 job.updated_at = datetime.utcnow()
                 db.commit()
                 db.refresh(video_asset)
-                result_payload = {"video": _asset_payload(video_asset)}
+                result_payload = {
+                    "video": _asset_payload(video_asset),
+                    "publish_meta": {
+                        "title": produced.get("title"),
+                        "description": produced.get("description"),
+                        "hashtags": produced.get("hashtags") or [],
+                    },
+                    "artifacts": {
+                        "audio_url": produced.get("audio_url"),
+                        "subtitles_url": produced.get("subtitles_url"),
+                        "manifest_url": produced.get("manifest_url"),
+                    },
+                }
                 if thumb_asset:
                     db.refresh(thumb_asset)
                     result_payload["thumbnail"] = _asset_payload(thumb_asset)
@@ -2908,6 +2969,7 @@ def campaign_generate_video(campaign_id: int):
             "realism": bool(data.get("realism") is not False),
             "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
             "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
+            "style": str(data.get("style") or "educational"),
         }
         job = GenerationJob(
             campaign_id=campaign.id,
@@ -2945,6 +3007,186 @@ def get_job_status(job_id: int):
         if user.role != "admin" and campaign.user_id != user.id:
             return jsonify({"error": "Недостаточно прав"}), 403
         return jsonify({"job": _job_payload(job)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/generate", methods=["POST"])
+@require_auth
+def video_generate():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"error": "topic обязателен"}), 400
+    offer = str(data.get("offer") or "").strip() or None
+    language = str(data.get("language") or "ru").strip().lower() or "ru"
+    style = str(data.get("style") or "educational").strip() or "educational"
+    fmt = str(data.get("format") or "short").strip().lower()
+    if fmt not in {"short", "long"}:
+        fmt = "short"
+    min_sec = 20 if fmt == "short" else 120
+    max_sec = 70 if fmt == "short" else 480
+    target_seconds = int(data.get("target_seconds") or min_sec)
+    target_seconds = max(min_sec, min(max_sec, target_seconds))
+    orientation = str(data.get("orientation") or ("vertical" if fmt == "short" else "horizontal")).strip().lower()
+    aspect_ratio = "9:16" if orientation == "vertical" else "16:9"
+
+    project_id_raw = data.get("project_id")
+    try:
+        project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
+    except Exception:
+        return jsonify({"error": "project_id должен быть числом"}), 400
+    if not can_access_project(user, project_id):
+        return jsonify({"error": "Нет доступа к проекту"}), 403
+
+    db = SessionLocal()
+    try:
+        campaign = Campaign(
+            user_id=user.id,
+            project_id=project_id,
+            mode="video",
+            topic=topic,
+            offer=offer,
+            objective="engagement",
+            caption_master=None,
+            cta=None,
+            hashtags_master=json.dumps([], ensure_ascii=False),
+            language=language,
+            status="draft",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(campaign)
+        db.commit()
+        db.refresh(campaign)
+
+        job = GenerationJob(
+            campaign_id=campaign.id,
+            job_type="generate_video",
+            status="queued",
+            progress=0,
+            result_json=json.dumps(
+                {
+                    "request": {
+                        "format": fmt,
+                        "target_seconds": target_seconds,
+                        "orientation": orientation,
+                        "style": style,
+                        "language": language,
+                    }
+                },
+                ensure_ascii=False,
+            ),
+            error_message=None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        _start_generation_job(
+            job.id,
+            {
+                "duration_sec": target_seconds,
+                "aspect_ratio": aspect_ratio,
+                "realism": True,
+                "prompt_guards": {"no_fantasy": True},
+                "generate_thumbnail": True,
+                "style": style,
+            },
+        )
+        return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status}), 202
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/jobs/<int:job_id>", methods=["GET"])
+@require_auth
+def video_job_status(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job не найден"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Campaign не найден"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        assets = db.query(CampaignAsset).filter_by(campaign_id=campaign.id).order_by(CampaignAsset.created_at.desc()).all()
+        return jsonify(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "progress": int(job.progress or 0),
+                "error_message": job.error_message,
+                "result": _json_loads_safe(job.result_json, {}),
+                "campaign_id": campaign.id,
+                "assets": [_asset_payload(a) for a in assets],
+            }
+        )
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/jobs/<int:job_id>/publish", methods=["POST"])
+@require_auth
+def video_job_publish(job_id: int):
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    requested_platforms = data.get("platforms")
+    if not isinstance(requested_platforms, list) or not requested_platforms:
+        requested_platforms = ["youtube"]
+
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job не найден"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Campaign не найден"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+        if str(job.status) != "done":
+            return jsonify({"error": "Видео еще не готово"}), 400
+        has_video = db.query(CampaignAsset).filter_by(campaign_id=campaign.id, type="video").count() > 0
+        if not has_video:
+            return jsonify({"error": "Видео-ассет не найден"}), 400
+
+        created_rows = []
+        for p in requested_platforms:
+            platform = str(p or "").strip().lower()
+            if platform not in {"youtube", "facebook", "instagram"}:
+                continue
+            kind = "shorts" if platform == "youtube" else ("reel" if platform == "instagram" else "video")
+            row = CampaignDelivery(
+                campaign_id=campaign.id,
+                platform=platform,
+                kind=kind,
+                account_ref=None,
+                caption_rendered=campaign.caption_master or campaign.topic,
+                hashtags_rendered=campaign.hashtags_master or "[]",
+                scheduled_at=None,
+                status="queued",
+                remote_id=None,
+                error_message=None,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db.add(row)
+            created_rows.append(row)
+        if not created_rows:
+            return jsonify({"error": "Нет валидных platforms"}), 400
+        campaign.status = "publishing"
+        campaign.updated_at = datetime.utcnow()
+        db.commit()
+        for row in created_rows:
+            db.refresh(row)
+            _start_delivery_worker(row.id)
+        return jsonify({"campaign_id": campaign.id, "deliveries": [_delivery_payload(x) for x in created_rows]}), 202
     finally:
         db.close()
 
