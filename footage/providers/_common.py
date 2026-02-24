@@ -1,57 +1,87 @@
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
 
+from footage.types import VideoResult
 from saas_settings import settings
 
 
-def _json_cache_path() -> Path:
+def _index_path() -> Path:
     root = settings.FOOTAGE_CACHE_DIR
     root.mkdir(parents=True, exist_ok=True)
-    return root / "cache_index.json"
+    return root / "index.json"
 
 
-def _load_cache_index() -> dict:
-    path = _json_cache_path()
+def _load_index() -> dict:
+    path = _index_path()
     if not path.exists():
-        return {}
+        return {"version": 1, "items": []}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return {}
+        return {"version": 1, "items": []}
+    if isinstance(payload, dict) and isinstance(payload.get("items"), list):
+        return payload
+    return {"version": 1, "items": []}
 
 
-def _save_cache_index(data: dict) -> None:
-    path = _json_cache_path()
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+def _save_index(data: dict) -> None:
+    _index_path().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def cache_key(provider: str, video_id: str, download_url: str) -> str:
-    raw = f"{provider}:{video_id}:{download_url}"
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+def url_hash(url: str) -> str:
+    return hashlib.sha1(str(url or "").encode("utf-8")).hexdigest()
 
 
-def cached_file_path(key: str, ext: str = ".mp4") -> Path:
-    return settings.FOOTAGE_CACHE_DIR / f"{key}{ext}"
-
-
-def get_cached_path(key: str) -> Path | None:
-    idx = _load_cache_index()
-    rel = str(idx.get(key) or "").strip()
-    if not rel:
-        return None
-    full = (settings.BASE_DIR / rel).resolve()
-    if full.exists() and settings.BASE_DIR in full.parents:
-        return full
+def index_lookup(provider: str, video_id: str, download_url: str) -> dict | None:
+    idx = _load_index()
+    key = url_hash(download_url)
+    for item in idx.get("items", []):
+        if str(item.get("provider")) != str(provider):
+            continue
+        if str(item.get("id")) != str(video_id):
+            continue
+        if str(item.get("url_hash")) != key:
+            continue
+        rel = str(item.get("local_path") or "").strip()
+        if not rel:
+            continue
+        full = (settings.BASE_DIR / rel).resolve()
+        if full.exists() and (settings.BASE_DIR == full or settings.BASE_DIR in full.parents):
+            return item
     return None
 
 
-def remember_cache(key: str, file_path: Path) -> None:
-    idx = _load_cache_index()
-    idx[key] = str(file_path.resolve().relative_to(settings.BASE_DIR)).replace("\\", "/")
-    _save_cache_index(idx)
+def remember_index(result: VideoResult, local_path: Path) -> None:
+    rel = str(local_path.resolve().relative_to(settings.BASE_DIR)).replace("\\", "/")
+    item = {
+        "provider": result.provider,
+        "id": result.video_id,
+        "url": result.download_url,
+        "url_hash": url_hash(result.download_url),
+        "local_path": rel,
+        "downloaded_at": datetime.now(timezone.utc).isoformat(),
+        "duration": int(result.duration or 0),
+        "width": int(result.width or 0),
+        "height": int(result.height or 0),
+        "tags_signature": " ".join(sorted([str(x).strip().lower() for x in (result.tags or []) if str(x).strip()]))[:500],
+    }
+    idx = _load_index()
+    filtered = []
+    for cur in idx.get("items", []):
+        if (
+            str(cur.get("provider")) == result.provider
+            and str(cur.get("id")) == str(result.video_id)
+            and str(cur.get("url_hash")) == item["url_hash"]
+        ):
+            continue
+        filtered.append(cur)
+    filtered.append(item)
+    idx["items"] = filtered[-20000:]
+    _save_index(idx)
 
 
 def download_to_path(url: str, target: Path, retries: int = 3, timeout: int = 120) -> Path:
@@ -74,3 +104,8 @@ def download_to_path(url: str, target: Path, retries: int = 3, timeout: int = 12
         if attempt < retries - 1:
             continue
     raise RuntimeError(f"video_download_failed: {last_error}")
+
+
+def stable_cache_file(provider: str, video_id: str, download_url: str, ext: str = ".mp4") -> Path:
+    stem = f"{provider}_{video_id}_{url_hash(download_url)[:12]}"
+    return settings.FOOTAGE_CACHE_DIR / f"{stem}{ext}"

@@ -5,7 +5,9 @@ import requests
 
 from footage.types import VideoResult
 
-from ._common import cache_key, cached_file_path, download_to_path, get_cached_path, remember_cache
+from saas_settings import settings
+
+from ._common import download_to_path, index_lookup, remember_index, stable_cache_file
 
 
 API_URL = "https://pixabay.com/api/videos/"
@@ -25,12 +27,13 @@ def search_videos(
     key = _api_key()
     if not key:
         return []
+    cleaned_query = str(query or "").strip()
     try:
         res = requests.get(
             API_URL,
             params={
                 "key": key,
-                "q": query,
+                "q": cleaned_query,
                 "video_type": "all",
                 "per_page": min(200, max(30, limit * 5)),
                 "safesearch": "true",
@@ -71,6 +74,11 @@ def search_videos(
                     download_url=download_url,
                     tags=tags,
                     orientation=inferred,
+                    title=str(item.get("pageURL") or cleaned_query),
+                    description="",
+                    author=str(item.get("user") or item.get("user_id") or "").strip(),
+                    fps=None,
+                    source_query=cleaned_query,
                 )
             )
             if len(out) >= limit:
@@ -81,11 +89,10 @@ def search_videos(
 
 
 def download_video(video_result: VideoResult, target_path: Path) -> str:
-    key = cache_key(video_result.provider, video_result.video_id, video_result.download_url)
-    cached = get_cached_path(key)
+    cached = index_lookup(video_result.provider, video_result.video_id, video_result.download_url)
     if cached:
-        return str(cached)
-    target = cached_file_path(key, ext=target_path.suffix or ".mp4")
+        return str((settings.BASE_DIR / str(cached["local_path"])).resolve())
+    target = stable_cache_file(video_result.provider, video_result.video_id, video_result.download_url, ext=target_path.suffix or ".mp4")
     saved = download_to_path(video_result.download_url, target)
-    remember_cache(key, saved)
+    remember_index(video_result, saved)
     return str(saved)

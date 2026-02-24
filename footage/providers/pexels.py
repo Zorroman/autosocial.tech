@@ -5,7 +5,9 @@ import requests
 
 from footage.types import VideoResult
 
-from ._common import cache_key, cached_file_path, download_to_path, get_cached_path, remember_cache
+from saas_settings import settings
+
+from ._common import download_to_path, index_lookup, remember_index, stable_cache_file
 
 
 API_URL = "https://api.pexels.com/videos/search"
@@ -27,12 +29,13 @@ def search_videos(
         return []
     orient = "portrait" if orientation == "vertical" else "landscape"
     per_page = min(80, max(5, limit * 4))
+    cleaned_query = str(query or "").strip()
     try:
         res = requests.get(
             API_URL,
             headers={"Authorization": key},
             params={
-                "query": query,
+                "query": cleaned_query,
                 "orientation": orient,
                 "size": "medium",
                 "per_page": per_page,
@@ -57,12 +60,20 @@ def search_videos(
             download_url = str(best.get("link") or "").strip()
             if not download_url:
                 continue
+            if orientation == "vertical" and height <= width:
+                continue
+            if orientation == "horizontal" and width <= height:
+                continue
             tags = []
             for tag in (item.get("tags") or []):
                 if isinstance(tag, dict):
                     val = str(tag.get("title") or "").strip()
                     if val:
                         tags.append(val)
+            author = ""
+            user = item.get("user") or {}
+            if isinstance(user, dict):
+                author = str(user.get("name") or user.get("id") or "").strip()
             out.append(
                 VideoResult(
                     provider="pexels",
@@ -74,6 +85,11 @@ def search_videos(
                     download_url=download_url,
                     tags=tags,
                     orientation="vertical" if height > width else "horizontal",
+                    title=str(item.get("url") or cleaned_query),
+                    description="",
+                    author=author,
+                    fps=float(best.get("fps")) if str(best.get("fps") or "").replace(".", "", 1).isdigit() else None,
+                    source_query=cleaned_query,
                 )
             )
             if len(out) >= limit:
@@ -84,11 +100,10 @@ def search_videos(
 
 
 def download_video(video_result: VideoResult, target_path: Path) -> str:
-    key = cache_key(video_result.provider, video_result.video_id, video_result.download_url)
-    cached = get_cached_path(key)
+    cached = index_lookup(video_result.provider, video_result.video_id, video_result.download_url)
     if cached:
-        return str(cached)
-    target = cached_file_path(key, ext=target_path.suffix or ".mp4")
+        return str((settings.BASE_DIR / str(cached["local_path"])).resolve())
+    target = stable_cache_file(video_result.provider, video_result.video_id, video_result.download_url, ext=target_path.suffix or ".mp4")
     saved = download_to_path(video_result.download_url, target)
-    remember_cache(key, saved)
+    remember_index(video_result, saved)
     return str(saved)

@@ -12,3 +12,8 @@ class VideoResult:
     download_url: str
     tags: list[str]
     orientation: str
+    title: str = ""
+    description: str = ""
+    author: str = ""
+    fps: float | None = None
+    source_query: str = ""

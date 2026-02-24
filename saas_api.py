@@ -2617,6 +2617,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 for _attempt in range(2):
                     try:
                         produced = generate_video_job_payload(
+                            job_id=job.id,
                             campaign_id=campaign.id,
                             topic=topic,
                             offer=campaign.offer,
@@ -2625,6 +2626,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                             aspect_ratio=aspect_ratio,
                             style=str(payload.get("style") or "educational"),
                             use_lecture_txt=True,
+                            reuse_manifest=bool(payload.get("reuse_manifest")),
                         )
                         break
                     except Exception as exc:
@@ -2970,6 +2972,7 @@ def campaign_generate_video(campaign_id: int):
             "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
             "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
             "style": str(data.get("style") or "educational"),
+            "reuse_manifest": bool(data.get("reuse_manifest") is True),
         }
         job = GenerationJob(
             campaign_id=campaign.id,
@@ -3094,6 +3097,7 @@ def video_generate():
                 "prompt_guards": {"no_fantasy": True},
                 "generate_thumbnail": True,
                 "style": style,
+                "reuse_manifest": bool(data.get("reuse_manifest") is True),
             },
         )
         return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status}), 202
