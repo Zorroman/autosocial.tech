@@ -196,3 +196,46 @@ docker compose up -d --build
 ```bash
 py migrations.py
 ```
+
+## 11) PRO Video Pipeline
+Генерация видео теперь идет локально на сервере через `BASE_DIR`:
+- кэш футажей: `cache/footage/`
+- артефакты: `output/videos/`, `output/audio/`, `output/subtitles/`, `output/manifests/`
+
+Ключевые ENV:
+- `BASE_DIR`
+- `PEXELS_API_KEY`
+- `PIXABAY_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_TTS_MODEL`
+- `OPENAI_TTS_VOICE` (по умолчанию `eddy`)
+- `FFMPEG_BIN`
+- `FFPROBE_BIN`
+- `VIDEO_RENDER_CONCURRENCY`
+
+API:
+- `POST /api/video/generate`
+- `GET /api/video/jobs/{job_id}`
+- `POST /api/video/jobs/{job_id}/publish`
+
+Пример:
+```bash
+curl -X POST http://localhost:5000/api/video/generate \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic":"Как сервису получить больше заявок из контента",
+    "offer":"Бесплатный аудит",
+    "language":"ru",
+    "format":"short",
+    "target_seconds":30,
+    "orientation":"vertical",
+    "style":"expert"
+  }'
+```
+
+Проверка статуса:
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  http://localhost:5000/api/video/jobs/<JOB_ID>
+```
