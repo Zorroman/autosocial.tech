@@ -39,21 +39,6 @@ from facebook_api import (
     publish_to_instagram,
 )
 from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_structured_text_with_usage
-try:
-    from image_picker import pick_image_url
-except Exception:
-    from image_picker import get_image_by_niche as _legacy_get_image_by_niche  # type: ignore
-
-    def pick_image_url(*args, **kwargs):
-        topic = ""
-        if args:
-            topic = str(args[0] or "").strip()
-        if not topic:
-            topic = str(kwargs.get("topic") or kwargs.get("niche") or "").strip()
-        if not topic:
-            topic = "business"
-        return _legacy_get_image_by_niche(topic)
-from media_query_builder import buildMediaQuery
 from content_pipeline import (
     OpenAIClientError,
     director_generate_drafts,
@@ -84,9 +69,7 @@ from saas_models import (
     ContentStrategy,
     Project,
     GenerationJob,
-    Niche,
     Subscription,
-    Template,
     UsageCounter,
     UsageEvent,
     UserTemplate,
@@ -104,7 +87,6 @@ from services.entitlements import (
     ACTION_VIDEO_GENERATE,
     ACTION_VIDEO_PUBLISH,
     authorizeAction,
-    getLimits,
     getEntitlementsPayload,
     recordUsageEvent,
     sync_subscription_state,
@@ -131,7 +113,6 @@ from saas_services import (
     seed_plans,
 )
 from saas_settings import settings
-from plans_catalog import PLAN_SPECS, PUBLIC_PLAN_ORDER, get_plan_spec, normalize_plan_code, to_plan_payload
 from style_packs import DEFAULT_STYLE_PACK_ID, get_style_pack, list_style_packs
 from stripe_service import (
     create_credit_pack_checkout,
@@ -207,15 +188,6 @@ def _summarize_director_warnings(raw_warnings) -> list[str]:
             seen.add(msg)
             out.append(msg)
     return out[:2]
-
-
-def _summarize_create_generate_warnings(raw_warnings) -> list[str]:
-    summarized = _summarize_director_warnings(raw_warnings)
-    if summarized:
-        return summarized
-    if isinstance(raw_warnings, list) and raw_warnings:
-        return ["AI ответ частично восстановлен. Проверьте текст перед публикацией."]
-    return []
 
 
 def _send_auth_email_code(email: str, code: str, flow: str, ip_addr: str, challenge_token: str) -> bool:
@@ -369,135 +341,6 @@ def _google_client_id() -> str:
 
 def _google_client_secret() -> str:
     return (os.getenv("GOOGLE_CLIENT_SECRET") or "").strip()
-
-
-def _youtube_scopes() -> str:
-    # upload scope is required for video publish; readonly helps channel introspection.
-    return "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly"
-
-
-def _youtube_refresh_access_token(db, row: SocialAccount) -> str | None:
-    if not row or not row.refresh_token_encrypted:
-        return None
-    client_id = _google_client_id()
-    client_secret = _google_client_secret()
-    if not client_id or not client_secret:
-        return None
-    try:
-        refresh_token = decrypt_meta_token(row.refresh_token_encrypted)
-    except Exception:
-        return None
-    if not refresh_token:
-        return None
-    try:
-        resp = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            },
-            timeout=20,
-        )
-        if not resp.ok:
-            return None
-        payload = resp.json() or {}
-        new_access = str(payload.get("access_token") or "").strip()
-        if not new_access:
-            return None
-        new_refresh = str(payload.get("refresh_token") or "").strip()
-        expires_in = int(payload.get("expires_in") or 3600)
-        row.token_encrypted = encrypt_meta_token(new_access)
-        if new_refresh:
-            row.refresh_token_encrypted = encrypt_meta_token(new_refresh)
-        row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
-        row.status = "connected_ready"
-        row.status_reason_code = None
-        row.updated_at = datetime.utcnow()
-        db.commit()
-        return new_access
-    except Exception:
-        db.rollback()
-        return None
-
-
-def _youtube_get_access_token(db, row: SocialAccount, *, force_refresh: bool = False) -> str:
-    if not row or not row.token_encrypted:
-        return ""
-    expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(minutes=2)))
-    if force_refresh or expires_soon:
-        refreshed = _youtube_refresh_access_token(db, row)
-        if refreshed:
-            return refreshed
-    try:
-        return decrypt_meta_token(row.token_encrypted)
-    except Exception:
-        return ""
-
-
-def _meta_exchange_long_lived_user_token(user_access_token: str) -> tuple[str | None, int | None]:
-    token = str(user_access_token or "").strip()
-    if not token:
-        return None, None
-    client_id = _facebook_client_id()
-    client_secret = _facebook_client_secret()
-    if not client_id or not client_secret:
-        return None, None
-    try:
-        resp = requests.get(
-            "https://graph.facebook.com/v20.0/oauth/access_token",
-            params={
-                "grant_type": "fb_exchange_token",
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "fb_exchange_token": token,
-            },
-            timeout=20,
-        )
-        if not resp.ok:
-            return None, None
-        payload = resp.json() if resp.content else {}
-        if not isinstance(payload, dict):
-            return None, None
-        exchanged = str(payload.get("access_token") or "").strip()
-        if not exchanged:
-            return None, None
-        expires_in_raw = payload.get("expires_in")
-        try:
-            expires_in = int(expires_in_raw) if expires_in_raw is not None else None
-        except Exception:
-            expires_in = None
-        return exchanged, expires_in
-    except Exception:
-        return None, None
-
-
-def _meta_get_user_access_token(db, row: SocialAccount, *, force_exchange: bool = False) -> str:
-    if not row or not row.token_encrypted:
-        return ""
-    try:
-        current_token = decrypt_meta_token(row.token_encrypted)
-    except Exception:
-        return ""
-    expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(days=3)))
-    if not (force_exchange or expires_soon):
-        return current_token
-    exchanged, expires_in = _meta_exchange_long_lived_user_token(current_token)
-    if not exchanged:
-        return current_token
-    try:
-        row.token_encrypted = encrypt_meta_token(exchanged)
-        if expires_in and expires_in > 0:
-            row.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-        row.status = "connected_ready"
-        row.status_reason_code = None
-        row.updated_at = datetime.utcnow()
-        db.commit()
-        return exchanged
-    except Exception:
-        db.rollback()
-        return current_token
 
 
 def _google_redirect_uri() -> str:
@@ -732,12 +575,8 @@ def _normalize_create_goal(value: str) -> str:
         "leads": "lead",
         "лиды": "lead",
         "awareness": "awareness",
-        "охват": "awareness",
-        "reach": "awareness",
         "expertise": "awareness",
         "экспертность": "awareness",
-        "trust": "trust",
-        "доверие": "trust",
         "announcement": "engagement",
         "анонс": "engagement",
         "warmup": "engagement",
@@ -1033,64 +872,6 @@ def _build_video_thumbnail(video_url: str, second: float = 0.8) -> str | None:
     return f"{settings.API_BASE_URL}/api/media/{rel}"
 
 
-def _extract_spoken_text_from_manifest(manifest_url: str) -> str:
-    local_path = _resolve_media_url_to_local_path(manifest_url)
-    if not local_path or not local_path.exists():
-        return ""
-    try:
-        payload = json.loads(local_path.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    script_payload = payload.get("script") if isinstance(payload.get("script"), dict) else {}
-    phrases = []
-    if isinstance(script_payload.get("phrases"), list):
-        phrases = script_payload.get("phrases") or []
-    elif isinstance(payload.get("phrases"), list):
-        phrases = payload.get("phrases") or []
-    cleaned = [str(x or "").strip() for x in phrases if str(x or "").strip()]
-    return " ".join(cleaned).strip()
-
-
-def _build_video_publish_caption(campaign: Campaign, job: GenerationJob) -> tuple[str, list[str]]:
-    result = _job_result_dict(job)
-    publish_meta = result.get("publish_meta") if isinstance(result.get("publish_meta"), dict) else {}
-    artifacts = result.get("artifacts") if isinstance(result.get("artifacts"), dict) else {}
-    spoken_text = str(result.get("spoken_text") or "").strip()
-    if not spoken_text:
-        spoken_text = str(publish_meta.get("spoken_text") or "").strip()
-    if not spoken_text:
-        spoken_text = _extract_spoken_text_from_manifest(str(artifacts.get("manifest_url") or ""))
-
-    description = str(publish_meta.get("description") or "").strip()
-    existing_caption = str(campaign.caption_master or "").strip()
-    cta_text = str(campaign.cta or "").strip()
-
-    if existing_caption and len(existing_caption) >= 24:
-        caption = existing_caption
-    elif spoken_text:
-        caption = spoken_text
-    elif description:
-        caption = description
-    else:
-        caption = str(campaign.topic or "").strip()
-
-    if cta_text and cta_text.lower() not in caption.lower():
-        caption = f"{caption}\n\n{cta_text}".strip()
-    caption = caption[:5000].strip()
-
-    tags = _json_loads_safe(campaign.hashtags_master, [])
-    if not isinstance(tags, list):
-        tags = []
-    if not tags:
-        meta_tags = publish_meta.get("hashtags")
-        if isinstance(meta_tags, list):
-            tags = [str(x).strip() for x in meta_tags if str(x).strip()]
-    tags = tags[:30]
-    return caption, tags
-
-
 def _template_payload(row: UserTemplate) -> dict:
     return {
         "id": row.id,
@@ -1098,39 +879,6 @@ def _template_payload(row: UserTemplate) -> dict:
         "preset": _json_loads_safe(row.preset_json, {}),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-
-def _catalog_template_payload(row: Template) -> dict:
-    return {
-        "id": row.id,
-        "slug": row.slug,
-        "title": row.title,
-        "description": row.description,
-        "type": row.type,
-        "platform": row.platform,
-        "goal": row.goal,
-        "tone": row.tone,
-        "hook_line": row.hook_line,
-        "cta": row.cta,
-        "prompt_system": row.prompt_system,
-        "prompt_user": row.prompt_user,
-        "variables_schema_json": _json_loads_dict(row.variables_schema_json),
-        "preview_text": row.preview_text,
-        "sort_order": row.sort_order,
-    }
-
-
-def _catalog_niche_payload(row: Niche, templates: list[Template]) -> dict:
-    sorted_templates = sorted(templates, key=lambda x: (int(x.sort_order or 100), int(x.id or 0)))
-    return {
-        "id": row.id,
-        "slug": row.slug,
-        "title": row.title,
-        "description": row.description,
-        "icon": row.icon,
-        "sort_order": row.sort_order,
-        "templates": [_catalog_template_payload(t) for t in sorted_templates],
     }
 
 
@@ -1335,9 +1083,7 @@ def _start_delivery_worker(delivery_id: int) -> None:
                 conn = conn_query.order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc()).first()
                 if not conn or not conn.token_encrypted:
                     raise RuntimeError("Meta не подключен")
-                access_token = _meta_get_user_access_token(db, conn)
-                if not access_token:
-                    raise RuntimeError("Meta токен недоступен. Переподключите Meta.")
+                access_token = decrypt_meta_token(conn.token_encrypted)
                 if delivery.platform == "facebook":
                     if not conn.page_id:
                         raise RuntimeError("Не выбрана Facebook Page")
@@ -1353,19 +1099,6 @@ def _start_delivery_worker(delivery_id: int) -> None:
                         image_url = image_asset.storage_url if image_asset else None
                         result = publish_to_facebook(conn.page_id, page_token, image_url, caption)
                         remote_id = str(result.get("post_id") or result.get("id") or "")
-                    if not remote_id and isinstance(result, dict):
-                        status_from_error, reason = _meta_error_to_status(result.get("error") or result)
-                        if reason == "access_token_invalid":
-                            access_token = _meta_get_user_access_token(db, conn, force_exchange=True)
-                            if access_token:
-                                page_token = _resolve_page_access_token(access_token, conn.page_id)
-                                if page_token:
-                                    if delivery.kind == "video":
-                                        result = _publish_facebook_video(conn.page_id, page_token, video_asset.storage_url, caption)
-                                        remote_id = str(result.get("id") or result.get("video_id") or "")
-                                    else:
-                                        result = publish_to_facebook(conn.page_id, page_token, image_url, caption)
-                                        remote_id = str(result.get("post_id") or result.get("id") or "")
                 else:
                     if not conn.ig_user_id:
                         raise RuntimeError("Instagram Business не найден")
@@ -1378,17 +1111,6 @@ def _start_delivery_worker(delivery_id: int) -> None:
                         image_url = image_asset.storage_url if image_asset else None
                         result = publish_to_instagram(conn.ig_user_id, access_token, image_url, caption)
                         remote_id = str(result.get("id") or "")
-                    if not remote_id and isinstance(result, dict):
-                        status_from_error, reason = _meta_error_to_status(result.get("error") or result)
-                        if reason == "access_token_invalid":
-                            refreshed_access = _meta_get_user_access_token(db, conn, force_exchange=True)
-                            if refreshed_access:
-                                if delivery.kind == "reel":
-                                    result = _publish_instagram_reel(conn.ig_user_id, refreshed_access, video_asset.storage_url, caption)
-                                    remote_id = str(result.get("id") or "")
-                                else:
-                                    result = publish_to_instagram(conn.ig_user_id, refreshed_access, image_url, caption)
-                                    remote_id = str(result.get("id") or "")
                 if not remote_id:
                     raise RuntimeError(f"Meta API error: {result}")
             elif delivery.platform == "youtube":
@@ -1403,9 +1125,7 @@ def _start_delivery_worker(delivery_id: int) -> None:
                     raise RuntimeError("YouTube не подключен")
                 if not video_asset:
                     raise RuntimeError("Видео не сгенерировано")
-                yt_token = _youtube_get_access_token(db, conn)
-                if not yt_token:
-                    raise RuntimeError("YouTube токен недоступен. Переподключите YouTube.")
+                yt_token = decrypt_meta_token(conn.token_encrypted)
                 yt = _publish_youtube_video_from_url(
                     access_token=yt_token,
                     video_url=video_asset.storage_url,
@@ -1414,19 +1134,6 @@ def _start_delivery_worker(delivery_id: int) -> None:
                     tags=hashtags,
                     is_shorts=(delivery.kind == "shorts"),
                 )
-                yt_error = yt.get("error") if isinstance(yt, dict) else None
-                yt_error_str = str(yt_error or "").lower()
-                if (not yt.get("id")) and ("invalid authentication credentials" in yt_error_str or "'code': 401" in yt_error_str):
-                    refreshed_token = _youtube_get_access_token(db, conn, force_refresh=True)
-                    if refreshed_token:
-                        yt = _publish_youtube_video_from_url(
-                            access_token=refreshed_token,
-                            video_url=video_asset.storage_url,
-                            title=campaign.topic,
-                            description=caption,
-                            tags=hashtags,
-                            is_shorts=(delivery.kind == "shorts"),
-                        )
                 remote_id = str(yt.get("id") or "")
                 if not remote_id:
                     raise RuntimeError(f"YouTube API error: {yt}")
@@ -1876,7 +1583,6 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
 
     token_data = token_resp.json() or {}
     access_token = str(token_data.get("access_token") or "").strip()
-    refresh_token = str(token_data.get("refresh_token") or "").strip()
     expires_in = int(token_data.get("expires_in") or 0)
     if not access_token:
         return redirect(_frontend_connections_url("youtube_error=token_missing"))
@@ -1944,8 +1650,6 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
         row.ig_user_id = None
         row.ig_username = None
         row.token_encrypted = encrypt_meta_token(access_token)
-        if refresh_token:
-            row.refresh_token_encrypted = encrypt_meta_token(refresh_token)
         row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
         row.status = "connected_ready"
         row.status_reason_code = None
@@ -2123,17 +1827,11 @@ def plans():
     seed_plans()
     db = SessionLocal()
     try:
-        include_legacy = str(request.args.get("include_legacy", "")).strip().lower() in {"1", "true", "yes"}
         rows = db.query(Plan).order_by(Plan.price_eur_month.asc()).all()
-        result = []
-        for p in rows:
-            plan_code = normalize_plan_code(p.name)
-            spec = get_plan_spec(plan_code)
-            if spec.legacy and not include_legacy:
-                continue
-            payload = to_plan_payload(spec)
-            payload.update(
+        return jsonify(
+            [
                 {
+                    "name": p.name,
                     "price_eur_month": p.price_eur_month,
                     "monthly_credits": p.monthly_credits,
                     "max_projects": p.max_projects,
@@ -2144,12 +1842,9 @@ def plans():
                     "templates_enabled": p.templates_enabled,
                     "team_seats": p.team_seats,
                 }
-            )
-            result.append(payload)
-        if not include_legacy:
-            order_index = {code: idx for idx, code in enumerate(PUBLIC_PLAN_ORDER)}
-            result.sort(key=lambda x: order_index.get(str(x.get("name") or ""), 999))
-        return jsonify(result)
+                for p in rows
+            ]
+        )
     finally:
         db.close()
 
@@ -2378,7 +2073,7 @@ def generate():
 
     # Enforce plan scheduling capability before doing any generation/cost.
     if schedule_at is not None:
-        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/generate", "content_kind": "post"}))
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/generate"}))
         if pw:
             return pw
 
@@ -2689,7 +2384,7 @@ def content_generate():
             "brief_id": brief.id,
             "strategy": generated.strategy,
             "drafts": [_content_draft_payload(d) for d in draft_rows],
-            "warnings": _summarize_create_generate_warnings(generated.warnings or []),
+            "warnings": generated.warnings or [],
             "debug_code": generated.debug_code or "",
             "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
         }
@@ -2889,10 +2584,6 @@ def create_generate():
         hashtags=(safe_drafts[0]["hashtags"] if safe_drafts else []),
         goal=goal,
     )
-    safe_warnings = _summarize_create_generate_warnings(generated.warnings or [])
-    quality_warnings = quality.get("warnings") or []
-    final_warnings = (safe_warnings + quality_warnings)[:3]
-
     return jsonify(
         {
             "status": generated.status or "ok",
@@ -2900,7 +2591,7 @@ def create_generate():
             "strategy": generated.strategy,
             "drafts": safe_drafts,
             "quality": quality,
-            "warnings": final_warnings,
+            "warnings": (generated.warnings or []) + (quality.get("warnings") or []),
             "debug_code": generated.debug_code or "",
             "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
         }
@@ -2921,84 +2612,6 @@ def create_templates_list():
             .all()
         )
         return jsonify({"status": "ok", "items": [_template_payload(r) for r in rows], "warnings": [], "debug_code": ""})
-    finally:
-        db.close()
-
-
-@saas_api.route("/create/niche-catalog", methods=["GET"])
-@require_auth
-def create_niche_catalog():
-    db = SessionLocal()
-    try:
-        niches = db.query(Niche).order_by(Niche.sort_order.asc(), Niche.id.asc()).all()
-        out = []
-        for niche in niches:
-            templates = (
-                db.query(Template)
-                .filter(Template.niche_id == niche.id)
-                .order_by(Template.sort_order.asc(), Template.id.asc())
-                .all()
-            )
-            out.append(_catalog_niche_payload(niche, templates))
-        return jsonify({"status": "ok", "items": out, "warnings": [], "debug_code": ""})
-    finally:
-        db.close()
-
-
-@saas_api.route("/create/templates/import-catalog", methods=["POST"])
-@require_auth
-def create_template_import_catalog():
-    user = g.current_user
-    data = request.get_json(silent=True) or {}
-    niche_slug = str(data.get("niche_slug") or "").strip().lower()
-    template_slug = str(data.get("template_slug") or "").strip().lower()
-    if not niche_slug or not template_slug:
-        return (
-            jsonify({"status": "error", "warnings": ["niche_slug и template_slug обязательны"], "debug_code": "missing_slug"}),
-            400,
-        )
-
-    db = SessionLocal()
-    try:
-        niche = db.query(Niche).filter(Niche.slug == niche_slug).first()
-        if not niche:
-            return jsonify({"status": "error", "warnings": ["Ниша не найдена"], "debug_code": "niche_not_found"}), 404
-        tpl = (
-            db.query(Template)
-            .filter(Template.niche_id == niche.id, Template.slug == template_slug)
-            .first()
-        )
-        if not tpl:
-            return jsonify({"status": "error", "warnings": ["Шаблон не найден"], "debug_code": "template_not_found"}), 404
-
-        preset = {
-            "source": "niche_catalog",
-            "niche_slug": niche.slug,
-            "template_slug": tpl.slug,
-            "title": tpl.title,
-            "description": tpl.description,
-            "type": tpl.type,
-            "platform": tpl.platform,
-            "goal": tpl.goal,
-            "tone": tpl.tone,
-            "hook_line": tpl.hook_line,
-            "cta": tpl.cta,
-            "prompt_system": tpl.prompt_system,
-            "prompt_user": tpl.prompt_user,
-            "variables_schema_json": _json_loads_dict(tpl.variables_schema_json),
-            "preview_text": tpl.preview_text,
-        }
-        row = UserTemplate(
-            user_id=user.id,
-            name=f"{niche.title}: {tpl.title}"[:160],
-            preset_json=json.dumps(preset, ensure_ascii=False),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        db.add(row)
-        db.commit()
-        db.refresh(row)
-        return jsonify({"status": "ok", "item": _template_payload(row), "warnings": [], "debug_code": ""}), 201
     finally:
         db.close()
 
@@ -3191,30 +2804,11 @@ def ai_director_generate_image():
         return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
     language = str(data.get("language") or "ru").strip().lower() or "ru"
     tone = _normalize_create_tone(data.get("tone") or "friendly")
-    goal = _normalize_create_goal(data.get("goal") or "awareness")
     style = str(data.get("style") or "реалистично").strip()
     no_text_on_image = bool(data.get("no_text_on_image") is not False)
     realism = bool(data.get("realism") is not False)
-    niche_slug = str(data.get("niche_slug") or data.get("nicheSlug") or "").strip().lower()
-    niche_title = str(data.get("niche_title") or data.get("nicheTitle") or "").strip()
-    offer_text = str(data.get("offer") or data.get("offerText") or "").strip()
-    content_type = str(data.get("content_type") or data.get("contentType") or "post").strip().lower()
-    orientation = str(data.get("orientation") or "").strip().lower()
 
-    media_query = buildMediaQuery(
-        {
-            "nicheSlug": niche_slug,
-            "nicheTitle": niche_title,
-            "goal": goal,
-            "language": language,
-            "offerText": offer_text,
-            "manualTopic": topic,
-            "contentType": content_type,
-            "orientation": orientation,
-        }
-    )
-
-    prompt_topic = f"{media_query.get('query') or topic}. Стиль: {style}."
+    prompt_topic = f"{topic}. Стиль: {style}."
     if realism:
         prompt_topic += " Реалистичная сцена."
     if no_text_on_image:
@@ -3222,28 +2816,16 @@ def ai_director_generate_image():
     prompt_topic += " Смысл изображения должен передавать тему поста."
 
     warnings = []
-    source = "pexels"
-    image_url = pick_image_url(
-        niche_slug=str(media_query.get("nicheSlug") or niche_slug),
-        niche_title=niche_title or topic,
-        goal=goal,
-        language=language,
-        offer_text=offer_text,
-        manual_topic=topic,
-        orientation=str(media_query.get("orientation") or "any"),
-    )
-
-    if not image_url:
-        source = "openai"
-        try:
-            image_url = generate_image_url(
-                topic=prompt_topic,
-                category="business",
-                tone=tone,
-                language=language,
-            )
-        except Exception:
-            image_url = None
+    source = "openai"
+    try:
+        image_url = generate_image_url(
+            topic=prompt_topic,
+            category="business",
+            tone=tone,
+            language=language,
+        )
+    except Exception:
+        image_url = None
 
     if not image_url:
         source = "fallback"
@@ -3430,7 +3012,10 @@ def content_draft_schedule(draft_id: int):
     except Exception:
         return jsonify({"error": "schedule_at должен быть в ISO формате"}), 400
 
-    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/content/drafts/schedule", "content_kind": "post"}))
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/content/drafts/schedule"}))
+    if pw:
+        return pw
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"source": "/api/content/drafts/schedule"}))
     if pw:
         return pw
 
@@ -3461,7 +3046,7 @@ def content_draft_schedule(draft_id: int):
     )
     if err:
         return err
-    recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/content/drafts/schedule", "post_id": post.id, "mode": "scheduled"})
+    recordUsageEvent(user, "POSTS_GENERATED", 1, {"endpoint": "/api/content/drafts/schedule", "post_id": post.id})
     return jsonify({"ok": True, "post_id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat() if post.schedule_at else None})
 
 
@@ -3668,44 +3253,22 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 elif style in {"минимализм", "minimal"}:
                     tone = "neutral"
                 no_fantasy = bool(prompt_guards.get("no_fantasy", True))
-                media_query = buildMediaQuery(
-                    {
-                        "nicheSlug": str(payload.get("niche_slug") or ""),
-                        "nicheTitle": str(payload.get("niche_title") or ""),
-                        "goal": str(campaign.objective or "awareness"),
-                        "language": campaign.language or "ru",
-                        "offerText": campaign.offer or "",
-                        "manualTopic": topic,
-                        "contentType": "post",
-                        "orientation": str(payload.get("orientation") or "any"),
-                    }
-                )
-                prompt_topic = f"{media_query.get('query') or topic}. Стиль: {style}. Реалистично."
+                prompt_topic = f"{topic}. Стиль: {style}. Реалистично."
                 if no_text_on_image:
                     prompt_topic += " Без текста, без надписей, без логотипов, без водяных знаков."
                 if no_fantasy:
                     prompt_topic += " Без фантастики, без нереалистичных персонажей."
-                image_url = pick_image_url(
-                    niche_slug=str(media_query.get("nicheSlug") or ""),
-                    niche_title=str(payload.get("niche_title") or topic),
-                    goal=str(campaign.objective or "awareness"),
+                image_url = generate_image_url(
+                    topic=prompt_topic,
+                    category="business",
+                    tone=tone,
                     language=campaign.language or "ru",
-                    offer_text=campaign.offer or "",
-                    manual_topic=topic,
-                    orientation=str(media_query.get("orientation") or "any"),
+                ) or build_semantic_fallback_image_url(
+                    topic=prompt_topic,
+                    category="business",
+                    tone=tone,
+                    language=campaign.language or "ru",
                 )
-                if not image_url:
-                    image_url = generate_image_url(
-                        topic=prompt_topic,
-                        category="business",
-                        tone=tone,
-                        language=campaign.language or "ru",
-                    ) or build_semantic_fallback_image_url(
-                        topic=prompt_topic,
-                        category="business",
-                        tone=tone,
-                        language=campaign.language or "ru",
-                    )
                 mirrored = _download_and_store_binary(image_url, ".jpg")
                 final_url = mirrored[0] if mirrored else image_url
                 size_bytes = mirrored[1] if mirrored else 0
@@ -3774,7 +3337,6 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         produced = generate_video_job_payload(
                             job_id=job.id,
                             campaign_id=campaign.id,
-                            user_id=campaign.user_id,
                             topic=topic,
                             offer=campaign.offer,
                             language=campaign.language or "ru",
@@ -3782,21 +3344,13 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                             aspect_ratio=aspect_ratio,
                             style=str(payload.get("style") or "educational"),
                             style_pack_id=str(payload.get("style_pack_id") or DEFAULT_STYLE_PACK_ID),
-                            use_lecture_txt=False,
+                            use_lecture_txt=True,
                             reuse_manifest=bool(payload.get("reuse_manifest")),
                             reuse_from_job_id=(int(payload.get("reuse_from_job_id")) if str(payload.get("reuse_from_job_id", "")).isdigit() else None),
                             scene_seconds=scene_seconds if scene_seconds > 0 else None,
                             minimize_repeats=minimize_repeats,
                             realistic_only=realistic_only,
                             progress_callback=_progress_cb,
-                            custom_scenes=(payload.get("custom_scenes") if isinstance(payload.get("custom_scenes"), list) else None),
-                            custom_title=str(payload.get("custom_title") or campaign.topic or ""),
-                            custom_description=str(payload.get("custom_description") or ""),
-                            custom_hashtags=(payload.get("custom_hashtags") if isinstance(payload.get("custom_hashtags"), list) else None),
-                            custom_cta=str(payload.get("custom_cta") or campaign.cta or ""),
-                            voice_gender=str(payload.get("voice_gender") or "male"),
-                            voice_tone=str(payload.get("voice_tone") or "neutral"),
-                            voice_name=str(payload.get("voice_name") or ""),
                         )
                         break
                     except Exception as exc:
@@ -3849,18 +3403,6 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                     )
                     db.add(thumb_asset)
                 _set_video_job_progress(db, job, status="uploading", progress=95, step="upload", message="Сохраняем ассеты и метаданные")
-                spoken_text = str(produced.get("spoken_text") or "").strip()
-                if not spoken_text:
-                    phrases_raw = produced.get("phrases")
-                    if isinstance(phrases_raw, list):
-                        spoken_text = " ".join([str(x or "").strip() for x in phrases_raw if str(x or "").strip()]).strip()
-                if not campaign.caption_master:
-                    campaign.caption_master = (spoken_text or str(produced.get("description") or "").strip() or campaign.topic or "").strip()[:5000] or None
-                if not campaign.hashtags_master:
-                    produced_tags = produced.get("hashtags") if isinstance(produced.get("hashtags"), list) else []
-                    campaign.hashtags_master = json.dumps([str(x).strip() for x in produced_tags if str(x).strip()][:30], ensure_ascii=False)
-                if not campaign.cta and str(produced.get("cta") or "").strip():
-                    campaign.cta = str(produced.get("cta") or "").strip()[:300]
                 campaign.status = "ready"
                 campaign.updated_at = datetime.utcnow()
                 job.status = "done"
@@ -3875,9 +3417,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         "title": produced.get("title"),
                         "description": produced.get("description"),
                         "hashtags": produced.get("hashtags") or [],
-                        "spoken_text": spoken_text,
                     },
-                    "spoken_text": spoken_text,
                     "artifacts": {
                         "audio_url": produced.get("audio_url"),
                         "subtitles_url": produced.get("subtitles_url"),
@@ -4099,9 +3639,6 @@ def campaign_generate_image(campaign_id: int):
             "no_text_on_image": bool(data.get("no_text_on_image") is not False),
             "realism": bool(data.get("realism") is not False),
             "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
-            "niche_slug": str(data.get("niche_slug") or data.get("nicheSlug") or "").strip().lower(),
-            "niche_title": str(data.get("niche_title") or data.get("nicheTitle") or "").strip(),
-            "orientation": str(data.get("orientation") or "any").strip().lower(),
         }
         job = GenerationJob(
             campaign_id=campaign.id,
@@ -4233,18 +3770,6 @@ def video_generate():
     scene_seconds = int(data.get("scene_seconds") or 0) if str(data.get("scene_seconds") or "").strip() else 0
     minimize_repeats = bool(data.get("minimize_repeats") is not False)
     realistic_only = bool(data.get("realistic_only") is not False)
-    voice_gender = str(data.get("voice_gender") or "male").strip().lower()
-    if voice_gender not in {"male", "female"}:
-        voice_gender = "male"
-    voice_tone = str(data.get("voice_tone") or "neutral").strip().lower()
-    if voice_tone not in {"calm", "neutral", "live"}:
-        voice_tone = "neutral"
-    voice_name = str(data.get("voice_name") or "").strip()
-    custom_scenes = data.get("custom_scenes") if isinstance(data.get("custom_scenes"), list) else None
-    custom_title = str(data.get("custom_title") or "").strip()
-    custom_description = str(data.get("custom_description") or "").strip()
-    custom_hashtags = data.get("custom_hashtags") if isinstance(data.get("custom_hashtags"), list) else None
-    custom_cta = str(data.get("custom_cta") or data.get("cta") or "").strip()
 
     project_id_raw = data.get("project_id")
     try:
@@ -4274,7 +3799,7 @@ def video_generate():
             offer=offer,
             objective="engagement",
             caption_master=None,
-            cta=(custom_cta or None),
+            cta=None,
             hashtags_master=json.dumps([], ensure_ascii=False),
             language=language,
             status="draft",
@@ -4302,9 +3827,6 @@ def video_generate():
                         "scene_seconds": scene_seconds if scene_seconds > 0 else None,
                         "minimize_repeats": minimize_repeats,
                         "realistic_only": realistic_only,
-                        "voice_gender": voice_gender,
-                        "voice_tone": voice_tone,
-                        "voice_name": voice_name,
                     }
                 },
                 ensure_ascii=False,
@@ -4329,16 +3851,7 @@ def video_generate():
                 "scene_seconds": scene_seconds if scene_seconds > 0 else None,
                 "minimize_repeats": minimize_repeats,
                 "realistic_only": realistic_only,
-                "voice_gender": voice_gender,
-                "voice_tone": voice_tone,
-                "voice_name": voice_name,
-                "custom_scenes": custom_scenes,
-                "custom_title": custom_title,
-                "custom_description": custom_description,
-                "custom_hashtags": custom_hashtags,
-                "custom_cta": custom_cta,
-                # Force fresh render to avoid serving stale subtitle styles from old manifests.
-                "reuse_manifest": False,
+                "reuse_manifest": bool(data.get("reuse_manifest") is True),
                 "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
             },
         )
@@ -4370,13 +3883,6 @@ def video_structure():
     scene_seconds = int(data.get("scene_seconds") or 0) if str(data.get("scene_seconds") or "").strip() else 0
     scene_seconds = max(0, min(12, scene_seconds))
     scene_every_4 = bool(data.get("scene_every_4s") is True)
-    voice_gender = str(data.get("voice_gender") or "male").strip().lower()
-    if voice_gender not in {"male", "female"}:
-        voice_gender = "male"
-    voice_tone = str(data.get("voice_tone") or "neutral").strip().lower()
-    if voice_tone not in {"calm", "neutral", "live"}:
-        voice_tone = "neutral"
-    voice_name = str(data.get("voice_name") or "").strip()
     try:
         script = generate_video_structure(
             topic=topic,
@@ -4389,121 +3895,21 @@ def video_structure():
     except Exception as exc:
         return jsonify({"error": f"Не удалось построить структуру видео: {str(exc)}"}), 500
 
-    def _normalize_scene_phrase(phrase_text: str, base_topic: str, idx: int) -> str:
-        text = " ".join(str(phrase_text or "").split()).strip()
-        text = text.replace("□", "").replace("�", "").strip()
-        if not text:
-            text = f"Разбираем тему: {base_topic}."
-        low = text.lower()
-        bad_starts = (
-            "добавьте ",
-            "покажите ",
-            "обозначьте ",
-            "уточните ",
-            "завершите ",
-            "сформулируйте ",
-            "кратко покажем ",
-        )
-        fallback_lines = [
-            f"{base_topic}: с чего начать без лишней теории.",
-            "Разбираем рабочий шаг, который реально внедрить уже сегодня.",
-            "Короткий пример из практики: действие, контекст и понятный результат.",
-            "Показываем частую ошибку и простой способ ее избежать.",
-            "Подводим итог и формулируем следующий шаг без воды.",
-            "Объясняем пользу для аудитории простым человеческим языком.",
-        ]
-        if any(low.startswith(b) for b in bad_starts):
-            text = fallback_lines[idx % len(fallback_lines)]
-        text = re.sub(r"\s{2,}", " ", text).strip()
-        text = re.sub(r"\.\s*\.", ".", text)
-        if text and text[-1] not in ".!?":
-            text = f"{text}."
-        if len(text) < 18:
-            text = fallback_lines[idx % len(fallback_lines)]
-        return text[:220]
-
-    phrases = [_normalize_scene_phrase(x, topic, i) for i, x in enumerate(list(script.phrases or []))]
-    base_step = float(scene_seconds if scene_seconds > 0 else (4 if scene_every_4 else 0))
-    if base_step > 0:
-        base_step = max(2.0, min(20.0, base_step))
-        desired_count = max(1, int((target_seconds + base_step - 1) // base_step))
-        if len(phrases) > desired_count:
-            phrases = phrases[:desired_count]
-        elif len(phrases) < desired_count:
-            pad_base = str(phrases[-1] if phrases else f"Итог по теме: {topic}") or f"Итог по теме: {topic}"
-            pad_variants = [
-                f"{topic}: разберем простой шаг, который можно внедрить сразу.",
-                "Кейс из практики: действие, результат и почему это сработало.",
-                "Частая ошибка в теме и быстрый способ ее исправить.",
-                "Понятный алгоритм: что делать сегодня, чтобы увидеть эффект.",
-                "Итог сцены: какую пользу получает аудитория.",
-            ]
-            pad_cursor = 0
-            while len(phrases) < desired_count:
-                phrases.append(_normalize_scene_phrase(pad_variants[pad_cursor % len(pad_variants)], topic, pad_cursor))
-                pad_cursor += 1
-        durations = []
-        remaining = float(target_seconds)
-        for _ in range(len(phrases)):
-            d = min(base_step, max(0.6, remaining))
-            durations.append(float(d))
-            remaining -= d
-    else:
-        even = float(target_seconds / max(1, len(phrases)))
-        even = max(0.6, even)
-        durations = [even for _ in phrases]
-
-    def _expand_phrase_for_duration(phrase_text: str, duration_s: float, base_topic: str, idx: int) -> str:
-        text = _normalize_scene_phrase(phrase_text, base_topic, idx)
-        if not text:
-            text = f"Ключевая мысль по теме: {base_topic}."
-        words = [w for w in text.split() if w]
-        min_words = max(7, int(round(float(duration_s or 0) * 1.7)))
-        if len(words) >= min_words:
-            return text
-        additions = [
-            "Добавим практичный пример, чтобы зритель сразу понял применение.",
-            "Сформулируем ожидаемый результат и как его проверить на практике.",
-            "Покажем частую ошибку и безопасный вариант решения.",
-            "Свяжем эту мысль с предыдущей сценой без повторения формулировок.",
-            "Уточним пользу для аудитории через конкретное действие.",
-            "Зафиксируем вывод коротко и по делу.",
-        ]
-        used_additions = set()
-        cursor = idx % len(additions)
-        while len(words) < min_words:
-            extra = additions[cursor]
-            cursor = (cursor + 1) % len(additions)
-            if extra in used_additions:
-                continue
-            used_additions.add(extra)
-            text = f"{text} {extra}".strip()
-            words = [w for w in text.split() if w]
-            if len(words) > max(min_words + 8, 34):
-                break
-            if len(used_additions) >= len(additions):
-                break
-        return text
-
+    phrases = list(script.phrases or [])
+    per_scene = float(scene_seconds if scene_seconds > 0 else (4 if scene_every_4 else (target_seconds / max(1, len(phrases)))))
+    per_scene = max(2.0, min(20.0, per_scene))
     scenes = []
     for idx, phrase in enumerate(phrases):
         shot = (script.shotlist[idx] if idx < len(script.shotlist) else {}) or {}
-        phrase_ready = _expand_phrase_for_duration(
-            phrase_text=phrase,
-            duration_s=float(durations[idx] if idx < len(durations) else 0.0),
-            base_topic=topic,
-            idx=idx,
-        )
         scenes.append(
             {
                 "index": idx,
-                "text": phrase_ready,
-                "duration_s": round(float(durations[idx] if idx < len(durations) else 0.0), 2),
+                "text": phrase,
+                "duration_s": round(per_scene, 2),
                 "scene_type": str(shot.get("scene_type") or "work"),
                 "queries": list(shot.get("queries") or []),
             }
         )
-    subtitle_lines = [str(s.get("text") or "").strip() for s in scenes if str(s.get("text") or "").strip()]
     return jsonify(
         {
             "status": "ok",
@@ -4515,12 +3921,8 @@ def video_structure():
                 "target_seconds": target_seconds,
                 "orientation": orientation,
                 "scenes": scenes,
-                "subtitles": {"enabled": True, "lines": subtitle_lines},
-                "voiceover": {
-                    "voice": (voice_name or ("Женский" if voice_gender == "female" else "Мужской")),
-                    "gender": voice_gender,
-                    "tone": voice_tone,
-                },
+                "subtitles": {"enabled": True, "lines": phrases},
+                "voiceover": {"voice": "Eddy", "gender": "male"},
                 "background_music": {"enabled": bool(settings.VIDEO_BG_MUSIC_ENABLED), "ducking": "low"},
             },
             "warnings": [],
@@ -4696,15 +4098,14 @@ def video_job_publish(job_id: int):
             platform = str(p or "").strip().lower()
             if platform not in {"youtube", "facebook", "instagram"}:
                 continue
-            caption_text, hashtags_list = _build_video_publish_caption(campaign, job)
             kind = "shorts" if platform == "youtube" else ("reel" if platform == "instagram" else "video")
             row = CampaignDelivery(
                 campaign_id=campaign.id,
                 platform=platform,
                 kind=kind,
                 account_ref=None,
-                caption_rendered=caption_text,
-                hashtags_rendered=json.dumps(hashtags_list, ensure_ascii=False),
+                caption_rendered=campaign.caption_master or campaign.topic,
+                hashtags_rendered=campaign.hashtags_master or "[]",
                 scheduled_at=None,
                 status="queued",
                 remote_id=None,
@@ -4746,8 +4147,7 @@ def campaign_publish(campaign_id: int):
     has_image_delivery = any(str((x or {}).get("kind") or "").strip().lower() == "image_post" for x in requested if isinstance(x, dict))
     has_schedule_delivery = any(bool((x or {}).get("scheduled_at")) for x in requested if isinstance(x, dict))
     if has_schedule_delivery:
-        schedule_kind = "video" if has_video_delivery and not has_image_delivery else "post"
-        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/campaigns/publish", "content_kind": schedule_kind}))
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/campaigns/publish"}))
         if pw:
             return pw
     if has_video_delivery:
@@ -5540,9 +4940,10 @@ def publish_post(post_id: int):
             return jsonify({"error": "Токен подключения не найден. Переподключите Facebook."}), 400
 
         t_decrypt = time.perf_counter()
-        access_token = _meta_get_user_access_token(db, connection)
-        if not access_token:
-            return jsonify({"error": "Не удалось получить токен Meta. Переподключите Facebook."}), 400
+        try:
+            access_token = decrypt_meta_token(connection.token_encrypted)
+        except Exception:
+            return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook."}), 400
         _mark("token_decrypt_ms", t_decrypt)
 
         caption = (post.generated_text or post.topic or "").strip()
@@ -5581,14 +4982,6 @@ def publish_post(post_id: int):
             if fb_err and fb_code == "324":
                 # If Meta rejects image URL, retry with text-only post.
                 result = publish_to_facebook(connection.page_id, page_access_token, None, caption)
-            if isinstance(result, dict):
-                status_from_error, reason = _meta_error_to_status(result.get("error") or result)
-                if reason == "access_token_invalid":
-                    access_token = _meta_get_user_access_token(db, connection, force_exchange=True)
-                    if access_token:
-                        page_access_token = _resolve_page_access_token(access_token, connection.page_id)
-                        if page_access_token:
-                            result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
             _mark("meta_publish_ms", t_publish)
             remote_id = result.get("post_id") or result.get("id")
         else:
@@ -5602,12 +4995,6 @@ def publish_post(post_id: int):
             ig_token = access_token
             t_publish = time.perf_counter()
             result = publish_to_instagram(connection.ig_user_id, ig_token, image_url, caption)
-            if isinstance(result, dict):
-                status_from_error, reason = _meta_error_to_status(result.get("error") or result)
-                if reason == "access_token_invalid":
-                    refreshed = _meta_get_user_access_token(db, connection, force_exchange=True)
-                    if refreshed:
-                        result = publish_to_instagram(connection.ig_user_id, refreshed, image_url, caption)
             _mark("meta_publish_ms", t_publish)
             remote_id = result.get("id")
 
@@ -5677,7 +5064,7 @@ def schedule_post(post_id: int):
     except Exception:
         return jsonify({"error": "schedule_at РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ ISO С„РѕСЂРјР°С‚Рµ"}), 400
 
-    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/posts/schedule", "content_kind": "post"}))
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/posts/schedule"}))
     if pw:
         return pw
 
@@ -5692,7 +5079,6 @@ def schedule_post(post_id: int):
         post.schedule_at = schedule_at
         post.status = "scheduled"
         db.commit()
-        recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/posts/schedule", "post_id": post.id, "mode": "scheduled"})
         return jsonify({"id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat()})
     finally:
         db.close()
@@ -5978,22 +5364,7 @@ def meta_callback():
             )
         )
 
-    resolved_access_token = str(access_token or "").strip()
-    meta_expires_at = None
-    exchanged_token, exchanged_expires_in = _meta_exchange_long_lived_user_token(resolved_access_token)
-    if exchanged_token:
-        resolved_access_token = exchanged_token
-        if exchanged_expires_in and exchanged_expires_in > 0:
-            meta_expires_at = datetime.utcnow() + timedelta(seconds=exchanged_expires_in)
-    else:
-        try:
-            short_expires_in = int(token_data.get("expires_in") or 0)
-        except Exception:
-            short_expires_in = 0
-        if short_expires_in > 0:
-            meta_expires_at = datetime.utcnow() + timedelta(seconds=short_expires_in)
-
-    page_id, ig_user_id, raw = get_page_and_ig_id(resolved_access_token)
+    page_id, ig_user_id, raw = get_page_and_ig_id(access_token)
     page_name = None
     if raw.get("data"):
         # Prefer page that has IG business; fallback to first page.
@@ -6029,60 +5400,34 @@ def meta_callback():
 
     db = SessionLocal()
     try:
-        token_enc = encrypt_meta_token(resolved_access_token)
-        pages = raw.get("data") or []
-        existing_rows = (
-            db.query(SocialAccount)
-            .filter(SocialAccount.user_id == user_id, SocialAccount.provider == "meta")
-            .order_by(SocialAccount.created_at.asc())
-            .all()
-        )
-        by_page_id = {str(r.page_id): r for r in existing_rows if str(r.page_id or "").strip()}
+        row = db.query(SocialAccount).filter_by(user_id=user_id, provider="meta").first()
+        if not row:
+            row = SocialAccount(user_id=user_id, provider="meta")
+            db.add(row)
 
-        if pages:
-            for p in pages:
-                pid = str(p.get("id") or "").strip()
-                if not pid:
-                    continue
-                row = by_page_id.get(pid)
-                if not row:
-                    row = SocialAccount(user_id=user_id, provider="meta")
-                    db.add(row)
-                    db.flush()
-                    by_page_id[pid] = row
-                ig = p.get("instagram_business_account") or {}
-                pic = (p.get("picture") or {}).get("data") or {}
-                row.page_id = pid
-                row.page_name = p.get("name")
+        row.page_id = page_id
+        row.page_name = page_name
+        # Try to store page picture / IG username for clearer UI. Not critical if missing.
+        try:
+            if raw.get("data"):
+                pages = raw.get("data") or []
+                selected_page = next((p for p in pages if p.get("instagram_business_account")), pages[0])
+                pic = (selected_page.get("picture") or {}).get("data") or {}
                 row.page_picture_url = pic.get("url")
-                row.ig_user_id = ig.get("id")
-                row.ig_username = ig.get("username")
-                row.token_encrypted = token_enc
-                row.token_expires_at = meta_expires_at
-                if row.page_id and row.ig_user_id:
-                    _apply_meta_status(row, "connected_ready")
-                elif row.page_id and not row.ig_user_id:
-                    _apply_meta_status(row, "connected_need_page", "ig_not_linked")
-                else:
-                    _apply_meta_status(row, "connected_need_page", "no_pages")
+                row.ig_username = (selected_page.get("instagram_business_account") or {}).get("username")
+        except Exception:
+            pass
+        row.ig_user_id = ig_user_id
+        row.token_encrypted = encrypt_meta_token(access_token)
+        if raw.get("error"):
+            status, reason = _meta_error_to_status(raw.get("error") or {})
+            _apply_meta_status(row, status, reason)
+        elif not page_id:
+            _apply_meta_status(row, "connected_need_page", "no_pages")
+        elif not ig_user_id:
+            _apply_meta_status(row, "connected_need_page", "ig_not_linked")
         else:
-            row = existing_rows[0] if existing_rows else SocialAccount(user_id=user_id, provider="meta")
-            if not existing_rows:
-                db.add(row)
-            row.page_id = page_id
-            row.page_name = page_name
-            row.ig_user_id = ig_user_id
-            row.token_encrypted = token_enc
-            row.token_expires_at = meta_expires_at
-            if raw.get("error"):
-                status, reason = _meta_error_to_status(raw.get("error") or {})
-                _apply_meta_status(row, status, reason)
-            elif not page_id:
-                _apply_meta_status(row, "connected_need_page", "no_pages")
-            elif not ig_user_id:
-                _apply_meta_status(row, "connected_need_page", "ig_not_linked")
-            else:
-                _apply_meta_status(row, "connected_ready")
+            _apply_meta_status(row, "connected_ready")
         db.commit()
     finally:
         db.close()
@@ -6230,97 +5575,11 @@ def _next_slot_datetimes(best_days: list[int], best_hours: list[int], take: int 
     return out[: max(1, int(take))]
 
 
-def _build_weekly_slots(
-    *,
-    now: datetime,
-    horizon_days: int,
-    posts_per_day: int,
-    day_avg: dict[int, float],
-    hour_avg: dict[int, float],
-) -> list[str]:
-    slots: list[datetime] = []
-    horizon_days = max(1, min(30, int(horizon_days or 7)))
-    posts_per_day = max(1, min(6, int(posts_per_day or 1)))
-
-    for shift in range(horizon_days):
-        base_day = now + timedelta(days=shift)
-        wd = int(base_day.weekday())
-        candidates = []
-        for h in range(24):
-            d_score = float(day_avg.get(wd, 0.0))
-            h_score = float(hour_avg.get(h, 0.0))
-            daylight_bonus = 0.06 if 9 <= h <= 21 else 0.0
-            prime_bonus = 0.08 if h in {11, 12, 13, 18, 19, 20} else 0.0
-            total = (d_score * 0.45) + (h_score * 0.55) + daylight_bonus + prime_bonus
-            candidates.append((total, h))
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        day_hours: list[int] = []
-        for _, hour in candidates:
-            if hour in day_hours:
-                continue
-            if day_hours and min(abs(hour - x) for x in day_hours) < 2:
-                continue
-            dt = base_day.replace(hour=int(hour), minute=0, second=0, microsecond=0)
-            if dt <= now:
-                continue
-            day_hours.append(int(hour))
-            if len(day_hours) >= posts_per_day:
-                break
-        for hour in sorted(day_hours):
-            slots.append(base_day.replace(hour=hour, minute=0, second=0, microsecond=0))
-
-    slots.sort()
-    return [x.isoformat() for x in slots]
-
-
-def _fallback_weekly_slots(*, now: datetime, platform: str, horizon_days: int, posts_per_day: int) -> list[str]:
-    """
-    Deterministic "best-practice" weekly schedule when historical metrics are sparse.
-    Values are intentionally conservative and human-friendly.
-    """
-    horizon_days = max(1, min(30, int(horizon_days or 7)))
-    posts_per_day = max(1, min(6, int(posts_per_day or 1)))
-    p = str(platform or "instagram").strip().lower()
-
-    if p == "youtube":
-        weekday_hours = [12, 19, 21, 10, 16, 18]
-        weekend_hours = [11, 18, 20, 13, 16, 21]
-    elif p == "facebook":
-        weekday_hours = [10, 13, 18, 20, 12, 16]
-        weekend_hours = [11, 15, 19, 13, 17, 20]
-    else:  # instagram + default meta
-        weekday_hours = [11, 14, 18, 20, 12, 16]
-        weekend_hours = [12, 17, 19, 14, 16, 20]
-
-    slots: list[datetime] = []
-    for shift in range(horizon_days):
-        day = now + timedelta(days=shift)
-        is_weekend = day.weekday() >= 5
-        src_hours = weekend_hours if is_weekend else weekday_hours
-        used: list[int] = []
-        for h in src_hours:
-            if len(used) >= posts_per_day:
-                break
-            if used and min(abs(h - x) for x in used) < 2:
-                continue
-            dt = day.replace(hour=int(h), minute=0, second=0, microsecond=0)
-            if dt <= now:
-                continue
-            used.append(int(h))
-            slots.append(dt)
-    slots.sort()
-    return [x.isoformat() for x in slots]
-
-
 @saas_api.route("/ai/best-posting-times", methods=["GET"])
 @require_auth
 def ai_best_posting_times():
     days = int((request.args.get("days") or "90").strip() or 90)
     days = max(14, min(days, 365))
-    horizon_days = int((request.args.get("horizon_days") or "7").strip() or 7)
-    horizon_days = max(7, min(horizon_days, 30))
-    posts_per_day = int((request.args.get("posts_per_day") or "1").strip() or 1)
-    posts_per_day = max(1, min(posts_per_day, 6))
     platform = str(request.args.get("platform") or "instagram").strip().lower()
     provider_platform = "youtube" if platform == "youtube" else "meta"
     now = datetime.utcnow()
@@ -6397,7 +5656,6 @@ def ai_best_posting_times():
                 day_scores[dt.weekday()].append(0.1)
                 hour_scores[dt.hour].append(0.1)
 
-        metrics_points = sum(len(v) for v in day_scores.values())
         if any(day_scores[k] for k in day_scores):
             ranked_days = sorted(day_scores.keys(), key=lambda d: (sum(day_scores[d]) / max(len(day_scores[d]), 1.0)), reverse=True)
             best_days = ranked_days[:2]
@@ -6411,66 +5669,14 @@ def ai_best_posting_times():
         else:
             _, best_hours = _default_best_slots(platform)
 
-        day_avg = {}
-        for d in range(7):
-            vals = day_scores.get(d) or []
-            day_avg[d] = (sum(vals) / len(vals)) if vals else 0.0
-        hour_avg = {}
-        for h in range(24):
-            vals = hour_scores.get(h) or []
-            hour_avg[h] = (sum(vals) / len(vals)) if vals else 0.0
-
-        low_data_mode = metrics_points < 6
-        if not any(day_avg.values()) or not any(hour_avg.values()):
-            default_days, default_hours = _default_best_slots(platform)
-            for d in default_days:
-                day_avg[int(d)] = max(float(day_avg.get(int(d), 0.0)), 0.2)
-            for h in default_hours:
-                hour_avg[int(h)] = max(float(hour_avg.get(int(h), 0.0)), 0.25)
-
-        if low_data_mode:
-            weekly_slots = _fallback_weekly_slots(
-                now=now,
-                platform=platform,
-                horizon_days=horizon_days,
-                posts_per_day=posts_per_day,
-            )
-        else:
-            weekly_slots = _build_weekly_slots(
-                now=now,
-                horizon_days=horizon_days,
-                posts_per_day=posts_per_day,
-                day_avg=day_avg,
-                hour_avg=hour_avg,
-            )
-        next_slots = weekly_slots[: max(6, min(42, horizon_days * posts_per_day))]
-
-        weekly_plan = []
-        for shift in range(horizon_days):
-            day = (now + timedelta(days=shift)).date()
-            day_iso = day.isoformat()
-            day_slots = [x for x in weekly_slots if str(x).startswith(day_iso)]
-            weekly_plan.append(
-                {
-                    "date": day_iso,
-                    "weekday": _weekday_ru((now + timedelta(days=shift)).weekday()),
-                    "slots": day_slots,
-                }
-            )
+        next_slots = _next_slot_datetimes(best_days=best_days, best_hours=best_hours, take=6)
         return jsonify(
             {
                 "status": "ok",
                 "platform": platform,
                 "best_days": [{"weekday": int(d), "label": _weekday_ru(d)} for d in best_days],
                 "best_hours": [int(h) for h in best_hours],
-                "next_slots": next_slots,
-                "weekly_slots": weekly_slots,
-                "weekly_plan": weekly_plan,
-                "horizon_days": horizon_days,
-                "posts_per_day": posts_per_day,
-                "metrics_points": int(metrics_points),
-                "recommendation_quality": ("high" if metrics_points >= 20 else ("medium" if metrics_points >= 8 else ("estimated" if low_data_mode else "low"))),
-                "recommendation_source": ("fallback_optimal" if low_data_mode else "historical_90d"),
+                "next_slots": [dt.isoformat() for dt in next_slots],
                 "source_days": days,
             }
         )
@@ -6505,59 +5711,12 @@ def youtube_status():
     user = g.current_user
     db = SessionLocal()
     try:
-        force_refresh = str(request.args.get("refresh") or "").strip().lower() in {"1", "true", "yes"}
         row = (
             db.query(SocialAccount)
             .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
             .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
             .first()
         )
-        if row and row.token_encrypted:
-            expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(minutes=5)))
-            if force_refresh or expires_soon:
-                refreshed = _youtube_get_access_token(db, row, force_refresh=True)
-                if refreshed:
-                    row.status = "connected_ready"
-                    row.status_reason_code = None
-                    row.updated_at = datetime.utcnow()
-                    db.commit()
-        return jsonify(_serialize_youtube_connection(row))
-    finally:
-        db.close()
-
-
-@saas_api.route("/integrations/youtube/refresh", methods=["POST"])
-@saas_api.route("/connections/youtube/refresh", methods=["POST"])
-@require_auth
-def youtube_refresh():
-    user = g.current_user
-    db = SessionLocal()
-    try:
-        row = (
-            db.query(SocialAccount)
-            .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
-            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
-            .first()
-        )
-        if not row:
-            return jsonify(_serialize_youtube_connection(None))
-        if not row.token_encrypted:
-            row.status = "not_connected"
-            row.status_reason_code = "no_token"
-            row.updated_at = datetime.utcnow()
-            db.commit()
-            return jsonify(_serialize_youtube_connection(row))
-        refreshed = _youtube_get_access_token(db, row, force_refresh=True)
-        if not refreshed:
-            row.status = "token_expired"
-            row.status_reason_code = "access_token_invalid"
-            row.updated_at = datetime.utcnow()
-            db.commit()
-            return jsonify(_serialize_youtube_connection(row)), 400
-        row.status = "connected_ready"
-        row.status_reason_code = None
-        row.updated_at = datetime.utcnow()
-        db.commit()
         return jsonify(_serialize_youtube_connection(row))
     finally:
         db.close()
@@ -6581,7 +5740,7 @@ def youtube_start():
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": _youtube_scopes(),
+        "scope": "https://www.googleapis.com/auth/youtube.readonly",
         "access_type": "offline",
         "include_granted_scopes": "true",
         "prompt": "consent select_account",
@@ -6682,9 +5841,6 @@ def youtube_disconnect():
         row.page_id = None
         row.page_name = None
         row.page_picture_url = None
-        row.token_encrypted = None
-        row.refresh_token_encrypted = None
-        row.token_expires_at = None
         row.status = "not_connected"
         row.status_reason_code = "user_disconnected"
         row.updated_at = datetime.utcnow()
@@ -7009,9 +6165,7 @@ def refresh_connection_token(connection_id: int):
             return jsonify(_serialize_connection(row))
 
         try:
-            access_token = _meta_get_user_access_token(db, row)
-            if not access_token:
-                raise RuntimeError("token_unavailable")
+            access_token = decrypt_meta_token(row.token_encrypted)
             raw = list_pages(access_token)
             if raw.get("error"):
                 status, reason = _meta_error_to_status(raw.get("error") or {})
@@ -7289,11 +6443,9 @@ def billing_entitlements():
 @require_auth
 def billing_checkout_subscription():
     data = request.get_json(silent=True) or {}
-    requested_plan = (data.get("plan") or "").strip().lower()
-    plan_name = normalize_plan_code(requested_plan)
-    spec = get_plan_spec(plan_name)
-    if not spec.public or spec.price_eur_month <= 0:
-        return jsonify({"error": "Выберите валидный платный тариф: starter/growth/pro/agency"}), 400
+    plan_name = (data.get("plan") or "").strip().lower()
+    if plan_name not in {"light", "pro", "agency"}:
+        return jsonify({"error": "Р’С‹Р±РµСЂРёС‚Рµ РІР°Р»РёРґРЅС‹Р№ С‚Р°СЂРёС„: light/pro/agency"}), 400
 
     user = _current_user_refetched()
     try:
@@ -7370,15 +6522,15 @@ def upgrade_demo_only_for_mock():
     db = SessionLocal()
     try:
         user = db.query(AppUser).filter_by(id=g.current_user.id).first()
-        user.plan = "growth"
-        plan = db.query(Plan).filter_by(name="growth").first()
+        user.plan = "pro"
+        plan = db.query(Plan).filter_by(name="pro").first()
         user.plan_id = plan.id if plan else user.plan_id
         user.billing_status = "active"
         db.commit()
     finally:
         db.close()
 
-    return jsonify({"plan": "growth"})
+    return jsonify({"plan": "pro"})
 
 
 @saas_api.route("/stripe/webhook", methods=["POST"])
@@ -7473,9 +6625,9 @@ def admin_users():
 @require_role("admin")
 def admin_update_plan(user_id: int):
     data = request.get_json(silent=True) or {}
-    new_plan = normalize_plan_code((data.get("plan") or "").strip().lower())
-    if new_plan not in PLAN_SPECS:
-        return jsonify({"error": "Тариф не найден"}), 400
+    new_plan = (data.get("plan") or "").strip().lower()
+    if new_plan not in {"free", "light", "pro", "agency"}:
+        return jsonify({"error": "РўР°СЂРёС„ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ free/light/pro/agency"}), 400
 
     db = SessionLocal()
     try:
@@ -7493,7 +6645,7 @@ def admin_update_plan(user_id: int):
         if plan.name == "free":
             sync_subscription_state(
                 user.id,
-                plan="free",
+                plan="trial",
                 status="trialing",
                 current_period_start=user.created_at or now,
                 current_period_end=(user.created_at or now) + timedelta(days=7),

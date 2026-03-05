@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
@@ -6,24 +6,24 @@
     <title>AutoSocial GPT — автоматизация SMM, публикации и контент</title>
     <meta
       name="description"
-      content="AI SaaS платформа для автопостинга в Facebook и Instagram. Генерация контента, планирование, аналитика."
+      content="AI SaaS платформа для автопостинга в Facebook и Instagram. Генерация контента, планирование и аналитика."
     />
     <meta name="theme-color" content="#0f172a" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="AutoSocial GPT — автоматизация SMM, публикации и контент" />
     <meta
       property="og:description"
-      content="AI SaaS платформа для автопостинга в Facebook и Instagram. Генерация контента, планирование, аналитика."
+      content="AI SaaS платформа для автопостинга в Facebook и Instagram. Генерация контента, планирование и аналитика."
     />
     <meta property="og:image" content="/assets/brand/hero-mockup.svg" />
     <meta property="og:locale" content="ru_RU" />
     <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=create-director-2026-02-25-2" />
   </head>
   <body>
-    <div id="siteLangSwitcher" class="site-lang-switcher">
-      <label for="siteLangSelect">Language</label>
-      <select id="siteLangSelect" aria-label="Site language">
+    <div id="siteLangSwitcher" class="site-lang-switcher notranslate" translate="no">
+      <label for="siteLangSelect">Язык</label>
+      <select id="siteLangSelect" class="notranslate" translate="no" aria-label="Site language">
         <option value="ru">Русский</option>
         <option value="uk">Українська</option>
         <option value="en">English</option>
@@ -40,37 +40,100 @@
         var defaultLang = 'ru';
         var allowed = ['ru', 'uk', 'en', 'es', 'de', 'fr'];
         var select = document.getElementById('siteLangSelect');
+        var host = String(window.location.hostname || '').replace(/^www\./, '');
         function normalizeLang(v) {
           var raw = String(v || '').toLowerCase().trim();
           if (!raw) return '';
           var shortCode = raw.split('-')[0];
           return allowed.indexOf(shortCode) >= 0 ? shortCode : '';
         }
-        function setCookie(name, value, days) {
+        function setCookieRaw(name, value, days, domain) {
           var expires = '';
           if (days) {
             var date = new Date();
             date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
             expires = '; expires=' + date.toUTCString();
           }
-          document.cookie = name + '=' + value + expires + '; path=/; SameSite=Lax';
+          var domainPart = domain ? '; domain=' + domain : '';
+          var securePart = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = name + '=' + value + expires + '; path=/' + domainPart + '; SameSite=Lax' + securePart;
+        }
+        function setCookie(name, value, days) {
+          setCookieRaw(name, value, days, '');
+          if (host && host.indexOf('.') > 0) setCookieRaw(name, value, days, '.' + host);
+        }
+        function removeCookieRaw(name, domain) {
+          var domainPart = domain ? '; domain=' + domain : '';
+          var securePart = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = name + '=; Max-Age=0; path=/' + domainPart + '; SameSite=Lax' + securePart;
         }
         function removeCookie(name) {
-          document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
+          removeCookieRaw(name, '');
+          if (host && host.indexOf('.') > 0) removeCookieRaw(name, '.' + host);
+        }
+        function applyGoogleCombo(lang) {
+          var normalized = normalizeLang(lang) || defaultLang;
+          var combo = document.querySelector('.goog-te-combo');
+          if (!combo) return false;
+          if (normalized === defaultLang) {
+            combo.value = defaultLang;
+          } else {
+            combo.value = normalized;
+          }
+          combo.dispatchEvent(new Event('change'));
+          return true;
+        }
+        function enforceLanguage(lang) {
+          var normalized = normalizeLang(lang) || defaultLang;
+          if (normalized === defaultLang) return;
+          var tries = 0;
+          var timer = setInterval(function () {
+            tries += 1;
+            if (applyGoogleCombo(normalized) || tries >= 24) clearInterval(timer);
+          }, 160);
+        }
+        function forceHideTranslateBanner() {
+          document.documentElement.style.top = '0px';
+          document.body.style.top = '0px';
+          document.documentElement.style.marginTop = '0px';
+          document.body.style.marginTop = '0px';
+          var frames = document.querySelectorAll('iframe.goog-te-banner-frame');
+          for (var i = 0; i < frames.length; i += 1) {
+            var frame = frames[i];
+            if (!frame) continue;
+            frame.style.display = 'none';
+          }
+          var banner = document.querySelector('.goog-te-banner-frame.skiptranslate');
+          if (banner) banner.style.display = 'none';
+        }
+        function attachTranslateBannerGuards() {
+          forceHideTranslateBanner();
+          setTimeout(forceHideTranslateBanner, 150);
+          setTimeout(forceHideTranslateBanner, 500);
+          setTimeout(forceHideTranslateBanner, 1200);
+          if (window.__gtBannerObserverAttached) return;
+          window.__gtBannerObserverAttached = true;
+          var observer = new MutationObserver(function () {
+            forceHideTranslateBanner();
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
         }
         function applyLang(lang) {
           var normalized = normalizeLang(lang) || defaultLang;
           localStorage.setItem('siteLang', normalized);
+          localStorage.setItem('lang', normalized);
+          if (select) select.value = normalized;
           document.documentElement.setAttribute('lang', normalized);
           if (normalized === defaultLang) {
             removeCookie('googtrans');
           } else {
             setCookie('googtrans', '/ru/' + normalized, 365);
           }
+          forceHideTranslateBanner();
           window.location.reload();
         }
         function detectInitialLang() {
-          var saved = normalizeLang(localStorage.getItem('siteLang'));
+          var saved = normalizeLang(localStorage.getItem('lang') || localStorage.getItem('siteLang'));
           if (saved) return saved;
           var browserLang = normalizeLang(navigator.language || '');
           return browserLang || defaultLang;
@@ -87,9 +150,13 @@
             },
             'google_translate_element'
           );
+          attachTranslateBannerGuards();
+          enforceLanguage(detectInitialLang());
         };
         var initial = detectInitialLang();
         document.documentElement.setAttribute('lang', initial);
+        localStorage.setItem('siteLang', initial);
+        localStorage.setItem('lang', initial);
         if (initial === defaultLang) {
           removeCookie('googtrans');
         } else {
@@ -101,12 +168,22 @@
             applyLang(select.value);
           });
         }
+        attachTranslateBannerGuards();
+        enforceLanguage(initial);
       })();
     </script>
     <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-    <script src="/app.js?v=ai-director-simple-2026-03-02-07"></script>
+    <script src="/app.js?v=create-week-uniq-2026-02-27-04"></script>
   </body>
 </html>
+
+
+
+
+
+
+
+
 
 
 

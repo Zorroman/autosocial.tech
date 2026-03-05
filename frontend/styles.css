@@ -827,9 +827,171 @@ th { color: var(--text-muted); font-weight: 600; }
   margin-top: 10px;
 }
 
-.create-preview-cta {
+.create-preview-meta-block {
   margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--brand-primary) 22%, var(--border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--surface) 92%, transparent),
+    color-mix(in oklab, var(--surface-2) 86%, transparent)
+  );
+}
+
+.create-preview-meta-block .create-preview-tags {
+  margin-top: 0;
+}
+
+.director-meta-input {
   width: 100%;
+  margin-top: 8px;
+  border: 1px solid color-mix(in oklab, var(--brand-primary) 24%, var(--border));
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.35;
+}
+
+.director-meta-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-primary) 24%, transparent);
+}
+
+.director-meta-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.director-meta-placeholder {
+  margin: 8px 0 0 0;
+  color: var(--text-muted);
+}
+
+.director-cta-preview {
+  margin: 8px 0 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--brand-violet) 24%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.create-preview-cta {
+  margin-top: 0;
+  width: 100%;
+}
+
+.social-preview-card {
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.social-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.social-header .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--brand-primary) 72%, #fff), color-mix(in oklab, var(--brand-accent) 70%, #fff));
+  box-shadow: var(--shadow-sm);
+}
+
+.social-caption {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin: 6px 0 10px;
+}
+
+.social-preview-media {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  position: relative;
+}
+
+.social-preview-media img,
+.social-preview-media video {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  max-height: 460px;
+  object-fit: cover;
+  display: block;
+}
+
+.social-preview-media.video::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(9, 14, 28, 0.35), transparent 38%);
+  pointer-events: none;
+}
+
+.play-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 2;
+}
+
+.duration-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 4px 8px;
+  z-index: 2;
+}
+
+.media-missing {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.social-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.social-actions {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .create-info-card h3 {
@@ -940,6 +1102,56 @@ th { color: var(--text-muted); font-weight: 600; }
   background: color-mix(in oklab, var(--surface) 90%, transparent);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-sm);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(244, 248, 255, 0.75));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+:root[data-theme='dark'] .glass-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.55));
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.5);
+}
+
+.create-director-shell {
+  position: relative;
+}
+
+.create-director-shell::before {
+  content: "";
+  position: absolute;
+  inset: -24px -12px auto -12px;
+  height: 320px;
+  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.18), transparent 44%),
+              radial-gradient(circle at 85% 10%, rgba(14, 165, 233, 0.14), transparent 34%);
+  pointer-events: none;
+}
+
+.create-director-card {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+}
+
+.create-pro-accordion {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+:root[data-theme='dark'] .create-pro-accordion {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.create-pro-accordion summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .connections-grid {
@@ -2153,6 +2365,145 @@ th { color: var(--text-muted); font-weight: 600; }
 .pill.active {
   background: color-mix(in oklab, var(--brand-primary) 18%, transparent);
   border-color: color-mix(in oklab, var(--brand-primary) 40%, var(--border));
+}
+
+.pill-btn {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pill-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.12);
+}
+
+.pill-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.create-segmented-control {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--surface-2) 92%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.create-segmented-control .segment-btn {
+  min-width: 78px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-segmented-control .segment-btn.btn-ghost {
+  background: transparent;
+  color: var(--text-main);
+  border-color: color-mix(in oklab, var(--border) 78%, transparent);
+}
+
+.create-segmented-control .segment-btn.btn-ghost:hover {
+  background: color-mix(in oklab, var(--surface-2) 70%, white 30%);
+}
+
+.create-segmented-control .segment-btn.btn-primary {
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.24);
+}
+
+.create-video-placeholder {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(99,102,241,0.12));
+  color: var(--text-muted);
+}
+
+.create-video-placeholder.is-horizontal {
+  aspect-ratio: 16 / 9;
+}
+
+.create-video-placeholder.is-vertical {
+  aspect-ratio: 9 / 16;
+  width: min(100%, 220px);
+  margin-inline: auto;
+}
+
+.create-video-placeholder img {
+  position: absolute;
+  inset: 0;
+}
+
+.create-video-placeholder .play-icon {
+  position: relative;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--brand-primary) 45%, var(--border));
+  display: grid;
+  place-items: center;
+  color: var(--brand-primary);
+  font-size: 18px;
+}
+
+.create-video-placeholder span {
+  position: relative;
+  z-index: 2;
+}
+
+.create-video-player {
+  width: 100%;
+  max-height: none;
+  aspect-ratio: 9 / 16;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #0b1220;
+}
+
+.create-video-player.is-horizontal {
+  aspect-ratio: 16 / 9;
+}
+
+.create-video-player.is-vertical {
+  aspect-ratio: 9 / 16;
+  width: min(100%, 220px);
+  margin-inline: auto;
+  display: block;
+}
+
+.create-progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.create-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6366f1 0%, #06b6d4 100%);
+  transition: width 0.35s ease;
 }
 
 .pill.done {
