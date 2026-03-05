@@ -2733,7 +2733,7 @@ function pageCreateV2() {
   hydrateCampaignDefaults();
   syncCampaignKindsByMode();
   const c = state.createCampaign;
-  const steps = ['Проект', 'Платформы', 'Медиа', 'Студия контента', 'Генерация', 'Публикация'];
+  const steps = ['Проект', 'Платформы', 'Медиа', 'AI Контент-директор', 'Генерация', 'Публикация'];
   const project = state.projects.find((p) => String(p.id) === String(c.projectId)) || state.projects[0] || null;
   const projectName = project?.name || 'Проект не выбран';
   const hashtags = Array.isArray(c.hashtags) ? c.hashtags : [];
@@ -2919,7 +2919,7 @@ function pageCreateV2() {
     : '';
 
   const step4 = `
-    <div class="wizard-step-note">Студия контента: соберите бриф, сгенерируйте варианты и подготовьте финальный текст.</div>
+    <div class="wizard-step-note">AI Контент-директор: соберите бриф, сгенерируйте варианты и подготовьте финальный текст.</div>
     <div class="create-studio-mode">
       <button id="cwStudioQuick" type="button" class="btn ${c.studioMode === 'quick' ? 'btn-primary' : 'btn-ghost'}">Быстро</button>
       <button id="cwStudioPro" type="button" class="btn ${c.studioMode === 'pro' ? 'btn-primary' : 'btn-ghost'}">Профи</button>
@@ -3017,7 +3017,60 @@ function pageCreateV2() {
     ${(c.publishMessage || '').trim() ? `<p class="small">${esc(c.publishMessage)}</p>` : ''}
     ${deliveryRows ? `<div class="table-wrap"><table><thead><tr><th>Платформа</th><th>Тип</th><th>Статус</th><th>Сообщение</th></tr></thead><tbody>${deliveryRows}</tbody></table></div>` : ''}
   `;
-  const stepContent = [step1, step2, step3, step4, step5, step6][(c.step || 1) - 1] || step1;
+  const stepContent = `
+    <article class="card create-studio-card" style="margin-top:10px;">
+      ${field('cwTopic', 'Тема/идея *', 'text', c.topic || '', 'Например: как привлечь клиентов')}
+      ${field('cwOffer', 'Оффер (опционально)', 'text', c.offer || '', 'Например: скидка 20% до пятницы')}
+      <div class="grid-2">
+        ${selectField('cwLang', 'Язык', c.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'ua', label: 'Українська' }, { value: 'de', label: 'Deutsch' }, { value: 'en', label: 'English' }])}
+        ${selectField('cwContentGoal', 'Цель', c.contentGoal || 'engagement', goalOptions)}
+      </div>
+      <div class="row" style="gap:12px;flex-wrap:wrap;margin:8px 0;">
+        <label class="create-toggle"><input id="cwFb" type="checkbox" ${c.platforms.facebook ? 'checked' : ''}/> Facebook</label>
+        <label class="create-toggle"><input id="cwIg" type="checkbox" ${c.platforms.instagram ? 'checked' : ''}/> Instagram</label>
+        <label class="create-toggle"><input id="cwYt" type="checkbox" ${c.platforms.youtube ? 'checked' : ''}/> YouTube</label>
+      </div>
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <label style="margin:0;">Темы</label>
+        <button id="cwSuggestTopicsBtn" class="btn btn-secondary" type="button" ${(c.aiAssist?.topicLoading || c.aiAssist?.loading) ? 'disabled' : ''}>${(c.aiAssist?.topicLoading || c.aiAssist?.loading) ? 'Подбираем…' : 'Подобрать темы'}</button>
+      </div>
+      <div class="create-assist-list">${(c.aiAssist?.topicOptions || []).map((t, i) => `<button type="button" class="btn btn-ghost" data-cw-topic-option="${i}">${esc(t)}</button>`).join('') || '<p class="small">Можно ввести тему вручную или выбрать предложенную.</p>'}</div>
+      ${c.mode === 'video' ? `<div class="grid-2">${selectField('cwDuration', 'Длительность видео', String(c.videoDuration || 30), [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }])}${selectField('cwRatio', 'Формат', c.videoAspectRatio || '9:16', [{ value: '9:16', label: 'Shorts/Reels (9:16)' }, { value: '16:9', label: 'Обычное (16:9)' }])}</div>` : ''}
+      <div class="cta-row" style="margin-top:10px;">
+        <button id="cwSmartGenerateBtn" class="btn btn-primary" type="button" ${cg.loading ? 'disabled' : ''}>${cg.loading ? 'Генерируем…' : 'Сгенерировать пост'}</button>
+        <button id="cwGenerateVideo" class="btn btn-secondary" type="button" ${running ? 'disabled' : ''}>${running ? 'Собираем…' : 'Сгенерировать видео'}</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px;">${platformTabs || '<span class="small">Выберите платформы</span>'}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">${variantIds.map((v) => `<button type="button" class="btn ${activeVariant === v ? 'btn-primary' : 'btn-ghost'}" data-cw-variant="${v}">Вариант ${v}</button>`).join('') || '<span class="small">После генерации появятся варианты</span>'}</div>
+      ${cg.loading ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
+      ${(cg.error || '').trim() ? `<div class="notice error" style="margin-top:8px;">${esc(cg.error)}</div>` : ''}
+      ${field('cwCaption', 'Текст', 'textarea', c.caption || (activeDraft?.post_text || ''), 'Текст появится после генерации')}
+      <div class="grid-2">
+        <div>
+          <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+            <label style="margin:0;">Призыв</label>
+            <button id="cwRefreshCtaBtn" type="button" class="btn btn-ghost" ${Number(c.aiAssist?.ctaRefreshCount || 0) >= 5 ? 'disabled' : ''}>Обновить CTA (${Number(c.aiAssist?.ctaRefreshCount || 0)}/5)</button>
+          </div>
+          <input id="cwCta" type="text" value="${esc(c.cta || (activeDraft?.cta || ''))}" placeholder="Например: Напишите в директ" />
+        </div>
+        <div>
+          <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+            <label style="margin:0;">Хештеги</label>
+            <button id="cwRefreshTagsBtn" type="button" class="btn btn-ghost" ${Number(c.aiAssist?.tagsRefreshCount || 0) >= 5 ? 'disabled' : ''}>Обновить хештеги (${Number(c.aiAssist?.tagsRefreshCount || 0)}/5)</button>
+          </div>
+          <input id="cwHashtags" type="text" value="${esc(hashtags.join(' '))}" placeholder="#бизнес #контент" />
+        </div>
+      </div>
+      <div class="grid-2">
+        ${selectField('cwRewriteStyle', 'Улучшить текст', c.rewriteStyle || 'короче', [{ value: 'короче', label: 'Сделать короче' }, { value: 'длиннее', label: 'Сделать длиннее' }, { value: 'более продающе', label: 'Более продающе' }, { value: 'более экспертно', label: 'Более экспертно' }])}
+        ${selectField('cwContentTone', 'Тон', c.contentTone || 'friendly', [{ value: 'neutral', label: 'Нейтральный' }, { value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }])}
+      </div>
+      <div class="cta-row">
+        <button id="cwRewriteBtn" class="btn btn-ghost" type="button">Улучшить текст</button>
+        <button id="cwQualityCheckBtn" class="btn btn-ghost" type="button">Проверка качества</button>
+      </div>
+    </article>
+  `;
 
   const previewCard = `
     <article class="create-preview-card">
@@ -3048,15 +3101,17 @@ function pageCreateV2() {
     <section class="create-wizard-shell">
       <div class="create-wizard-grid">
         <article class="card create-main-col">
-          <h2>Студия контента</h2>
-          <p class="small">Соберите бриф, получите варианты от AI и отправьте публикацию в очередь.</p>
-          <div class="create-progress-badge">Шаг ${c.step || 1} из 6 · ~${Math.max(1, 7 - (c.step || 1))} минут до готового поста</div>
-          <div class="stepper stepper-6">${steps.map((label, idx) => `<div class="step ${(c.step || 1) === (idx + 1) ? 'active' : ''}">${idx + 1}. ${esc(label)}</div>`).join('')}</div>
-          <h3 class="create-step-title">${esc(steps[(c.step || 1) - 1] || 'Шаг')}</h3>
+          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h2 style="margin:0;">AI Контент-директор</h2>
+            <div class="row" style="gap:8px;">
+              <button type="button" class="btn ${c.mode === 'image' ? 'btn-primary' : 'btn-ghost'}" data-cw-mode="image">Пост</button>
+              <button type="button" class="btn ${c.mode === 'video' ? 'btn-primary' : 'btn-ghost'}" data-cw-mode="video">Видео</button>
+            </div>
+          </div>
+          <p class="small">Простой режим: тема → генерация поста или видео.</p>
           ${stepContent}
           <div class="cta-row create-wizard-actions">
-            ${c.step > 1 ? '<button id="cwPrev" type="button" class="btn btn-ghost">Назад</button>' : ''}
-            ${c.step < 6 ? '<button id="cwNext" type="button" class="btn btn-primary">Далее</button>' : '<button id="cwSubmitPublish" type="button" class="btn btn-primary">Подтвердить</button>'}
+            <button id="cwSubmitPublish" type="button" class="btn btn-primary">Опубликовать</button>
           </div>
           <details class="create-mobile-preview"><summary>Предпросмотр</summary><div class="create-mobile-preview-content">${previewCard}${infoCard}</div></details>
         </article>
@@ -3365,6 +3420,8 @@ async function bindCreateWizardV2(path) {
       };
       c.contentGeneration.debugCode = generated?.debug_code || '';
       applyFirstDraftToCampaign();
+      c.activeVariant = 1;
+      c.previewPlatform = c.contentGeneration.activePlatform || c.previewPlatform || 'facebook';
       render();
     } catch (e) {
       c.contentGeneration = {
@@ -3418,6 +3475,7 @@ async function bindCreateWizardV2(path) {
     });
     const s = out?.suggestions || {};
     c.aiAssist = {
+      ...(c.aiAssist || {}),
       loading: false,
       hook: String(s.hook || ''),
       angles: Array.isArray(s.angles) ? s.angles : [],
@@ -3426,6 +3484,81 @@ async function bindCreateWizardV2(path) {
     if (!c.cta && c.aiAssist.ctaVariants?.[0]) c.cta = c.aiAssist.ctaVariants[0];
     c.dirty = true;
     render();
+  };
+
+  const runDirectorSuggestData = async (variationSeed = 0) => {
+    const c = state.createCampaign;
+    try {
+      const out = await api('/api/ai/director/suggest', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: c.topic || '',
+          offer: c.offer || '',
+          goal: c.contentGoal || 'engagement',
+          tone: c.contentTone || 'friendly',
+          language: c.language || 'ru',
+          platforms: selectedContentPlatforms(),
+          variation_seed: Number(variationSeed || 0),
+        }),
+      });
+      return out?.data || {};
+    } catch {
+      const fallback = await api('/api/create/suggest', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: c.topic || '',
+          offer: c.offer || '',
+          goal: c.contentGoal || 'engagement',
+          tone: c.contentTone || 'friendly',
+          language: c.language || 'ru',
+        }),
+      });
+      const s = fallback?.suggestions || {};
+      return {
+        topics: Array.isArray(c.aiAssist?.topicOptions) ? c.aiAssist.topicOptions : [],
+        angles: Array.isArray(s.angles) ? s.angles : [],
+        cta_options: Array.isArray(s.cta_variants) ? s.cta_variants : [],
+        hashtag_sets: [],
+      };
+    }
+  };
+
+  const runRefreshCta = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    if (!String(c.topic || '').trim()) throw new Error('Сначала укажите тему');
+    const nextCount = Number(c.aiAssist?.ctaRefreshCount || 0) + 1;
+    if (nextCount > 5) throw new Error('Лимит обновления CTA: 5');
+    const data = await runDirectorSuggestData(nextCount);
+    const items = Array.isArray(data?.cta_options) ? data.cta_options : [];
+    const next = String(items[0] || '').trim();
+    if (next) c.cta = next;
+    c.aiAssist = { ...(c.aiAssist || {}), ctaRefreshCount: nextCount };
+    c.dirty = true;
+    render();
+    await runQualityCheck();
+  };
+
+  const runRefreshHashtags = async () => {
+    readLocalForm();
+    const c = state.createCampaign;
+    if (!String(c.topic || '').trim()) throw new Error('Сначала укажите тему');
+    const nextCount = Number(c.aiAssist?.tagsRefreshCount || 0) + 1;
+    if (nextCount > 5) throw new Error('Лимит обновления хештегов: 5');
+    const data = await runDirectorSuggestData(nextCount);
+    const sets = Array.isArray(data?.hashtag_sets) ? data.hashtag_sets : [];
+    const firstSet = Array.isArray(sets[0]) ? sets[0] : [];
+    if (firstSet.length) {
+      c.hashtags = parseCampaignHashtags(firstSet.join(' '));
+    } else if (Array.isArray(data?.topics) && data.topics[0]) {
+      const seed = String(data.topics[0]).toLowerCase().replace(/[^a-zа-яё0-9\s]/gi, ' ').trim();
+      const words = seed.split(/\s+/).filter((w) => w.length > 3).slice(0, 4).map((w) => `#${w}`);
+      if (words.length) c.hashtags = parseCampaignHashtags(words.join(' '));
+    }
+    c.aiAssist = { ...(c.aiAssist || {}), tagsRefreshCount: nextCount };
+    c.dirty = true;
+    render();
+    await runQualityCheck();
   };
 
   const runRewrite = async () => {
@@ -3686,6 +3819,66 @@ async function bindCreateWizardV2(path) {
       render();
     } catch (e) {
       state.notice = { type: 'error', text: e.message || 'Не удалось улучшить текст' };
+      render();
+    }
+  };
+  const suggestTopicsBtn = document.getElementById('cwSuggestTopicsBtn');
+  if (suggestTopicsBtn) suggestTopicsBtn.onclick = async () => {
+    try {
+      readLocalForm();
+      const c = state.createCampaign;
+      if (!String(c.topic || '').trim()) throw new Error('Сначала укажите тему');
+      c.aiAssist = { ...(c.aiAssist || {}), topicLoading: true };
+      render();
+      const data = await runDirectorSuggestData(Number(c.aiAssist?.topicRefreshCount || 0));
+      const topics = Array.isArray(data?.topics) ? data.topics.filter(Boolean).slice(0, 7) : [];
+      c.aiAssist = {
+        ...(c.aiAssist || {}),
+        topicLoading: false,
+        topicRefreshCount: Number(c.aiAssist?.topicRefreshCount || 0) + 1,
+        topicOptions: topics,
+        angles: Array.isArray(data?.angles) ? data.angles.slice(0, 3) : (c.aiAssist?.angles || []),
+        ctaVariants: Array.isArray(data?.cta_options) ? data.cta_options.slice(0, 3) : (c.aiAssist?.ctaVariants || []),
+      };
+      if (topics.length && !String(c.topic || '').trim()) c.topic = topics[0];
+      c.dirty = true;
+      state.notice = { type: 'ok', text: 'Темы обновлены.' };
+      render();
+    } catch (e) {
+      state.createCampaign.aiAssist = { ...(state.createCampaign.aiAssist || {}), topicLoading: false };
+      state.notice = { type: 'error', text: e.message || 'Не удалось подобрать темы' };
+      render();
+    }
+  };
+  document.querySelectorAll('[data-cw-topic-option]').forEach((btn) => {
+    btn.onclick = () => {
+      const idx = Number(btn.getAttribute('data-cw-topic-option') || 0);
+      const val = (state.createCampaign.aiAssist?.topicOptions || [])[idx];
+      if (!val) return;
+      state.createCampaign.topic = String(val).trim();
+      state.createCampaign.dirty = true;
+      render();
+    };
+  });
+  const refreshCtaBtn = document.getElementById('cwRefreshCtaBtn');
+  if (refreshCtaBtn) refreshCtaBtn.onclick = async () => {
+    try {
+      await runRefreshCta();
+      state.notice = { type: 'ok', text: 'CTA обновлён.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось обновить CTA' };
+      render();
+    }
+  };
+  const refreshTagsBtn = document.getElementById('cwRefreshTagsBtn');
+  if (refreshTagsBtn) refreshTagsBtn.onclick = async () => {
+    try {
+      await runRefreshHashtags();
+      state.notice = { type: 'ok', text: 'Хештеги обновлены.' };
+      render();
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось обновить хештеги' };
       render();
     }
   };

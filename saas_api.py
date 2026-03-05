@@ -2,6 +2,7 @@
 import os
 import random
 import re
+import subprocess
 import smtplib
 import ssl
 import hashlib
@@ -37,9 +38,26 @@ from facebook_api import (
     publish_to_facebook,
     publish_to_instagram,
 )
-from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
+from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_structured_text_with_usage
+try:
+    from image_picker import pick_image_url
+except Exception:
+    from image_picker import get_image_by_niche as _legacy_get_image_by_niche  # type: ignore
+
+    def pick_image_url(*args, **kwargs):
+        topic = ""
+        if args:
+            topic = str(args[0] or "").strip()
+        if not topic:
+            topic = str(kwargs.get("topic") or kwargs.get("niche") or "").strip()
+        if not topic:
+            topic = "business"
+        return _legacy_get_image_by_niche(topic)
+from media_query_builder import buildMediaQuery
 from content_pipeline import (
     OpenAIClientError,
+    director_generate_drafts,
+    director_suggest,
     generate_quick_suggestions,
     generate_strategy_and_drafts,
     rewrite_caption_safe,
@@ -66,10 +84,30 @@ from saas_models import (
     ContentStrategy,
     Project,
     GenerationJob,
+    Niche,
+    Subscription,
+    Template,
+    UsageCounter,
+    UsageEvent,
     UserTemplate,
+    UserStylePref,
     SocialAccount,
     SystemLog,
     TopicSuggestion,
+)
+from services.entitlements import (
+    ACTION_ACCOUNT_CONNECT,
+    ACTION_POST_GENERATE,
+    ACTION_POST_PUBLISH,
+    ACTION_PROJECT_CREATE,
+    ACTION_SCHEDULE_CREATE,
+    ACTION_VIDEO_GENERATE,
+    ACTION_VIDEO_PUBLISH,
+    authorizeAction,
+    getLimits,
+    getEntitlementsPayload,
+    recordUsageEvent,
+    sync_subscription_state,
 )
 from saas_services import (
     CREDIT_PACKS,
@@ -93,6 +131,8 @@ from saas_services import (
     seed_plans,
 )
 from saas_settings import settings
+from plans_catalog import PLAN_SPECS, PUBLIC_PLAN_ORDER, get_plan_spec, normalize_plan_code, to_plan_payload
+from style_packs import DEFAULT_STYLE_PACK_ID, get_style_pack, list_style_packs
 from stripe_service import (
     create_credit_pack_checkout,
     create_portal_link,
@@ -101,6 +141,7 @@ from stripe_service import (
     verify_and_construct_event,
 )
 from video_pipeline import generate_video_job_payload
+from video_script_generator import generate as generate_video_structure
 
 saas_api = Blueprint("saas_api", __name__, url_prefix="/api")
 OAUTH_STATES = {}
@@ -129,6 +170,52 @@ def _ip() -> str:
 def _auth_code_hash(challenge_token: str, code: str) -> str:
     payload = f"{challenge_token}:{code}:{AUTH_CODE_PEPPER}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _summarize_director_warnings(raw_warnings) -> list[str]:
+    if not isinstance(raw_warnings, list):
+        return []
+    # Technical fallback details are useful in logs/debug_code, but noisy in UX.
+    hidden_codes = {
+        "structured_json_failed",
+        "simplified_failed",
+        "hard_fallback_default",
+        "simplified_schema_used",
+        "free_text_parsed",
+    }
+    mapping = {
+        "network_fallback": "Сеть нестабильна: показаны локальные варианты для редактирования.",
+        "openai_quota_exceeded": "Лимит GPT исчерпан: пополните OpenAI billing, чтобы получать новые AI-варианты.",
+    }
+    out: list[str] = []
+    seen = set()
+    for item in raw_warnings:
+        key = str(item or "").strip()
+        if not key:
+            continue
+        if key in hidden_codes:
+            continue
+        msg = mapping.get(key)
+        if not msg:
+            low = key.lower()
+            if ("full-schema" in low) or ("simplified" in low and "режим" not in low) or ("fallback" in low):
+                continue
+            if len(key) > 160:
+                continue
+            msg = key
+        if msg not in seen:
+            seen.add(msg)
+            out.append(msg)
+    return out[:2]
+
+
+def _summarize_create_generate_warnings(raw_warnings) -> list[str]:
+    summarized = _summarize_director_warnings(raw_warnings)
+    if summarized:
+        return summarized
+    if isinstance(raw_warnings, list) and raw_warnings:
+        return ["AI ответ частично восстановлен. Проверьте текст перед публикацией."]
+    return []
 
 
 def _send_auth_email_code(email: str, code: str, flow: str, ip_addr: str, challenge_token: str) -> bool:
@@ -180,6 +267,40 @@ def _current_user_refetched() -> AppUser:
         return db.query(AppUser).filter_by(id=g.current_user.id).first()
     finally:
         db.close()
+
+
+def _paywall_response_if_needed(authz: dict | None):
+    if not authz:
+        return None
+    if authz.get("allowed", False):
+        return None
+    payload = authz.get("error_payload") or {"error": "PAYWALL_LIMIT", "message": "Требуется апгрейд тарифа."}
+    return jsonify(payload), int(authz.get("http_status") or 402)
+
+
+def _get_user_style_pref(db, user_id: int) -> str:
+    row = db.query(UserStylePref).filter_by(user_id=user_id).first()
+    if not row:
+        return DEFAULT_STYLE_PACK_ID
+    return str(row.default_style_pack or DEFAULT_STYLE_PACK_ID).strip().lower() or DEFAULT_STYLE_PACK_ID
+
+
+def _set_user_style_pref(db, user_id: int, style_pack_id: str) -> str:
+    normalized = get_style_pack(style_pack_id).get("id") or DEFAULT_STYLE_PACK_ID
+    row = db.query(UserStylePref).filter_by(user_id=user_id).first()
+    if not row:
+        row = UserStylePref(
+            user_id=user_id,
+            default_style_pack=normalized,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(row)
+    else:
+        row.default_style_pack = normalized
+        row.updated_at = datetime.utcnow()
+    db.commit()
+    return normalized
 
 
 def _frontend_base_url() -> str:
@@ -248,6 +369,135 @@ def _google_client_id() -> str:
 
 def _google_client_secret() -> str:
     return (os.getenv("GOOGLE_CLIENT_SECRET") or "").strip()
+
+
+def _youtube_scopes() -> str:
+    # upload scope is required for video publish; readonly helps channel introspection.
+    return "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly"
+
+
+def _youtube_refresh_access_token(db, row: SocialAccount) -> str | None:
+    if not row or not row.refresh_token_encrypted:
+        return None
+    client_id = _google_client_id()
+    client_secret = _google_client_secret()
+    if not client_id or not client_secret:
+        return None
+    try:
+        refresh_token = decrypt_meta_token(row.refresh_token_encrypted)
+    except Exception:
+        return None
+    if not refresh_token:
+        return None
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+            timeout=20,
+        )
+        if not resp.ok:
+            return None
+        payload = resp.json() or {}
+        new_access = str(payload.get("access_token") or "").strip()
+        if not new_access:
+            return None
+        new_refresh = str(payload.get("refresh_token") or "").strip()
+        expires_in = int(payload.get("expires_in") or 3600)
+        row.token_encrypted = encrypt_meta_token(new_access)
+        if new_refresh:
+            row.refresh_token_encrypted = encrypt_meta_token(new_refresh)
+        row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        return new_access
+    except Exception:
+        db.rollback()
+        return None
+
+
+def _youtube_get_access_token(db, row: SocialAccount, *, force_refresh: bool = False) -> str:
+    if not row or not row.token_encrypted:
+        return ""
+    expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(minutes=2)))
+    if force_refresh or expires_soon:
+        refreshed = _youtube_refresh_access_token(db, row)
+        if refreshed:
+            return refreshed
+    try:
+        return decrypt_meta_token(row.token_encrypted)
+    except Exception:
+        return ""
+
+
+def _meta_exchange_long_lived_user_token(user_access_token: str) -> tuple[str | None, int | None]:
+    token = str(user_access_token or "").strip()
+    if not token:
+        return None, None
+    client_id = _facebook_client_id()
+    client_secret = _facebook_client_secret()
+    if not client_id or not client_secret:
+        return None, None
+    try:
+        resp = requests.get(
+            "https://graph.facebook.com/v20.0/oauth/access_token",
+            params={
+                "grant_type": "fb_exchange_token",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "fb_exchange_token": token,
+            },
+            timeout=20,
+        )
+        if not resp.ok:
+            return None, None
+        payload = resp.json() if resp.content else {}
+        if not isinstance(payload, dict):
+            return None, None
+        exchanged = str(payload.get("access_token") or "").strip()
+        if not exchanged:
+            return None, None
+        expires_in_raw = payload.get("expires_in")
+        try:
+            expires_in = int(expires_in_raw) if expires_in_raw is not None else None
+        except Exception:
+            expires_in = None
+        return exchanged, expires_in
+    except Exception:
+        return None, None
+
+
+def _meta_get_user_access_token(db, row: SocialAccount, *, force_exchange: bool = False) -> str:
+    if not row or not row.token_encrypted:
+        return ""
+    try:
+        current_token = decrypt_meta_token(row.token_encrypted)
+    except Exception:
+        return ""
+    expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(days=3)))
+    if not (force_exchange or expires_soon):
+        return current_token
+    exchanged, expires_in = _meta_exchange_long_lived_user_token(current_token)
+    if not exchanged:
+        return current_token
+    try:
+        row.token_encrypted = encrypt_meta_token(exchanged)
+        if expires_in and expires_in > 0:
+            row.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        return exchanged
+    except Exception:
+        db.rollback()
+        return current_token
 
 
 def _google_redirect_uri() -> str:
@@ -422,6 +672,43 @@ def _job_payload(job: GenerationJob) -> dict:
     }
 
 
+def _job_result_dict(job: GenerationJob) -> dict:
+    data = _json_loads_safe(job.result_json, {})
+    return data if isinstance(data, dict) else {}
+
+
+def _merge_job_result(job: GenerationJob, patch: dict) -> None:
+    base = _job_result_dict(job)
+    base.update(patch or {})
+    job.result_json = json.dumps(base, ensure_ascii=False)
+
+
+def _set_video_job_progress(
+    db,
+    job: GenerationJob,
+    *,
+    status: str | None = None,
+    progress: int | None = None,
+    step: str | None = None,
+    message: str | None = None,
+) -> None:
+    if status:
+        job.status = status
+    if progress is not None:
+        job.progress = max(0, min(100, int(progress)))
+    if step or message:
+        payload = _job_result_dict(job)
+        progress_payload = payload.get("progress") if isinstance(payload.get("progress"), dict) else {}
+        if step:
+            progress_payload["step"] = str(step)
+        if message:
+            progress_payload["message"] = str(message)
+        payload["progress"] = progress_payload
+        job.result_json = json.dumps(payload, ensure_ascii=False)
+    job.updated_at = datetime.utcnow()
+    db.commit()
+
+
 def _extract_hashtags(raw_text: str, limit: int = 8) -> list[str]:
     found = re.findall(r"#([\wа-яА-Я0-9_]+)", raw_text or "", flags=re.U)
     uniq = []
@@ -445,8 +732,12 @@ def _normalize_create_goal(value: str) -> str:
         "leads": "lead",
         "лиды": "lead",
         "awareness": "awareness",
+        "охват": "awareness",
+        "reach": "awareness",
         "expertise": "awareness",
         "экспертность": "awareness",
+        "trust": "trust",
+        "доверие": "trust",
         "announcement": "engagement",
         "анонс": "engagement",
         "warmup": "engagement",
@@ -475,23 +766,32 @@ def _quality_check_payload(caption: str, cta: str, hashtags: list[str], goal: st
     text = str(caption or "").strip()
     cta_text = str(cta or "").strip()
     tags = [str(x).strip() for x in (hashtags or []) if str(x).strip()]
-    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    first_line = text.split("\n", 1)[0].strip() if text else ""
+    paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+    long_paragraphs = sum(1 for p in paragraphs if len(p) >= 40)
+    sentence_count = len(re.findall(r"[.!?](?:\s|$)", text))
 
-    has_hook = bool(re.search(r"[!?]", text[:220])) or text.count("\n") >= 1
-    has_structure = len(paragraphs) >= 2 or bool(re.search(r"(^|\n)\s*[\-\d]\)|(^|\n)\s*\d+\.", text))
+    has_hook = len(text) > 40 and (
+        bool(re.search(r"[!?]", text[:220])) or len(first_line) >= 24 or bool(re.search(r"\d", first_line))
+    )
+    has_structure = (
+        long_paragraphs >= 2
+        or bool(re.search(r"(^|\n)\s*(?:[•\-]|\d+[.)])\s+", text))
+        or (len(text) >= 180 and sentence_count >= 3)
+    )
     has_cta = bool(cta_text) or bool(re.search(r"(напишите|оставьте|перейдите|запишитесь|купите|позвоните)", text.lower()))
     hashtags_ok = 3 <= len(tags) <= 15
 
     goal_norm = _normalize_create_goal(goal)
     text_low = text.lower()
     if goal_norm == "sales":
-        goal_match = bool(re.search(r"(скидк|цена|выгод|куп|закаж|оффер|предложени)", text_low))
+        goal_match = bool(re.search(r"(скидк|цена|выгод|куп|закаж|оффер|предложени)", text_low)) or has_cta
     elif goal_norm == "lead":
-        goal_match = bool(re.search(r"(заявк|форм|оставьте|контакт|напишите)", text_low))
+        goal_match = bool(re.search(r"(заявк|форм|оставьте|контакт|напишите)", text_low)) or has_cta
     elif goal_norm == "awareness":
-        goal_match = len(text) >= 280 and has_structure
+        goal_match = len(text) >= 160
     else:
-        goal_match = bool("?" in text) or bool(re.search(r"(как вы|а вы|что думаете)", text_low))
+        goal_match = bool("?" in text) or bool(re.search(r"(как вы|а вы|что думаете|поделитесь|ваше мнение|обсудим)", text_low)) or has_cta
 
     score = 0
     score += 20 if has_hook else 0
@@ -503,7 +803,7 @@ def _quality_check_payload(caption: str, cta: str, hashtags: list[str], goal: st
     checks = [
         {"key": "hook", "label": "Хук", "state": "green" if has_hook else "yellow"},
         {"key": "structure", "label": "Структура", "state": "green" if has_structure else "yellow"},
-        {"key": "cta", "label": "CTA", "state": "green" if has_cta else "red"},
+        {"key": "cta", "label": "Призыв к действию", "state": "green" if has_cta else "red"},
         {"key": "hashtags", "label": "Хештеги", "state": "green" if hashtags_ok else "yellow"},
         {"key": "goal_match", "label": "Соответствие цели", "state": "green" if goal_match else "yellow"},
     ]
@@ -512,10 +812,283 @@ def _quality_check_payload(caption: str, cta: str, hashtags: list[str], goal: st
     if len(text) < 120:
         warnings.append("Текст выглядит коротким, можно усилить деталями.")
     if not has_cta:
-        warnings.append("Добавьте CTA: что клиент должен сделать после прочтения.")
+        warnings.append("Добавьте призыв к действию: что клиент должен сделать после прочтения.")
     if not hashtags_ok:
         warnings.append("Рекомендуется 3-15 хештегов.")
     return {"score": int(score), "checks": checks, "warnings": warnings}
+
+
+def _preview_default_payload() -> dict:
+    return {
+        "platform": "facebook",
+        "content_type": "image_post",
+        "caption": "",
+        "cta": None,
+        "hashtags": [],
+        "media": {
+            "type": "image",
+            "url": "",
+            "thumbnail_url": None,
+            "width": None,
+            "height": None,
+            "duration_s": None,
+        },
+        "meta": {
+            "page_name": None,
+            "account_name": None,
+            "scheduled_at": None,
+            "goal": "engagement",
+            "format_hint": None,
+            "title": None,
+            "description": None,
+            "tags": [],
+        },
+    }
+
+
+def _normalize_preview_payload(raw: dict | None) -> dict:
+    payload = _preview_default_payload()
+    if isinstance(raw, dict):
+        for key in ("platform", "content_type", "caption", "cta", "hashtags"):
+            if key in raw:
+                payload[key] = raw[key]
+        if isinstance(raw.get("media"), dict):
+            payload["media"].update(raw.get("media") or {})
+        if isinstance(raw.get("meta"), dict):
+            payload["meta"].update(raw.get("meta") or {})
+    platform = str(payload.get("platform") or "facebook").strip().lower()
+    if platform not in {"facebook", "instagram", "youtube"}:
+        platform = "facebook"
+    content_type = str(payload.get("content_type") or "image_post").strip().lower()
+    if content_type not in {"image_post", "video_post"}:
+        content_type = "image_post"
+    media = payload.get("media") if isinstance(payload.get("media"), dict) else {}
+    media_type = str(media.get("type") or ("video" if content_type == "video_post" else "image")).strip().lower()
+    if media_type not in {"image", "video"}:
+        media_type = "image"
+    hashtags_raw = payload.get("hashtags")
+    hashtags = []
+    if isinstance(hashtags_raw, str):
+        hashtags = [x.strip() for x in hashtags_raw.split() if x.strip()]
+    elif isinstance(hashtags_raw, list):
+        hashtags = [str(x).strip() for x in hashtags_raw if str(x).strip()]
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    tags_raw = meta.get("tags")
+    tags = []
+    if isinstance(tags_raw, list):
+        tags = [str(x).strip() for x in tags_raw if str(x).strip()]
+    payload["platform"] = platform
+    payload["content_type"] = content_type
+    payload["caption"] = str(payload.get("caption") or "").strip()
+    payload["cta"] = str(payload.get("cta") or "").strip() or None
+    payload["hashtags"] = hashtags[:30]
+    payload["media"] = {
+        "type": media_type,
+        "url": str(media.get("url") or "").strip(),
+        "thumbnail_url": str(media.get("thumbnail_url") or "").strip() or None,
+        "width": int(media.get("width")) if str(media.get("width", "")).isdigit() else None,
+        "height": int(media.get("height")) if str(media.get("height", "")).isdigit() else None,
+        "duration_s": float(media.get("duration_s")) if str(media.get("duration_s", "")).replace(".", "", 1).isdigit() else None,
+    }
+    payload["meta"] = {
+        "page_name": str(meta.get("page_name") or "").strip() or None,
+        "account_name": str(meta.get("account_name") or "").strip() or None,
+        "scheduled_at": str(meta.get("scheduled_at") or "").strip() or None,
+        "goal": _normalize_create_goal(meta.get("goal") or "engagement"),
+        "format_hint": str(meta.get("format_hint") or "").strip().lower() or None,
+        "title": str(meta.get("title") or "").strip() or None,
+        "description": str(meta.get("description") or "").strip() or None,
+        "tags": tags[:30],
+    }
+    return payload
+
+
+def _validate_preview_payload(payload: dict) -> dict:
+    p = _normalize_preview_payload(payload)
+    warnings = []
+    errors = []
+    suggestions = []
+
+    platform = p["platform"]
+    content_type = p["content_type"]
+    caption = p["caption"]
+    cta = p["cta"] or ""
+    hashtags = p["hashtags"] or []
+    media = p["media"] or {}
+    meta = p["meta"] or {}
+    goal = _normalize_create_goal(meta.get("goal") or "engagement")
+    media_url = str(media.get("url") or "").strip()
+    media_type = str(media.get("type") or "image").strip().lower()
+    duration_s = media.get("duration_s")
+    width = media.get("width")
+    height = media.get("height")
+    ratio = (float(width) / float(height)) if width and height and float(height) > 0 else None
+    format_hint = str(meta.get("format_hint") or "").strip().lower()
+
+    if not media_url:
+        errors.append({"level": "error", "code": "media_missing", "message": "Отсутствует медиа-файл для публикации."})
+    if not caption:
+        warnings.append({"level": "warning", "code": "caption_empty", "message": "Текст публикации пустой."})
+    if goal in {"sales", "lead"} and not cta:
+        warnings.append({"level": "warning", "code": "cta_missing", "message": "Для цели продажи/лиды лучше добавить призыв к действию."})
+        suggestions.append("Сгенерируйте призыв к действию автоматически.")
+
+    if platform == "instagram" and (len(hashtags) < 5 or len(hashtags) > 20):
+        warnings.append({"level": "warning", "code": "ig_hashtags_range", "message": "Для Instagram рекомендуется 5-20 хештегов."})
+        suggestions.append("Добавьте/сократите хештеги до диапазона 5-20.")
+    if platform == "facebook" and len(hashtags) > 8:
+        warnings.append({"level": "warning", "code": "fb_hashtags_max", "message": "Для Facebook рекомендуется не более 8 хештегов."})
+        suggestions.append("Сократите количество хештегов.")
+    if platform == "youtube":
+        yt_tags = meta.get("tags") or hashtags
+        if len(yt_tags) < 5:
+            warnings.append({"level": "warning", "code": "yt_tags_min", "message": "Для YouTube желательно минимум 5 тегов."})
+            suggestions.append("Добавьте теги для YouTube.")
+
+    if platform == "instagram" and len(caption) > 2200:
+        warnings.append({"level": "warning", "code": "ig_caption_too_long", "message": "Текст Instagram длиннее 2200 символов."})
+        suggestions.append("Сократите текст для Instagram.")
+    if platform == "facebook" and len(caption) > 5000:
+        warnings.append({"level": "warning", "code": "fb_caption_too_long", "message": "Текст Facebook длиннее 5000 символов."})
+    if platform == "youtube":
+        desc = str(meta.get("description") or caption or "").strip()
+        if len(desc) < 200:
+            warnings.append({"level": "warning", "code": "yt_desc_short", "message": "Описание YouTube короткое (<200 символов)."})
+            suggestions.append("Расширьте описание YouTube.")
+
+    is_short_form = format_hint in {"reel", "shorts"} or (platform == "instagram" and content_type == "video_post")
+    if content_type == "video_post":
+        if platform == "youtube" and media_type != "video":
+            errors.append({"level": "error", "code": "yt_requires_video", "message": "Для YouTube публикации требуется видео."})
+        if is_short_form:
+            if duration_s and duration_s > 60:
+                warnings.append({"level": "warning", "code": "short_duration_gt_60", "message": "Для Shorts/Reels рекомендуется длительность до 60 секунд."})
+            if ratio is not None and abs(ratio - (9.0 / 16.0)) > 0.22:
+                warnings.append({"level": "warning", "code": "short_ratio_mismatch", "message": "Для Shorts/Reels лучше вертикальный формат 9:16."})
+        if duration_s and duration_s > 480:
+            warnings.append({"level": "warning", "code": "duration_gt_480", "message": "Видео превышает лимит 480 секунд."})
+    if platform == "youtube" and content_type == "image_post":
+        errors.append({"level": "error", "code": "platform_mismatch", "message": "Для YouTube требуется video_post."})
+
+    score = 100
+    score -= min(60, 25 * len(errors))
+    score -= min(40, 8 * len(warnings))
+    score = max(0, int(score))
+    return {"score": score, "warnings": warnings + errors, "suggestions": suggestions, "has_error": bool(errors), "payload": p}
+
+
+def _resolve_media_url_to_local_path(url: str) -> Path | None:
+    raw = str(url or "").strip()
+    if not raw:
+        return None
+    base = settings.API_BASE_URL.rstrip("/")
+    marker = "/api/media/"
+    rel = None
+    if raw.startswith(base + marker):
+        rel = raw.split(marker, 1)[1]
+    elif raw.startswith(marker):
+        rel = raw.split(marker, 1)[1]
+    if rel:
+        candidate = (settings.BASE_DIR / rel.lstrip("/")).resolve()
+        if candidate.exists() and (settings.BASE_DIR == candidate or settings.BASE_DIR in candidate.parents):
+            return candidate
+    candidate = Path(raw)
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
+    return None
+
+
+def _build_video_thumbnail(video_url: str, second: float = 0.8) -> str | None:
+    src_local = _resolve_media_url_to_local_path(video_url)
+    thumbs_dir = (settings.OUTPUT_DIR / "thumbs").resolve()
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    cache_key = hashlib.sha1(f"{video_url}|{second}".encode("utf-8")).hexdigest()[:24]
+    thumb_path = thumbs_dir / f"{cache_key}.jpg"
+    if thumb_path.exists():
+        rel = thumb_path.resolve().relative_to(settings.BASE_DIR).as_posix()
+        return f"{settings.API_BASE_URL}/api/media/{rel}"
+    src = str(src_local) if src_local else str(video_url or "").strip()
+    if not src:
+        return None
+    cmd = [
+        settings.FFMPEG_BIN,
+        "-y",
+        "-ss",
+        str(max(0.0, float(second))),
+        "-i",
+        src,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        str(thumb_path),
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=35)
+    except Exception:
+        return None
+    if not thumb_path.exists():
+        return None
+    rel = thumb_path.resolve().relative_to(settings.BASE_DIR).as_posix()
+    return f"{settings.API_BASE_URL}/api/media/{rel}"
+
+
+def _extract_spoken_text_from_manifest(manifest_url: str) -> str:
+    local_path = _resolve_media_url_to_local_path(manifest_url)
+    if not local_path or not local_path.exists():
+        return ""
+    try:
+        payload = json.loads(local_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    script_payload = payload.get("script") if isinstance(payload.get("script"), dict) else {}
+    phrases = []
+    if isinstance(script_payload.get("phrases"), list):
+        phrases = script_payload.get("phrases") or []
+    elif isinstance(payload.get("phrases"), list):
+        phrases = payload.get("phrases") or []
+    cleaned = [str(x or "").strip() for x in phrases if str(x or "").strip()]
+    return " ".join(cleaned).strip()
+
+
+def _build_video_publish_caption(campaign: Campaign, job: GenerationJob) -> tuple[str, list[str]]:
+    result = _job_result_dict(job)
+    publish_meta = result.get("publish_meta") if isinstance(result.get("publish_meta"), dict) else {}
+    artifacts = result.get("artifacts") if isinstance(result.get("artifacts"), dict) else {}
+    spoken_text = str(result.get("spoken_text") or "").strip()
+    if not spoken_text:
+        spoken_text = str(publish_meta.get("spoken_text") or "").strip()
+    if not spoken_text:
+        spoken_text = _extract_spoken_text_from_manifest(str(artifacts.get("manifest_url") or ""))
+
+    description = str(publish_meta.get("description") or "").strip()
+    existing_caption = str(campaign.caption_master or "").strip()
+    cta_text = str(campaign.cta or "").strip()
+
+    if existing_caption and len(existing_caption) >= 24:
+        caption = existing_caption
+    elif spoken_text:
+        caption = spoken_text
+    elif description:
+        caption = description
+    else:
+        caption = str(campaign.topic or "").strip()
+
+    if cta_text and cta_text.lower() not in caption.lower():
+        caption = f"{caption}\n\n{cta_text}".strip()
+    caption = caption[:5000].strip()
+
+    tags = _json_loads_safe(campaign.hashtags_master, [])
+    if not isinstance(tags, list):
+        tags = []
+    if not tags:
+        meta_tags = publish_meta.get("hashtags")
+        if isinstance(meta_tags, list):
+            tags = [str(x).strip() for x in meta_tags if str(x).strip()]
+    tags = tags[:30]
+    return caption, tags
 
 
 def _template_payload(row: UserTemplate) -> dict:
@@ -525,6 +1098,39 @@ def _template_payload(row: UserTemplate) -> dict:
         "preset": _json_loads_safe(row.preset_json, {}),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def _catalog_template_payload(row: Template) -> dict:
+    return {
+        "id": row.id,
+        "slug": row.slug,
+        "title": row.title,
+        "description": row.description,
+        "type": row.type,
+        "platform": row.platform,
+        "goal": row.goal,
+        "tone": row.tone,
+        "hook_line": row.hook_line,
+        "cta": row.cta,
+        "prompt_system": row.prompt_system,
+        "prompt_user": row.prompt_user,
+        "variables_schema_json": _json_loads_dict(row.variables_schema_json),
+        "preview_text": row.preview_text,
+        "sort_order": row.sort_order,
+    }
+
+
+def _catalog_niche_payload(row: Niche, templates: list[Template]) -> dict:
+    sorted_templates = sorted(templates, key=lambda x: (int(x.sort_order or 100), int(x.id or 0)))
+    return {
+        "id": row.id,
+        "slug": row.slug,
+        "title": row.title,
+        "description": row.description,
+        "icon": row.icon,
+        "sort_order": row.sort_order,
+        "templates": [_catalog_template_payload(t) for t in sorted_templates],
     }
 
 
@@ -729,7 +1335,9 @@ def _start_delivery_worker(delivery_id: int) -> None:
                 conn = conn_query.order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc()).first()
                 if not conn or not conn.token_encrypted:
                     raise RuntimeError("Meta не подключен")
-                access_token = decrypt_meta_token(conn.token_encrypted)
+                access_token = _meta_get_user_access_token(db, conn)
+                if not access_token:
+                    raise RuntimeError("Meta токен недоступен. Переподключите Meta.")
                 if delivery.platform == "facebook":
                     if not conn.page_id:
                         raise RuntimeError("Не выбрана Facebook Page")
@@ -745,6 +1353,19 @@ def _start_delivery_worker(delivery_id: int) -> None:
                         image_url = image_asset.storage_url if image_asset else None
                         result = publish_to_facebook(conn.page_id, page_token, image_url, caption)
                         remote_id = str(result.get("post_id") or result.get("id") or "")
+                    if not remote_id and isinstance(result, dict):
+                        status_from_error, reason = _meta_error_to_status(result.get("error") or result)
+                        if reason == "access_token_invalid":
+                            access_token = _meta_get_user_access_token(db, conn, force_exchange=True)
+                            if access_token:
+                                page_token = _resolve_page_access_token(access_token, conn.page_id)
+                                if page_token:
+                                    if delivery.kind == "video":
+                                        result = _publish_facebook_video(conn.page_id, page_token, video_asset.storage_url, caption)
+                                        remote_id = str(result.get("id") or result.get("video_id") or "")
+                                    else:
+                                        result = publish_to_facebook(conn.page_id, page_token, image_url, caption)
+                                        remote_id = str(result.get("post_id") or result.get("id") or "")
                 else:
                     if not conn.ig_user_id:
                         raise RuntimeError("Instagram Business не найден")
@@ -757,6 +1378,17 @@ def _start_delivery_worker(delivery_id: int) -> None:
                         image_url = image_asset.storage_url if image_asset else None
                         result = publish_to_instagram(conn.ig_user_id, access_token, image_url, caption)
                         remote_id = str(result.get("id") or "")
+                    if not remote_id and isinstance(result, dict):
+                        status_from_error, reason = _meta_error_to_status(result.get("error") or result)
+                        if reason == "access_token_invalid":
+                            refreshed_access = _meta_get_user_access_token(db, conn, force_exchange=True)
+                            if refreshed_access:
+                                if delivery.kind == "reel":
+                                    result = _publish_instagram_reel(conn.ig_user_id, refreshed_access, video_asset.storage_url, caption)
+                                    remote_id = str(result.get("id") or "")
+                                else:
+                                    result = publish_to_instagram(conn.ig_user_id, refreshed_access, image_url, caption)
+                                    remote_id = str(result.get("id") or "")
                 if not remote_id:
                     raise RuntimeError(f"Meta API error: {result}")
             elif delivery.platform == "youtube":
@@ -771,7 +1403,9 @@ def _start_delivery_worker(delivery_id: int) -> None:
                     raise RuntimeError("YouTube не подключен")
                 if not video_asset:
                     raise RuntimeError("Видео не сгенерировано")
-                yt_token = decrypt_meta_token(conn.token_encrypted)
+                yt_token = _youtube_get_access_token(db, conn)
+                if not yt_token:
+                    raise RuntimeError("YouTube токен недоступен. Переподключите YouTube.")
                 yt = _publish_youtube_video_from_url(
                     access_token=yt_token,
                     video_url=video_asset.storage_url,
@@ -780,6 +1414,19 @@ def _start_delivery_worker(delivery_id: int) -> None:
                     tags=hashtags,
                     is_shorts=(delivery.kind == "shorts"),
                 )
+                yt_error = yt.get("error") if isinstance(yt, dict) else None
+                yt_error_str = str(yt_error or "").lower()
+                if (not yt.get("id")) and ("invalid authentication credentials" in yt_error_str or "'code': 401" in yt_error_str):
+                    refreshed_token = _youtube_get_access_token(db, conn, force_refresh=True)
+                    if refreshed_token:
+                        yt = _publish_youtube_video_from_url(
+                            access_token=refreshed_token,
+                            video_url=video_asset.storage_url,
+                            title=campaign.topic,
+                            description=caption,
+                            tags=hashtags,
+                            is_shorts=(delivery.kind == "shorts"),
+                        )
                 remote_id = str(yt.get("id") or "")
                 if not remote_id:
                     raise RuntimeError(f"YouTube API error: {yt}")
@@ -1140,10 +1787,17 @@ def login():
     honeypot = (data.get("website") or "").strip()
 
     # Admin emergency path: allow direct password login without email code challenge.
+    # Keep OTP challenge flow in tests.
     db = SessionLocal()
     try:
         user = db.query(AppUser).filter_by(email=email).first()
-        if user and user.role == "admin" and verify_password(password, user.password_hash):
+        if (
+            user
+            and user.role == "admin"
+            and verify_password(password, user.password_hash)
+            and bool(settings.ALLOW_ADMIN_DIRECT_LOGIN)
+            and not bool(getattr(current_app, "testing", False))
+        ):
             seed_plans()
             ensure_user_plan_and_credits(user.id)
             get_or_create_default_project(user.id)
@@ -1222,6 +1876,7 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
 
     token_data = token_resp.json() or {}
     access_token = str(token_data.get("access_token") or "").strip()
+    refresh_token = str(token_data.get("refresh_token") or "").strip()
     expires_in = int(token_data.get("expires_in") or 0)
     if not access_token:
         return redirect(_frontend_connections_url("youtube_error=token_missing"))
@@ -1289,6 +1944,8 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
         row.ig_user_id = None
         row.ig_username = None
         row.token_encrypted = encrypt_meta_token(access_token)
+        if refresh_token:
+            row.refresh_token_encrypted = encrypt_meta_token(refresh_token)
         row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
         row.status = "connected_ready"
         row.status_reason_code = None
@@ -1466,11 +2123,17 @@ def plans():
     seed_plans()
     db = SessionLocal()
     try:
+        include_legacy = str(request.args.get("include_legacy", "")).strip().lower() in {"1", "true", "yes"}
         rows = db.query(Plan).order_by(Plan.price_eur_month.asc()).all()
-        return jsonify(
-            [
+        result = []
+        for p in rows:
+            plan_code = normalize_plan_code(p.name)
+            spec = get_plan_spec(plan_code)
+            if spec.legacy and not include_legacy:
+                continue
+            payload = to_plan_payload(spec)
+            payload.update(
                 {
-                    "name": p.name,
                     "price_eur_month": p.price_eur_month,
                     "monthly_credits": p.monthly_credits,
                     "max_projects": p.max_projects,
@@ -1481,9 +2144,12 @@ def plans():
                     "templates_enabled": p.templates_enabled,
                     "team_seats": p.team_seats,
                 }
-                for p in rows
-            ]
-        )
+            )
+            result.append(payload)
+        if not include_legacy:
+            order_index = {code: idx for idx, code in enumerate(PUBLIC_PLAN_ORDER)}
+            result.sort(key=lambda x: order_index.get(str(x.get("name") or ""), 999))
+        return jsonify(result)
     finally:
         db.close()
 
@@ -1550,10 +2216,10 @@ def create_project():
     if len(name) < 3:
         return jsonify({"error": "РќР°Р·РІР°РЅРёРµ РїСЂРѕРµРєС‚Р° СЃР»РёС€РєРѕРј РєРѕСЂРѕС‚РєРѕРµ"}), 400
 
-    if user.role != "admin":
-        usage = check_project_limit(user)
-        if usage["used"] >= usage["limit"]:
-            return jsonify({"error": "Р”РѕСЃС‚РёРіРЅСѓС‚ Р»РёРјРёС‚ РїСЂРѕРµРєС‚РѕРІ. РћР±РЅРѕРІРёС‚Рµ С‚Р°СЂРёС„."}), 429
+    authz = authorizeAction(user, ACTION_PROJECT_CREATE, {})
+    pw = _paywall_response_if_needed(authz)
+    if pw:
+        return pw
 
     db = SessionLocal()
     try:
@@ -1712,9 +2378,13 @@ def generate():
 
     # Enforce plan scheduling capability before doing any generation/cost.
     if schedule_at is not None:
-        billing = get_billing_summary(user)
-        if not billing["limits"].get("can_schedule"):
-            return jsonify({"error": "Планирование доступно только на платных тарифах"}), 403
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/generate", "content_kind": "post"}))
+        if pw:
+            return pw
+
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"platform": platform}))
+    if pw:
+        return pw
 
     try:
         post = create_post_and_charge(
@@ -1751,6 +2421,8 @@ def generate():
         if "Error code: 429" in msg:
             return jsonify({"error": "OpenAI: rate limit/429. Попробуйте позже."}), 429
         return jsonify({"error": f"Ошибка генерации: {msg}"}), 500
+
+    recordUsageEvent(user, "POSTS_GENERATED", 1, {"endpoint": "/api/generate", "platform": platform, "post_id": post.id})
 
     billing = get_billing_summary(_current_user_refetched())
     return (
@@ -1941,6 +2613,10 @@ def content_generate():
     if variants not in {1, 2, 3}:
         return jsonify({"error": "variants должен быть 1..3"}), 400
 
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"endpoint": "/api/content/generate"}))
+    if pw:
+        return pw
+
     try:
         generated = generate_strategy_and_drafts(
             topic=topic,
@@ -2013,7 +2689,7 @@ def content_generate():
             "brief_id": brief.id,
             "strategy": generated.strategy,
             "drafts": [_content_draft_payload(d) for d in draft_rows],
-            "warnings": generated.warnings or [],
+            "warnings": _summarize_create_generate_warnings(generated.warnings or []),
             "debug_code": generated.debug_code or "",
             "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
         }
@@ -2131,6 +2807,10 @@ def create_generate():
     if not platforms:
         return jsonify({"status": "error", "drafts": [], "warnings": ["Выберите хотя бы одну платформу"], "debug_code": "missing_platforms"}), 400
 
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"endpoint": "/api/create/generate"}))
+    if pw:
+        return pw
+
     try:
         generated = generate_strategy_and_drafts(
             topic=topic,
@@ -2193,6 +2873,12 @@ def create_generate():
         for row in draft_rows:
             db.refresh(row)
         db.refresh(brief)
+        recordUsageEvent(
+            user,
+            "POSTS_GENERATED",
+            1,
+            {"endpoint": "/api/create/generate", "brief_id": brief.id, "platforms": platforms, "variants": variants},
+        )
     finally:
         db.close()
 
@@ -2203,6 +2889,10 @@ def create_generate():
         hashtags=(safe_drafts[0]["hashtags"] if safe_drafts else []),
         goal=goal,
     )
+    safe_warnings = _summarize_create_generate_warnings(generated.warnings or [])
+    quality_warnings = quality.get("warnings") or []
+    final_warnings = (safe_warnings + quality_warnings)[:3]
+
     return jsonify(
         {
             "status": generated.status or "ok",
@@ -2210,7 +2900,7 @@ def create_generate():
             "strategy": generated.strategy,
             "drafts": safe_drafts,
             "quality": quality,
-            "warnings": (generated.warnings or []) + (quality.get("warnings") or []),
+            "warnings": final_warnings,
             "debug_code": generated.debug_code or "",
             "usage": {"input_tokens": generated.token_input, "output_tokens": generated.token_output},
         }
@@ -2233,6 +2923,402 @@ def create_templates_list():
         return jsonify({"status": "ok", "items": [_template_payload(r) for r in rows], "warnings": [], "debug_code": ""})
     finally:
         db.close()
+
+
+@saas_api.route("/create/niche-catalog", methods=["GET"])
+@require_auth
+def create_niche_catalog():
+    db = SessionLocal()
+    try:
+        niches = db.query(Niche).order_by(Niche.sort_order.asc(), Niche.id.asc()).all()
+        out = []
+        for niche in niches:
+            templates = (
+                db.query(Template)
+                .filter(Template.niche_id == niche.id)
+                .order_by(Template.sort_order.asc(), Template.id.asc())
+                .all()
+            )
+            out.append(_catalog_niche_payload(niche, templates))
+        return jsonify({"status": "ok", "items": out, "warnings": [], "debug_code": ""})
+    finally:
+        db.close()
+
+
+@saas_api.route("/create/templates/import-catalog", methods=["POST"])
+@require_auth
+def create_template_import_catalog():
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    niche_slug = str(data.get("niche_slug") or "").strip().lower()
+    template_slug = str(data.get("template_slug") or "").strip().lower()
+    if not niche_slug or not template_slug:
+        return (
+            jsonify({"status": "error", "warnings": ["niche_slug и template_slug обязательны"], "debug_code": "missing_slug"}),
+            400,
+        )
+
+    db = SessionLocal()
+    try:
+        niche = db.query(Niche).filter(Niche.slug == niche_slug).first()
+        if not niche:
+            return jsonify({"status": "error", "warnings": ["Ниша не найдена"], "debug_code": "niche_not_found"}), 404
+        tpl = (
+            db.query(Template)
+            .filter(Template.niche_id == niche.id, Template.slug == template_slug)
+            .first()
+        )
+        if not tpl:
+            return jsonify({"status": "error", "warnings": ["Шаблон не найден"], "debug_code": "template_not_found"}), 404
+
+        preset = {
+            "source": "niche_catalog",
+            "niche_slug": niche.slug,
+            "template_slug": tpl.slug,
+            "title": tpl.title,
+            "description": tpl.description,
+            "type": tpl.type,
+            "platform": tpl.platform,
+            "goal": tpl.goal,
+            "tone": tpl.tone,
+            "hook_line": tpl.hook_line,
+            "cta": tpl.cta,
+            "prompt_system": tpl.prompt_system,
+            "prompt_user": tpl.prompt_user,
+            "variables_schema_json": _json_loads_dict(tpl.variables_schema_json),
+            "preview_text": tpl.preview_text,
+        }
+        row = UserTemplate(
+            user_id=user.id,
+            name=f"{niche.title}: {tpl.title}"[:160],
+            preset_json=json.dumps(preset, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return jsonify({"status": "ok", "item": _template_payload(row), "warnings": [], "debug_code": ""}), 201
+    finally:
+        db.close()
+
+
+@saas_api.route("/ai/director/suggest", methods=["POST"])
+@require_auth
+def ai_director_suggest():
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or data.get("niche") or "").strip()
+    if not topic:
+        return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
+    platforms = data.get("platforms") if isinstance(data.get("platforms"), list) else []
+    variation_seed = int(data.get("variation_seed") or 0)
+    if variation_seed < 0:
+        variation_seed = 0
+    try:
+        out = director_suggest(
+            topic=topic,
+            offer=(data.get("offer") or "").strip() or None,
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            platforms=platforms,
+            variation_seed=variation_seed,
+        )
+        return jsonify(
+            {
+                "status": out.get("status") or "ok",
+                "data": out.get("data") or {},
+                "warnings": _summarize_director_warnings(out.get("warnings") or []),
+                "debug_code": out.get("debug_code") or "",
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "director_suggest_error"}), 500
+
+
+@saas_api.route("/ai/director/generate-drafts", methods=["POST"])
+@require_auth
+def ai_director_generate_drafts():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or "").strip()
+    angle = str(data.get("angle") or "").strip()
+    if not topic:
+        return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
+    if not angle:
+        return jsonify({"status": "error", "data": {}, "warnings": ["angle is required"], "debug_code": "missing_angle"}), 400
+    platforms_raw = data.get("platforms") if isinstance(data.get("platforms"), list) else []
+    platforms = []
+    for item in platforms_raw:
+        key = str(item or "").strip().lower()
+        if key in {"facebook", "instagram", "youtube"} and key not in platforms:
+            platforms.append(key)
+    if not platforms:
+        platforms = ["facebook", "instagram"]
+
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"endpoint": "/api/ai/director/generate-drafts"}))
+    if pw:
+        return pw
+
+    try:
+        out = director_generate_drafts(
+            topic=topic,
+            offer=(data.get("offer") or "").strip() or None,
+            angle=angle,
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            platforms=platforms,
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+            variants=max(1, min(int(data.get("variants") or 3), 3)),
+        )
+    except OpenAIClientError as exc:
+        return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "openai_error"}), 502
+    except Exception as exc:
+        return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "director_drafts_error"}), 500
+
+    drafts = list((out.get("data") or {}).get("drafts") or [])
+    db = SessionLocal()
+    draft_rows = []
+    brief = None
+    brief_id = None
+    try:
+        brief = ContentBrief(
+            user_id=user.id,
+            topic=topic,
+            offer=(data.get("offer") or "").strip() or None,
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            platforms_json=json.dumps(platforms, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+        )
+        db.add(brief)
+        db.flush()
+        brief_id = int(brief.id)
+        strategy_payload = (out.get("data") or {}).get("strategy")
+        if not isinstance(strategy_payload, dict):
+            strategy_payload = {}
+        db.add(
+            ContentStrategy(
+                brief_id=brief.id,
+                strategy_json=json.dumps(strategy_payload, ensure_ascii=False),
+                created_at=datetime.utcnow(),
+            )
+        )
+        for row in drafts:
+            d = ContentDraft(
+                brief_id=brief.id,
+                platform=str(row.get("platform") or "facebook").strip().lower(),
+                variant_index=int(row.get("variant") or 1),
+                post_text=str(row.get("body_text") or "").strip(),
+                title=None,
+                description=None,
+                hashtags_json=json.dumps(row.get("hashtags") or [], ensure_ascii=False),
+                cta=str(row.get("cta") or "").strip() or None,
+                asset_ideas_json=json.dumps([], ensure_ascii=False),
+                created_at=datetime.utcnow(),
+            )
+            db.add(d)
+            draft_rows.append(d)
+        db.commit()
+        for d in draft_rows:
+            db.refresh(d)
+        recordUsageEvent(
+            user,
+            "POSTS_GENERATED",
+            1,
+            {
+                "endpoint": "/api/ai/director/generate-drafts",
+                "brief_id": brief_id,
+                "platforms": platforms,
+                "variants": max(1, min(int(data.get("variants") or 3), 3)),
+            },
+        )
+    finally:
+        db.close()
+
+    return jsonify(
+        {
+            "status": out.get("status") or "ok",
+            "data": {
+                "brief_id": brief_id,
+                "drafts": [_content_draft_payload(d) for d in draft_rows],
+                "strategy": (out.get("data") or {}).get("strategy") or {},
+            },
+            "warnings": _summarize_director_warnings(out.get("warnings") or []),
+            "debug_code": out.get("debug_code") or "",
+        }
+    )
+
+
+@saas_api.route("/ai/director/rewrite", methods=["POST"])
+@require_auth
+def ai_director_rewrite():
+    data = request.get_json(silent=True) or {}
+    caption = str(data.get("caption") or "").strip()
+    if not caption:
+        return jsonify({"status": "error", "data": {}, "warnings": ["caption is required"], "debug_code": "missing_caption"}), 400
+    try:
+        rewritten = rewrite_caption_safe(
+            caption=caption,
+            instruction=(data.get("instruction") or "короче").strip(),
+            goal=_normalize_create_goal(data.get("goal") or "engagement"),
+            tone=_normalize_create_tone(data.get("tone") or "friendly"),
+            language=str(data.get("language") or "ru").strip().lower() or "ru",
+        )
+        return jsonify(
+            {
+                "status": rewritten.get("status") or "ok",
+                "data": {
+                    "caption": rewritten.get("caption") or "",
+                    "cta": rewritten.get("cta") or "",
+                    "hashtags": rewritten.get("hashtags") or [],
+                },
+                "warnings": rewritten.get("warnings") or [],
+                "debug_code": rewritten.get("debug_code") or "",
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "rewrite_error"}), 500
+
+
+@saas_api.route("/ai/director/generate-image", methods=["POST"])
+@require_auth
+def ai_director_generate_image():
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
+    language = str(data.get("language") or "ru").strip().lower() or "ru"
+    tone = _normalize_create_tone(data.get("tone") or "friendly")
+    goal = _normalize_create_goal(data.get("goal") or "awareness")
+    style = str(data.get("style") or "реалистично").strip()
+    no_text_on_image = bool(data.get("no_text_on_image") is not False)
+    realism = bool(data.get("realism") is not False)
+    niche_slug = str(data.get("niche_slug") or data.get("nicheSlug") or "").strip().lower()
+    niche_title = str(data.get("niche_title") or data.get("nicheTitle") or "").strip()
+    offer_text = str(data.get("offer") or data.get("offerText") or "").strip()
+    content_type = str(data.get("content_type") or data.get("contentType") or "post").strip().lower()
+    orientation = str(data.get("orientation") or "").strip().lower()
+
+    media_query = buildMediaQuery(
+        {
+            "nicheSlug": niche_slug,
+            "nicheTitle": niche_title,
+            "goal": goal,
+            "language": language,
+            "offerText": offer_text,
+            "manualTopic": topic,
+            "contentType": content_type,
+            "orientation": orientation,
+        }
+    )
+
+    prompt_topic = f"{media_query.get('query') or topic}. Стиль: {style}."
+    if realism:
+        prompt_topic += " Реалистичная сцена."
+    if no_text_on_image:
+        prompt_topic += " Без текста, надписей, логотипов и водяных знаков."
+    prompt_topic += " Смысл изображения должен передавать тему поста."
+
+    warnings = []
+    source = "pexels"
+    image_url = pick_image_url(
+        niche_slug=str(media_query.get("nicheSlug") or niche_slug),
+        niche_title=niche_title or topic,
+        goal=goal,
+        language=language,
+        offer_text=offer_text,
+        manual_topic=topic,
+        orientation=str(media_query.get("orientation") or "any"),
+    )
+
+    if not image_url:
+        source = "openai"
+        try:
+            image_url = generate_image_url(
+                topic=prompt_topic,
+                category="business",
+                tone=tone,
+                language=language,
+            )
+        except Exception:
+            image_url = None
+
+    if not image_url:
+        source = "fallback"
+        warnings.append("image_fallback_used")
+        image_url = build_semantic_fallback_image_url(
+            topic=prompt_topic,
+            category="business",
+            tone=tone,
+            language=language,
+        )
+
+    mirrored = _download_and_store_binary(image_url, ".jpg")
+    final_url = mirrored[0] if mirrored else image_url
+    return jsonify(
+        {
+            "status": "ok",
+            "data": {
+                "image_url": final_url,
+                "source": source,
+            },
+            "warnings": warnings,
+            "debug_code": "director_image_ok" if source == "openai" else "director_image_fallback",
+        }
+    )
+
+
+@saas_api.route("/ai/quality-check", methods=["POST"])
+@require_auth
+def ai_quality_check():
+    data = request.get_json(silent=True) or {}
+    caption = str(data.get("caption") or "").strip()
+    cta = str(data.get("cta") or "").strip()
+    tags_raw = data.get("hashtags")
+    tags = []
+    if isinstance(tags_raw, str):
+        tags = [t for t in tags_raw.split() if t.strip()]
+    elif isinstance(tags_raw, list):
+        tags = [str(t).strip() for t in tags_raw if str(t).strip()]
+    quality = _quality_check_payload(caption=caption, cta=cta, hashtags=tags, goal=str(data.get("goal") or "engagement"))
+    return jsonify({"status": "ok", "data": {"quality": quality}, "warnings": quality.get("warnings") or [], "debug_code": ""})
+
+
+@saas_api.route("/preview/thumbnail", methods=["POST"])
+@require_auth
+def preview_thumbnail():
+    data = request.get_json(silent=True) or {}
+    video_url = str(data.get("video_url") or "").strip()
+    if not video_url:
+        return jsonify({"status": "error", "data": {}, "warnings": ["video_url is required"], "debug_code": "missing_video_url"}), 400
+    thumb_url = _build_video_thumbnail(video_url=video_url, second=float(data.get("second") or 0.8))
+    if not thumb_url:
+        return jsonify({"status": "partial", "data": {"thumbnail_url": None}, "warnings": ["thumbnail_generation_failed"], "debug_code": "thumb_failed"})
+    return jsonify({"status": "ok", "data": {"thumbnail_url": thumb_url}, "warnings": [], "debug_code": ""})
+
+
+@saas_api.route("/preview/validate", methods=["POST"])
+@require_auth
+def preview_validate():
+    data = request.get_json(silent=True) or {}
+    payload = _normalize_preview_payload(data.get("payload") if isinstance(data.get("payload"), dict) else data)
+    out = _validate_preview_payload(payload)
+    status = "error" if out.get("has_error") else ("partial" if out.get("warnings") else "ok")
+    return jsonify(
+        {
+            "status": status,
+            "data": {
+                "preview": out.get("payload"),
+                "score": int(out.get("score") or 0),
+                "warnings": out.get("warnings") or [],
+                "suggestions": out.get("suggestions") or [],
+            },
+            "warnings": [w.get("message") for w in (out.get("warnings") or []) if isinstance(w, dict)],
+            "debug_code": "",
+        }
+    )
 
 
 @saas_api.route("/create/templates", methods=["POST"])
@@ -2344,9 +3430,9 @@ def content_draft_schedule(draft_id: int):
     except Exception:
         return jsonify({"error": "schedule_at должен быть в ISO формате"}), 400
 
-    billing = get_billing_summary(user)
-    if not billing["limits"].get("can_schedule"):
-        return jsonify({"error": "Планирование доступно только на платных тарифах"}), 403
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"source": "/api/content/drafts/schedule", "content_kind": "post"}))
+    if pw:
+        return pw
 
     db = SessionLocal()
     try:
@@ -2375,6 +3461,7 @@ def content_draft_schedule(draft_id: int):
     )
     if err:
         return err
+    recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/content/drafts/schedule", "post_id": post.id, "mode": "scheduled"})
     return jsonify({"ok": True, "post_id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat() if post.schedule_at else None})
 
 
@@ -2403,6 +3490,10 @@ def content_draft_save(draft_id: int):
     except Exception:
         return jsonify({"error": "project_id должен быть числом"}), 400
 
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"source": "/api/content/drafts/save"}))
+    if pw:
+        return pw
+
     post, err = _create_post_from_content_draft(
         user=user,
         draft=draft,
@@ -2412,6 +3503,7 @@ def content_draft_save(draft_id: int):
     )
     if err:
         return err
+    recordUsageEvent(user, "POSTS_GENERATED", 1, {"endpoint": "/api/content/drafts/save", "post_id": post.id})
     return jsonify({"ok": True, "post_id": post.id, "status": post.status})
 
 
@@ -2440,6 +3532,13 @@ def content_draft_publish(draft_id: int):
     except Exception:
         return jsonify({"error": "project_id должен быть числом"}), 400
 
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"source": "/api/content/drafts/publish"}))
+    if pw:
+        return pw
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_PUBLISH, {"source": "/api/content/drafts/publish"}))
+    if pw:
+        return pw
+
     post, err = _create_post_from_content_draft(
         user=user,
         draft=draft,
@@ -2449,6 +3548,7 @@ def content_draft_publish(draft_id: int):
     )
     if err:
         return err
+    recordUsageEvent(user, "POSTS_GENERATED", 1, {"endpoint": "/api/content/drafts/publish", "post_id": post.id})
 
     if draft.platform == "youtube":
         # Keep behavior explicit: youtube direct publish is not supported in /posts publish flow.
@@ -2558,6 +3658,8 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
             if job.job_type == "generate_image":
                 topic = campaign.topic or "контент"
                 style = str(payload.get("style") or "реалистично")
+                no_text_on_image = bool(payload.get("no_text_on_image") is not False)
+                prompt_guards = payload.get("prompt_guards") if isinstance(payload.get("prompt_guards"), dict) else {}
                 tone = "friendly"
                 if style in {"бизнес", "business"}:
                     tone = "expert"
@@ -2565,12 +3667,45 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                     tone = "friendly"
                 elif style in {"минимализм", "minimal"}:
                     tone = "neutral"
-                image_url = build_semantic_fallback_image_url(
-                    topic=f"{topic}. Стиль: {style}. Реалистично, без фантастических существ.",
-                    category="business",
-                    tone=tone,
-                    language=campaign.language or "ru",
+                no_fantasy = bool(prompt_guards.get("no_fantasy", True))
+                media_query = buildMediaQuery(
+                    {
+                        "nicheSlug": str(payload.get("niche_slug") or ""),
+                        "nicheTitle": str(payload.get("niche_title") or ""),
+                        "goal": str(campaign.objective or "awareness"),
+                        "language": campaign.language or "ru",
+                        "offerText": campaign.offer or "",
+                        "manualTopic": topic,
+                        "contentType": "post",
+                        "orientation": str(payload.get("orientation") or "any"),
+                    }
                 )
+                prompt_topic = f"{media_query.get('query') or topic}. Стиль: {style}. Реалистично."
+                if no_text_on_image:
+                    prompt_topic += " Без текста, без надписей, без логотипов, без водяных знаков."
+                if no_fantasy:
+                    prompt_topic += " Без фантастики, без нереалистичных персонажей."
+                image_url = pick_image_url(
+                    niche_slug=str(media_query.get("nicheSlug") or ""),
+                    niche_title=str(payload.get("niche_title") or topic),
+                    goal=str(campaign.objective or "awareness"),
+                    language=campaign.language or "ru",
+                    offer_text=campaign.offer or "",
+                    manual_topic=topic,
+                    orientation=str(media_query.get("orientation") or "any"),
+                )
+                if not image_url:
+                    image_url = generate_image_url(
+                        topic=prompt_topic,
+                        category="business",
+                        tone=tone,
+                        language=campaign.language or "ru",
+                    ) or build_semantic_fallback_image_url(
+                        topic=prompt_topic,
+                        category="business",
+                        tone=tone,
+                        language=campaign.language or "ru",
+                    )
                 mirrored = _download_and_store_binary(image_url, ".jpg")
                 final_url = mirrored[0] if mirrored else image_url
                 size_bytes = mirrored[1] if mirrored else 0
@@ -2607,11 +3742,31 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 duration_sec = int(payload.get("duration_sec") or 30)
                 aspect_ratio = str(payload.get("aspect_ratio") or "9:16")
                 gen_thumbnail = bool(payload.get("generate_thumbnail") is not False)
+                minimize_repeats = bool(payload.get("minimize_repeats") is not False)
+                realistic_only = bool(payload.get("realistic_only") is not False)
+                scene_seconds = int(payload.get("scene_seconds") or 0) if str(payload.get("scene_seconds") or "").strip() else 0
                 duration_sec = max(20, min(480, duration_sec))
-                job.status = "downloading"
-                job.progress = 20
-                job.updated_at = datetime.utcnow()
-                db.commit()
+                _set_video_job_progress(db, job, status="running", progress=0, step="queued", message="Задача поставлена в очередь")
+
+                def _progress_cb(step: str, progress: int, message: str) -> None:
+                    normalized_step = str(step or "").strip().lower()
+                    if normalized_step == "footage":
+                        legacy_status = "downloading"
+                    elif normalized_step == "render":
+                        legacy_status = "rendering"
+                    elif normalized_step in {"export", "upload"}:
+                        legacy_status = "uploading"
+                    else:
+                        legacy_status = "running"
+                    _set_video_job_progress(
+                        db,
+                        job,
+                        status=legacy_status,
+                        progress=progress,
+                        step=normalized_step or "structure",
+                        message=message,
+                    )
+
                 produced = None
                 last_video_error = "video_generation_failed"
                 for _attempt in range(2):
@@ -2619,25 +3774,36 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         produced = generate_video_job_payload(
                             job_id=job.id,
                             campaign_id=campaign.id,
+                            user_id=campaign.user_id,
                             topic=topic,
                             offer=campaign.offer,
                             language=campaign.language or "ru",
                             target_seconds=duration_sec,
                             aspect_ratio=aspect_ratio,
                             style=str(payload.get("style") or "educational"),
-                            use_lecture_txt=True,
+                            style_pack_id=str(payload.get("style_pack_id") or DEFAULT_STYLE_PACK_ID),
+                            use_lecture_txt=False,
                             reuse_manifest=bool(payload.get("reuse_manifest")),
                             reuse_from_job_id=(int(payload.get("reuse_from_job_id")) if str(payload.get("reuse_from_job_id", "")).isdigit() else None),
+                            scene_seconds=scene_seconds if scene_seconds > 0 else None,
+                            minimize_repeats=minimize_repeats,
+                            realistic_only=realistic_only,
+                            progress_callback=_progress_cb,
+                            custom_scenes=(payload.get("custom_scenes") if isinstance(payload.get("custom_scenes"), list) else None),
+                            custom_title=str(payload.get("custom_title") or campaign.topic or ""),
+                            custom_description=str(payload.get("custom_description") or ""),
+                            custom_hashtags=(payload.get("custom_hashtags") if isinstance(payload.get("custom_hashtags"), list) else None),
+                            custom_cta=str(payload.get("custom_cta") or campaign.cta or ""),
+                            voice_gender=str(payload.get("voice_gender") or "male"),
+                            voice_tone=str(payload.get("voice_tone") or "neutral"),
+                            voice_name=str(payload.get("voice_name") or ""),
                         )
                         break
                     except Exception as exc:
                         last_video_error = str(exc)
                 if not produced:
                     raise RuntimeError(last_video_error)
-                job.status = "rendering"
-                job.progress = 82
-                job.updated_at = datetime.utcnow()
-                db.commit()
+                _set_video_job_progress(db, job, status="rendering", progress=85, step="render", message="Рендер готов, сохраняем результат")
                 video_url = str(produced.get("video_url") or "").strip()
                 if not video_url:
                     raise RuntimeError("video_render_failed")
@@ -2682,10 +3848,19 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         created_at=datetime.utcnow(),
                     )
                     db.add(thumb_asset)
-                job.status = "uploading"
-                job.progress = 95
-                job.updated_at = datetime.utcnow()
-                db.commit()
+                _set_video_job_progress(db, job, status="uploading", progress=95, step="upload", message="Сохраняем ассеты и метаданные")
+                spoken_text = str(produced.get("spoken_text") or "").strip()
+                if not spoken_text:
+                    phrases_raw = produced.get("phrases")
+                    if isinstance(phrases_raw, list):
+                        spoken_text = " ".join([str(x or "").strip() for x in phrases_raw if str(x or "").strip()]).strip()
+                if not campaign.caption_master:
+                    campaign.caption_master = (spoken_text or str(produced.get("description") or "").strip() or campaign.topic or "").strip()[:5000] or None
+                if not campaign.hashtags_master:
+                    produced_tags = produced.get("hashtags") if isinstance(produced.get("hashtags"), list) else []
+                    campaign.hashtags_master = json.dumps([str(x).strip() for x in produced_tags if str(x).strip()][:30], ensure_ascii=False)
+                if not campaign.cta and str(produced.get("cta") or "").strip():
+                    campaign.cta = str(produced.get("cta") or "").strip()[:300]
                 campaign.status = "ready"
                 campaign.updated_at = datetime.utcnow()
                 job.status = "done"
@@ -2700,7 +3875,9 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                         "title": produced.get("title"),
                         "description": produced.get("description"),
                         "hashtags": produced.get("hashtags") or [],
+                        "spoken_text": spoken_text,
                     },
+                    "spoken_text": spoken_text,
                     "artifacts": {
                         "audio_url": produced.get("audio_url"),
                         "subtitles_url": produced.get("subtitles_url"),
@@ -2712,6 +3889,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                     result_payload["thumbnail"] = _asset_payload(thumb_asset)
                 job.result_json = json.dumps(result_payload, ensure_ascii=False)
                 db.commit()
+                _set_video_job_progress(db, job, status="done", progress=100, step="upload", message="Видео готово к публикации")
                 return
 
             raise RuntimeError("Unsupported job type")
@@ -2921,6 +4099,9 @@ def campaign_generate_image(campaign_id: int):
             "no_text_on_image": bool(data.get("no_text_on_image") is not False),
             "realism": bool(data.get("realism") is not False),
             "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
+            "niche_slug": str(data.get("niche_slug") or data.get("nicheSlug") or "").strip().lower(),
+            "niche_title": str(data.get("niche_title") or data.get("nicheTitle") or "").strip(),
+            "orientation": str(data.get("orientation") or "any").strip().lower(),
         }
         job = GenerationJob(
             campaign_id=campaign.id,
@@ -2948,6 +4129,9 @@ def campaign_generate_image(campaign_id: int):
 def campaign_generate_video(campaign_id: int):
     user = g.current_user
     data = request.get_json(silent=True) or {}
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_GENERATE, {"endpoint": "/api/campaigns/generate-video"}))
+    if pw:
+        return pw
     db = SessionLocal()
     try:
         campaign = db.query(Campaign).filter_by(id=campaign_id).first()
@@ -2966,6 +4150,11 @@ def campaign_generate_video(campaign_id: int):
         aspect_ratio = str(data.get("aspect_ratio") or "9:16").strip()
         if aspect_ratio not in {"9:16", "1:1", "16:9"}:
             return jsonify({"error": "aspect_ratio должен быть 9:16, 1:1 или 16:9"}), 400
+        requested_style_pack = str(data.get("style_pack_id") or "").strip().lower()
+        if not requested_style_pack:
+            requested_style_pack = _get_user_style_pref(db, user.id)
+        normalized_style_pack = get_style_pack(requested_style_pack).get("id") or DEFAULT_STYLE_PACK_ID
+        _set_user_style_pref(db, user.id, normalized_style_pack)
         payload = {
             "duration_sec": duration_sec,
             "aspect_ratio": aspect_ratio,
@@ -2973,6 +4162,7 @@ def campaign_generate_video(campaign_id: int):
             "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
             "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
             "style": str(data.get("style") or "educational"),
+            "style_pack_id": normalized_style_pack,
             "reuse_manifest": bool(data.get("reuse_manifest") is True),
             "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
         }
@@ -2992,6 +4182,7 @@ def campaign_generate_video(campaign_id: int):
         db.commit()
         db.refresh(job)
         _start_generation_job(job.id, payload)
+        recordUsageEvent(user, "VIDEOS_GENERATED", 1, {"endpoint": "/api/campaigns/generate-video", "campaign_id": campaign.id, "job_id": job.id})
         return jsonify({"job": _job_payload(job)}), 202
     finally:
         db.close()
@@ -3017,6 +4208,7 @@ def get_job_status(job_id: int):
 
 
 @saas_api.route("/video/generate", methods=["POST"])
+@saas_api.route("/ai/video/render", methods=["POST"])
 @require_auth
 def video_generate():
     user = _current_user_refetched()
@@ -3035,7 +4227,24 @@ def video_generate():
     target_seconds = int(data.get("target_seconds") or min_sec)
     target_seconds = max(min_sec, min(max_sec, target_seconds))
     orientation = str(data.get("orientation") or ("vertical" if fmt == "short" else "horizontal")).strip().lower()
+    if orientation not in {"vertical", "horizontal"}:
+        orientation = "vertical" if fmt == "short" else "horizontal"
     aspect_ratio = "9:16" if orientation == "vertical" else "16:9"
+    scene_seconds = int(data.get("scene_seconds") or 0) if str(data.get("scene_seconds") or "").strip() else 0
+    minimize_repeats = bool(data.get("minimize_repeats") is not False)
+    realistic_only = bool(data.get("realistic_only") is not False)
+    voice_gender = str(data.get("voice_gender") or "male").strip().lower()
+    if voice_gender not in {"male", "female"}:
+        voice_gender = "male"
+    voice_tone = str(data.get("voice_tone") or "neutral").strip().lower()
+    if voice_tone not in {"calm", "neutral", "live"}:
+        voice_tone = "neutral"
+    voice_name = str(data.get("voice_name") or "").strip()
+    custom_scenes = data.get("custom_scenes") if isinstance(data.get("custom_scenes"), list) else None
+    custom_title = str(data.get("custom_title") or "").strip()
+    custom_description = str(data.get("custom_description") or "").strip()
+    custom_hashtags = data.get("custom_hashtags") if isinstance(data.get("custom_hashtags"), list) else None
+    custom_cta = str(data.get("custom_cta") or data.get("cta") or "").strip()
 
     project_id_raw = data.get("project_id")
     try:
@@ -3045,8 +4254,18 @@ def video_generate():
     if not can_access_project(user, project_id):
         return jsonify({"error": "Нет доступа к проекту"}), 403
 
+    endpoint_ref = "/api/ai/video/render" if request.path.endswith("/ai/video/render") else "/api/video/generate"
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_GENERATE, {"endpoint": endpoint_ref}))
+    if pw:
+        return pw
+
     db = SessionLocal()
     try:
+        requested_style_pack = str(data.get("style_pack_id") or "").strip().lower()
+        if not requested_style_pack:
+            requested_style_pack = _get_user_style_pref(db, user.id)
+        normalized_style_pack = get_style_pack(requested_style_pack).get("id") or DEFAULT_STYLE_PACK_ID
+        _set_user_style_pref(db, user.id, normalized_style_pack)
         campaign = Campaign(
             user_id=user.id,
             project_id=project_id,
@@ -3055,7 +4274,7 @@ def video_generate():
             offer=offer,
             objective="engagement",
             caption_master=None,
-            cta=None,
+            cta=(custom_cta or None),
             hashtags_master=json.dumps([], ensure_ascii=False),
             language=language,
             status="draft",
@@ -3078,7 +4297,14 @@ def video_generate():
                         "target_seconds": target_seconds,
                         "orientation": orientation,
                         "style": style,
+                        "style_pack_id": normalized_style_pack,
                         "language": language,
+                        "scene_seconds": scene_seconds if scene_seconds > 0 else None,
+                        "minimize_repeats": minimize_repeats,
+                        "realistic_only": realistic_only,
+                        "voice_gender": voice_gender,
+                        "voice_tone": voice_tone,
+                        "voice_name": voice_name,
                     }
                 },
                 ensure_ascii=False,
@@ -3095,15 +4321,231 @@ def video_generate():
             {
                 "duration_sec": target_seconds,
                 "aspect_ratio": aspect_ratio,
-                "realism": True,
-                "prompt_guards": {"no_fantasy": True},
+                "realism": realistic_only,
+                "prompt_guards": {"no_fantasy": realistic_only},
                 "generate_thumbnail": True,
                 "style": style,
-                "reuse_manifest": bool(data.get("reuse_manifest") is True),
+                "style_pack_id": normalized_style_pack,
+                "scene_seconds": scene_seconds if scene_seconds > 0 else None,
+                "minimize_repeats": minimize_repeats,
+                "realistic_only": realistic_only,
+                "voice_gender": voice_gender,
+                "voice_tone": voice_tone,
+                "voice_name": voice_name,
+                "custom_scenes": custom_scenes,
+                "custom_title": custom_title,
+                "custom_description": custom_description,
+                "custom_hashtags": custom_hashtags,
+                "custom_cta": custom_cta,
+                # Force fresh render to avoid serving stale subtitle styles from old manifests.
+                "reuse_manifest": False,
                 "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
             },
         )
+        recordUsageEvent(user, "VIDEOS_GENERATED", 1, {"endpoint": endpoint_ref, "campaign_id": campaign.id, "job_id": job.id})
         return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status}), 202
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/structure", methods=["POST"])
+@require_auth
+def video_structure():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"error": "topic обязателен"}), 400
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_GENERATE, {"endpoint": "/api/video/structure"}))
+    if pw:
+        return pw
+    offer = str(data.get("offer") or "").strip() or None
+    language = str(data.get("language") or "ru").strip().lower() or "ru"
+    style = str(data.get("style") or "educational").strip() or "educational"
+    orientation = str(data.get("orientation") or "vertical").strip().lower()
+    if orientation not in {"vertical", "horizontal"}:
+        orientation = "vertical"
+    target_seconds = int(data.get("target_seconds") or 30)
+    target_seconds = max(20, min(480, target_seconds))
+    scene_seconds = int(data.get("scene_seconds") or 0) if str(data.get("scene_seconds") or "").strip() else 0
+    scene_seconds = max(0, min(12, scene_seconds))
+    scene_every_4 = bool(data.get("scene_every_4s") is True)
+    voice_gender = str(data.get("voice_gender") or "male").strip().lower()
+    if voice_gender not in {"male", "female"}:
+        voice_gender = "male"
+    voice_tone = str(data.get("voice_tone") or "neutral").strip().lower()
+    if voice_tone not in {"calm", "neutral", "live"}:
+        voice_tone = "neutral"
+    voice_name = str(data.get("voice_name") or "").strip()
+    try:
+        script = generate_video_structure(
+            topic=topic,
+            offer=offer,
+            language=language,
+            target_seconds=target_seconds,
+            style=style,
+            style_pack=get_style_pack(data.get("style_pack_id")),
+        )
+    except Exception as exc:
+        return jsonify({"error": f"Не удалось построить структуру видео: {str(exc)}"}), 500
+
+    def _normalize_scene_phrase(phrase_text: str, base_topic: str, idx: int) -> str:
+        text = " ".join(str(phrase_text or "").split()).strip()
+        text = text.replace("□", "").replace("�", "").strip()
+        if not text:
+            text = f"Разбираем тему: {base_topic}."
+        low = text.lower()
+        bad_starts = (
+            "добавьте ",
+            "покажите ",
+            "обозначьте ",
+            "уточните ",
+            "завершите ",
+            "сформулируйте ",
+            "кратко покажем ",
+        )
+        fallback_lines = [
+            f"{base_topic}: с чего начать без лишней теории.",
+            "Разбираем рабочий шаг, который реально внедрить уже сегодня.",
+            "Короткий пример из практики: действие, контекст и понятный результат.",
+            "Показываем частую ошибку и простой способ ее избежать.",
+            "Подводим итог и формулируем следующий шаг без воды.",
+            "Объясняем пользу для аудитории простым человеческим языком.",
+        ]
+        if any(low.startswith(b) for b in bad_starts):
+            text = fallback_lines[idx % len(fallback_lines)]
+        text = re.sub(r"\s{2,}", " ", text).strip()
+        text = re.sub(r"\.\s*\.", ".", text)
+        if text and text[-1] not in ".!?":
+            text = f"{text}."
+        if len(text) < 18:
+            text = fallback_lines[idx % len(fallback_lines)]
+        return text[:220]
+
+    phrases = [_normalize_scene_phrase(x, topic, i) for i, x in enumerate(list(script.phrases or []))]
+    base_step = float(scene_seconds if scene_seconds > 0 else (4 if scene_every_4 else 0))
+    if base_step > 0:
+        base_step = max(2.0, min(20.0, base_step))
+        desired_count = max(1, int((target_seconds + base_step - 1) // base_step))
+        if len(phrases) > desired_count:
+            phrases = phrases[:desired_count]
+        elif len(phrases) < desired_count:
+            pad_base = str(phrases[-1] if phrases else f"Итог по теме: {topic}") or f"Итог по теме: {topic}"
+            pad_variants = [
+                f"{topic}: разберем простой шаг, который можно внедрить сразу.",
+                "Кейс из практики: действие, результат и почему это сработало.",
+                "Частая ошибка в теме и быстрый способ ее исправить.",
+                "Понятный алгоритм: что делать сегодня, чтобы увидеть эффект.",
+                "Итог сцены: какую пользу получает аудитория.",
+            ]
+            pad_cursor = 0
+            while len(phrases) < desired_count:
+                phrases.append(_normalize_scene_phrase(pad_variants[pad_cursor % len(pad_variants)], topic, pad_cursor))
+                pad_cursor += 1
+        durations = []
+        remaining = float(target_seconds)
+        for _ in range(len(phrases)):
+            d = min(base_step, max(0.6, remaining))
+            durations.append(float(d))
+            remaining -= d
+    else:
+        even = float(target_seconds / max(1, len(phrases)))
+        even = max(0.6, even)
+        durations = [even for _ in phrases]
+
+    def _expand_phrase_for_duration(phrase_text: str, duration_s: float, base_topic: str, idx: int) -> str:
+        text = _normalize_scene_phrase(phrase_text, base_topic, idx)
+        if not text:
+            text = f"Ключевая мысль по теме: {base_topic}."
+        words = [w for w in text.split() if w]
+        min_words = max(7, int(round(float(duration_s or 0) * 1.7)))
+        if len(words) >= min_words:
+            return text
+        additions = [
+            "Добавим практичный пример, чтобы зритель сразу понял применение.",
+            "Сформулируем ожидаемый результат и как его проверить на практике.",
+            "Покажем частую ошибку и безопасный вариант решения.",
+            "Свяжем эту мысль с предыдущей сценой без повторения формулировок.",
+            "Уточним пользу для аудитории через конкретное действие.",
+            "Зафиксируем вывод коротко и по делу.",
+        ]
+        used_additions = set()
+        cursor = idx % len(additions)
+        while len(words) < min_words:
+            extra = additions[cursor]
+            cursor = (cursor + 1) % len(additions)
+            if extra in used_additions:
+                continue
+            used_additions.add(extra)
+            text = f"{text} {extra}".strip()
+            words = [w for w in text.split() if w]
+            if len(words) > max(min_words + 8, 34):
+                break
+            if len(used_additions) >= len(additions):
+                break
+        return text
+
+    scenes = []
+    for idx, phrase in enumerate(phrases):
+        shot = (script.shotlist[idx] if idx < len(script.shotlist) else {}) or {}
+        phrase_ready = _expand_phrase_for_duration(
+            phrase_text=phrase,
+            duration_s=float(durations[idx] if idx < len(durations) else 0.0),
+            base_topic=topic,
+            idx=idx,
+        )
+        scenes.append(
+            {
+                "index": idx,
+                "text": phrase_ready,
+                "duration_s": round(float(durations[idx] if idx < len(durations) else 0.0), 2),
+                "scene_type": str(shot.get("scene_type") or "work"),
+                "queries": list(shot.get("queries") or []),
+            }
+        )
+    subtitle_lines = [str(s.get("text") or "").strip() for s in scenes if str(s.get("text") or "").strip()]
+    return jsonify(
+        {
+            "status": "ok",
+            "data": {
+                "topic": topic,
+                "title": script.title,
+                "description": script.description,
+                "hashtags": list(script.hashtags or []),
+                "target_seconds": target_seconds,
+                "orientation": orientation,
+                "scenes": scenes,
+                "subtitles": {"enabled": True, "lines": subtitle_lines},
+                "voiceover": {
+                    "voice": (voice_name or ("Женский" if voice_gender == "female" else "Мужской")),
+                    "gender": voice_gender,
+                    "tone": voice_tone,
+                },
+                "background_music": {"enabled": bool(settings.VIDEO_BG_MUSIC_ENABLED), "ducking": "low"},
+            },
+            "warnings": [],
+            "debug_code": "",
+        }
+    )
+
+
+@saas_api.route("/video/style-packs", methods=["GET"])
+@require_auth
+def video_style_packs():
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        packs = list_style_packs()
+        default_style_pack = _get_user_style_pref(db, user.id)
+        requested_default = request.args.get("default_style_pack")
+        if requested_default:
+            default_style_pack = _set_user_style_pref(db, user.id, requested_default)
+        return jsonify(
+            {
+                "items": packs,
+                "default_style_pack": default_style_pack,
+            }
+        )
     finally:
         db.close()
 
@@ -3138,6 +4580,89 @@ def video_job_status(job_id: int):
         db.close()
 
 
+@saas_api.route("/ai/video/jobs/<int:job_id>", methods=["GET"])
+@require_auth
+def ai_video_job_status(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job не найден"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign:
+            return jsonify({"error": "Campaign не найден"}), 404
+        if user.role != "admin" and campaign.user_id != user.id:
+            return jsonify({"error": "Недостаточно прав"}), 403
+
+        result = _job_result_dict(job)
+        progress_meta = result.get("progress") if isinstance(result.get("progress"), dict) else {}
+        step = str(progress_meta.get("step") or "").strip().lower()
+        message = str(progress_meta.get("message") or "").strip()
+        if not step:
+            status_map = {
+                "queued": "structure",
+                "running": "structure",
+                "downloading": "footage",
+                "rendering": "render",
+                "uploading": "upload",
+                "done": "upload",
+                "failed": "render",
+            }
+            step = status_map.get(str(job.status or "").lower(), "structure")
+        if not message:
+            message_map = {
+                "queued": "Задача в очереди",
+                "running": "Подготавливаем видео",
+                "downloading": "Подбираем футажи",
+                "rendering": "Рендерим видео",
+                "uploading": "Сохраняем результат",
+                "done": "Видео готово",
+                "failed": "Ошибка сборки видео",
+            }
+            message = message_map.get(str(job.status or "").lower(), "Обработка")
+
+        raw_status = str(job.status or "").lower()
+        if raw_status in {"done"}:
+            out_status = "success"
+        elif raw_status in {"failed"}:
+            out_status = "error"
+        elif raw_status in {"queued"}:
+            out_status = "queued"
+        else:
+            out_status = "running"
+
+        video_url = ""
+        preview_url = ""
+        if isinstance(result.get("video"), dict):
+            video_url = str(result["video"].get("storage_url") or "").strip()
+        if isinstance(result.get("thumbnail"), dict):
+            preview_url = str(result["thumbnail"].get("storage_url") or "").strip()
+        assets = db.query(CampaignAsset).filter_by(campaign_id=campaign.id).order_by(CampaignAsset.created_at.desc()).all()
+        if not video_url:
+            v_asset = next((a for a in assets if str(a.type or "").lower() == "video"), None)
+            if v_asset:
+                video_url = str(v_asset.storage_url or "").strip()
+        if not preview_url:
+            t_asset = next((a for a in assets if str(a.type or "").lower() == "thumbnail"), None)
+            if t_asset:
+                preview_url = str(t_asset.storage_url or "").strip()
+
+        return jsonify(
+            {
+                "status": out_status,
+                "progress": max(0, min(100, int(job.progress or 0))),
+                "step": step,
+                "message": message,
+                "previewUrl": preview_url or video_url or None,
+                "finalUrl": video_url or None,
+                "error": (str(job.error_message or "").strip() or None),
+            }
+        )
+    finally:
+        db.close()
+
+
 @saas_api.route("/video/jobs/<int:job_id>/publish", methods=["POST"])
 @require_auth
 def video_job_publish(job_id: int):
@@ -3146,6 +4671,9 @@ def video_job_publish(job_id: int):
     requested_platforms = data.get("platforms")
     if not isinstance(requested_platforms, list) or not requested_platforms:
         requested_platforms = ["youtube"]
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_PUBLISH, {"endpoint": "/api/video/jobs/publish"}))
+    if pw:
+        return pw
 
     db = SessionLocal()
     try:
@@ -3168,14 +4696,15 @@ def video_job_publish(job_id: int):
             platform = str(p or "").strip().lower()
             if platform not in {"youtube", "facebook", "instagram"}:
                 continue
+            caption_text, hashtags_list = _build_video_publish_caption(campaign, job)
             kind = "shorts" if platform == "youtube" else ("reel" if platform == "instagram" else "video")
             row = CampaignDelivery(
                 campaign_id=campaign.id,
                 platform=platform,
                 kind=kind,
                 account_ref=None,
-                caption_rendered=campaign.caption_master or campaign.topic,
-                hashtags_rendered=campaign.hashtags_master or "[]",
+                caption_rendered=caption_text,
+                hashtags_rendered=json.dumps(hashtags_list, ensure_ascii=False),
                 scheduled_at=None,
                 status="queued",
                 remote_id=None,
@@ -3190,6 +4719,12 @@ def video_job_publish(job_id: int):
         campaign.status = "publishing"
         campaign.updated_at = datetime.utcnow()
         db.commit()
+        recordUsageEvent(
+            user,
+            "VIDEOS_PUBLISHED",
+            len(created_rows),
+            {"endpoint": "/api/video/jobs/publish", "campaign_id": campaign.id, "job_id": job.id},
+        )
         for row in created_rows:
             db.refresh(row)
             _start_delivery_worker(row.id)
@@ -3206,6 +4741,24 @@ def campaign_publish(campaign_id: int):
     requested = data.get("deliveries") if isinstance(data.get("deliveries"), list) else []
     if not requested:
         return jsonify({"error": "Передайте deliveries"}), 400
+
+    has_video_delivery = any(str((x or {}).get("kind") or "").strip().lower() in {"video", "reel", "shorts"} for x in requested if isinstance(x, dict))
+    has_image_delivery = any(str((x or {}).get("kind") or "").strip().lower() == "image_post" for x in requested if isinstance(x, dict))
+    has_schedule_delivery = any(bool((x or {}).get("scheduled_at")) for x in requested if isinstance(x, dict))
+    if has_schedule_delivery:
+        schedule_kind = "video" if has_video_delivery and not has_image_delivery else "post"
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/campaigns/publish", "content_kind": schedule_kind}))
+        if pw:
+            return pw
+    if has_video_delivery:
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_PUBLISH, {"endpoint": "/api/campaigns/publish"}))
+        if pw:
+            return pw
+    if has_image_delivery:
+        pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_PUBLISH, {"endpoint": "/api/campaigns/publish"}))
+        if pw:
+            return pw
+
     db = SessionLocal()
     try:
         campaign = db.query(Campaign).filter_by(id=campaign_id).first()
@@ -3276,6 +4829,13 @@ def campaign_publish(campaign_id: int):
         campaign.status = "publishing"
         campaign.updated_at = datetime.utcnow()
         db.commit()
+        if created_rows:
+            video_count = sum(1 for x in created_rows if str(x.kind or "").lower() in {"video", "reel", "shorts"})
+            image_count = sum(1 for x in created_rows if str(x.kind or "").lower() == "image_post")
+            if video_count:
+                recordUsageEvent(user, "VIDEOS_PUBLISHED", video_count, {"endpoint": "/api/campaigns/publish", "campaign_id": campaign.id})
+            if image_count:
+                recordUsageEvent(user, "POSTS_PUBLISHED", image_count, {"endpoint": "/api/campaigns/publish", "campaign_id": campaign.id})
         for row in created_rows:
             db.refresh(row)
             if row.scheduled_at is None or row.scheduled_at <= datetime.utcnow():
@@ -3343,6 +4903,9 @@ def campaigns_history():
 def youtube_generate_video():
     user = _current_user_refetched()
     data = request.get_json(silent=True) or {}
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_GENERATE, {"endpoint": "/api/youtube/generate-video"}))
+    if pw:
+        return pw
 
     topic = (data.get("topic") or "").strip()
     language = (data.get("language") or "ru").strip().lower()
@@ -3458,6 +5021,7 @@ def youtube_generate_video():
         "tokens_input": int(getattr(gen, "input_tokens", 0) or 0),
         "tokens_output": int(getattr(gen, "output_tokens", 0) or 0),
     }
+    recordUsageEvent(user, "VIDEOS_GENERATED", 1, {"endpoint": "/api/youtube/generate-video", "topic": topic, "video_type": video_type})
     return jsonify(result)
 
 
@@ -3466,6 +5030,9 @@ def youtube_generate_video():
 def youtube_generate_post():
     user = _current_user_refetched()
     data = request.get_json(silent=True) or {}
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_GENERATE, {"endpoint": "/api/youtube/generate-post"}))
+    if pw:
+        return pw
     topic = (data.get("topic") or "").strip()
     if not topic:
         return jsonify({"error": "Укажите тему поста"}), 400
@@ -3507,6 +5074,8 @@ def youtube_generate_post():
         return jsonify({"error": str(exc)}), 429
     except Exception as exc:
         return jsonify({"error": f"Ошибка генерации YouTube поста: {exc}"}), 500
+
+    recordUsageEvent(user, "POSTS_GENERATED", 1, {"endpoint": "/api/youtube/generate-post", "post_id": post.id})
 
     return jsonify(
         {
@@ -3922,6 +5491,9 @@ def legacy_generated_posts_alias():
 @require_auth
 def publish_post(post_id: int):
     user = g.current_user
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_POST_PUBLISH, {"endpoint": "/api/posts/publish"}))
+    if pw:
+        return pw
     db = SessionLocal()
     started_at = time.perf_counter()
     timing_ms = {}
@@ -3947,6 +5519,7 @@ def publish_post(post_id: int):
             post.remote_id = f"mock_{post.id}_{int(datetime.utcnow().timestamp())}"
             post.retry_count += 1
             db.commit()
+            recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/posts/publish", "post_id": post.id, "mode": "mock"})
             return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "mock"})
 
         # Real Meta publish path.
@@ -3967,10 +5540,9 @@ def publish_post(post_id: int):
             return jsonify({"error": "Токен подключения не найден. Переподключите Facebook."}), 400
 
         t_decrypt = time.perf_counter()
-        try:
-            access_token = decrypt_meta_token(connection.token_encrypted)
-        except Exception:
-            return jsonify({"error": "Не удалось расшифровать токен. Переподключите Facebook."}), 400
+        access_token = _meta_get_user_access_token(db, connection)
+        if not access_token:
+            return jsonify({"error": "Не удалось получить токен Meta. Переподключите Facebook."}), 400
         _mark("token_decrypt_ms", t_decrypt)
 
         caption = (post.generated_text or post.topic or "").strip()
@@ -4009,6 +5581,14 @@ def publish_post(post_id: int):
             if fb_err and fb_code == "324":
                 # If Meta rejects image URL, retry with text-only post.
                 result = publish_to_facebook(connection.page_id, page_access_token, None, caption)
+            if isinstance(result, dict):
+                status_from_error, reason = _meta_error_to_status(result.get("error") or result)
+                if reason == "access_token_invalid":
+                    access_token = _meta_get_user_access_token(db, connection, force_exchange=True)
+                    if access_token:
+                        page_access_token = _resolve_page_access_token(access_token, connection.page_id)
+                        if page_access_token:
+                            result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
             _mark("meta_publish_ms", t_publish)
             remote_id = result.get("post_id") or result.get("id")
         else:
@@ -4022,6 +5602,12 @@ def publish_post(post_id: int):
             ig_token = access_token
             t_publish = time.perf_counter()
             result = publish_to_instagram(connection.ig_user_id, ig_token, image_url, caption)
+            if isinstance(result, dict):
+                status_from_error, reason = _meta_error_to_status(result.get("error") or result)
+                if reason == "access_token_invalid":
+                    refreshed = _meta_get_user_access_token(db, connection, force_exchange=True)
+                    if refreshed:
+                        result = publish_to_instagram(connection.ig_user_id, refreshed, image_url, caption)
             _mark("meta_publish_ms", t_publish)
             remote_id = result.get("id")
 
@@ -4062,6 +5648,7 @@ def publish_post(post_id: int):
             post.platform,
             json.dumps(timing_ms, ensure_ascii=False),
         )
+        recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/posts/publish", "post_id": post.id, "mode": "real"})
         return jsonify({"id": post.id, "status": post.status, "remote_id": post.remote_id, "mode": "real", "timing_ms": timing_ms})
     except Exception as exc:
         db.rollback()
@@ -4090,9 +5677,9 @@ def schedule_post(post_id: int):
     except Exception:
         return jsonify({"error": "schedule_at РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ ISO С„РѕСЂРјР°С‚Рµ"}), 400
 
-    billing = get_billing_summary(user)
-    if not billing["limits"]["can_schedule"]:
-        return jsonify({"error": "РџР»Р°РЅРёСЂРѕРІР°РЅРёРµ РґРѕСЃС‚СѓРїРЅРѕ С‚РѕР»СЊРєРѕ РЅР° РїР»Р°С‚РЅС‹С… С‚Р°СЂРёС„Р°С…"}), 403
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_SCHEDULE_CREATE, {"endpoint": "/api/posts/schedule", "content_kind": "post"}))
+    if pw:
+        return pw
 
     db = SessionLocal()
     try:
@@ -4105,6 +5692,7 @@ def schedule_post(post_id: int):
         post.schedule_at = schedule_at
         post.status = "scheduled"
         db.commit()
+        recordUsageEvent(user, "POSTS_PUBLISHED", 1, {"endpoint": "/api/posts/schedule", "post_id": post.id, "mode": "scheduled"})
         return jsonify({"id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat()})
     finally:
         db.close()
@@ -4300,6 +5888,9 @@ def _serialize_youtube_connection(row: SocialAccount | None) -> dict:
 @saas_api.route("/connections/meta/start", methods=["POST"])
 @require_auth
 def meta_start():
+    pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ACCOUNT_CONNECT, {"provider": "meta", "endpoint": "/api/integrations/meta/connect"}))
+    if pw:
+        return pw
     if settings.MOCK_META:
         return jsonify(
             {
@@ -4387,7 +5978,22 @@ def meta_callback():
             )
         )
 
-    page_id, ig_user_id, raw = get_page_and_ig_id(access_token)
+    resolved_access_token = str(access_token or "").strip()
+    meta_expires_at = None
+    exchanged_token, exchanged_expires_in = _meta_exchange_long_lived_user_token(resolved_access_token)
+    if exchanged_token:
+        resolved_access_token = exchanged_token
+        if exchanged_expires_in and exchanged_expires_in > 0:
+            meta_expires_at = datetime.utcnow() + timedelta(seconds=exchanged_expires_in)
+    else:
+        try:
+            short_expires_in = int(token_data.get("expires_in") or 0)
+        except Exception:
+            short_expires_in = 0
+        if short_expires_in > 0:
+            meta_expires_at = datetime.utcnow() + timedelta(seconds=short_expires_in)
+
+    page_id, ig_user_id, raw = get_page_and_ig_id(resolved_access_token)
     page_name = None
     if raw.get("data"):
         # Prefer page that has IG business; fallback to first page.
@@ -4409,36 +6015,74 @@ def meta_callback():
     if not user_id:
         return redirect(_frontend_connections_url("error=state_invalid"))
 
+    db_guard = SessionLocal()
+    try:
+        callback_user = db_guard.query(AppUser).filter_by(id=user_id).first()
+    finally:
+        db_guard.close()
+    if not callback_user:
+        return redirect(_frontend_connections_url("error=state_invalid"))
+    authz = authorizeAction(callback_user, ACTION_ACCOUNT_CONNECT, {"provider": "meta", "endpoint": "/api/integrations/meta/callback"})
+    if not authz.get("allowed", False):
+        code = (authz.get("error_payload") or {}).get("error") or "PAYWALL_LIMIT"
+        return redirect(_frontend_connections_url(f"error=paywall&message={quote(code)}"))
+
     db = SessionLocal()
     try:
-        row = db.query(SocialAccount).filter_by(user_id=user_id, provider="meta").first()
-        if not row:
-            row = SocialAccount(user_id=user_id, provider="meta")
-            db.add(row)
+        token_enc = encrypt_meta_token(resolved_access_token)
+        pages = raw.get("data") or []
+        existing_rows = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user_id, SocialAccount.provider == "meta")
+            .order_by(SocialAccount.created_at.asc())
+            .all()
+        )
+        by_page_id = {str(r.page_id): r for r in existing_rows if str(r.page_id or "").strip()}
 
-        row.page_id = page_id
-        row.page_name = page_name
-        # Try to store page picture / IG username for clearer UI. Not critical if missing.
-        try:
-            if raw.get("data"):
-                pages = raw.get("data") or []
-                selected_page = next((p for p in pages if p.get("instagram_business_account")), pages[0])
-                pic = (selected_page.get("picture") or {}).get("data") or {}
+        if pages:
+            for p in pages:
+                pid = str(p.get("id") or "").strip()
+                if not pid:
+                    continue
+                row = by_page_id.get(pid)
+                if not row:
+                    row = SocialAccount(user_id=user_id, provider="meta")
+                    db.add(row)
+                    db.flush()
+                    by_page_id[pid] = row
+                ig = p.get("instagram_business_account") or {}
+                pic = (p.get("picture") or {}).get("data") or {}
+                row.page_id = pid
+                row.page_name = p.get("name")
                 row.page_picture_url = pic.get("url")
-                row.ig_username = (selected_page.get("instagram_business_account") or {}).get("username")
-        except Exception:
-            pass
-        row.ig_user_id = ig_user_id
-        row.token_encrypted = encrypt_meta_token(access_token)
-        if raw.get("error"):
-            status, reason = _meta_error_to_status(raw.get("error") or {})
-            _apply_meta_status(row, status, reason)
-        elif not page_id:
-            _apply_meta_status(row, "connected_need_page", "no_pages")
-        elif not ig_user_id:
-            _apply_meta_status(row, "connected_need_page", "ig_not_linked")
+                row.ig_user_id = ig.get("id")
+                row.ig_username = ig.get("username")
+                row.token_encrypted = token_enc
+                row.token_expires_at = meta_expires_at
+                if row.page_id and row.ig_user_id:
+                    _apply_meta_status(row, "connected_ready")
+                elif row.page_id and not row.ig_user_id:
+                    _apply_meta_status(row, "connected_need_page", "ig_not_linked")
+                else:
+                    _apply_meta_status(row, "connected_need_page", "no_pages")
         else:
-            _apply_meta_status(row, "connected_ready")
+            row = existing_rows[0] if existing_rows else SocialAccount(user_id=user_id, provider="meta")
+            if not existing_rows:
+                db.add(row)
+            row.page_id = page_id
+            row.page_name = page_name
+            row.ig_user_id = ig_user_id
+            row.token_encrypted = token_enc
+            row.token_expires_at = meta_expires_at
+            if raw.get("error"):
+                status, reason = _meta_error_to_status(raw.get("error") or {})
+                _apply_meta_status(row, status, reason)
+            elif not page_id:
+                _apply_meta_status(row, "connected_need_page", "no_pages")
+            elif not ig_user_id:
+                _apply_meta_status(row, "connected_need_page", "ig_not_linked")
+            else:
+                _apply_meta_status(row, "connected_ready")
         db.commit()
     finally:
         db.close()
@@ -4468,10 +6112,6 @@ def list_connections():
         rows = []
         for row in rows_all:
             if row.provider != "meta":
-                continue
-            status = _normalize_connection_status(row.status)
-            # Hide empty disconnected shells from UI after explicit disconnect.
-            if status in {"not_connected", "disconnected"} and not row.token_encrypted and not row.page_id and not row.ig_user_id:
                 continue
             rows.append(row)
         return jsonify([_serialize_connection(row) for row in rows])
@@ -4562,6 +6202,282 @@ def dashboard_metrics_recent():
         db.close()
 
 
+def _weekday_ru(idx: int) -> str:
+    arr = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    return arr[int(idx) % 7]
+
+
+def _default_best_slots(platform_key: str) -> tuple[list[int], list[int]]:
+    key = str(platform_key or "instagram").lower()
+    if key == "youtube":
+        return [1, 5], [12, 19]
+    return [2, 4], [11, 18]
+
+
+def _next_slot_datetimes(best_days: list[int], best_hours: list[int], take: int = 6) -> list[datetime]:
+    now = datetime.utcnow()
+    out = []
+    for shift in range(0, 21):
+        day = now + timedelta(days=shift)
+        if day.weekday() not in best_days:
+            continue
+        for h in best_hours:
+            dt = day.replace(hour=int(h), minute=0, second=0, microsecond=0)
+            if dt <= now:
+                continue
+            out.append(dt)
+    out.sort()
+    return out[: max(1, int(take))]
+
+
+def _build_weekly_slots(
+    *,
+    now: datetime,
+    horizon_days: int,
+    posts_per_day: int,
+    day_avg: dict[int, float],
+    hour_avg: dict[int, float],
+) -> list[str]:
+    slots: list[datetime] = []
+    horizon_days = max(1, min(30, int(horizon_days or 7)))
+    posts_per_day = max(1, min(6, int(posts_per_day or 1)))
+
+    for shift in range(horizon_days):
+        base_day = now + timedelta(days=shift)
+        wd = int(base_day.weekday())
+        candidates = []
+        for h in range(24):
+            d_score = float(day_avg.get(wd, 0.0))
+            h_score = float(hour_avg.get(h, 0.0))
+            daylight_bonus = 0.06 if 9 <= h <= 21 else 0.0
+            prime_bonus = 0.08 if h in {11, 12, 13, 18, 19, 20} else 0.0
+            total = (d_score * 0.45) + (h_score * 0.55) + daylight_bonus + prime_bonus
+            candidates.append((total, h))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        day_hours: list[int] = []
+        for _, hour in candidates:
+            if hour in day_hours:
+                continue
+            if day_hours and min(abs(hour - x) for x in day_hours) < 2:
+                continue
+            dt = base_day.replace(hour=int(hour), minute=0, second=0, microsecond=0)
+            if dt <= now:
+                continue
+            day_hours.append(int(hour))
+            if len(day_hours) >= posts_per_day:
+                break
+        for hour in sorted(day_hours):
+            slots.append(base_day.replace(hour=hour, minute=0, second=0, microsecond=0))
+
+    slots.sort()
+    return [x.isoformat() for x in slots]
+
+
+def _fallback_weekly_slots(*, now: datetime, platform: str, horizon_days: int, posts_per_day: int) -> list[str]:
+    """
+    Deterministic "best-practice" weekly schedule when historical metrics are sparse.
+    Values are intentionally conservative and human-friendly.
+    """
+    horizon_days = max(1, min(30, int(horizon_days or 7)))
+    posts_per_day = max(1, min(6, int(posts_per_day or 1)))
+    p = str(platform or "instagram").strip().lower()
+
+    if p == "youtube":
+        weekday_hours = [12, 19, 21, 10, 16, 18]
+        weekend_hours = [11, 18, 20, 13, 16, 21]
+    elif p == "facebook":
+        weekday_hours = [10, 13, 18, 20, 12, 16]
+        weekend_hours = [11, 15, 19, 13, 17, 20]
+    else:  # instagram + default meta
+        weekday_hours = [11, 14, 18, 20, 12, 16]
+        weekend_hours = [12, 17, 19, 14, 16, 20]
+
+    slots: list[datetime] = []
+    for shift in range(horizon_days):
+        day = now + timedelta(days=shift)
+        is_weekend = day.weekday() >= 5
+        src_hours = weekend_hours if is_weekend else weekday_hours
+        used: list[int] = []
+        for h in src_hours:
+            if len(used) >= posts_per_day:
+                break
+            if used and min(abs(h - x) for x in used) < 2:
+                continue
+            dt = day.replace(hour=int(h), minute=0, second=0, microsecond=0)
+            if dt <= now:
+                continue
+            used.append(int(h))
+            slots.append(dt)
+    slots.sort()
+    return [x.isoformat() for x in slots]
+
+
+@saas_api.route("/ai/best-posting-times", methods=["GET"])
+@require_auth
+def ai_best_posting_times():
+    days = int((request.args.get("days") or "90").strip() or 90)
+    days = max(14, min(days, 365))
+    horizon_days = int((request.args.get("horizon_days") or "7").strip() or 7)
+    horizon_days = max(7, min(horizon_days, 30))
+    posts_per_day = int((request.args.get("posts_per_day") or "1").strip() or 1)
+    posts_per_day = max(1, min(posts_per_day, 6))
+    platform = str(request.args.get("platform") or "instagram").strip().lower()
+    provider_platform = "youtube" if platform == "youtube" else "meta"
+    now = datetime.utcnow()
+    since = now - timedelta(days=days)
+
+    db = SessionLocal()
+    try:
+        # Aggregate engagement score by weekday from available metrics.
+        items = (
+            db.query(ContentItem.id, ContentItem.published_at, ContentItem.platform)
+            .filter(
+                ContentItem.user_id == g.current_user.id,
+                ContentItem.published_at.isnot(None),
+                ContentItem.published_at >= since,
+            )
+            .all()
+        )
+        item_ids = [int(x[0]) for x in items if x and x[0]]
+        metric_rows = []
+        if item_ids:
+            metric_rows = (
+                db.query(
+                    ContentMetricDaily.content_item_id,
+                    ContentMetricDaily.day,
+                    ContentMetricDaily.reach,
+                    ContentMetricDaily.likes,
+                    ContentMetricDaily.comments,
+                    ContentMetricDaily.shares,
+                    ContentMetricDaily.views,
+                )
+                .filter(ContentMetricDaily.content_item_id.in_(item_ids), ContentMetricDaily.day >= since.date())
+                .all()
+            )
+
+        item_map = {int(i[0]): {"published_at": i[1], "platform": str(i[2] or "").lower()} for i in items if i and i[0]}
+        day_scores = {k: [] for k in range(7)}
+        hour_scores = {k: [] for k in range(24)}
+
+        for row in metric_rows:
+            cid = int(row[0])
+            meta = item_map.get(cid) or {}
+            p = str(meta.get("platform") or "")
+            if p and p != provider_platform:
+                continue
+            day_obj = row[1]
+            reach = float(row[2] or 0.0)
+            eng = float((row[3] or 0) + (row[4] or 0) + (row[5] or 0))
+            views = float(row[6] or 0.0)
+            rate = (eng / max(reach, 1.0)) * 0.7 + (views / max(reach, 1.0)) * 0.3
+            wd = day_obj.weekday()
+            day_scores[wd].append(rate)
+            published_at = meta.get("published_at")
+            if published_at:
+                hour_scores[published_at.hour].append(rate)
+
+        # Fallback to post scheduling/publish patterns if metrics are sparse.
+        if not any(day_scores[k] for k in day_scores):
+            posts = (
+                db.query(Post.platform, Post.schedule_at, Post.published_at)
+                .filter(
+                    Post.user_id == g.current_user.id,
+                    ((Post.schedule_at.isnot(None)) | (Post.published_at.isnot(None))),
+                    (((Post.schedule_at >= since) | (Post.published_at >= since))),
+                )
+                .all()
+            )
+            for p, s_at, pub_at in posts:
+                p_key = "youtube" if str(p or "").lower() == "youtube" else "meta"
+                if p_key != provider_platform:
+                    continue
+                dt = pub_at or s_at
+                if not dt:
+                    continue
+                day_scores[dt.weekday()].append(0.1)
+                hour_scores[dt.hour].append(0.1)
+
+        metrics_points = sum(len(v) for v in day_scores.values())
+        if any(day_scores[k] for k in day_scores):
+            ranked_days = sorted(day_scores.keys(), key=lambda d: (sum(day_scores[d]) / max(len(day_scores[d]), 1.0)), reverse=True)
+            best_days = ranked_days[:2]
+        else:
+            best_days, _ = _default_best_slots(platform)
+
+        if any(hour_scores[k] for k in hour_scores):
+            ranked_hours = sorted(hour_scores.keys(), key=lambda h: (sum(hour_scores[h]) / max(len(hour_scores[h]), 1.0)), reverse=True)
+            day_hours = [h for h in ranked_hours if 8 <= int(h) <= 21]
+            best_hours = (day_hours[:2] if len(day_hours) >= 2 else ranked_hours[:2])
+        else:
+            _, best_hours = _default_best_slots(platform)
+
+        day_avg = {}
+        for d in range(7):
+            vals = day_scores.get(d) or []
+            day_avg[d] = (sum(vals) / len(vals)) if vals else 0.0
+        hour_avg = {}
+        for h in range(24):
+            vals = hour_scores.get(h) or []
+            hour_avg[h] = (sum(vals) / len(vals)) if vals else 0.0
+
+        low_data_mode = metrics_points < 6
+        if not any(day_avg.values()) or not any(hour_avg.values()):
+            default_days, default_hours = _default_best_slots(platform)
+            for d in default_days:
+                day_avg[int(d)] = max(float(day_avg.get(int(d), 0.0)), 0.2)
+            for h in default_hours:
+                hour_avg[int(h)] = max(float(hour_avg.get(int(h), 0.0)), 0.25)
+
+        if low_data_mode:
+            weekly_slots = _fallback_weekly_slots(
+                now=now,
+                platform=platform,
+                horizon_days=horizon_days,
+                posts_per_day=posts_per_day,
+            )
+        else:
+            weekly_slots = _build_weekly_slots(
+                now=now,
+                horizon_days=horizon_days,
+                posts_per_day=posts_per_day,
+                day_avg=day_avg,
+                hour_avg=hour_avg,
+            )
+        next_slots = weekly_slots[: max(6, min(42, horizon_days * posts_per_day))]
+
+        weekly_plan = []
+        for shift in range(horizon_days):
+            day = (now + timedelta(days=shift)).date()
+            day_iso = day.isoformat()
+            day_slots = [x for x in weekly_slots if str(x).startswith(day_iso)]
+            weekly_plan.append(
+                {
+                    "date": day_iso,
+                    "weekday": _weekday_ru((now + timedelta(days=shift)).weekday()),
+                    "slots": day_slots,
+                }
+            )
+        return jsonify(
+            {
+                "status": "ok",
+                "platform": platform,
+                "best_days": [{"weekday": int(d), "label": _weekday_ru(d)} for d in best_days],
+                "best_hours": [int(h) for h in best_hours],
+                "next_slots": next_slots,
+                "weekly_slots": weekly_slots,
+                "weekly_plan": weekly_plan,
+                "horizon_days": horizon_days,
+                "posts_per_day": posts_per_day,
+                "metrics_points": int(metrics_points),
+                "recommendation_quality": ("high" if metrics_points >= 20 else ("medium" if metrics_points >= 8 else ("estimated" if low_data_mode else "low"))),
+                "recommendation_source": ("fallback_optimal" if low_data_mode else "historical_90d"),
+                "source_days": days,
+            }
+        )
+    finally:
+        db.close()
+
+
 @saas_api.route("/dashboard/recent/<int:item_id>", methods=["DELETE"])
 @require_auth
 def dashboard_metrics_recent_delete(item_id: int):
@@ -4589,12 +6505,59 @@ def youtube_status():
     user = g.current_user
     db = SessionLocal()
     try:
+        force_refresh = str(request.args.get("refresh") or "").strip().lower() in {"1", "true", "yes"}
         row = (
             db.query(SocialAccount)
             .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
             .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
             .first()
         )
+        if row and row.token_encrypted:
+            expires_soon = bool(row.token_expires_at and row.token_expires_at <= (datetime.utcnow() + timedelta(minutes=5)))
+            if force_refresh or expires_soon:
+                refreshed = _youtube_get_access_token(db, row, force_refresh=True)
+                if refreshed:
+                    row.status = "connected_ready"
+                    row.status_reason_code = None
+                    row.updated_at = datetime.utcnow()
+                    db.commit()
+        return jsonify(_serialize_youtube_connection(row))
+    finally:
+        db.close()
+
+
+@saas_api.route("/integrations/youtube/refresh", methods=["POST"])
+@saas_api.route("/connections/youtube/refresh", methods=["POST"])
+@require_auth
+def youtube_refresh():
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(SocialAccount)
+            .filter(SocialAccount.user_id == user.id, SocialAccount.provider == "youtube")
+            .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+            .first()
+        )
+        if not row:
+            return jsonify(_serialize_youtube_connection(None))
+        if not row.token_encrypted:
+            row.status = "not_connected"
+            row.status_reason_code = "no_token"
+            row.updated_at = datetime.utcnow()
+            db.commit()
+            return jsonify(_serialize_youtube_connection(row))
+        refreshed = _youtube_get_access_token(db, row, force_refresh=True)
+        if not refreshed:
+            row.status = "token_expired"
+            row.status_reason_code = "access_token_invalid"
+            row.updated_at = datetime.utcnow()
+            db.commit()
+            return jsonify(_serialize_youtube_connection(row)), 400
+        row.status = "connected_ready"
+        row.status_reason_code = None
+        row.updated_at = datetime.utcnow()
+        db.commit()
         return jsonify(_serialize_youtube_connection(row))
     finally:
         db.close()
@@ -4604,6 +6567,9 @@ def youtube_status():
 @saas_api.route("/connections/youtube/start", methods=["POST"])
 @require_auth
 def youtube_start():
+    pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ACCOUNT_CONNECT, {"provider": "youtube", "endpoint": "/api/integrations/youtube/start"}))
+    if pw:
+        return pw
     client_id = _google_client_id()
     client_secret = _google_client_secret()
     redirect_uri = _youtube_redirect_uri()
@@ -4615,7 +6581,7 @@ def youtube_start():
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/youtube.readonly",
+        "scope": _youtube_scopes(),
         "access_type": "offline",
         "include_granted_scopes": "true",
         "prompt": "consent select_account",
@@ -4639,6 +6605,17 @@ def youtube_callback():
     user_id = int(state_meta.get("user_id") or 0)
     if not user_id:
         return redirect(_frontend_connections_url("youtube_error=state_invalid"))
+    db_guard = SessionLocal()
+    try:
+        callback_user = db_guard.query(AppUser).filter_by(id=user_id).first()
+    finally:
+        db_guard.close()
+    if not callback_user:
+        return redirect(_frontend_connections_url("youtube_error=state_invalid"))
+    authz = authorizeAction(callback_user, ACTION_ACCOUNT_CONNECT, {"provider": "youtube", "endpoint": "/api/integrations/youtube/callback"})
+    if not authz.get("allowed", False):
+        code = (authz.get("error_payload") or {}).get("error") or "PAYWALL_FEATURE"
+        return redirect(_frontend_connections_url(f"youtube_error=paywall&message={quote(code)}"))
 
     code = (request.args.get("code") or "").strip()
     if not code:
@@ -4651,6 +6628,9 @@ def youtube_callback():
 @require_auth
 def youtube_connect():
     user = g.current_user
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_ACCOUNT_CONNECT, {"provider": "youtube", "endpoint": "/api/integrations/youtube/connect"}))
+    if pw:
+        return pw
     payload = request.get_json(silent=True) or {}
     channel_id = str(payload.get("channel_id") or "").strip()
     channel_name = str(payload.get("channel_name") or "").strip() or "YouTube канал"
@@ -4702,6 +6682,9 @@ def youtube_disconnect():
         row.page_id = None
         row.page_name = None
         row.page_picture_url = None
+        row.token_encrypted = None
+        row.refresh_token_encrypted = None
+        row.token_expires_at = None
         row.status = "not_connected"
         row.status_reason_code = "user_disconnected"
         row.updated_at = datetime.utcnow()
@@ -4876,6 +6859,9 @@ def meta_add_page():
     Body: { source_connection_id: number, page_id: string }
     """
     user = g.current_user
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_ACCOUNT_CONNECT, {"provider": "meta", "endpoint": "/api/connections/meta/add-page"}))
+    if pw:
+        return pw
     payload = request.get_json(silent=True) or {}
     try:
         source_id = int(payload.get("source_connection_id"))
@@ -4951,6 +6937,9 @@ def mock_connect():
         return jsonify({"error": "USE_MOCK_PROVIDERS=false. Mock РїРѕРґРєР»СЋС‡РµРЅРёРµ РѕС‚РєР»СЋС‡РµРЅРѕ."}), 400
 
     user = g.current_user
+    pw = _paywall_response_if_needed(authorizeAction(user, ACTION_ACCOUNT_CONNECT, {"provider": "meta", "endpoint": "/api/connections/meta/mock-connect"}))
+    if pw:
+        return pw
     db = SessionLocal()
     try:
         row = db.query(SocialAccount).filter_by(user_id=user.id, provider="meta").first()
@@ -5020,7 +7009,9 @@ def refresh_connection_token(connection_id: int):
             return jsonify(_serialize_connection(row))
 
         try:
-            access_token = decrypt_meta_token(row.token_encrypted)
+            access_token = _meta_get_user_access_token(db, row)
+            if not access_token:
+                raise RuntimeError("token_unavailable")
             raw = list_pages(access_token)
             if raw.get("error"):
                 status, reason = _meta_error_to_status(raw.get("error") or {})
@@ -5287,13 +7278,22 @@ def billing_summary():
     return jsonify(get_billing_summary(user))
 
 
+@saas_api.route("/billing/entitlements", methods=["GET"])
+@require_auth
+def billing_entitlements():
+    user = _current_user_refetched()
+    return jsonify(getEntitlementsPayload(user))
+
+
 @saas_api.route("/billing/checkout/subscription", methods=["POST"])
 @require_auth
 def billing_checkout_subscription():
     data = request.get_json(silent=True) or {}
-    plan_name = (data.get("plan") or "").strip().lower()
-    if plan_name not in {"light", "pro", "agency"}:
-        return jsonify({"error": "Р’С‹Р±РµСЂРёС‚Рµ РІР°Р»РёРґРЅС‹Р№ С‚Р°СЂРёС„: light/pro/agency"}), 400
+    requested_plan = (data.get("plan") or "").strip().lower()
+    plan_name = normalize_plan_code(requested_plan)
+    spec = get_plan_spec(plan_name)
+    if not spec.public or spec.price_eur_month <= 0:
+        return jsonify({"error": "Выберите валидный платный тариф: starter/growth/pro/agency"}), 400
 
     user = _current_user_refetched()
     try:
@@ -5370,15 +7370,15 @@ def upgrade_demo_only_for_mock():
     db = SessionLocal()
     try:
         user = db.query(AppUser).filter_by(id=g.current_user.id).first()
-        user.plan = "pro"
-        plan = db.query(Plan).filter_by(name="pro").first()
+        user.plan = "growth"
+        plan = db.query(Plan).filter_by(name="growth").first()
         user.plan_id = plan.id if plan else user.plan_id
         user.billing_status = "active"
         db.commit()
     finally:
         db.close()
 
-    return jsonify({"plan": "pro"})
+    return jsonify({"plan": "growth"})
 
 
 @saas_api.route("/stripe/webhook", methods=["POST"])
@@ -5473,9 +7473,9 @@ def admin_users():
 @require_role("admin")
 def admin_update_plan(user_id: int):
     data = request.get_json(silent=True) or {}
-    new_plan = (data.get("plan") or "").strip().lower()
-    if new_plan not in {"free", "light", "pro", "agency"}:
-        return jsonify({"error": "РўР°СЂРёС„ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ free/light/pro/agency"}), 400
+    new_plan = normalize_plan_code((data.get("plan") or "").strip().lower())
+    if new_plan not in PLAN_SPECS:
+        return jsonify({"error": "Тариф не найден"}), 400
 
     db = SessionLocal()
     try:
@@ -5489,6 +7489,23 @@ def admin_update_plan(user_id: int):
         user.plan = plan.name
         user.plan_id = plan.id
         db.commit()
+        now = datetime.utcnow()
+        if plan.name == "free":
+            sync_subscription_state(
+                user.id,
+                plan="free",
+                status="trialing",
+                current_period_start=user.created_at or now,
+                current_period_end=(user.created_at or now) + timedelta(days=7),
+            )
+        else:
+            sync_subscription_state(
+                user.id,
+                plan=plan.name,
+                status="active",
+                current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            )
         log_event("plan_changed", actor_user_id=g.current_user.id, context=f"target={user_id};plan={new_plan}")
         return jsonify({"id": user.id, "plan": user.plan})
     finally:
