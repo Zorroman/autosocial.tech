@@ -143,3 +143,84 @@ def test_content_generate_saves_brief_strategy_and_drafts(client):
         assert len(drafts) == 9
     finally:
         db.close()
+
+
+def test_generate_hashtags_russian_barbershop_city_clean():
+    from content_pipeline import generateHashtags
+
+    tags = generateHashtags(
+        niche="Барбершоп",
+        city="Ингольштадт",
+        language="Русский",
+        goal="Охват",
+    )
+    assert 5 <= len(tags) <= 12
+    assert len(tags) == len(set(tags))
+    assert all(t.startswith("#") for t in tags)
+    assert all("," not in t and "'" not in t and "’" not in t for t in tags)
+    assert all(len(t) < 30 for t in tags)
+    assert all(all(ch == "#" or ch.isalnum() for ch in t) for t in tags)
+
+    expected = {
+        "#барбершоп",
+        "#барбер",
+        "#мужскаястрижка",
+        "#борода",
+        "#ингольштадт",
+        "#стильмужчины",
+        "#мужскойстиль",
+    }
+    assert expected.issubset(set(tags))
+
+
+def test_create_generate_hides_technical_fallback_warnings(client, monkeypatch):
+    import saas_api as saas_api_module
+    from content_pipeline import ContentGenerationResult
+
+    reg = register_user(client, "createwarn@test.local", "pass12345")
+    assert reg.status_code == 200
+    token = reg.get_json()["token"]
+
+    fake = ContentGenerationResult(
+        strategy={"audience": "local clients"},
+        drafts=[
+            {
+                "platform": "facebook",
+                "variant_index": 1,
+                "post_text": "Готовый текст для клиентов.",
+                "hashtags": ["#бизнес", "#услуги", "#город"],
+                "cta": "Напишите нам в директ.",
+            }
+        ],
+        token_input=1,
+        token_output=1,
+        status="partial",
+        warnings=[
+            "structured_json_failed",
+            "simplified_failed",
+            "hard_fallback_default",
+            "facebook v1: full-schema не прошла, применен simplified fallback.",
+        ],
+        debug_code="draft_schema_fallback|draft_text_fallback",
+    )
+
+    monkeypatch.setattr(saas_api_module, "generate_strategy_and_drafts", lambda **kwargs: fake)
+    resp = client.post(
+        "/api/create/generate",
+        json={
+            "mode": "quick",
+            "topic": "Тест",
+            "offer": "Оффер",
+            "language": "ru",
+            "tone": "friendly",
+            "goal": "sales",
+            "platforms": ["facebook"],
+            "variants": 1,
+        },
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 200
+    payload = resp.get_json() or {}
+    warnings = payload.get("warnings") or []
+    assert not any("structured_json_failed" in str(w) for w in warnings)
+    assert not any("simplified_failed" in str(w) for w in warnings)

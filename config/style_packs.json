@@ -1,0 +1,146 @@
+{
+  "global_banned_tokens": [
+    "fantasy",
+    "dragon",
+    "alien",
+    "ufo",
+    "anime",
+    "cartoon",
+    "3d",
+    "render",
+    "cgi",
+    "unreal",
+    "ai generated",
+    "midjourney",
+    "stable diffusion",
+    "illustration",
+    "sci-fi",
+    "space battle",
+    "monster",
+    "magic spell",
+    "metaverse"
+  ],
+  "packs": [
+    {
+      "id": "default_pro",
+      "name": "Default Pro",
+      "description": "Сбалансированный реалистичный стиль без неона, CGI и фантастики.",
+      "allowed_scenes": ["people", "work", "city", "nature", "home", "product", "abstract_real"],
+      "banned_tokens": ["neon", "night club"],
+      "soft_banned_tokens": ["futuristic", "surreal", "cyberpunk"],
+      "motion_level": "medium",
+      "mood": "neutral",
+      "shot_types": ["wide", "medium", "closeup", "hands", "broll"],
+      "query_bias": ["real life", "realistic", "cinematic", "natural light"],
+      "scene_query_overrides": {
+        "work": ["office", "team meeting", "laptop typing", "startup office"],
+        "nature": ["forest landscape", "mountain sunrise", "river closeup"],
+        "product": ["hands holding product", "closeup details", "packaging"],
+        "home": ["cozy home interior", "morning routine", "hands making coffee"]
+      },
+      "visual_profile": {
+        "palette": "natural neutral",
+        "light": "soft daylight"
+      }
+    },
+    {
+      "id": "calm_nature",
+      "name": "Calm Nature",
+      "description": "Спокойный природный стиль с мягким темпом и светом.",
+      "allowed_scenes": ["nature", "abstract_real"],
+      "banned_tokens": ["office", "corporate", "night club", "neon"],
+      "soft_banned_tokens": ["city", "traffic", "team meeting"],
+      "motion_level": "low",
+      "mood": "calm",
+      "shot_types": ["wide", "closeup", "broll"],
+      "query_bias": ["slow motion", "soft light", "peaceful", "realistic"],
+      "scene_query_overrides": {
+        "nature": ["forest landscape", "lake reflection", "sunrise mountains"],
+        "abstract_real": ["water texture", "natural bokeh", "sunlight leaves"]
+      },
+      "visual_profile": {
+        "palette": "soft green blue",
+        "light": "diffused natural"
+      }
+    },
+    {
+      "id": "business_clean",
+      "name": "Business Clean",
+      "description": "Чистый деловой стиль для презентации продукта, команды и процессов.",
+      "allowed_scenes": ["work", "people", "city", "product"],
+      "banned_tokens": [
+        "sunset",
+        "campfire",
+        "fantasy",
+        "anime",
+        "cartoon",
+        "3d",
+        "render",
+        "cgi",
+        "unreal",
+        "ai generated",
+        "cyberpunk",
+        "surreal",
+        "ufo",
+        "alien",
+        "dragon"
+      ],
+      "soft_banned_tokens": ["neon", "futuristic"],
+      "motion_level": "medium",
+      "mood": "neutral",
+      "shot_types": ["wide", "medium", "closeup", "hands", "broll"],
+      "query_bias": ["clean", "modern office", "team", "professional", "real life"],
+      "scene_query_overrides": {
+        "work": ["office team", "business meeting", "laptop typing", "startup workspace"],
+        "city": ["downtown business district", "city office exterior"],
+        "product": ["hands using product", "product closeup", "product details"]
+      },
+      "visual_profile": {
+        "palette": "neutral cool",
+        "light": "clean daylight"
+      }
+    },
+    {
+      "id": "minimal_abstract_real",
+      "name": "Minimal Abstract Real",
+      "description": "Минималистичный визуальный стиль с реальными текстурами и предметами.",
+      "allowed_scenes": ["abstract_real", "product", "home"],
+      "banned_tokens": ["people face", "crowd", "concert", "sports"],
+      "soft_banned_tokens": ["city", "traffic", "office"],
+      "motion_level": "low",
+      "mood": "calm",
+      "shot_types": ["closeup", "hands", "broll"],
+      "query_bias": ["texture", "closeup", "minimal", "soft shadows", "realistic"],
+      "scene_query_overrides": {
+        "abstract_real": ["paper texture closeup", "water ripple closeup", "light and shadow texture"],
+        "product": ["packaging closeup", "hands holding product", "material details"],
+        "home": ["minimal interior", "morning light interior", "clean desk closeup"]
+      },
+      "visual_profile": {
+        "palette": "muted neutral",
+        "light": "soft shadows"
+      }
+    },
+    {
+      "id": "travel_cinematic",
+      "name": "Travel Cinematic",
+      "description": "Динамичный тревел-стиль с реалистичными кадрами города и природы.",
+      "allowed_scenes": ["city", "nature", "people"],
+      "banned_tokens": ["fantasy", "anime", "cartoon", "3d", "render", "cgi", "unreal", "ai generated"],
+      "soft_banned_tokens": ["neon", "cyberpunk"],
+      "motion_level": "medium",
+      "mood": "dynamic",
+      "shot_types": ["wide", "medium", "broll"],
+      "query_bias": ["cinematic", "drone", "street b-roll", "travel", "real life"],
+      "scene_query_overrides": {
+        "city": ["city street b-roll", "downtown walking", "urban skyline"],
+        "nature": ["mountain trail", "coastal landscape", "forest path"],
+        "people": ["traveler walking", "street portrait candid", "friends exploring city"]
+      },
+      "visual_profile": {
+        "palette": "warm cinematic",
+        "light": "golden hour natural"
+      }
+    }
+  ]
+}

@@ -44,6 +44,49 @@ class AppUser(SaaSBase):
     last_login = Column(DateTime, nullable=True)
 
 
+class Subscription(SaaSBase):
+    __tablename__ = "subscriptions"
+
+    user_id = Column(Integer, ForeignKey("app_users.id"), primary_key=True)
+    plan = Column(String(20), nullable=False, default="trial")  # trial | starter | growth | agency
+    status = Column(String(20), nullable=False, default="trialing")  # trialing | active | past_due | canceled
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    trial_ends_at = Column(DateTime, nullable=True)
+    stripe_customer_id = Column(String(120), nullable=True)
+    stripe_subscription_id = Column(String(120), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class UsageCounter(SaaSBase):
+    __tablename__ = "usage_counters"
+    __table_args__ = (
+        UniqueConstraint("user_id", "period_start", "period_end", name="uq_usage_counter_user_period"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    period_start = Column(DateTime, nullable=False, index=True)
+    period_end = Column(DateTime, nullable=False, index=True)
+    posts_generated = Column(Integer, nullable=False, default=0)
+    posts_published = Column(Integer, nullable=False, default=0)
+    videos_generated = Column(Integer, nullable=False, default=0)
+    videos_published = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class UsageEvent(SaaSBase):
+    __tablename__ = "usage_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    type = Column(String(60), nullable=False, index=True)
+    delta = Column(Integer, nullable=False, default=1)
+    meta_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class ApiToken(SaaSBase):
     __tablename__ = "api_tokens"
 
@@ -91,6 +134,7 @@ class IntegrationConnection(SaaSBase):
     ig_user_id = Column(String(120), nullable=True)
     ig_username = Column(String(120), nullable=True)
     token_encrypted = Column(Text, nullable=True)
+    refresh_token_encrypted = Column(Text, nullable=True)
     token_expires_at = Column(DateTime, nullable=True)
     # Canonical integration state:
     # not_connected | connected_need_page | connected_ready | token_expired
@@ -346,6 +390,58 @@ class UserTemplate(SaaSBase):
     user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
     name = Column(String(160), nullable=False)
     preset_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Niche(SaaSBase):
+    __tablename__ = "niches"
+
+    id = Column(Integer, primary_key=True)
+    slug = Column(String(80), unique=True, nullable=False, index=True)
+    title = Column(String(160), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    icon = Column(String(80), nullable=False, default="briefcase")
+    sort_order = Column(Integer, nullable=False, default=100)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Template(SaaSBase):
+    __tablename__ = "templates"
+    __table_args__ = (
+        UniqueConstraint("niche_id", "slug", name="uq_templates_niche_slug"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    niche_id = Column(Integer, ForeignKey("niches.id"), nullable=False, index=True)
+    slug = Column(String(120), nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    type = Column(String(20), nullable=False, default="post")  # post | video
+    platform = Column(String(20), nullable=False, default="all")
+    goal = Column(String(20), nullable=False, default="leads")  # leads | awareness
+    tone = Column(String(40), nullable=False, default="local-friendly")  # local-friendly | expert
+    hook_line = Column(String(300), nullable=False, default="")
+    cta = Column(String(300), nullable=False, default="")
+    prompt_system = Column(Text, nullable=False, default="")
+    prompt_user = Column(Text, nullable=False, default="")
+    variables_schema_json = Column(Text, nullable=False, default="{}")
+    preview_text = Column(Text, nullable=False, default="")
+    sort_order = Column(Integer, nullable=False, default=100)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class UserStylePref(SaaSBase):
+    __tablename__ = "user_style_prefs"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_user_style_prefs_user"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    default_style_pack = Column(String(80), nullable=False, default="default_pro")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 

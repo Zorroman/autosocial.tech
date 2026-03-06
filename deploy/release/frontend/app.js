@@ -73,7 +73,7 @@ const LOGIN_I18N = {
     final_title: 'Готовы автоматизировать свои соцсети?',
     final_cta_account: 'Создать аккаунт по email',
     final_cta_pricing: 'Узнать тарифы',
-    final_note: 'Начните с Free плана. Обновление на Pro доступно в любой момент.',
+    final_note: 'Начните с Free Trial 7 days. Основной тариф — Growth.',
     footer_pricing: 'Тарифы',
     footer_privacy: 'Политика конфиденциальности',
     footer_support: 'Поддержка',
@@ -126,7 +126,7 @@ const LOGIN_I18N = {
     final_title: 'Ready to automate your social media?',
     final_cta_account: 'Create account with email',
     final_cta_pricing: 'See pricing',
-    final_note: 'Start with Free. Upgrade to Pro anytime.',
+    final_note: 'Start with Free Trial 7 days. Growth is the main plan.',
     footer_pricing: 'Pricing',
     footer_privacy: 'Privacy policy',
     footer_support: 'Support',
@@ -179,7 +179,7 @@ const LOGIN_I18N = {
     final_title: '¿Listo para automatizar tus redes sociales?',
     final_cta_account: 'Crear cuenta con email',
     final_cta_pricing: 'Ver precios',
-    final_note: 'Empieza con Free. Pasa a Pro cuando quieras.',
+    final_note: 'Empieza con Free Trial 7 days. Growth es el plan principal.',
     footer_pricing: 'Precios',
     footer_privacy: 'Política de privacidad',
     footer_support: 'Soporte',
@@ -232,7 +232,7 @@ const LOGIN_I18N = {
     final_title: 'Bereit, deine Social Media zu automatisieren?',
     final_cta_account: 'Konto per E-Mail erstellen',
     final_cta_pricing: 'Preise ansehen',
-    final_note: 'Mit Free starten. Jederzeit auf Pro wechseln.',
+    final_note: 'Mit Free Trial 7 days starten. Growth ist der Haupttarif.',
     footer_pricing: 'Preise',
     footer_privacy: 'Datenschutz',
     footer_support: 'Support',
@@ -285,7 +285,7 @@ const LOGIN_I18N = {
     final_title: 'Prêt à automatiser vos réseaux sociaux ?',
     final_cta_account: 'Créer un compte par e-mail',
     final_cta_pricing: 'Voir les tarifs',
-    final_note: 'Commencez avec Free. Passez à Pro à tout moment.',
+    final_note: 'Commencez avec Free Trial 7 days. Growth est le forfait principal.',
     footer_pricing: 'Tarifs',
     footer_privacy: 'Politique de confidentialité',
     footer_support: 'Support',
@@ -338,7 +338,7 @@ const LOGIN_I18N = {
     final_title: 'Готові автоматизувати свої соцмережі?',
     final_cta_account: 'Створити акаунт через email',
     final_cta_pricing: 'Дізнатися тарифи',
-    final_note: 'Почніть з Free плану. Перехід на Pro доступний у будь-який момент.',
+    final_note: 'Почніть з Free Trial 7 days. Growth — основний тариф.',
     footer_pricing: 'Тарифи',
     footer_privacy: 'Політика конфіденційності',
     footer_support: 'Підтримка',
@@ -649,8 +649,9 @@ function icon(name) {
 
 function planBadge(plan) {
   const p = String(plan || 'free').toLowerCase();
-  const cls = p === 'pro' ? 'badge-pro' : p === 'agency' ? 'badge-agency' : p === 'light' ? 'badge-light' : 'badge-free';
-  return `<span class="badge-plan ${cls}">${esc(p)}</span>`;
+  const labels = { free: 'Free Trial 7 days', starter: 'Starter', growth: 'Growth', agency: 'Agency' };
+  const cls = p === 'growth' ? 'badge-growth' : p === 'agency' ? 'badge-agency' : p === 'starter' ? 'badge-starter' : 'badge-free';
+  return `<span class="badge-plan ${cls}">${esc(labels[p] || p)}</span>`;
 }
 
 function statusBadge(status) {
@@ -1802,13 +1803,13 @@ function plansTable() {
     const v = planMap[name]?.team_seats;
     return v ? `${v}` : '—';
   };
-  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>Функция</th><th>Free</th><th>Light</th><th>Pro</th><th>Agency</th></tr></thead><tbody>
-    <tr><td>Цена / месяц</td><td>${price('free')}</td><td>${price('light')}</td><td>${price('pro')}</td><td>${price('agency')}</td></tr>
-    <tr><td>Постов / месяц</td><td>${f('free','max_posts_month',10)}</td><td>${f('light','max_posts_month',300)}</td><td>${f('pro','max_posts_month',1000)}</td><td>${f('agency','max_posts_month',5000)}</td></tr>
-    <tr><td>Проекты</td><td>${projects('free')}</td><td>${projects('light')}</td><td>${projects('pro')}</td><td>${projects('agency')}</td></tr>
-    <tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('light','can_schedule',true))}</td><td>${yesNo(f('pro','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr>
-    <tr><td>Автопубликация</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('light','can_autopublish',true))}</td><td>${yesNo(f('pro','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
-    <tr><td>Шаблоны</td><td>${templates('free')}</td><td>${templates('light')}</td><td>${templates('pro')}</td><td>${templates('agency')}</td></tr>
+  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>Функция</th><th>Free Trial 7 days</th><th>Starter</th><th>Growth</th><th>Agency</th></tr></thead><tbody>
+    <tr><td>Цена / месяц</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
+    <tr><td>Постов / месяц</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
+    <tr><td>Проекты</td><td>${projects('free')}</td><td>${projects('starter')}</td><td>${projects('growth')}</td><td>${projects('agency')}</td></tr>
+    <tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('starter','can_schedule',true))}</td><td>${yesNo(f('growth','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr>
+    <tr><td>Автопубликация</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
+    <tr><td>Шаблоны</td><td>${templates('free')}</td><td>${templates('starter')}</td><td>${templates('growth')}</td><td>${templates('agency')}</td></tr>
     <tr><td>Команда</td><td>—</td><td>—</td><td>—</td><td>${team('agency')}</td></tr>
   </tbody></table></div>`;
 }
@@ -1820,11 +1821,11 @@ function pricingCards() {
   const stripe = state.billing?.stripe || {};
   const stripeReady = !!stripe.subscriptions_ready;
   const current = String(state.user?.plan || 'free').toLowerCase();
-  const order = ['free', 'light', 'pro', 'agency'];
+  const order = ['free', 'starter', 'growth', 'agency'];
   const meta = {
-    free: { title: 'Free', desc: 'Для теста: подключили соцсети, сделали первые посты.' },
-    light: { title: 'Light', desc: 'Для малого бизнеса: регулярные посты и планирование.' },
-    pro: { title: 'Pro', desc: 'Для тех, кто хочет автопостинг и стабильный поток контента.', highlight: true },
+    free: { title: 'Free Trial 7 days', desc: 'Чтобы попробовать продукт и получить первые результаты.' },
+    starter: { title: 'Starter', desc: 'Для малого бизнеса: регулярные посты и базовый автопостинг.' },
+    growth: { title: 'Growth', desc: 'Основной тариф для стабильного контент-потока и автопостинга.', highlight: true },
     agency: { title: 'Agency', desc: 'Для агентств и команд: много проектов и лимитов.' },
   };
   const price = (name) => {
@@ -2304,7 +2305,7 @@ function adminUsersTable() {
 function pageAdmin() {
   if (state.user?.role !== 'admin') return appLayout('/admin','РђРґРјРёРЅ',emptyState('Р”РѕСЃС‚СѓРї Р·Р°РїСЂРµС‰РµРЅ','РўСЂРµР±СѓРµС‚СЃСЏ СЂРѕР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.','РќР°Р·Р°Рґ РЅР° РїР°РЅРµР»СЊ','/dashboard'));
   const revenue = state.adminRevenue ? `<p class="small">РўРѕРєРµРЅС‹: ${state.adminRevenue.tokens_total} В· OpenAI: в‚¬${state.adminRevenue.estimated_openai_cost_eur} В· Stripe: в‚¬${state.adminRevenue.stripe_revenue_eur} В· РњР°СЂР¶Р°: ${state.adminRevenue.margin_percent}%</p>` : '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё.</p>';
-  return appLayout('/admin','РђРґРјРёРЅ',`<section class="grid-2"><article class="card"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2><button id="adminUsersBtn" class="btn btn-primary">Р—Р°РіСЂСѓР·РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>РўР°СЂРёС„С‹ Рё РєСЂРµРґРёС‚С‹</h2>${field('adminUserId','ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')}${selectField('adminPlan','РўР°СЂРёС„','free',[{value:'free',label:'Free'},{value:'light',label:'Light'},{value:'pro',label:'Pro'},{value:'agency',label:'Agency'}])}${field('adminDelta','Р·РјРµРЅРµРЅРёРµ РєСЂРµРґРёС‚РѕРІ','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°СЂРёС„</button><button id="adminCreditsBtn" class="btn btn-ghost">Р·РјРµРЅРёС‚СЊ РєСЂРµРґРёС‚С‹</button></div></article><article class="card"><h2>РџР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">РћР±РЅРѕРІРёС‚СЊ РІС‹СЂСѓС‡РєСѓ</button></article><article class="card"><h2>Р”РµР№СЃС‚РІРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СЊСЋ</button><button id="adminRunPlanBtn" class="btn btn-ghost">Р—Р°РїСѓСЃС‚РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ</button></div></article></section>`);
+  return appLayout('/admin','РђРґРјРёРЅ',`<section class="grid-2"><article class="card"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2><button id="adminUsersBtn" class="btn btn-primary">Р—Р°РіСЂСѓР·РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>РўР°СЂРёС„С‹ Рё РєСЂРµРґРёС‚С‹</h2>${field('adminUserId','ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')}${selectField('adminPlan','РўР°СЂРёС„','free',[{value:'free',label:'Free Trial 7 days'},{value:'starter',label:'Starter'},{value:'growth',label:'Growth'},{value:'agency',label:'Agency'}])}${field('adminDelta','Р·РјРµРЅРµРЅРёРµ РєСЂРµРґРёС‚РѕРІ','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°СЂРёС„</button><button id="adminCreditsBtn" class="btn btn-ghost">Р·РјРµРЅРёС‚СЊ РєСЂРµРґРёС‚С‹</button></div></article><article class="card"><h2>РџР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">РћР±РЅРѕРІРёС‚СЊ РІС‹СЂСѓС‡РєСѓ</button></article><article class="card"><h2>Р”РµР№СЃС‚РІРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СЊСЋ</button><button id="adminRunPlanBtn" class="btn btn-ghost">Р—Р°РїСѓСЃС‚РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ</button></div></article></section>`);
 }
 
 function page(path) {

@@ -96,3 +96,51 @@ def test_video_generate_endpoint_creates_job(client, monkeypatch):
     assert status.status_code == 200
     body = status.get_json()
     assert body["status"] in {"queued", "running", "downloading", "rendering", "uploading", "done"}
+
+
+def test_video_style_packs_endpoint(client):
+    reg = register_user(client, "styles@test.local", "pass12345")
+    token = reg.get_json()["token"]
+    headers = auth_headers(token)
+    resp = client.get("/api/video/style-packs", headers=headers)
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert isinstance(payload.get("items"), list)
+    assert any(str(x.get("id")) == "default_pro" for x in payload["items"])
+    assert str(payload.get("default_style_pack")) != ""
+
+
+def test_ai_video_render_and_status_shape(client, monkeypatch):
+    reg = register_user(client, "ai-video@test.local", "pass12345")
+    token = reg.get_json()["token"]
+    headers = auth_headers(token)
+
+    import saas_api as saas_api_module
+    monkeypatch.setattr(saas_api_module, "_start_generation_job", lambda *_args, **_kwargs: None)
+
+    resp = client.post(
+        "/api/ai/video/render",
+        json={
+            "topic": "Ролик про SMM автоматизацию",
+            "format": "short",
+            "target_seconds": 30,
+            "orientation": "vertical",
+            "language": "ru",
+            "scene_seconds": 4,
+            "minimize_repeats": True,
+            "realistic_only": True,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 202
+    payload = resp.get_json() or {}
+    job_id = int(payload.get("job_id") or 0)
+    assert job_id > 0
+
+    status = client.get(f"/api/ai/video/jobs/{job_id}", headers=headers)
+    assert status.status_code == 200
+    body = status.get_json() or {}
+    assert body.get("status") in {"queued", "running", "success", "error"}
+    assert isinstance(body.get("progress"), int)
+    assert body.get("step") in {"queued", "structure", "footage", "render", "export", "upload"}
+    assert "message" in body

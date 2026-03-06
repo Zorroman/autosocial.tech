@@ -30,9 +30,14 @@ from saas_models import (
     Project,
     SystemLog,
     NicheHook,
+    Niche,
+    Template,
     TopicSuggestion,
 )
 from saas_settings import settings
+from plans_catalog import PLAN_SPECS, get_plan_spec, normalize_plan_code
+from services.entitlements import getEntitlementsPayload
+from niche_catalog import build_niche_catalog_seed
 
 DEFAULT_CATEGORIES = {
     "business": ["Как привлечь первых 100 клиентов", "Ошибки малого бизнеса в рекламе", "Личный бренд основателя"],
@@ -41,52 +46,18 @@ DEFAULT_CATEGORIES = {
 }
 
 DEFAULT_PLANS = {
-    "free": {
-        "price_eur_month": 0,
-        "monthly_credits": 15000,
-        "max_projects": 1,
-        "max_posts_month": 10,
-        "max_daily_posts": 5,
-        "can_schedule": False,
-        "can_autopublish": False,
-        "templates_enabled": False,
-        "team_seats": 1,
-    },
-    "light": {
-        "price_eur_month": 9,
-        "monthly_credits": 400000,
-        "max_projects": 3,
-        "max_posts_month": 300,
-        # Keep daily cap conservative: Instagram Graph API typically allows ~100 publishes / 24h per IG account.
-        "max_daily_posts": 20,
-        "can_schedule": True,
-        "can_autopublish": True,
-        "templates_enabled": False,
-        "team_seats": 1,
-    },
-    "pro": {
-        "price_eur_month": 19,
-        "monthly_credits": 1200000,
-        "max_projects": 10,
-        "max_posts_month": 1000,
-        "max_daily_posts": 60,
-        "can_schedule": True,
-        "can_autopublish": True,
-        "templates_enabled": True,
-        "team_seats": 1,
-    },
-    "agency": {
-        "price_eur_month": 49,
-        "monthly_credits": 6000000,
-        "max_projects": 999,
-        # Agency can scale with multiple connected Pages/IG accounts, but per-account platform limits still apply.
-        "max_posts_month": 3000,
-        "max_daily_posts": 100,
-        "can_schedule": True,
-        "can_autopublish": True,
-        "templates_enabled": True,
-        "team_seats": 10,
-    },
+    code: {
+        "price_eur_month": spec.price_eur_month,
+        "monthly_credits": spec.monthly_credits,
+        "max_projects": spec.max_projects,
+        "max_posts_month": spec.max_posts_month,
+        "max_daily_posts": spec.max_daily_posts,
+        "can_schedule": spec.can_schedule,
+        "can_autopublish": spec.can_autopublish,
+        "templates_enabled": spec.templates_enabled,
+        "team_seats": spec.team_seats,
+    }
+    for code, spec in PLAN_SPECS.items()
 }
 
 CREDIT_PACKS = {
@@ -236,12 +207,87 @@ def seed_niche_hooks() -> None:
         db.close()
 
 
+def seed_niche_catalog() -> None:
+    db = SessionLocal()
+    try:
+        catalog = build_niche_catalog_seed()
+        for niche_data in catalog:
+            slug = str(niche_data.get("slug") or "").strip().lower()
+            if not slug:
+                continue
+            row = db.query(Niche).filter(Niche.slug == slug).first()
+            if not row:
+                row = Niche(
+                    slug=slug,
+                    title=str(niche_data.get("title") or slug).strip()[:160],
+                    description=str(niche_data.get("description") or "").strip(),
+                    icon=str(niche_data.get("icon") or "briefcase").strip()[:80],
+                    sort_order=int(niche_data.get("sort_order") or 100),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.add(row)
+                db.flush()
+            row.title = str(niche_data.get("title") or slug).strip()[:160]
+            row.description = str(niche_data.get("description") or "").strip()
+            row.icon = str(niche_data.get("icon") or "briefcase").strip()[:80]
+            row.sort_order = int(niche_data.get("sort_order") or 100)
+            row.updated_at = datetime.utcnow()
+
+            template_specs = niche_data.get("templates") if isinstance(niche_data.get("templates"), list) else []
+            expected_slugs = set()
+            for spec in template_specs:
+                tpl_slug = str(spec.get("slug") or "").strip().lower()
+                if not tpl_slug:
+                    continue
+                expected_slugs.add(tpl_slug)
+                tpl = (
+                    db.query(Template)
+                    .filter(Template.niche_id == row.id, Template.slug == tpl_slug)
+                    .first()
+                )
+                if not tpl:
+                    tpl = Template(
+                        niche_id=row.id,
+                        slug=tpl_slug,
+                        created_at=datetime.utcnow(),
+                    )
+                    db.add(tpl)
+                tpl.title = str(spec.get("title") or tpl_slug).strip()[:200]
+                tpl.description = str(spec.get("description") or "").strip()
+                tpl.type = str(spec.get("type") or "post").strip().lower()[:20]
+                tpl.platform = str(spec.get("platform") or "all").strip().lower()[:20]
+                tpl.goal = str(spec.get("goal") or "awareness").strip().lower()[:20]
+                tpl.tone = str(spec.get("tone") or "local-friendly").strip().lower()[:40]
+                tpl.hook_line = str(spec.get("hook_line") or "").strip()[:300]
+                tpl.cta = str(spec.get("cta") or "").strip()[:300]
+                tpl.prompt_system = str(spec.get("prompt_system") or "").strip()
+                tpl.prompt_user = str(spec.get("prompt_user") or "").strip()
+                tpl.variables_schema_json = json.dumps(spec.get("variables_schema_json") or {}, ensure_ascii=False)
+                tpl.preview_text = str(spec.get("preview_text") or "").strip()
+                tpl.sort_order = int(spec.get("sort_order") or 100)
+                tpl.updated_at = datetime.utcnow()
+
+            if expected_slugs:
+                stale_rows = (
+                    db.query(Template)
+                    .filter(Template.niche_id == row.id, ~Template.slug.in_(list(expected_slugs)))
+                    .all()
+                )
+                for stale in stale_rows:
+                    db.delete(stale)
+
+        db.commit()
+    finally:
+        db.close()
+
+
 def get_plan(db, user: AppUser) -> Plan:
     if user.plan_id:
         plan = db.query(Plan).filter_by(id=user.plan_id).first()
         if plan:
             return plan
-    plan = db.query(Plan).filter_by(name=user.plan or "free").first()
+    plan = db.query(Plan).filter_by(name=normalize_plan_code(user.plan or "free")).first()
     if not plan:
         raise RuntimeError("Plan is missing in DB")
     return plan
@@ -290,9 +336,9 @@ def get_or_create_default_project(user_id: int) -> Project:
 def check_project_limit(user: AppUser) -> Dict[str, int]:
     db = SessionLocal()
     try:
-        plan = get_plan(db, user)
+        spec = get_plan_spec(user.plan)
         used = db.query(Project).filter(Project.user_id == user.id).count()
-        return {"used": used, "limit": plan.max_projects}
+        return {"used": used, "limit": spec.max_projects}
     finally:
         db.close()
 
@@ -342,46 +388,59 @@ def check_post_limits(user: AppUser) -> Dict[str, int]:
 
 
 def get_billing_summary(user: AppUser) -> Dict[str, object]:
-    db = SessionLocal()
-    try:
-        plan = get_plan(db, user)
-        post_limits = check_post_limits(user)
-        project_limits = check_project_limit(user)
-        approx_posts_left = int(max(user.credits_left, 0) / max(settings.AVG_TOKENS_PER_POST, 1))
-        stripe_price_map = {
-            "light": bool(settings.STRIPE_PRICE_LIGHT),
-            "pro": bool(settings.STRIPE_PRICE_PRO),
-            "agency": bool(settings.STRIPE_PRICE_AGENCY),
-        }
-        stripe_enabled = bool(settings.STRIPE_SECRET_KEY)
-        return {
-            "plan": plan.name,
-            "billing_status": user.billing_status,
-            "credits_left": user.credits_left,
-            "approx_posts_left": approx_posts_left,
-            "stripe": {
-                "enabled": stripe_enabled,
-                # Even without env price ids we can resolve/create prices dynamically in stripe_service.
-                "subscriptions_ready": stripe_enabled,
-                "portal_ready": stripe_enabled,
-                "prices": stripe_price_map,
-            },
-            "limits": {
-                "posts_per_month": post_limits["monthly_limit"],
-                "projects": project_limits["limit"],
-                "daily_posts": post_limits["daily_limit"],
-                "can_schedule": plan.can_schedule,
-                "can_autopublish": plan.can_autopublish,
-                "templates_enabled": plan.templates_enabled,
-            },
-            "usage": {
-                "posts_per_month": post_limits["monthly_used"],
-                "projects": project_limits["used"],
-                "daily_posts": post_limits["daily_used"],
-            },
-        }
-    finally:
-        db.close()
+    entitlements = getEntitlementsPayload(user)
+    spec = get_plan_spec(entitlements.get("plan"))
+    approx_posts_left = int(max(user.credits_left, 0) / max(settings.AVG_TOKENS_PER_POST, 1))
+    stripe_enabled = bool(settings.STRIPE_SECRET_KEY)
+    is_admin_plan = str(entitlements.get("plan") or "").strip().lower() == "admin"
+    stripe_price_map = {
+        "starter": bool(get_plan_spec("starter").payment_available and stripe_enabled and getattr(settings, "STRIPE_PRICE_STARTER", "")),
+        "growth": bool(get_plan_spec("growth").payment_available and stripe_enabled and getattr(settings, "STRIPE_PRICE_GROWTH", "")),
+        "agency": bool(get_plan_spec("agency").payment_available and stripe_enabled and (getattr(settings, "STRIPE_PRICE_AGENCY_V2", "") or getattr(settings, "STRIPE_PRICE_AGENCY", ""))),
+    }
+    return {
+        "plan": entitlements.get("plan"),
+        "plan_title": spec.title,
+        "billing_status": user.billing_status,
+        "credits_left": user.credits_left,
+        "approx_posts_left": approx_posts_left,
+        "trial_days": spec.trial_days,
+        "trial_ends_at": entitlements.get("trial_ends_at"),
+        "trial_days_left": entitlements.get("trial_days_left"),
+        "stripe": {
+            "enabled": stripe_enabled,
+            "subscriptions_ready": any(stripe_price_map.values()) and not is_admin_plan,
+            "portal_ready": any(stripe_price_map.values()) and not is_admin_plan,
+            "prices": stripe_price_map,
+            "payment_available": bool(any(stripe_price_map.values()) and not is_admin_plan),
+        },
+        "limits": {
+            "posts_per_month": entitlements.get("limits", {}).get("posts_per_month", 0),
+            "videos_per_month": entitlements.get("limits", {}).get("videos_per_month", 0),
+            "projects": entitlements.get("limits", {}).get("projects", 0),
+            "accounts_connected": entitlements.get("limits", {}).get("accounts_connected", 0),
+            "daily_posts": spec.max_daily_posts,
+            "can_schedule": bool(spec.can_schedule),
+            "can_autopublish": bool(spec.can_autopublish),
+            "templates_enabled": bool(spec.templates_enabled),
+            "niche_templates": spec.niche_templates,
+            "analytics_level": spec.analytics_level,
+            "youtube_connect": bool(spec.youtube_connect),
+        },
+        "usage": {
+            "posts_per_month": entitlements.get("usage", {}).get("posts_generated", 0),
+            "videos_per_month": entitlements.get("usage", {}).get("videos_generated", 0),
+            "projects": entitlements.get("usage", {}).get("projects", 0),
+            "accounts_connected": entitlements.get("usage", {}).get("accounts_connected", 0),
+            "daily_posts": check_post_limits(user).get("daily_used", 0),
+        },
+        "remaining": {
+            "posts_per_month": entitlements.get("remaining", {}).get("posts_generated", 0),
+            "videos_per_month": entitlements.get("remaining", {}).get("videos_generated", 0),
+            "projects": entitlements.get("remaining", {}).get("projects", 0),
+            "accounts_connected": entitlements.get("remaining", {}).get("accounts_connected", 0),
+        },
+    }
 
 
 def can_access_project(user: AppUser, project_id: int) -> bool:

@@ -1,4 +1,4 @@
-import os
+﻿import os
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
@@ -33,6 +33,7 @@ from saas_services import (
     get_or_create_default_project,
     list_blog_posts,
     log_event,
+    seed_niche_catalog,
     seed_niche_hooks,
     seed_plans,
     seed_platform_rules,
@@ -41,14 +42,21 @@ from saas_settings import settings
 
 app = Flask(__name__)
 
-LOG_DIR = Path(__file__).resolve().with_name("logs")
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR = Path(os.getenv("LOG_DIR") or Path(__file__).resolve().with_name("logs"))
 LOG_FILE = LOG_DIR / "api.log"
-_file_handler = RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=5, encoding="utf-8")
-_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-logging.getLogger().setLevel(logging.INFO)
-if not any(isinstance(h, RotatingFileHandler) and getattr(h, "baseFilename", "") == str(LOG_FILE) for h in logging.getLogger().handlers):
-    logging.getLogger().addHandler(_file_handler)
+_root_logger = logging.getLogger()
+_root_logger.setLevel(logging.INFO)
+try:
+    LOG_DIR.mkdir(exist_ok=True)
+    _file_handler = RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=5, encoding="utf-8")
+    _file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    if not any(isinstance(h, RotatingFileHandler) and getattr(h, "baseFilename", "") == str(LOG_FILE) for h in _root_logger.handlers):
+        _root_logger.addHandler(_file_handler)
+except OSError:
+    if not any(isinstance(h, logging.StreamHandler) for h in _root_logger.handlers):
+        _stream_handler = logging.StreamHandler()
+        _stream_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        _root_logger.addHandler(_stream_handler)
 
 cors_origins = [x.strip() for x in str(settings.CORS_ORIGIN or "").split(",") if x.strip()]
 if not cors_origins:
@@ -61,6 +69,7 @@ run_migrations()
 seed_plans()
 seed_platform_rules()
 seed_niche_hooks()
+seed_niche_catalog()
 
 app.register_blueprint(saas_api)
 
@@ -90,7 +99,7 @@ def validate_auth_config() -> None:
 
 @app.route('/')
 def home():
-    return '🔥 AutoSocial GPT backend + DB ready'
+    return 'рџ”Ґ AutoSocial GPT backend + DB ready'
 
 
 @app.route('/health')
@@ -155,20 +164,17 @@ def fb_callback():
 def generate_full_post():
     data = request.get_json(silent=True) or {}
 
-    niche = (data.get('niche') or 'бизнес').strip()
+    niche = (data.get('niche') or 'Р±РёР·РЅРµСЃ').strip()
     topic = (data.get('topic') or '').strip()
 
-    pexels_query_source = topic if topic else niche
-    pexels_query = {
-        "мотивация": "motivation",
-        "бизнес": "business",
-        "фитнес": "fitness",
-        "маркетинг": "marketing",
-        "путешествия": "travel",
-    }.get(pexels_query_source.lower(), pexels_query_source)
-
     post_text = generate_post(niche=niche, topic=topic or None)
-    image_url = get_image_by_niche(pexels_query)
+    image_url = get_image_by_niche(
+        niche=niche,
+        manual_topic=topic or niche,
+        language="ru",
+        goal="awareness",
+        orientation="any",
+    )
 
     return jsonify({"mode": "manual_topic" if topic else "niche_only", "niche": niche, "topic": topic, "post": post_text, "image_url": image_url})
 
@@ -209,13 +215,13 @@ def seed_admin() -> None:
             ensure_user_plan_and_credits(existing.id)
             return
 
-        pro = db.query(Plan).filter_by(name="pro").first()
+        agency = db.query(Plan).filter_by(name="agency").first()
         admin_user = AppUser(
             email=admin_email,
             password_hash=hash_password(admin_password),
             role="admin",
-            plan="pro",
-            plan_id=pro.id if pro else None,
+            plan="agency",
+            plan_id=agency.id if agency else None,
             billing_status="active",
         )
         db.add(admin_user)
@@ -234,3 +240,4 @@ validate_auth_config()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
+

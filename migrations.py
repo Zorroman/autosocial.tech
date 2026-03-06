@@ -38,6 +38,7 @@ CONTENT_PLAN_ADDITIONAL_COLUMNS = {
 SOCIAL_ACCOUNTS_ADDITIONAL_COLUMNS = {
     "page_picture_url": "VARCHAR(500)",
     "ig_username": "VARCHAR(120)",
+    "refresh_token_encrypted": "TEXT",
     "status_reason_code": "VARCHAR(120)",
     "last_success_at": "DATETIME",
     "updated_at": "DATETIME",
@@ -118,6 +119,36 @@ USER_TEMPLATES_ADDITIONAL_COLUMNS = {
     "updated_at": "DATETIME",
 }
 
+NICHES_ADDITIONAL_COLUMNS = {
+    "slug": "VARCHAR(80)",
+    "title": "VARCHAR(160)",
+    "description": "TEXT DEFAULT '' NOT NULL",
+    "icon": "VARCHAR(80) DEFAULT 'briefcase' NOT NULL",
+    "sort_order": "INTEGER DEFAULT 100 NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+TEMPLATES_ADDITIONAL_COLUMNS = {
+    "niche_id": "INTEGER",
+    "slug": "VARCHAR(120)",
+    "title": "VARCHAR(200)",
+    "description": "TEXT DEFAULT '' NOT NULL",
+    "type": "VARCHAR(20) DEFAULT 'post' NOT NULL",
+    "platform": "VARCHAR(20) DEFAULT 'all' NOT NULL",
+    "goal": "VARCHAR(20) DEFAULT 'leads' NOT NULL",
+    "tone": "VARCHAR(40) DEFAULT 'local-friendly' NOT NULL",
+    "hook_line": "VARCHAR(300) DEFAULT '' NOT NULL",
+    "cta": "VARCHAR(300) DEFAULT '' NOT NULL",
+    "prompt_system": "TEXT DEFAULT '' NOT NULL",
+    "prompt_user": "TEXT DEFAULT '' NOT NULL",
+    "variables_schema_json": "TEXT DEFAULT '{}' NOT NULL",
+    "preview_text": "TEXT DEFAULT '' NOT NULL",
+    "sort_order": "INTEGER DEFAULT 100 NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
 AI_SCORE_DAILY_ADDITIONAL_COLUMNS = {
     "ai_score": "FLOAT DEFAULT 0 NOT NULL",
     "performance": "FLOAT DEFAULT 0 NOT NULL",
@@ -138,6 +169,39 @@ FORECASTS_ADDITIONAL_COLUMNS = {
     "forecast_json": "TEXT DEFAULT '{}' NOT NULL",
     "based_on_from": "DATE",
     "based_on_to": "DATE",
+    "created_at": "DATETIME",
+}
+
+USER_STYLE_PREFS_ADDITIONAL_COLUMNS = {
+    "default_style_pack": "VARCHAR(80) DEFAULT 'default_pro' NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+SUBSCRIPTIONS_ADDITIONAL_COLUMNS = {
+    "plan": "VARCHAR(20) DEFAULT 'trial' NOT NULL",
+    "status": "VARCHAR(20) DEFAULT 'trialing' NOT NULL",
+    "current_period_start": "DATETIME",
+    "current_period_end": "DATETIME",
+    "trial_ends_at": "DATETIME",
+    "stripe_customer_id": "VARCHAR(120)",
+    "stripe_subscription_id": "VARCHAR(120)",
+    "updated_at": "DATETIME",
+}
+
+USAGE_COUNTERS_ADDITIONAL_COLUMNS = {
+    "posts_generated": "INTEGER DEFAULT 0 NOT NULL",
+    "posts_published": "INTEGER DEFAULT 0 NOT NULL",
+    "videos_generated": "INTEGER DEFAULT 0 NOT NULL",
+    "videos_published": "INTEGER DEFAULT 0 NOT NULL",
+    "created_at": "DATETIME",
+    "updated_at": "DATETIME",
+}
+
+USAGE_EVENTS_ADDITIONAL_COLUMNS = {
+    "type": "VARCHAR(60)",
+    "delta": "INTEGER DEFAULT 1 NOT NULL",
+    "meta_json": "TEXT DEFAULT '{}' NOT NULL",
     "created_at": "DATETIME",
 }
 
@@ -172,6 +236,46 @@ def run_migrations() -> None:
         add_missing_columns("posts", POSTS_ADDITIONAL_COLUMNS)
     if "plans" in tables:
         add_missing_columns("plans", PLANS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    UPDATE plans
+                    SET name = 'light_legacy'
+                    WHERE name = 'light'
+                      AND NOT EXISTS (SELECT 1 FROM plans WHERE name = 'light_legacy')
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE plans
+                    SET name = 'growth_legacy'
+                    WHERE name = 'pro'
+                      AND NOT EXISTS (SELECT 1 FROM plans WHERE name = 'growth_legacy')
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE plans
+                    SET name = 'agency_legacy'
+                    WHERE name = 'agency'
+                      AND NOT EXISTS (SELECT 1 FROM plans WHERE name = 'agency_legacy')
+                    """
+                )
+            )
+            if "app_users" in tables:
+                conn.execute(text("UPDATE app_users SET plan = 'light_legacy' WHERE plan = 'light'"))
+                conn.execute(text("UPDATE app_users SET plan = 'growth_legacy' WHERE plan = 'pro'"))
+                conn.execute(text("UPDATE app_users SET plan = 'agency_legacy' WHERE plan = 'agency'"))
+            if "subscriptions" in tables:
+                conn.execute(text("UPDATE subscriptions SET plan = 'free' WHERE plan = 'trial'"))
+                conn.execute(text("UPDATE subscriptions SET plan = 'light_legacy' WHERE plan = 'light'"))
+                conn.execute(text("UPDATE subscriptions SET plan = 'growth_legacy' WHERE plan = 'pro'"))
+                conn.execute(text("UPDATE subscriptions SET plan = 'agency_legacy' WHERE plan = 'agency'"))
     if "content_plan" in tables:
         add_missing_columns("content_plan", CONTENT_PLAN_ADDITIONAL_COLUMNS)
     if "social_accounts" in tables:
@@ -233,6 +337,20 @@ def run_migrations() -> None:
         with engine.begin() as conn:
             conn.execute(text("UPDATE user_templates SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
             conn.execute(text("UPDATE user_templates SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+    if "niches" in tables:
+        add_missing_columns("niches", NICHES_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE niches SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("UPDATE niches SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_niches_slug ON niches (slug)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_niches_sort_order ON niches (sort_order, id)"))
+    if "templates" in tables:
+        add_missing_columns("templates", TEMPLATES_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE templates SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("UPDATE templates SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_templates_niche_sort ON templates (niche_id, sort_order, id)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_templates_niche_slug ON templates (niche_id, slug)"))
     if "ai_score_daily" in tables:
         add_missing_columns("ai_score_daily", AI_SCORE_DAILY_ADDITIONAL_COLUMNS)
         with engine.begin() as conn:
@@ -252,6 +370,35 @@ def run_migrations() -> None:
         with engine.begin() as conn:
             conn.execute(text("UPDATE forecasts SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecasts_user_horizon ON forecasts (user_id, horizon_days, created_at)"))
+    if "user_style_prefs" in tables:
+        add_missing_columns("user_style_prefs", USER_STYLE_PREFS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE user_style_prefs SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("UPDATE user_style_prefs SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_style_prefs_user ON user_style_prefs (user_id)"))
+    if "subscriptions" in tables:
+        add_missing_columns("subscriptions", SUBSCRIPTIONS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE subscriptions SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_user ON subscriptions (user_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_subscriptions_status ON subscriptions (status)"))
+    if "usage_counters" in tables:
+        add_missing_columns("usage_counters", USAGE_COUNTERS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE usage_counters SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("UPDATE usage_counters SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_usage_counter_user_period "
+                    "ON usage_counters (user_id, period_start, period_end)"
+                )
+            )
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_usage_counter_user ON usage_counters (user_id, period_start)"))
+    if "usage_events" in tables:
+        add_missing_columns("usage_events", USAGE_EVENTS_ADDITIONAL_COLUMNS)
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE usage_events SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_usage_events_user_type ON usage_events (user_id, type, created_at)"))
     # Keep dashboard account-unification table in sync with existing social_accounts storage.
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())

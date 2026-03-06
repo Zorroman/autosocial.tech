@@ -14,6 +14,8 @@ class Settings:
     FFMPEG_BIN = os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg"
     FFPROBE_BIN = os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe"
     VIDEO_RENDER_CONCURRENCY = max(1, int(os.getenv("VIDEO_RENDER_CONCURRENCY", "2")))
+    VIDEO_CROSS_VIDEO_DEDUP_DAYS = max(0, int(os.getenv("VIDEO_CROSS_VIDEO_DEDUP_DAYS", "30")))
+    VIDEO_CROSS_VIDEO_DEDUP_MAX_MANIFESTS = max(20, int(os.getenv("VIDEO_CROSS_VIDEO_DEDUP_MAX_MANIFESTS", "200")))
     OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts").strip() or "gpt-4o-mini-tts"
     OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "eddy").strip() or "eddy"
     VIDEO_BG_MUSIC_ENABLED = os.getenv("VIDEO_BG_MUSIC_ENABLED", "false").lower() in {"1", "true", "yes"}
@@ -34,6 +36,7 @@ class Settings:
     COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
     COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
     SHOW_SOCIAL_LOGIN = os.getenv("SHOW_SOCIAL_LOGIN", "false").lower() in {"1", "true", "yes"}
+    ALLOW_ADMIN_DIRECT_LOGIN = os.getenv("ALLOW_ADMIN_DIRECT_LOGIN", "false").lower() in {"1", "true", "yes"}
 
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_PRICE_INPUT_PER_1M = float(os.getenv("OPENAI_PRICE_INPUT_PER_1M", "0.15"))
@@ -45,6 +48,10 @@ class Settings:
 
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_STARTER = os.getenv("STRIPE_PRICE_STARTER", "")
+    STRIPE_PRICE_GROWTH = os.getenv("STRIPE_PRICE_GROWTH", "")
+    STRIPE_PRICE_PRO_V2 = os.getenv("STRIPE_PRICE_PRO_V2", "")
+    STRIPE_PRICE_AGENCY_V2 = os.getenv("STRIPE_PRICE_AGENCY_V2", "")
     STRIPE_PRICE_LIGHT = os.getenv("STRIPE_PRICE_LIGHT", "")
     STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO", "")
     STRIPE_PRICE_AGENCY = os.getenv("STRIPE_PRICE_AGENCY", "")

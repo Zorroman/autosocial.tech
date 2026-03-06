@@ -82,6 +82,8 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
                 provider="meta",
                 page_id="meta-page-1",
                 page_name="Meta Page",
+                ig_user_id="ig-user-1",
+                ig_username="autosocial_ig",
                 token_encrypted=encrypt_meta_token("meta-user-token"),
                 status="connected_ready",
             )
@@ -137,6 +139,20 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
                     ]
                 }
             )
+        if "graph.facebook.com" in url and "/media" in url:
+            return FakeResponse(
+                {
+                    "data": [
+                        {
+                            "id": "ig-media-1",
+                            "caption": "Instagram post test",
+                            "media_type": "IMAGE",
+                            "permalink": "https://instagram.com/p/ig-media-1",
+                            "timestamp": "2026-02-20T11:00:00+0000",
+                        }
+                    ]
+                }
+            )
         if "graph.facebook.com" in url and url.endswith("/insights"):
             return FakeResponse(
                 {
@@ -150,6 +166,17 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
                     ]
                 }
             )
+        if "graph.facebook.com" in url and "ig-media-1/insights" in url:
+            return FakeResponse(
+                {
+                    "data": [
+                        {"name": "impressions", "values": [{"value": 80}]},
+                        {"name": "reach", "values": [{"value": 60}]},
+                    ]
+                }
+            )
+        if "graph.facebook.com" in url and "ig-media-1" in url:
+            return FakeResponse({"like_count": 7, "comments_count": 2})
         if "graph.facebook.com" in url:
             return FakeResponse(
                 {
@@ -212,8 +239,8 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
             .filter(ContentItem.user_id == user_id)
             .count()
         )
-        assert items_count == 2
-        assert metrics_count == 2
+        assert items_count == 3
+        assert metrics_count == 3
     finally:
         db.close()
 
@@ -225,10 +252,17 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     assert "current" in summary.get_json()
     assert "prev" in summary.get_json()
     assert "delta" in summary.get_json()
+    assert "facebook" in (summary.get_json().get("by_platform") or {})
+    assert "instagram" in (summary.get_json().get("by_platform") or {})
+    assert "youtube" in (summary.get_json().get("by_platform") or {})
 
     timeseries = client.get("/api/dashboard/timeseries?days=30", headers=headers)
     assert timeseries.status_code == 200
     assert len(timeseries.get_json()["points"]) == 30
+    first_point = (timeseries.get_json().get("points") or [{}])[0]
+    assert "facebook_reach" in first_point
+    assert "instagram_reach" in first_point
+    assert "youtube_reach" in first_point
 
     ai_score = client.get("/api/dashboard/ai-score?days=30", headers=headers)
     assert ai_score.status_code == 200
@@ -254,7 +288,7 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
 
     recent = client.get("/api/dashboard/recent?limit=10", headers=headers)
     assert recent.status_code == 200
-    assert len(recent.get_json()["items"]) == 2
+    assert len(recent.get_json()["items"]) == 3
 
     db = SessionLocal()
     try:

@@ -88,9 +88,19 @@ curl -X POST https://api.autosocial.tech/api/dashboard/sync \
 ```bash
 bash tests/smoke/run_smoke.sh
 py -m pytest tests/test_dashboard_metrics.py -q
+py scripts/verify_release.py
 ```
 Отчет:
 - `tests/reports/smoke-YYYYMMDD-HHMMSS.txt`
+
+Post-deploy release verification:
+- `py scripts/verify_release.py`
+- Скрипт делает только read-only HTTP-проверки production:
+  - bundle `app.js`
+  - `data/nicheTemplates.js`
+  - `/create/`
+  - `/api/plans`
+- Если находит legacy pricing, отсутствие quick actions или проблемы с нишами, завершится с кодом `1`.
 
 Проверка AI-Score вручную:
 ```bash
@@ -174,6 +184,14 @@ Creator Studio API (текст + AI assist + quality + шаблоны):
 - `GET /api/create/templates`
 - `POST /api/create/templates`
 - `DELETE /api/create/templates/:id`
+- `GET /api/create/niche-catalog` — системный каталог ниш и готовых шаблонов
+- `POST /api/create/templates/import-catalog` — импорт шаблона из каталога в user templates
+
+AI Контент-директор API:
+- `POST /api/ai/director/suggest` — темы/углы/CTA (status: ok|partial|error)
+- `POST /api/ai/director/generate-drafts` — генерация драфтов по выбранной теме и углу
+- `POST /api/ai/director/rewrite` — переписывание текста
+- `POST /api/ai/quality-check` — quality score/checks/warnings
 
 Стабильность генерации:
 - optional JSON-поля больше не валят генерацию
@@ -238,4 +256,33 @@ curl -X POST http://localhost:5000/api/video/generate \
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
   http://localhost:5000/api/video/jobs/<JOB_ID>
+```
+
+## 12) Niche Catalog (локальные бизнес-ниши)
+Системный каталог ниш хранится в таблицах:
+- `niches`
+- `templates`
+
+Сидер:
+- данные определяются в `niche_catalog.py`
+- загрузка в БД выполняется через `seed_niche_catalog()` при старте `app.py`
+
+Как добавить новую нишу:
+1. Добавить запись в `NICHE_SPECS` (`slug`, `title`, `description`, `icon`, `sort_order` и контекстные поля).
+2. Добавить/обновить 6 шаблонов на нишу в `build_niche_catalog_seed()`:
+   - 3 `post`: promo, social proof, educational myth
+   - 3 `video`: hook+3 tips, behind the scenes, FAQ objections
+3. Проверить поля шаблона:
+   - `type`, `platform`, `goal`, `tone`, `hook_line`, `cta`
+   - `prompt_system`, `prompt_user`
+   - `variables_schema_json`
+   - `preview_text`
+4. Перезапустить backend или выполнить миграции/сид:
+```bash
+py app.py
+```
+или
+```bash
+py migrations.py
+py app.py
 ```

@@ -41,6 +41,9 @@ const LANGUAGE_LABELS = {
   uk: 'Українська',
 };
 const DIRECTOR_NICHE_ENGINE = window.AutoSocialNiches || {};
+const AUTOSOCIAL_RELEASE_MARKER_2026 = 'AUTOSOCIAL_RELEASE_MARKER_2026';
+const AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1 = 'AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1';
+const AUTOSOCIAL_CREATE_FLOW_V1 = 'AUTOSOCIAL_CREATE_FLOW_V1';
 const DIRECTOR_NICHE_OPTIONS = typeof DIRECTOR_NICHE_ENGINE.getNicheOptions === 'function'
   ? DIRECTOR_NICHE_ENGINE.getNicheOptions()
   : [{ value: 'smm_marketing', label: 'SMM и маркетинг' }];
@@ -872,7 +875,7 @@ function icon(name) {
 function planBadge(plan) {
   const p = String(plan || 'free').toLowerCase();
   const labels = {
-    free: 'Free Trial',
+    free: 'Free Trial 7 days',
     starter: 'Starter',
     growth: 'Growth',
     agency: 'Agency',
@@ -881,11 +884,11 @@ function planBadge(plan) {
   const cls = p === 'admin'
     ? 'badge-agency'
     : p === 'growth'
-      ? 'badge-pro'
+      ? 'badge-growth'
       : p === 'agency'
         ? 'badge-agency'
         : p === 'starter'
-          ? 'badge-light'
+          ? 'badge-starter'
           : 'badge-free';
   return `<span class="badge-plan ${cls}">${esc(labels[p] || p)}</span>`;
 }
@@ -927,13 +930,8 @@ function selectField(id, label, value, options) {
   return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}">${options.map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>`;
 }
 function normalizeCheckoutPlanCode(plan) {
-  const key = String(plan || '').trim().toLowerCase();
-  if (key === 'starter') return ['starter', 'light'];
-  if (key === 'growth') return ['growth', 'pro'];
-  if (key === 'agency') return ['agency'];
-  if (key === 'light') return ['light', 'starter'];
-  if (key === 'pro') return ['pro', 'growth'];
-  return [key].filter(Boolean);
+  const key = normalizePublicPlan(plan);
+  return ['starter', 'growth', 'agency'].includes(key) ? [key] : [];
 }
 function directorEffectiveTopic(d, fallback = '') {
   return String(d?.appliedManualTopic || '').trim()
@@ -1282,6 +1280,14 @@ const CREATE_QUICK_TOPIC_POOL_BY_CATEGORY = {
 };
 
 function buildCreateQuickTopics(category, version = 0) {
+  const normalizedNicheId = normalizeNicheIdSafe(category || '');
+  if (
+    normalizedNicheId
+    && normalizedNicheId !== 'fallback'
+    && typeof DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas === 'function'
+  ) {
+    return DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas(normalizedNicheId, 5, version);
+  }
   const key = String(category || 'fallback');
   const pool = CREATE_QUICK_TOPIC_POOL_BY_CATEGORY[key] || CREATE_QUICK_TOPIC_POOL_BY_CATEGORY.fallback;
   const count = Math.min(5, pool.length);
@@ -2251,22 +2257,7 @@ function pageDashboard() {
 function pageCreate() {
   const w = state.createWizard;
   const projectOptions = state.projects.map((p) => ({ value: p.id, label: p.name }));
-  const nicheToCategory = {
-    beauty: 'beauty',
-    restaurant: 'business',
-    autoservice: 'auto',
-    shop: 'ecommerce',
-    services: 'business',
-    other: 'fallback',
-  };
-  const nicheOptions = [
-    { value: 'beauty', label: 'Бьюти' },
-    { value: 'restaurant', label: 'Ресторан' },
-    { value: 'autoservice', label: 'Автосервис' },
-    { value: 'shop', label: 'Магазин' },
-    { value: 'services', label: 'Услуги' },
-    { value: 'other', label: 'Другое' },
-  ];
+  const nicheOptions = DIRECTOR_NICHE_OPTIONS;
   const toneOptions = [
     { value: 'friendly', label: 'Дружелюбный' },
     { value: 'expert', label: 'Экспертный' },
@@ -2303,12 +2294,13 @@ function pageCreate() {
     5: 'Публикация',
   };
   const submitLabel = w.mode === 'schedule' ? 'Запланировать' : (w.mode === 'draft' ? 'Сохранить как черновик' : 'Опубликовать');
-  if (!w.niche) w.niche = 'services';
+  if (!w.niche) w.niche = DEFAULT_DIRECTOR_NICHE;
+  w.niche = normalizeNicheIdSafe(w.niche || DEFAULT_DIRECTOR_NICHE) || DEFAULT_DIRECTOR_NICHE;
   if (!w.goal) w.goal = 'sales';
   if (!w.ctaAction) w.ctaAction = 'Записаться';
   if (!w.finalCta) w.finalCta = 'Напишите в директ, чтобы получить консультацию.';
-  if (!w.category) w.category = nicheToCategory[w.niche] || 'business';
-  const topicTemplates = buildCreateQuickTopics(w.category, w.quickTopicsVersion || 0);
+  w.category = w.niche;
+  const topicTemplates = buildCreateQuickTopics(w.niche, w.quickTopicsVersion || 0);
 
   const step1 = `
     <div class="wizard-step-note">Проект хранит стиль, нишу и настройки бренда.</div>
@@ -2710,12 +2702,13 @@ function pricingCards() {
   const marketingFeatures = {
     free: { posts: '30', videos: '3', projects: '1', autopublish: false, analytics: 'none' },
     starter: { posts: '150', videos: '10', projects: '2', autopublish: true, analytics: 'basic' },
-    growth: { posts: '600', videos: '40', projects: '5', autopublish: true, analytics: 'basic' },
+    growth: { posts: '600', videos: '40', projects: '5', autopublish: true, analytics: 'advanced' },
     agency: { posts: '2000', videos: '150', projects: 'Без ограничений', autopublish: true, analytics: 'advanced' },
   };
 
   const stripe = state.billing?.stripe || {};
   const stripeReady = !!stripe.subscriptions_ready;
+  const planPaymentAvailable = (name) => !!(planMap[name]?.payment_available && stripe.prices?.[name]);
   const current = String(state.billing?.plan || state.user?.plan || 'free').toLowerCase();
   const order = ['free', 'starter', 'growth', 'agency'];
   const meta = {
@@ -2789,14 +2782,14 @@ function pricingCards() {
     ${order.map((name) => {
       const m = meta[name] || { title: name, desc: '' };
       const isCurrent = current === name;
-      const canUpgrade = name !== 'free' && stripeReady;
+      const canUpgrade = name !== 'free' && stripeReady && planPaymentAvailable(name);
       const btn = isCurrent
         ? `<button class="btn btn-secondary" disabled>Текущий тариф</button>`
         : canUpgrade
           ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">Перейти на ${esc(m.title)}</button>`
           : name === 'free'
             ? `<button class="btn btn-ghost" disabled>Активируется при регистрации</button>`
-            : `<button class="btn btn-ghost" disabled title="Stripe не настроен">Оплата недоступна</button>`;
+            : `<button class="btn btn-ghost" disabled title="План доступен как продуктовая модель, но checkout пока выключен">Скоро доступно</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
@@ -2817,6 +2810,7 @@ function pricingCards() {
           ${btn}
           ${m.highlight ? `<span class="hint-pill">Рекомендуем</span>` : `<span></span>`}
         </div>
+        ${!isCurrent && name !== 'free' && !canUpgrade ? '<div class="small muted" style="margin-top:8px;">Тариф уже включён в продуктовую модель, но оплата появится позже.</div>' : ''}
       </article>`;
     }).join('')}
   </div>`;
@@ -3066,7 +3060,7 @@ function pageBilling() {
     ? ''
     : `<section class="card" style="margin-bottom:18px;">
          <h3>Оплата временно недоступна</h3>
-         <p class="small">${b.plan === 'admin' ? 'Для администратора checkout не нужен: активен внутренний безлимитный тариф.' : 'Stripe не настроен: добавьте STRIPE_SECRET_KEY в server .env.'}</p>
+         <p class="small">${b.plan === 'admin' ? 'Для администратора checkout не нужен: активен внутренний безлимитный тариф.' : 'Тарифы Starter, Growth и Agency уже участвуют в логике продукта, но их checkout пока выключен.'}</p>
        </section>`;
   const analyticsLevelLabel = (() => {
     const key = String(b.limits.analytics_level || 'none').toLowerCase();
@@ -3079,7 +3073,7 @@ function pageBilling() {
       <p class="small">Текущий план: <strong>${esc(b.plan_title || planBadge(b.plan || 'free').replace(/<[^>]+>/g, ''))}</strong></p>
       <p class="small muted" style="margin-top:8px;">${b.plan === 'free' ? `Пробный период: ${Number(b.trial_days_left || 0)} дн. осталось. После окончания trial понадобится платный тариф для генерации и публикации.` : (b.plan === 'admin' ? 'Внутренний admin-тариф: безлимит по контенту, видео, проектам и расширенная аналитика.' : `Аналитика: ${esc(analyticsLevelLabel)}. Автопостинг: ${b.limits.can_autopublish ? 'включен' : 'выключен'}.`)}</p>
       <div class="cta-row" style="margin-top:12px;">
-        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? 'Для admin-плана управление подпиской не требуется' : 'Stripe не настроен')}">Управление подпиской</button>
+        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? 'Для admin-плана управление подпиской не требуется' : 'Портал подписки станет доступен после включения оплаты')}">Управление подпиской</button>
       </div>
       <div class="small muted" style="margin-top:8px;">Статус биллинга: ${esc(b.billing_status || 'inactive')}</div>
     </article>
@@ -3893,19 +3887,17 @@ function pageCreateDirector() {
       : 'Выберите подход и нажмите «Сгенерировать пост»');
 
   const topicChooserHtml = `
-      <article class="card create-topic-picker">
-        <div class="row create-topic-toolbar">
-          <div>
-            <h4 style="margin:0;">Темы от AI</h4>
-            <p class="small" style="margin:4px 0 0 0;">AI подобрал 10 тем именно для ниши «${esc(nicheMeta?.label || baseTopic || 'ваш бизнес')}». Нажмите на вариант, чтобы использовать эту тему.</p>
-          </div>
+      <div class="create-topic-picker">
+        <div class="row create-topic-toolbar" style="margin-bottom:10px;">
           <button id="cdGenerateIdeas" class="btn btn-secondary" type="button" ${loading ? 'disabled' : ''}>
-            ${loading ? 'Подбираем темы…' : (topicsAll.length ? 'Обновить идеи' : 'Подобрать 10 тем')}
+            ${loading ? 'Подбираем темы…' : 'Подобрать 10 тем'}
           </button>
+          <span class="small">Кнопка работает от текущей ниши или вашей темы.</span>
         </div>
-        <div class="create-assist-list create-topic-list">
-          ${topicsAll.length ? topicsAll.map((t) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === t && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(t)}" title="Использовать эту тему">${esc(t)}</button>`).join('') : '<span class="small">Нажмите «Подобрать 10 тем», чтобы получить варианты.</span>'}
+        ${topicsAll.length ? `<div class="create-assist-list create-topic-list" style="margin-bottom:10px;">
+          ${topicsAll.map((t) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === t && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(t)}" title="Использовать эту тему">${esc(t)}</button>`).join('')}
         </div>
+        ` : ''}
         <div class="create-topic-manual">
           ${field('cdManualTopic', 'Своя тема', 'text', d.manualTopicInput || '', 'Не нашли нужный вариант? Введите тему вручную')}
           <div class="row" style="gap:8px;flex-wrap:wrap;">
@@ -3913,7 +3905,7 @@ function pageCreateDirector() {
             ${effectiveSelectedTopic ? `<span class="pill active">Выбрано: ${esc(effectiveSelectedTopic)}</span>` : '<span class="small">Тема пока не выбрана</span>'}
           </div>
         </div>
-      </article>
+      </div>
   `;
   const quickActionItemsHtml = (() => {
     if (!quickActionResult) return '';
@@ -9228,14 +9220,6 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       createProjectFromCreateBtn.disabled = false;
     }
   };
-  const nicheToCategory = {
-    beauty: 'beauty',
-    restaurant: 'business',
-    autoservice: 'auto',
-    shop: 'ecommerce',
-    services: 'business',
-    other: 'fallback',
-  };
   const parseHashtags = (raw) => {
     const tags = String(raw || '')
       .split(/\s+/)
@@ -9309,8 +9293,8 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (wProjectEl) wProjectEl.onchange = () => { state.createWizard.projectId = wProjectEl.value; state.createWizard.publishSuccess = null; };
   const wNicheEl = document.getElementById('wNiche');
   if (wNicheEl) wNicheEl.onchange = () => {
-    state.createWizard.niche = wNicheEl.value;
-    state.createWizard.category = nicheToCategory[wNicheEl.value] || 'business';
+    state.createWizard.niche = normalizeNicheIdSafe(wNicheEl.value || DEFAULT_DIRECTOR_NICHE) || DEFAULT_DIRECTOR_NICHE;
+    state.createWizard.category = state.createWizard.niche;
     state.createWizard.quickTopicsVersion = 0;
     state.createWizard.previewText = '';
     state.createWizard.publishSuccess = null;
@@ -9319,7 +9303,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   const refreshTopicTemplates = () => {
     const container = document.getElementById('wTopicTemplates');
     if (!container) return;
-    const topicTemplates = buildCreateQuickTopics(state.createWizard.category, state.createWizard.quickTopicsVersion || 0);
+    const topicTemplates = buildCreateQuickTopics(state.createWizard.niche || state.createWizard.category, state.createWizard.quickTopicsVersion || 0);
     container.innerHTML = topicTemplates.map((t) => `<button type="button" class="btn btn-ghost btn-topic-template" data-topic-template="${esc(t)}">${esc(t)}</button>`).join('');
     bindTopicTemplateButtons();
   };
@@ -10071,6 +10055,15 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   });
 
   const checkoutSubscription = async (plan) => {
+    const normalizedPlan = normalizePublicPlan(plan);
+    if (!state.billing?.stripe?.prices?.[normalizedPlan]) {
+      state.notice = {
+        type: 'error',
+        text: 'Оплата этого тарифа пока недоступна. Тариф уже есть в продукте, но checkout появится позже.',
+      };
+      render();
+      return;
+    }
     try {
       const candidates = normalizeCheckoutPlanCode(plan);
       let lastErr = null;
@@ -10082,7 +10075,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
         } catch (e) {
           lastErr = e;
           const msg = String(e?.message || '').toLowerCase();
-          if (!/валидный тариф|starter|growth|agency|light\/pro\/agency|light\/pro|light|pro/.test(msg)) {
+          if (!/валидный тариф|starter|growth|agency/.test(msg)) {
             throw e;
           }
         }
@@ -10094,7 +10087,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       state.notice = {
         type: 'error',
         text: stripeConfigError
-          ? 'Оплата временно недоступна: Stripe еще не настроен.'
+          ? 'Оплата временно недоступна: checkout для тарифов пока выключен.'
           : (msg || 'Не удалось открыть оплату. Проверьте настройки Stripe.'),
       };
       render();

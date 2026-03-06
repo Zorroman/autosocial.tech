@@ -29,15 +29,18 @@ BANNED_TOKENS = [
 ]
 SOFT_BANNED_TOKENS = ["metaverse", "cyberpunk", "futuristic", "surreal", "neon"]
 SCENE_KEYWORDS = {
-    "work": {"office", "laptop", "typing", "meeting", "team", "business"},
-    "nature": {"forest", "mountain", "river", "landscape", "sunrise"},
-    "city": {"street", "traffic", "downtown", "skyline"},
-    "people": {"people", "portrait", "talking", "walking"},
-    "home": {"home", "kitchen", "living", "interior"},
-    "food": {"food", "cooking", "dish", "kitchen"},
-    "travel": {"travel", "tourist", "airport", "walking"},
-    "product": {"product", "hands", "holding", "closeup"},
-    "abstract_real": {"bokeh", "lights", "texture", "background"},
+    "work": {"office", "laptop", "typing", "meeting", "team", "business", "офис", "команда", "бизнес", "работа", "переговоры"},
+    "nature": {
+        "forest", "mountain", "river", "landscape", "sunrise", "sea", "ocean", "beach", "lake", "waterfall", "fog", "mist",
+        "природа", "лес", "горы", "река", "пейзаж", "море", "океан", "озеро", "туман", "волны", "берег",
+    },
+    "city": {"street", "traffic", "downtown", "skyline", "город", "улица", "трафик", "центр", "небоскреб"},
+    "people": {"people", "portrait", "talking", "walking", "люди", "человек", "лицо", "разговор", "улыбка"},
+    "home": {"home", "kitchen", "living", "interior", "дом", "интерьер", "кухня", "гостиная"},
+    "food": {"food", "cooking", "dish", "kitchen", "еда", "кулинария", "блюдо", "кухня"},
+    "travel": {"travel", "tourist", "airport", "walking", "путешествие", "туризм", "аэропорт", "поездка"},
+    "product": {"product", "hands", "holding", "closeup", "продукт", "товар", "руки", "крупный"},
+    "abstract_real": {"bokeh", "lights", "texture", "background", "candle", "smoke", "moonlight", "фон", "текстура", "свет", "свеча", "дым"},
 }
 
 
@@ -69,26 +72,51 @@ def _metadata_text(candidate: VideoResult) -> str:
     ).lower()
 
 
-def is_rejected(metadata: VideoResult) -> bool:
+def is_rejected(metadata: VideoResult, hard_banned_tokens: list[str] | None = None) -> bool:
     hay = _metadata_text(metadata)
-    return any(x in hay for x in BANNED_TOKENS)
+    banned = hard_banned_tokens if isinstance(hard_banned_tokens, list) else BANNED_TOKENS
+    return any(x in hay for x in banned)
 
 
-def penalty_score(metadata: VideoResult) -> float:
+def penalty_score(metadata: VideoResult, soft_banned_tokens: list[str] | None = None) -> float:
     hay = _metadata_text(metadata)
-    return float(sum(1 for x in SOFT_BANNED_TOKENS if x in hay))
+    soft = soft_banned_tokens if isinstance(soft_banned_tokens, list) else SOFT_BANNED_TOKENS
+    return float(sum(1 for x in soft if x in hay))
 
 
-def _semantic_relevance(spec: ShotSpec, candidate: VideoResult) -> float:
-    hay_tokens = _tokens(_metadata_text(candidate))
+def _semantic_relevance(spec: ShotSpec, candidate: VideoResult, soft_banned_tokens: list[str] | None = None) -> float:
+    meta_text = _metadata_text(candidate)
+    hay_tokens = _tokens(meta_text)
     query_tokens = set()
     for q in spec.queries:
         query_tokens |= _tokens(q)
+    # Enforce phrase-level relevance, not only generic query overlap.
+    phrase_tokens = _tokens(spec.phrase_text or "")
+    phrase_tokens = {t for t in phrase_tokens if len(t) >= 4}
     include_tokens = set(_tokens(" ".join(spec.must_include)))
     overlap = len(hay_tokens & query_tokens) / max(1.0, len(query_tokens))
+    phrase_overlap = len(hay_tokens & phrase_tokens) / max(1.0, len(phrase_tokens)) if phrase_tokens else 0.0
     include_hit = len(hay_tokens & include_tokens) / max(1.0, len(include_tokens))
-    soft_penalty = penalty_score(candidate) * 0.08
-    return max(0.0, min(1.0, 0.62 * overlap + 0.48 * include_hit - soft_penalty))
+    source_query_tokens = _tokens(candidate.source_query or "")
+    source_query_hit = len(source_query_tokens & query_tokens) / max(1.0, len(query_tokens))
+    soft_penalty = penalty_score(candidate, soft_banned_tokens=soft_banned_tokens) * 0.08
+    hard_hint_penalty = 0.2 if any(x in _metadata_text(candidate) for x in (spec.must_exclude or [])) else 0.0
+    metadata_sparse_penalty = 0.18 if not (candidate.title or "").strip() and not (candidate.tags or []) else 0.0
+    query_hint_boost = 0.24 if (candidate.source_query or "").strip() and any(q in str(candidate.source_query or "").lower() for q in (spec.queries or [])) else 0.0
+    return max(
+        0.0,
+        min(
+            1.0,
+            0.46 * overlap
+            + 0.28 * include_hit
+            + 0.24 * phrase_overlap
+            + 0.22 * source_query_hit
+            + query_hint_boost
+            - soft_penalty
+            - hard_hint_penalty
+            - metadata_sparse_penalty,
+        ),
+    )
 
 
 def _scene_match(spec: ShotSpec, candidate: VideoResult) -> float:
@@ -161,12 +189,19 @@ class RankedCandidate:
     breakdown: dict
 
 
-def rank_candidates(spec: ShotSpec, candidates: list[VideoResult], already_selected: dict, orientation: str) -> list[RankedCandidate]:
+def rank_candidates(
+    spec: ShotSpec,
+    candidates: list[VideoResult],
+    already_selected: dict,
+    orientation: str,
+    hard_banned_tokens: list[str] | None = None,
+    soft_banned_tokens: list[str] | None = None,
+) -> list[RankedCandidate]:
     ranked: list[RankedCandidate] = []
     for candidate in candidates:
-        if is_rejected(candidate):
+        if is_rejected(candidate, hard_banned_tokens=hard_banned_tokens):
             continue
-        semantic = _semantic_relevance(spec, candidate)
+        semantic = _semantic_relevance(spec, candidate, soft_banned_tokens=soft_banned_tokens)
         scene = _scene_match(spec, candidate)
         duration = _duration_fit(spec, candidate)
         quality = _orientation_quality(spec, candidate, orientation=orientation)
@@ -188,7 +223,7 @@ def rank_candidates(spec: ShotSpec, candidates: list[VideoResult], already_selec
                     "duration_fit": round(duration, 4),
                     "quality_fit": round(quality, 4),
                     "diversity": round(diversity, 4),
-                    "soft_penalty": round(penalty_score(candidate), 3),
+                    "soft_penalty": round(penalty_score(candidate, soft_banned_tokens=soft_banned_tokens), 3),
                 },
             )
         )
@@ -196,8 +231,22 @@ def rank_candidates(spec: ShotSpec, candidates: list[VideoResult], already_selec
     return ranked
 
 
-def select_best_clip(spec: ShotSpec, candidates: list[VideoResult], already_selected: dict, orientation: str) -> RankedCandidate | None:
-    ranked = rank_candidates(spec, candidates, already_selected=already_selected, orientation=orientation)
+def select_best_clip(
+    spec: ShotSpec,
+    candidates: list[VideoResult],
+    already_selected: dict,
+    orientation: str,
+    hard_banned_tokens: list[str] | None = None,
+    soft_banned_tokens: list[str] | None = None,
+) -> RankedCandidate | None:
+    ranked = rank_candidates(
+        spec,
+        candidates,
+        already_selected=already_selected,
+        orientation=orientation,
+        hard_banned_tokens=hard_banned_tokens,
+        soft_banned_tokens=soft_banned_tokens,
+    )
     if not ranked:
         return None
     return ranked[0]

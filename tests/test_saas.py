@@ -101,21 +101,22 @@ def test_limit_free_plan(client):
     projects = client.get("/api/projects", headers=auth_headers(token)).get_json()
     project_id = projects[0]["id"]
 
-    # Free plan allows 10 posts/month; generation creates queued posts.
-    for i in range(10):
-        resp = client.post(
-            "/api/generate",
-            json={"project_id": project_id, "topic": f"topic {i}", "category": "business"},
-            headers=auth_headers(token),
-        )
-        assert resp.status_code == 202
-
-    blocked = client.post(
+    created = client.post(
         "/api/generate",
-        json={"project_id": project_id, "topic": "topic 11", "category": "business"},
+        json={"project_id": project_id, "topic": "topic 1", "category": "business"},
         headers=auth_headers(token),
     )
-    assert blocked.status_code == 429
+    assert created.status_code == 202
+    post_id = created.get_json()["id"]
+
+    blocked = client.post(
+        f"/api/posts/{post_id}/publish",
+        json={},
+        headers=auth_headers(token),
+    )
+    assert blocked.status_code == 403
+    body = blocked.get_json() or {}
+    assert body.get("error") == "PAYWALL_FEATURE"
 
 
 def test_topic_suggestions_upsert(client):
@@ -153,11 +154,11 @@ def test_admin_can_change_plan(client):
 
     update = client.patch(
         f"/api/admin/users/{target['id']}/plan",
-        json={"plan": "pro"},
+        json={"plan": "growth"},
         headers=auth_headers(admin_token),
     )
     assert update.status_code == 200
-    assert update.get_json()["plan"] == "pro"
+    assert update.get_json()["plan"] == "growth"
 
 
 def test_oauth_start_redirects_when_not_configured(client):
@@ -286,7 +287,7 @@ def test_delete_project_requires_exact_confirmation_and_deletes_related_data(cli
     target = next(u for u in users if u["email"] == "delete-project@test.local")
     plan_update = client.patch(
         f"/api/admin/users/{target['id']}/plan",
-        json={"plan": "pro"},
+        json={"plan": "growth"},
         headers=auth_headers(admin_token),
     )
     assert plan_update.status_code == 200
@@ -364,7 +365,7 @@ def test_delete_project_accepts_confirm_name_from_query(client):
     target = next(u for u in users if u["email"] == "delete-query@test.local")
     plan_update = client.patch(
         f"/api/admin/users/{target['id']}/plan",
-        json={"plan": "pro"},
+        json={"plan": "growth"},
         headers=auth_headers(admin_token),
     )
     assert plan_update.status_code == 200
@@ -390,7 +391,7 @@ def test_delete_project_via_post_endpoint(client):
     target = next(u for u in users if u["email"] == "delete-post-endpoint@test.local")
     plan_update = client.patch(
         f"/api/admin/users/{target['id']}/plan",
-        json={"plan": "pro"},
+        json={"plan": "growth"},
         headers=auth_headers(admin_token),
     )
     assert plan_update.status_code == 200
@@ -456,7 +457,7 @@ def test_stripe_webhook_subscription_updates_plan_for_dynamic_price(client, monk
     db = SessionLocal()
     try:
         refreshed = db.query(AppUser).filter_by(id=user_id).first()
-        assert refreshed.plan == "pro"
+        assert refreshed.plan == "growth"
         assert refreshed.billing_status == "active"
         assert refreshed.stripe_subscription_id == "sub_dynamic_1"
     finally:
@@ -573,3 +574,19 @@ def test_create_quality_check_returns_score(client):
     assert body["status"] == "ok"
     assert isinstance(body.get("quality"), dict)
     assert isinstance(body["quality"].get("score"), int)
+
+
+
+
+def test_checkout_subscription_disabled_for_public_paid_plans(client):
+    reg = register_user(client, "billing-disabled@test.local", "pass12345")
+    token = reg.get_json()["token"]
+
+    response = client.post(
+        "/api/billing/checkout/subscription",
+        json={"plan": "growth"},
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 409
+    assert "недоступ" in str((response.get_json() or {}).get("error") or "").lower()

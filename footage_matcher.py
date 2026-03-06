@@ -6,13 +6,26 @@ from footage.providers.pexels import download_video as download_pexels_video
 from footage.providers.pexels import search_videos as search_pexels_videos
 from footage.providers.pixabay import download_video as download_pixabay_video
 from footage.providers.pixabay import search_videos as search_pixabay_videos
-from footage.ranking import BANNED_TOKENS, is_rejected, near_duplicate, select_best_clip
+from footage.ranking import (
+    BANNED_TOKENS,
+    SCENE_KEYWORDS,
+    is_rejected,
+    near_duplicate,
+    penalty_score,
+    rank_candidates,
+    select_best_clip,
+)
 from footage.shots import DEFAULT_SCENE_QUERIES, ShotSpec
 from footage.types import VideoResult
 from saas_settings import settings
+from style_packs import get_style_pack, normalize_scene
 
 
 logger = logging.getLogger(__name__)
+
+MIN_ACCEPT_SCORE = 58.0
+MIN_ACCEPT_SEMANTIC = 0.18
+MIN_ACCEPT_SCENE = 0.12
 
 
 @dataclass
@@ -53,7 +66,50 @@ def _safe_library_dir(orientation: str) -> Path:
     return d
 
 
-def _ensure_safe_library(orientation: str) -> list[VideoResult]:
+def _neutral_query_for_scene(scene: str) -> str:
+    scene = str(scene or "").strip().lower()
+    if scene == "work":
+        return "office work"
+    if scene == "city":
+        return "city street"
+    if scene == "nature":
+        return "nature landscape"
+    if scene == "product":
+        return "hands holding product"
+    if scene == "home":
+        return "home interior"
+    if scene == "people":
+        return "people walking"
+    return "real life broll"
+
+
+def _metadata_text(candidate: VideoResult) -> str:
+    return " ".join(
+        [
+            candidate.title or "",
+            candidate.description or "",
+            candidate.page_url or "",
+            candidate.download_url or "",
+            " ".join(candidate.tags or []),
+            candidate.source_query or "",
+        ]
+    ).lower()
+
+
+def _candidate_in_allowed_scenes(candidate: VideoResult, allowed_scenes: set[str]) -> bool:
+    if not allowed_scenes:
+        return True
+    hay = _metadata_text(candidate)
+    if not hay.strip():
+        return True
+    for scene in allowed_scenes:
+        keywords = SCENE_KEYWORDS.get(scene, set())
+        if any(k in hay for k in keywords):
+            return True
+    return False
+
+
+def _ensure_safe_library(orientation: str, allowed_scenes: set[str]) -> list[VideoResult]:
     lib_dir = _safe_library_dir(orientation)
     present = sorted([x for x in lib_dir.glob("*.mp4") if x.is_file()])
     if len(present) >= 20:
@@ -75,7 +131,11 @@ def _ensure_safe_library(orientation: str) -> list[VideoResult]:
             for p in present[:20]
         ]
 
-    neutral_queries = ["office work", "city street", "nature landscape", "hands typing", "people walking"]
+    query_scenes = [s for s in allowed_scenes if s in {"work", "city", "nature", "people", "home", "product", "abstract_real"}]
+    if not query_scenes:
+        query_scenes = ["work", "city", "nature", "people"]
+    neutral_queries = [_neutral_query_for_scene(s) for s in query_scenes]
+
     gathered: list[VideoResult] = []
     used = set()
     for q in neutral_queries:
@@ -83,6 +143,8 @@ def _ensure_safe_library(orientation: str) -> list[VideoResult]:
         for c in candidates:
             cid = f"{c.provider}:{c.video_id}"
             if cid in used or is_rejected(c):
+                continue
+            if not _candidate_in_allowed_scenes(c, allowed_scenes):
                 continue
             used.add(cid)
             gathered.append(c)
@@ -148,26 +210,112 @@ def _update_memory(chosen: VideoResult, query_used: str, already_selected: dict)
     already_selected["selected_results"].append(chosen)
 
 
-def match_shots(shot_specs: list[ShotSpec], orientation: str) -> list[MatchedClip]:
+def _build_hard_tokens(spec: ShotSpec, style_pack: dict) -> list[str]:
+    out = [*(BANNED_TOKENS or []), *((style_pack.get("banned_tokens") or [])), *((spec.must_exclude or []))]
+    uniq = []
+    for token in out:
+        t = str(token or "").strip().lower()
+        if t and t not in uniq:
+            uniq.append(t)
+    return uniq
+
+
+def _build_soft_tokens(spec: ShotSpec, style_pack: dict) -> list[str]:
+    out = [*((style_pack.get("soft_banned_tokens") or [])), *((spec.soft_exclude or []))]
+    uniq = []
+    for token in out:
+        t = str(token or "").strip().lower()
+        if t and t not in uniq:
+            uniq.append(t)
+    return uniq
+
+
+def _build_query_order(spec: ShotSpec, style_pack: dict, allowed_scenes: set[str]) -> list[str]:
+    desired = normalize_scene(spec.desired_scene, list(allowed_scenes))
+    scene_overrides = style_pack.get("scene_query_overrides") if isinstance(style_pack.get("scene_query_overrides"), dict) else {}
+    overrides = scene_overrides.get(desired) if isinstance(scene_overrides, dict) else []
+    if isinstance(overrides, str):
+        overrides = [overrides]
+    override_queries = [str(x).strip() for x in (overrides or []) if str(x).strip()][:2]
+    fallback_scene_queries = [_neutral_query_for_scene(desired)]
+    query_order = [*spec.queries, *override_queries, *spec.fallback_queries, *fallback_scene_queries]
+    final = []
+    for q in query_order:
+        cur = str(q or "").strip()
+        if cur and cur not in final:
+            final.append(cur)
+    return final
+
+
+def _reselect_for_business_clean(
+    spec: ShotSpec,
+    candidate_pool: list[VideoResult],
+    already_selected: dict,
+    orientation: str,
+    hard_tokens: list[str],
+    soft_tokens: list[str],
+) -> tuple[VideoResult | None, float, dict]:
+    ranked = rank_candidates(
+        spec,
+        candidate_pool,
+        already_selected=already_selected,
+        orientation=orientation,
+        hard_banned_tokens=hard_tokens,
+        soft_banned_tokens=soft_tokens,
+    )
+    for item in ranked:
+        if is_rejected(item.candidate, hard_banned_tokens=hard_tokens):
+            continue
+        if penalty_score(item.candidate, soft_banned_tokens=soft_tokens) > 0:
+            continue
+        return item.candidate, float(item.score), dict(item.breakdown or {})
+    if ranked:
+        return ranked[0].candidate, float(ranked[0].score), dict(ranked[0].breakdown or {})
+    return None, 0.0, {}
+
+
+def _is_ranked_good(best) -> bool:
+    if not best:
+        return False
+    score = float(getattr(best, "score", 0.0) or 0.0)
+    breakdown = dict(getattr(best, "breakdown", {}) or {})
+    semantic = float(breakdown.get("semantic_relevance", 0.0) or 0.0)
+    scene = float(breakdown.get("scene_match", 0.0) or 0.0)
+    return score >= MIN_ACCEPT_SCORE and semantic >= MIN_ACCEPT_SEMANTIC and scene >= MIN_ACCEPT_SCENE
+
+
+def match_shots(
+    shot_specs: list[ShotSpec],
+    orientation: str,
+    style_pack: dict | None = None,
+    minimize_repeats: bool = True,
+    initial_memory: dict | None = None,
+) -> list[MatchedClip]:
+    style_pack = get_style_pack((style_pack or {}).get("id") if isinstance(style_pack, dict) else None)
+    allowed_scenes = set(style_pack.get("allowed_scenes") or [])
+    seed = initial_memory if isinstance(initial_memory, dict) else {}
     already_selected = {
-        "ids": set(),
-        "authors": set(),
-        "tag_signatures": [],
-        "query_groups_used": {},
-        "selected_results": [],
+        "ids": set(seed.get("ids") or []),
+        "authors": set(seed.get("authors") or []),
+        "tag_signatures": list(seed.get("tag_signatures") or []),
+        "query_groups_used": dict(seed.get("query_groups_used") or {}),
+        "selected_results": list(seed.get("selected_results") or []),
     }
     matches: list[MatchedClip] = []
     for shot_index, spec in enumerate(shot_specs):
         candidate_pool: list[VideoResult] = []
         rejected_count = 0
         used_query = ""
-        query_order = [*spec.queries, *spec.fallback_queries, DEFAULT_SCENE_QUERIES.get(spec.desired_scene, "real life")]
+        spec.desired_scene = normalize_scene(spec.desired_scene, list(allowed_scenes))
+        hard_tokens = _build_hard_tokens(spec, style_pack)
+        soft_tokens = _build_soft_tokens(spec, style_pack)
+        query_order = _build_query_order(spec, style_pack, allowed_scenes)
         for query in query_order:
             q = str(query or "").strip()
             if not q:
                 continue
             qlow = q.lower()
-            if any(tok in qlow for tok in BANNED_TOKENS):
+            if any(tok in qlow for tok in hard_tokens):
                 continue
             used_query = q
             fetched = _search_all(
@@ -177,24 +325,80 @@ def match_shots(shot_specs: list[ShotSpec], orientation: str) -> list[MatchedCli
                 max_duration=max(8, int(spec.duration_s) + 30),
                 limit=12,
             )
-            rejected_count += sum(1 for x in fetched if is_rejected(x))
-            filtered = _filter_duplicates([x for x in fetched if not is_rejected(x)], already_selected)
+            rejected_count += sum(1 for x in fetched if is_rejected(x, hard_banned_tokens=hard_tokens))
+            clean = [x for x in fetched if not is_rejected(x, hard_banned_tokens=hard_tokens)]
+            if allowed_scenes:
+                clean = [x for x in clean if _candidate_in_allowed_scenes(x, allowed_scenes)]
+            filtered = _filter_duplicates(clean, already_selected) if minimize_repeats else list(clean)
             candidate_pool.extend(filtered)
-            best = select_best_clip(spec, candidate_pool, already_selected=already_selected, orientation=orientation)
-            if best:
+            best = select_best_clip(
+                spec,
+                candidate_pool,
+                already_selected=already_selected,
+                orientation=orientation,
+                hard_banned_tokens=hard_tokens,
+                soft_banned_tokens=soft_tokens,
+            )
+            if best and _is_ranked_good(best):
                 break
 
-        best = select_best_clip(spec, candidate_pool, already_selected=already_selected, orientation=orientation)
-        if not best:
-            safe_pool = _ensure_safe_library(orientation)
-            safe_pool = _filter_duplicates(safe_pool, already_selected)
-            best = select_best_clip(spec, safe_pool, already_selected=already_selected, orientation=orientation)
+        best = select_best_clip(
+            spec,
+            candidate_pool,
+            already_selected=already_selected,
+            orientation=orientation,
+            hard_banned_tokens=hard_tokens,
+            soft_banned_tokens=soft_tokens,
+        )
+        if best and not _is_ranked_good(best):
+            logger.info(
+                "shot %s: best clip below strict threshold score=%s semantic=%s scene=%s; keep provider clip for better topical relevance",
+                shot_index,
+                best.score,
+                (best.breakdown or {}).get("semantic_relevance"),
+                (best.breakdown or {}).get("scene_match"),
+            )
+        chosen = best.candidate if best else None
+        score = float(best.score) if best else 0.0
+        score_breakdown = dict(best.breakdown or {}) if best else {}
+
+        if str(style_pack.get("id") or "") == "business_clean" and chosen:
+            bad = is_rejected(chosen, hard_banned_tokens=hard_tokens) or penalty_score(chosen, soft_banned_tokens=soft_tokens) > 0
+            if bad:
+                logger.info("shot %s: business_clean reselect due to banned/soft token clip=%s:%s", shot_index, chosen.provider, chosen.video_id)
+                alt_clip, alt_score, alt_breakdown = _reselect_for_business_clean(
+                    spec,
+                    candidate_pool,
+                    already_selected=already_selected,
+                    orientation=orientation,
+                    hard_tokens=hard_tokens,
+                    soft_tokens=soft_tokens,
+                )
+                if alt_clip:
+                    chosen = alt_clip
+                    score = alt_score
+                    score_breakdown = alt_breakdown
+
+        if not chosen:
+            safe_pool = _ensure_safe_library(orientation, allowed_scenes=allowed_scenes)
+            safe_pool = _filter_duplicates(safe_pool, already_selected) if minimize_repeats else list(safe_pool)
+            best = select_best_clip(
+                spec,
+                safe_pool,
+                already_selected=already_selected,
+                orientation=orientation,
+                hard_banned_tokens=hard_tokens,
+                soft_banned_tokens=soft_tokens,
+            )
             if not best:
                 raise RuntimeError(f"footage_not_found_for_shot_{shot_index}")
+            chosen = best.candidate
+            score = float(best.score)
+            score_breakdown = dict(best.breakdown or {})
 
-        chosen = best.candidate
         clip_path = chosen.download_url if chosen.provider == "safe_broll" else _download(chosen)
-        _update_memory(chosen, used_query, already_selected)
+        if minimize_repeats:
+            _update_memory(chosen, used_query, already_selected)
         end_trim = max(0.8, float(spec.duration_s))
         matches.append(
             MatchedClip(
@@ -209,8 +413,8 @@ def match_shots(shot_specs: list[ShotSpec], orientation: str) -> list[MatchedCli
                 start_trim_s=0.0,
                 end_trim_s=end_trim,
                 query_used=used_query,
-                score=float(best.score),
-                score_breakdown=dict(best.breakdown or {}),
+                score=score,
+                score_breakdown=score_breakdown,
             )
         )
         logger.info(
@@ -221,6 +425,6 @@ def match_shots(shot_specs: list[ShotSpec], orientation: str) -> list[MatchedCli
             rejected_count,
             chosen.provider,
             chosen.video_id,
-            best.score,
+            score,
         )
     return matches

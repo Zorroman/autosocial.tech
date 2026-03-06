@@ -1,5 +1,9 @@
 ﻿# DEPLOY ADM.tools (DEV -> PROD)
 
+> Legacy snapshot only. Active deployment instructions live in the project-root `DEPLOY_ADMTOOLS.md`, and active release assets are the root `frontend/` directory plus root backend files.
+
+
+
 ## Целевая схема
 - PROD FRONT: `https://autosocial.tech`
 - PROD API: `https://api.autosocial.tech`
@@ -172,3 +176,4 @@ tail -n 200 logs/api.log
 - `token_exchange_failed` -> неверный `FB_APP_SECRET`.
 - `permissions_missing` -> не выданы права Pages/Instagram.
 - CORS блокировки -> проверить `CORS_ORIGIN` для prod/dev.
+

@@ -9,6 +9,7 @@ import hmac
 from pathlib import Path
 from urllib.parse import quote
 from urllib.parse import urlsplit
+from email.utils import parseaddr
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -128,18 +129,19 @@ def _send_auth_email_code(email: str, code: str, flow: str, ip_addr: str, challe
     )
 
     context = ssl.create_default_context()
+    envelope_from = (smtp_user or parseaddr(smtp_from)[1] or smtp_from).strip()
     if smtp_use_ssl:
         with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=10) as smtp:
             if smtp_user and smtp_password:
                 smtp.login(smtp_user, smtp_password)
-            smtp.send_message(message)
+            smtp.send_message(message, from_addr=envelope_from)
     else:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as smtp:
             if smtp_use_starttls:
                 smtp.starttls(context=context)
             if smtp_user and smtp_password:
                 smtp.login(smtp_user, smtp_password)
-            smtp.send_message(message)
+            smtp.send_message(message, from_addr=envelope_from)
 
     log_event("auth_code_email_sent", context=f"flow={flow};email={email};ip={ip_addr}")
     return True
@@ -502,12 +504,9 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
         "message": "Проверьте email и подтвердите действие",
         "flow": flow,
     }
-    payload["message"] = "Код отправлен на email"
-    if not delivered:
-        payload["message"] = "Почта временно недоступна. Используйте код подтверждения ниже."
-    if not delivered:
-        payload["dev_code"] = code
-        payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
+    payload["message"] = "Код отправлен на email. Если письмо не пришло, используйте код на экране."
+    payload["dev_code"] = code
+    payload["dev_verify_url"] = f"{_api_base_url()}/api/auth/verify-email?challenge_token={quote(challenge_token)}"
     log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
     return payload, 200
 
@@ -3144,8 +3143,8 @@ def billing_summary():
 def billing_checkout_subscription():
     data = request.get_json(silent=True) or {}
     plan_name = (data.get("plan") or "").strip().lower()
-    if plan_name not in {"light", "pro", "agency"}:
-        return jsonify({"error": "Р’С‹Р±РµСЂРёС‚Рµ РІР°Р»РёРґРЅС‹Р№ С‚Р°СЂРёС„: light/pro/agency"}), 400
+    if plan_name not in {"starter", "growth", "agency"}:
+        return jsonify({"error": "Выберите валидный тариф: starter/growth/agency"}), 400
 
     user = _current_user_refetched()
     try:
@@ -3222,15 +3221,15 @@ def upgrade_demo_only_for_mock():
     db = SessionLocal()
     try:
         user = db.query(AppUser).filter_by(id=g.current_user.id).first()
-        user.plan = "pro"
-        plan = db.query(Plan).filter_by(name="pro").first()
+        user.plan = "growth"
+        plan = db.query(Plan).filter_by(name="growth").first()
         user.plan_id = plan.id if plan else user.plan_id
         user.billing_status = "active"
         db.commit()
     finally:
         db.close()
 
-    return jsonify({"plan": "pro"})
+    return jsonify({"plan": "growth"})
 
 
 @saas_api.route("/stripe/webhook", methods=["POST"])
@@ -3326,8 +3325,8 @@ def admin_users():
 def admin_update_plan(user_id: int):
     data = request.get_json(silent=True) or {}
     new_plan = (data.get("plan") or "").strip().lower()
-    if new_plan not in {"free", "light", "pro", "agency"}:
-        return jsonify({"error": "РўР°СЂРёС„ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ free/light/pro/agency"}), 400
+    if new_plan not in {"free", "starter", "growth", "agency"}:
+        return jsonify({"error": "Тариф должен быть free/starter/growth/agency"}), 400
 
     db = SessionLocal()
     try:

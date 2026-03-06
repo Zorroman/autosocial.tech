@@ -269,27 +269,151 @@ def _meta_post_metrics(post_id: str, page_access_token: str) -> dict[str, int]:
     return metrics
 
 
-def _sync_meta_account(db: Session, row: SocialAccount, *, max_items: int) -> int:
-    if not row.token_encrypted:
+def _instagram_media_metrics(media_id: str, access_token: str) -> dict[str, int]:
+    metrics = {
+        "impressions": 0,
+        "reach": 0,
+        "views": 0,
+        "clicks": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "watch_time_seconds": 0,
+    }
+    insight_sets = [
+        ["impressions", "reach", "saved", "video_views"],
+        ["impressions", "reach", "saved", "plays"],
+    ]
+    for metric_names in insight_sets:
+        resp = requests.get(
+            f"https://graph.facebook.com/v20.0/{media_id}/insights",
+            params={"metric": ",".join(metric_names), "access_token": access_token},
+            timeout=20,
+        )
+        if not resp.ok:
+            continue
+        payload = resp.json() if resp.content else {}
+        for item in payload.get("data") or []:
+            name = str(item.get("name") or "").strip().lower()
+            values = item.get("values") or []
+            raw = values[0].get("value") if values and isinstance(values[0], dict) else 0
+            value = _to_int(raw)
+            if name == "impressions":
+                metrics["impressions"] = value
+            elif name == "reach":
+                metrics["reach"] = value
+            elif name in {"video_views", "plays"}:
+                metrics["views"] = value
+        if metrics["impressions"] > 0 or metrics["reach"] > 0 or metrics["views"] > 0:
+            break
+
+    fallback = requests.get(
+        f"https://graph.facebook.com/v20.0/{media_id}",
+        params={"fields": "like_count,comments_count,media_product_type", "access_token": access_token},
+        timeout=20,
+    )
+    if fallback.ok:
+        data = fallback.json() if fallback.content else {}
+        metrics["likes"] = _to_int(data.get("like_count"))
+        metrics["comments"] = _to_int(data.get("comments_count"))
+
+    if metrics["views"] <= 0:
+        metrics["views"] = max(metrics["impressions"], metrics["reach"])
+    if metrics["reach"] <= 0:
+        metrics["reach"] = max(metrics["impressions"], metrics["views"])
+    return metrics
+
+
+def _sync_instagram_account(
+    db: Session,
+    row: SocialAccount,
+    *,
+    max_items: int,
+    access_token: str,
+) -> int:
+    ig_user_id = str(row.ig_user_id or "").strip()
+    if not ig_user_id:
         return 0
+
+    account = _upsert_connected_account(
+        db,
+        user_id=row.user_id,
+        platform="instagram",
+        external_id=ig_user_id,
+        display_name=str(row.ig_username or row.page_name or "Instagram"),
+        access_token=row.token_encrypted,
+        refresh_token=None,
+        token_expires_at=row.token_expires_at,
+    )
+
+    feed_resp = requests.get(
+        f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
+        params={
+            "fields": "id,caption,media_type,permalink,timestamp",
+            "limit": max_items,
+            "access_token": access_token,
+        },
+        timeout=20,
+    )
+    if not feed_resp.ok:
+        details = ""
+        try:
+            details = str((feed_resp.json() or {}).get("error", {}).get("message") or "")
+        except Exception:
+            details = feed_resp.text[:300]
+        raise RuntimeError(f"Instagram media read failed: {details}")
+
+    payload = feed_resp.json() if feed_resp.content else {}
+    items = payload.get("data") or []
+    stored = 0
+    today = _utcnow().date()
+    for item in items:
+        media_id = str(item.get("id") or "").strip()
+        if not media_id:
+            continue
+        caption = str(item.get("caption") or "").strip()
+        media_type = str(item.get("media_type") or "").strip().upper()
+        content_type = "video" if media_type in {"VIDEO", "REELS"} else "post"
+        title = caption.splitlines()[0].strip() if caption else "Instagram post"
+        post = _upsert_content_item(
+            db,
+            user_id=row.user_id,
+            platform="instagram",
+            external_id=media_id,
+            account_id=account.id,
+            content_type=content_type,
+            title=title,
+            message=caption,
+            url=str(item.get("permalink") or ""),
+            published_at=_parse_dt(item.get("timestamp")),
+        )
+        metrics = _instagram_media_metrics(media_id, access_token)
+        _upsert_daily_metric(db, content_item_id=post.id, day=today, metrics=metrics)
+        stored += 1
+    return stored
+
+
+def _sync_meta_account(db: Session, row: SocialAccount, *, max_items: int) -> dict[str, int]:
+    if not row.token_encrypted:
+        return {"facebook": 0, "instagram": 0}
     user_token = decrypt_meta_token(row.token_encrypted)
     pages = list_pages(user_token, include_page_access_token=True)
     if pages.get("error"):
         raise RuntimeError(str((pages.get("error") or {}).get("message") or "Meta pages read failed"))
     pages_data = pages.get("data") or []
     if not pages_data:
-        return 0
+        return {"facebook": 0, "instagram": 0}
     selected = next((p for p in pages_data if str(p.get("id") or "") == str(row.page_id or "")), pages_data[0])
     page_id = str(selected.get("id") or row.page_id or "").strip()
     if not page_id:
-        return 0
+        return {"facebook": 0, "instagram": 0}
     page_name = str(selected.get("name") or row.page_name or "Meta Page")
     page_access_token = str(selected.get("access_token") or user_token).strip()
 
     account = _upsert_connected_account(
         db,
         user_id=row.user_id,
-        platform="meta",
+        platform="facebook",
         external_id=page_id,
         display_name=page_name,
         access_token=row.token_encrypted,
@@ -329,7 +453,7 @@ def _sync_meta_account(db: Session, row: SocialAccount, *, max_items: int) -> in
         post = _upsert_content_item(
             db,
             user_id=row.user_id,
-            platform="meta",
+            platform="facebook",
             external_id=post_id,
             account_id=account.id,
             content_type=content_type,
@@ -341,7 +465,8 @@ def _sync_meta_account(db: Session, row: SocialAccount, *, max_items: int) -> in
         metrics = _meta_post_metrics(post_id, page_access_token)
         _upsert_daily_metric(db, content_item_id=post.id, day=today, metrics=metrics)
         stored += 1
-    return stored
+    instagram_stored = _sync_instagram_account(db, row, max_items=max_items, access_token=user_token)
+    return {"facebook": stored, "instagram": instagram_stored}
 
 
 def _sync_youtube_account(db: Session, row: SocialAccount, *, max_items: int) -> int:
@@ -463,7 +588,8 @@ def sync_dashboard_metrics_for_user(db: Session, user_id: int, *, max_items_per_
         .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
         .all()
     )
-    meta_items = 0
+    facebook_items = 0
+    instagram_items = 0
     youtube_items = 0
     errors: list[str] = []
 
@@ -471,7 +597,9 @@ def sync_dashboard_metrics_for_user(db: Session, user_id: int, *, max_items_per_
         provider = str(row.provider or "").strip().lower()
         try:
             if provider == "meta":
-                meta_items += _sync_meta_account(db, row, max_items=max_items_per_account)
+                synced = _sync_meta_account(db, row, max_items=max_items_per_account)
+                facebook_items += int((synced or {}).get("facebook") or 0)
+                instagram_items += int((synced or {}).get("instagram") or 0)
             elif provider == "youtube":
                 youtube_items += _sync_youtube_account(db, row, max_items=max_items_per_account)
         except Exception as exc:
@@ -490,7 +618,9 @@ def sync_dashboard_metrics_for_user(db: Session, user_id: int, *, max_items_per_
 
     db.commit()
     return {
-        "meta_items": meta_items,
+        "meta_items": facebook_items + instagram_items,
+        "facebook_items": facebook_items,
+        "instagram_items": instagram_items,
         "youtube_items": youtube_items,
         "errors": errors,
         "ai_score": ai_payload.get("current", 0),
@@ -926,11 +1056,13 @@ def dashboard_summary(db: Session, user_id: int, days: int) -> dict[str, Any]:
         .all()
     )
     by_platform: dict[str, dict[str, int]] = {
-        "meta": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+        "facebook": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+        "instagram": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
         "youtube": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
     }
     for platform, reach, views, clicks, likes, comments, shares, items in by_platform_rows:
-        key = "youtube" if str(platform or "").lower() == "youtube" else "meta"
+        platform_key = str(platform or "").lower()
+        key = platform_key if platform_key in by_platform else "facebook"
         by_platform[key] = {
             "reach": _to_int(reach),
             "views": _to_int(views),
@@ -978,8 +1110,10 @@ def dashboard_timeseries(db: Session, user_id: int, days: int) -> dict[str, Any]
             "comments": 0,
             "shares": 0,
             "engagement_rate": 0.0,
-            "meta_reach": 0,
-            "meta_views": 0,
+            "facebook_reach": 0,
+            "facebook_views": 0,
+            "instagram_reach": 0,
+            "instagram_views": 0,
             "youtube_reach": 0,
             "youtube_views": 0,
         }
@@ -1017,8 +1151,10 @@ def dashboard_timeseries(db: Session, user_id: int, days: int) -> dict[str, Any]
             "comments": comments_val,
             "shares": shares_val,
             "engagement_rate": engagement_rate,
-            "meta_reach": points.get(key, {}).get("meta_reach", 0),
-            "meta_views": points.get(key, {}).get("meta_views", 0),
+            "facebook_reach": points.get(key, {}).get("facebook_reach", 0),
+            "facebook_views": points.get(key, {}).get("facebook_views", 0),
+            "instagram_reach": points.get(key, {}).get("instagram_reach", 0),
+            "instagram_views": points.get(key, {}).get("instagram_views", 0),
             "youtube_reach": points.get(key, {}).get("youtube_reach", 0),
             "youtube_views": points.get(key, {}).get("youtube_views", 0),
         }
@@ -1041,12 +1177,16 @@ def dashboard_timeseries(db: Session, user_id: int, days: int) -> dict[str, Any]
         point = points.get(key)
         if not point:
             continue
-        if str(platform or "").lower() == "youtube":
+        platform_key = str(platform or "").lower()
+        if platform_key == "youtube":
             point["youtube_reach"] = _to_int(reach)
             point["youtube_views"] = _to_int(views)
+        elif platform_key == "instagram":
+            point["instagram_reach"] = _to_int(reach)
+            point["instagram_views"] = _to_int(views)
         else:
-            point["meta_reach"] = _to_int(reach)
-            point["meta_views"] = _to_int(views)
+            point["facebook_reach"] = _to_int(reach)
+            point["facebook_views"] = _to_int(views)
 
     return {"days": days, "points": [points[k] for k in sorted(points.keys())]}
 
@@ -1157,9 +1297,34 @@ def dashboard_insights(db: Session, user_id: int, days: int) -> dict[str, Any]:
         reach = max(_to_int(row.get("reach")), 1)
         return (_to_int(row.get("likes")) + _to_int(row.get("comments")) + _to_int(row.get("shares"))) / reach
 
+    weekday_labels = {
+        0: "???????????",
+        1: "???????",
+        2: "?????",
+        3: "???????",
+        4: "???????",
+        5: "???????",
+        6: "???????????",
+    }
     best_day_key = max(by_day.keys(), key=lambda k: _engagement_rate(by_day[k]))
     best_day_row = by_day[best_day_key]
     best_day_rate = _engagement_rate(best_day_row) * 100.0
+    best_day_date = date.fromisoformat(best_day_key)
+    best_weekday = best_day_date.weekday()
+    best_weekday_label = weekday_labels.get(best_weekday, "???? ????")
+    weekday_rates = []
+    for day_key, row in by_day.items():
+        try:
+            if date.fromisoformat(day_key).weekday() == best_weekday:
+                weekday_rates.append(_engagement_rate(row))
+        except Exception:
+            continue
+    best_weekday_rate = ((sum(weekday_rates) / len(weekday_rates)) if weekday_rates else _engagement_rate(best_day_row)) * 100.0
+    today = _utcnow().date()
+    days_until_next = (best_weekday - today.weekday()) % 7
+    if days_until_next == 0:
+        days_until_next = 7
+    next_best_day = today + timedelta(days=days_until_next)
 
     best_format_key = max(by_format.keys(), key=lambda k: _engagement_rate(by_format[k]))
     best_format_rate = _engagement_rate(by_format[best_format_key]) * 100.0
@@ -1189,21 +1354,25 @@ def dashboard_insights(db: Session, user_id: int, days: int) -> dict[str, Any]:
     insights = [
         {
             "impact": "high",
-            "title": "Лучший день по вовлечению",
-            "text": f"{best_day_key}: engagement rate {best_day_rate:.1f}% (лайки+комментарии+репосты / reach).",
+            "title": "?????? ???? ?? ??????????",
+            "text": (
+                f"????? ????? ??????????? {best_weekday_label}: ??????? engagement rate {best_weekday_rate:.1f}% "
+                f"?? ????????? {days} ????. ????????? ????: {next_best_day.isoformat()}. "
+                f"????????? ??????? ???? ??? {best_day_key} ? ER {best_day_rate:.1f}%."
+            ),
         },
         {
             "impact": "medium",
-            "title": "Лучший формат",
-            "text": f"Формат «{best_format_key}» показывает {best_format_rate:.1f}% engagement rate за последние {days} дней.",
+            "title": "?????? ??????",
+            "text": f"?????? ?{best_format_key}? ?????????? {best_format_rate:.1f}% engagement rate ?? ????????? {days} ????.",
         },
         {
             "impact": "medium" if posts_count < min_target else "low",
-            "title": "Регулярность публикаций",
+            "title": "???????????? ??????????",
             "text": (
-                f"За {days} дней опубликовано {posts_count} материалов. Рекомендуем минимум {min_target}."
+                f"?? {days} ???? ???????????? {posts_count} ??????????. ??????????? ??????? {min_target}."
                 if posts_count < min_target
-                else f"За {days} дней опубликовано {posts_count} материалов. Регулярность в рабочем диапазоне."
+                else f"?? {days} ???? ???????????? {posts_count} ??????????. ???????????? ? ??????? ?????????."
             ),
         },
     ]
@@ -1275,11 +1444,13 @@ def _aggregate_period_totals_v2(db: Session, user_id: int, start_day: date, end_
         .all()
     )
     by_platform: dict[str, dict[str, int]] = {
-        "meta": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+        "facebook": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
+        "instagram": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
         "youtube": {"reach": 0, "views": 0, "clicks": 0, "likes": 0, "comments": 0, "shares": 0, "items": 0},
     }
     for platform, reach, views, clicks, likes, comments, shares, items in by_platform_rows:
-        key = "youtube" if str(platform or "").lower() == "youtube" else "meta"
+        platform_key = str(platform or "").lower()
+        key = platform_key if platform_key in by_platform else "facebook"
         by_platform[key] = {
             "reach": _to_int(reach),
             "views": _to_int(views),

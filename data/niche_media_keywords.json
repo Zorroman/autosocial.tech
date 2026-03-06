@@ -1,0 +1,52 @@
+{
+  "barbershop": {
+    "positive": ["barbershop", "barber", "haircut", "beard trim", "shaving", "men grooming", "barber chair", "clippers", "fade haircut"],
+    "negative": ["office", "meeting", "crowd", "shopping mall", "airport", "laptop", "finance", "marketing", "abstract", "city skyline"],
+    "fallback_queries": ["barber haircut close up", "beard trimming barbershop", "men haircut barber chair"]
+  },
+  "beauty-salon": {
+    "positive": ["beauty salon", "facial treatment", "manicure", "hair styling", "skin care", "beauty specialist", "salon interior"],
+    "negative": ["construction", "factory", "crowd", "shopping mall", "airport", "office meeting", "finance chart"],
+    "fallback_queries": ["beauty salon skin care", "manicure close up salon", "hair styling beauty salon"]
+  },
+  "auto-service": {
+    "positive": ["car service", "auto repair", "mechanic", "diagnostics", "engine repair", "garage service", "car maintenance"],
+    "negative": ["shopping mall", "crowd", "fashion show", "airport lounge", "office laptop", "marketing team"],
+    "fallback_queries": ["auto mechanic repairing car", "car diagnostics workshop", "engine repair service garage"]
+  },
+  "tire-service": {
+    "positive": ["tire service", "tire change", "wheel balancing", "winter tires", "car wheel repair", "tire workshop"],
+    "negative": ["beach", "shopping mall", "office", "crowd", "airport", "city skyline"],
+    "fallback_queries": ["tire change close up", "wheel balancing service", "car tire workshop"]
+  },
+  "tattoo-studio": {
+    "positive": ["tattoo studio", "tattoo artist", "tattoo process", "ink design", "tattoo equipment", "custom tattoo"],
+    "negative": ["cartoon", "anime", "crowd", "shopping mall", "airport", "office meeting", "3d render"],
+    "fallback_queries": ["tattoo artist working studio", "tattoo machine close up", "tattoo studio realistic"]
+  },
+  "fitness-trainer": {
+    "positive": ["fitness trainer", "personal training", "gym workout", "exercise coaching", "strength training", "fitness session"],
+    "negative": ["shopping mall", "airport", "office desk", "finance", "conference crowd"],
+    "fallback_queries": ["personal trainer gym session", "fitness coaching workout", "strength training trainer"]
+  },
+  "restaurant": {
+    "positive": ["restaurant kitchen", "chef plating", "restaurant interior", "fresh dish", "food serving", "table service"],
+    "negative": ["shopping mall", "office", "airport", "conference hall", "crowd selfie"],
+    "fallback_queries": ["chef preparing dish restaurant", "restaurant table service", "fresh food plating close up"]
+  },
+  "cafe": {
+    "positive": ["cafe interior", "barista coffee", "latte art", "coffee beans", "cozy cafe", "espresso making"],
+    "negative": ["shopping mall", "airport", "office meeting", "factory", "crowd concert"],
+    "fallback_queries": ["barista making coffee", "latte art close up", "cozy cafe morning"]
+  },
+  "child-education": {
+    "positive": ["child education", "kids classroom", "teacher with children", "learning activity", "education center", "children study"],
+    "negative": ["shopping mall", "night club", "office finance", "airport lounge", "crowd protest"],
+    "fallback_queries": ["children classroom learning", "teacher helping kids study", "education center child activity"]
+  },
+  "car-wash": {
+    "positive": ["car wash", "car detailing", "foam wash", "vehicle cleaning", "auto detailing", "clean car service"],
+    "negative": ["shopping mall", "office meeting", "airport", "crowd", "city skyline", "marketing desk"],
+    "fallback_queries": ["car wash foam close up", "car detailing process", "vehicle cleaning service"]
+  }
+}

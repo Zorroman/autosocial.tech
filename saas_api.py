@@ -39,6 +39,7 @@ from facebook_api import (
     publish_to_instagram,
 )
 from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_structured_text_with_usage
+from plans_catalog import all_public_plan_specs, get_plan_spec, normalize_plan_code, to_plan_payload
 from content_pipeline import (
     OpenAIClientError,
     director_generate_drafts,
@@ -1436,7 +1437,7 @@ def _complete_auth_challenge(challenge_token: str, code: str, ip_addr: str, allo
     token = create_token(user_id)
     event_name = "user_registered" if flow == "register" else "user_login"
     log_event(event_name, actor_user_id=user_id, context=f"email={user_email};ip={ip_addr};via=email_code")
-    return {"token": token, "user": {"id": user_id, "email": user_email, "role": user_role, "plan": user_plan}}, 200
+    return {"token": token, "user": {"id": user_id, "email": user_email, "role": user_role, "plan": normalize_plan_code(user_plan)}}, 200
 
 
 @saas_api.route("/auth/challenge", methods=["POST"])
@@ -1510,7 +1511,7 @@ def login():
             get_or_create_default_project(user.id)
             token = create_token(user.id)
             log_event("admin_login", actor_user_id=user.id, context=f"email={user.email};ip={_ip()};via=password_direct")
-            return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "role": user.role, "plan": user.plan}}), 200
+            return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "role": user.role, "plan": normalize_plan_code(user.plan)}}), 200
     finally:
         db.close()
 
@@ -1811,12 +1812,13 @@ def me():
     seed_plans()
     ensure_user_plan_and_credits(g.current_user.id)
     user = _current_user_refetched()
+    normalized_plan = normalize_plan_code(user.plan)
     return jsonify(
         {
             "id": user.id,
             "email": user.email,
             "role": user.role,
-            "plan": user.plan,
+            "plan": normalized_plan,
             "billing": get_billing_summary(user),
         }
     )
@@ -1825,28 +1827,7 @@ def me():
 @saas_api.route("/plans", methods=["GET"])
 def plans():
     seed_plans()
-    db = SessionLocal()
-    try:
-        rows = db.query(Plan).order_by(Plan.price_eur_month.asc()).all()
-        return jsonify(
-            [
-                {
-                    "name": p.name,
-                    "price_eur_month": p.price_eur_month,
-                    "monthly_credits": p.monthly_credits,
-                    "max_projects": p.max_projects,
-                    "max_posts_month": p.max_posts_month,
-                    "max_daily_posts": p.max_daily_posts,
-                    "can_schedule": p.can_schedule,
-                    "can_autopublish": p.can_autopublish,
-                    "templates_enabled": p.templates_enabled,
-                    "team_seats": p.team_seats,
-                }
-                for p in rows
-            ]
-        )
-    finally:
-        db.close()
+    return jsonify([to_plan_payload(spec) for spec in all_public_plan_specs()])
 
 
 @saas_api.route("/platform-rules", methods=["GET"])
@@ -2621,6 +2602,8 @@ def create_templates_list():
 def ai_director_suggest():
     data = request.get_json(silent=True) or {}
     topic = str(data.get("topic") or data.get("niche") or "").strip()
+    niche_label = str(data.get("niche_label") or "").strip() or None
+    niche_context = data.get("niche_context") if isinstance(data.get("niche_context"), dict) else None
     if not topic:
         return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
     platforms = data.get("platforms") if isinstance(data.get("platforms"), list) else []
@@ -2635,6 +2618,8 @@ def ai_director_suggest():
             tone=_normalize_create_tone(data.get("tone") or "friendly"),
             goal=_normalize_create_goal(data.get("goal") or "engagement"),
             platforms=platforms,
+            niche_label=niche_label,
+            niche_context=niche_context,
             variation_seed=variation_seed,
         )
         return jsonify(
@@ -2656,6 +2641,8 @@ def ai_director_generate_drafts():
     data = request.get_json(silent=True) or {}
     topic = str(data.get("topic") or "").strip()
     angle = str(data.get("angle") or "").strip()
+    niche_label = str(data.get("niche_label") or "").strip() or None
+    niche_context = data.get("niche_context") if isinstance(data.get("niche_context"), dict) else None
     if not topic:
         return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
     if not angle:
@@ -2682,6 +2669,8 @@ def ai_director_generate_drafts():
             platforms=platforms,
             tone=_normalize_create_tone(data.get("tone") or "friendly"),
             language=str(data.get("language") or "ru").strip().lower() or "ru",
+            niche_label=niche_label,
+            niche_context=niche_context,
             variants=max(1, min(int(data.get("variants") or 3), 3)),
         )
     except OpenAIClientError as exc:
@@ -6443,9 +6432,11 @@ def billing_entitlements():
 @require_auth
 def billing_checkout_subscription():
     data = request.get_json(silent=True) or {}
-    plan_name = (data.get("plan") or "").strip().lower()
-    if plan_name not in {"light", "pro", "agency"}:
-        return jsonify({"error": "Р’С‹Р±РµСЂРёС‚Рµ РІР°Р»РёРґРЅС‹Р№ С‚Р°СЂРёС„: light/pro/agency"}), 400
+    plan_name = normalize_plan_code((data.get("plan") or "").strip().lower())
+    if plan_name not in {"starter", "growth", "agency"}:
+        return jsonify({"error": "Выберите тариф starter, growth или agency"}), 400
+    if not get_plan_spec(plan_name).payment_available:
+        return jsonify({"error": "Оплата этого тарифа пока недоступна. Тариф появится в оплате позже."}), 409
 
     user = _current_user_refetched()
     try:
@@ -6522,15 +6513,15 @@ def upgrade_demo_only_for_mock():
     db = SessionLocal()
     try:
         user = db.query(AppUser).filter_by(id=g.current_user.id).first()
-        user.plan = "pro"
-        plan = db.query(Plan).filter_by(name="pro").first()
+        user.plan = "growth"
+        plan = db.query(Plan).filter_by(name="growth").first()
         user.plan_id = plan.id if plan else user.plan_id
         user.billing_status = "active"
         db.commit()
     finally:
         db.close()
 
-    return jsonify({"plan": "pro"})
+    return jsonify({"plan": "growth"})
 
 
 @saas_api.route("/stripe/webhook", methods=["POST"])
@@ -6606,7 +6597,7 @@ def admin_users():
                     "id": u.id,
                     "email": u.email,
                     "role": u.role,
-                    "plan": u.plan,
+                    "plan": normalize_plan_code(u.plan),
                     "credits_left": u.credits_left,
                     "posts_used_month": u.posts_used_month,
                     "billing_status": u.billing_status,
@@ -6625,9 +6616,9 @@ def admin_users():
 @require_role("admin")
 def admin_update_plan(user_id: int):
     data = request.get_json(silent=True) or {}
-    new_plan = (data.get("plan") or "").strip().lower()
-    if new_plan not in {"free", "light", "pro", "agency"}:
-        return jsonify({"error": "РўР°СЂРёС„ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ free/light/pro/agency"}), 400
+    new_plan = normalize_plan_code((data.get("plan") or "").strip().lower())
+    if new_plan not in {"free", "starter", "growth", "agency"}:
+        return jsonify({"error": "Тариф должен быть free/starter/growth/agency"}), 400
 
     db = SessionLocal()
     try:

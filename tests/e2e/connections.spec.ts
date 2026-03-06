@@ -9,7 +9,7 @@ async function mockSession(page: any, status: string = 'not_connected') {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ id: 1, email: 'qa@autosocial.tech', role: 'admin', plan: 'pro' }),
+      body: JSON.stringify({ id: 1, email: 'qa@autosocial.tech', role: 'admin', plan: 'growth' }),
     });
   });
 
@@ -18,11 +18,11 @@ async function mockSession(page: any, status: string = 'not_connected') {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        plan: 'pro',
-        usage: { posts_per_month: 0, daily_posts: 0 },
-        limits: { posts_per_month: 1000, daily_posts: 60, can_schedule: true, can_autopublish: true, monthly_credits: 1200000 },
-        credits_left: 1200000,
-        approx_posts_left: 1000,
+        plan: 'growth',
+        usage: { posts_per_month: 0, videos_per_month: 0, projects: 1, daily_posts: 0 },
+        limits: { posts_per_month: 600, videos_per_month: 40, projects: 5, daily_posts: 60, can_schedule: true, can_autopublish: true, monthly_credits: 1800000, analytics_level: 'advanced' },
+        credits_left: 1800000,
+        approx_posts_left: 600,
       }),
     });
   });

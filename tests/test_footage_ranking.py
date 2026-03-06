@@ -1,7 +1,8 @@
+import json
 from pathlib import Path
 
 from footage.ranking import is_rejected, select_best_clip
-from footage.shots import ShotSpec
+from footage.shots import ShotSpec, normalize_shot_specs
 from footage.types import VideoResult
 from video_pipeline import generate_video_job_payload
 
@@ -106,6 +107,39 @@ def test_diversity_penalizes_same_author():
     assert best.candidate.video_id == "2"
 
 
+def test_style_pack_filters_3d_render_token():
+    candidate = VideoResult(
+        provider="pexels",
+        video_id="s1",
+        duration=8,
+        width=1920,
+        height=1080,
+        page_url="https://example.com/3d-render-office",
+        download_url="https://cdn/s1.mp4",
+        tags=["3d render", "office"],
+        orientation="horizontal",
+        title="3D render office scene",
+    )
+    assert is_rejected(candidate, hard_banned_tokens=["3d", "render", "fantasy"]) is True
+
+
+def test_scene_normalized_by_allowed_scenes():
+    specs = normalize_shot_specs(
+        phrases=["Тестовая фраза"],
+        shotlist=[{"phrase_index": 0, "scene_type": "work", "mood": "neutral", "queries": ["office team"]}],
+        phrase_durations=[2.0],
+        style_pack={
+            "id": "calm_nature",
+            "allowed_scenes": ["nature", "abstract_real"],
+            "query_bias": ["real life"],
+            "banned_tokens": ["fantasy"],
+            "soft_banned_tokens": [],
+        },
+    )
+    assert len(specs) == 1
+    assert specs[0].desired_scene in {"nature", "abstract_real"}
+
+
 def test_manifest_saved_and_reused(monkeypatch, tmp_path):
     import video_pipeline as vp
     from saas_settings import settings
@@ -118,6 +152,52 @@ def test_manifest_saved_and_reused(monkeypatch, tmp_path):
     settings.OUTPUT_AUDIO_DIR = (settings.OUTPUT_DIR / "audio").resolve()
     settings.OUTPUT_SUBTITLES_DIR = (settings.OUTPUT_DIR / "subtitles").resolve()
     settings.OUTPUT_MANIFESTS_DIR = (settings.OUTPUT_DIR / "manifests").resolve()
+    vp.settings.BASE_DIR = settings.BASE_DIR
+    vp.settings.CACHE_DIR = settings.CACHE_DIR
+    vp.settings.OUTPUT_DIR = settings.OUTPUT_DIR
+    vp.settings.FOOTAGE_CACHE_DIR = settings.FOOTAGE_CACHE_DIR
+    vp.settings.OUTPUT_VIDEOS_DIR = settings.OUTPUT_VIDEOS_DIR
+    vp.settings.OUTPUT_AUDIO_DIR = settings.OUTPUT_AUDIO_DIR
+    vp.settings.OUTPUT_SUBTITLES_DIR = settings.OUTPUT_SUBTITLES_DIR
+    vp.settings.OUTPUT_MANIFESTS_DIR = settings.OUTPUT_MANIFESTS_DIR
+    settings.BASE_DIR.joinpath("config").mkdir(parents=True, exist_ok=True)
+    settings.BASE_DIR.joinpath("config", "style_packs.json").write_text(
+        json.dumps(
+            {
+                "global_banned_tokens": ["fantasy"],
+                "packs": [
+                    {
+                        "id": "default_pro",
+                        "name": "Default Pro",
+                        "allowed_scenes": ["work", "city", "people", "nature", "product", "home", "abstract_real"],
+                        "banned_tokens": [],
+                        "soft_banned_tokens": [],
+                        "motion_level": "medium",
+                        "mood": "neutral",
+                        "shot_types": ["wide", "medium", "closeup", "hands", "broll"],
+                        "query_bias": ["real life", "realistic"],
+                        "scene_query_overrides": {},
+                        "visual_profile": {"palette": "neutral", "light": "natural"},
+                    },
+                    {
+                        "id": "business_clean",
+                        "name": "Business Clean",
+                        "allowed_scenes": ["work", "people", "city", "product"],
+                        "banned_tokens": ["fantasy", "3d", "render"],
+                        "soft_banned_tokens": ["neon"],
+                        "motion_level": "medium",
+                        "mood": "neutral",
+                        "shot_types": ["wide", "medium", "closeup", "hands", "broll"],
+                        "query_bias": ["clean", "professional", "real life"],
+                        "scene_query_overrides": {"work": ["office", "team meeting"]},
+                        "visual_profile": {"palette": "neutral cool", "light": "clean daylight"},
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     for p in [
         settings.CACHE_DIR,
         settings.OUTPUT_DIR,
@@ -178,11 +258,16 @@ def test_manifest_saved_and_reused(monkeypatch, tmp_path):
         target_seconds=30,
         aspect_ratio="9:16",
         style="expert",
+        style_pack_id="business_clean",
         reuse_manifest=False,
     )
     assert Path(first["video_local_path"]).exists()
     manifest_path = settings.OUTPUT_MANIFESTS_DIR / "9001.json"
     assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest.get("style_pack_id") == "business_clean"
+    assert isinstance(manifest.get("style_pack_rules"), dict)
+    assert manifest["style_pack_rules"].get("id") == "business_clean"
 
     monkeypatch.setattr(vp, "match_shots", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("should_not_run")))
     second = generate_video_job_payload(

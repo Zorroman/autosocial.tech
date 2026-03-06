@@ -40,18 +40,18 @@ DEFAULT_PLANS = {
         "price_eur_month": 0,
         "monthly_credits": 15000,
         "max_projects": 1,
-        "max_posts_month": 10,
+        "max_posts_month": 30,
         "max_daily_posts": 5,
         "can_schedule": False,
         "can_autopublish": False,
         "templates_enabled": False,
         "team_seats": 1,
     },
-    "light": {
-        "price_eur_month": 9,
+    "starter": {
+        "price_eur_month": 29,
         "monthly_credits": 400000,
-        "max_projects": 3,
-        "max_posts_month": 300,
+        "max_projects": 2,
+        "max_posts_month": 150,
         # Keep daily cap conservative: Instagram Graph API typically allows ~100 publishes / 24h per IG account.
         "max_daily_posts": 20,
         "can_schedule": True,
@@ -59,11 +59,11 @@ DEFAULT_PLANS = {
         "templates_enabled": False,
         "team_seats": 1,
     },
-    "pro": {
-        "price_eur_month": 19,
+    "growth": {
+        "price_eur_month": 79,
         "monthly_credits": 1200000,
-        "max_projects": 10,
-        "max_posts_month": 1000,
+        "max_projects": 5,
+        "max_posts_month": 600,
         "max_daily_posts": 60,
         "can_schedule": True,
         "can_autopublish": True,
@@ -71,11 +71,11 @@ DEFAULT_PLANS = {
         "team_seats": 1,
     },
     "agency": {
-        "price_eur_month": 49,
+        "price_eur_month": 199,
         "monthly_credits": 6000000,
         "max_projects": 999,
         # Agency can scale with multiple connected Pages/IG accounts, but per-account platform limits still apply.
-        "max_posts_month": 3000,
+        "max_posts_month": 2000,
         "max_daily_posts": 100,
         "can_schedule": True,
         "can_autopublish": True,
@@ -344,9 +344,9 @@ def get_billing_summary(user: AppUser) -> Dict[str, object]:
         project_limits = check_project_limit(user)
         approx_posts_left = int(max(user.credits_left, 0) / max(settings.AVG_TOKENS_PER_POST, 1))
         stripe_price_map = {
-            "light": bool(settings.STRIPE_PRICE_LIGHT),
-            "pro": bool(settings.STRIPE_PRICE_PRO),
-            "agency": bool(settings.STRIPE_PRICE_AGENCY),
+            "starter": bool(getattr(settings, "STRIPE_PRICE_STARTER", "")),
+            "growth": bool(getattr(settings, "STRIPE_PRICE_GROWTH", "")),
+            "agency": bool(getattr(settings, "STRIPE_PRICE_AGENCY", "")),
         }
         stripe_enabled = bool(settings.STRIPE_SECRET_KEY)
         return {

@@ -1,4 +1,5 @@
-﻿import json
+import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -26,6 +27,34 @@ PACK_TO_PRICE = {
     "pack_l": settings.STRIPE_PACK_L_PRICE,
 }
 
+PLAN_NAME_RE = re.compile(r"^autosocial_(light|pro|agency)_eur_month_v\d+$")
+
+
+def _frontend_url() -> str:
+    return (settings.FRONTEND_BASE_URL or "").rstrip("/") or "http://localhost:3000"
+
+
+def _with_frontend_default(url_value: str, suffix: str) -> str:
+    raw = (url_value or "").strip()
+    frontend = _frontend_url()
+    if not raw:
+        return f"{frontend}{suffix}"
+    if "localhost" in raw and "localhost" not in frontend:
+        return f"{frontend}{suffix}"
+    return raw
+
+
+def _success_url() -> str:
+    return _with_frontend_default(settings.STRIPE_SUCCESS_URL, "/billing/?success=1")
+
+
+def _cancel_url() -> str:
+    return _with_frontend_default(settings.STRIPE_CANCEL_URL, "/billing/?cancel=1")
+
+
+def _portal_return_url() -> str:
+    return _with_frontend_default(settings.STRIPE_PORTAL_RETURN_URL, "/billing/")
+
 
 def ensure_customer(user: AppUser) -> str:
     if not settings.STRIPE_SECRET_KEY:
@@ -48,46 +77,173 @@ def ensure_customer(user: AppUser) -> str:
         db.close()
 
 
-def create_subscription_checkout(user: AppUser, plan_name: str) -> str:
-    price_id = PLAN_TO_PRICE.get(plan_name)
-    if not price_id:
-        raise RuntimeError("Stripe price id for selected plan is not configured")
+def _plan_price_eur(plan_name: str) -> float:
+    db = SessionLocal()
+    try:
+        plan = db.query(Plan).filter_by(name=plan_name).first()
+        if not plan:
+            raise RuntimeError(f"Unknown plan: {plan_name}")
+        return float(plan.price_eur_month or 0)
+    finally:
+        db.close()
 
-    customer_id = ensure_customer(user)
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        customer=customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=settings.STRIPE_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CANCEL_URL,
-        metadata={"user_id": str(user.id), "plan_name": plan_name},
+
+def _resolve_or_create_subscription_price_id(plan_name: str, prefer_env: bool = True) -> str:
+    if prefer_env:
+        configured = PLAN_TO_PRICE.get(plan_name)
+        if configured:
+            return configured
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError("Stripe is not configured")
+
+    lookup_key = f"autosocial_{plan_name}_eur_month_v1"
+    try:
+        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
+        data = (listed or {}).get("data", [])
+        if data:
+            return data[0]["id"]
+    except Exception:
+        pass
+
+    amount_eur = _plan_price_eur(plan_name)
+    if amount_eur <= 0:
+        raise RuntimeError("Selected plan has non-positive price")
+    price = stripe.Price.create(
+        currency="eur",
+        unit_amount=int(round(amount_eur * 100)),
+        recurring={"interval": "month"},
+        nickname=f"AutoSocial {plan_name.title()} Monthly",
+        lookup_key=lookup_key,
+        transfer_lookup_key=True,
+        product_data={"name": f"AutoSocial {plan_name.title()}"},
+        metadata={"plan_name": plan_name},
     )
+    return price.id
+
+
+def _resolve_or_create_pack_price_id(pack_code: str, prefer_env: bool = True) -> str:
+    if prefer_env:
+        configured = PACK_TO_PRICE.get(pack_code)
+        if configured:
+            return configured
+    if not settings.STRIPE_SECRET_KEY:
+        raise RuntimeError("Stripe is not configured")
+    cfg = CREDIT_PACKS.get(pack_code)
+    if not cfg:
+        raise RuntimeError("Unknown credit pack")
+
+    lookup_key = f"autosocial_{pack_code}_eur_once_v1"
+    try:
+        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
+        data = (listed or {}).get("data", [])
+        if data:
+            return data[0]["id"]
+    except Exception:
+        pass
+
+    amount_eur = float(cfg.get("price_eur") or 0)
+    if amount_eur <= 0:
+        raise RuntimeError("Selected credit pack has non-positive price")
+    price = stripe.Price.create(
+        currency="eur",
+        unit_amount=int(round(amount_eur * 100)),
+        nickname=f"AutoSocial {pack_code.upper()} Top-up",
+        lookup_key=lookup_key,
+        transfer_lookup_key=True,
+        product_data={"name": f"AutoSocial Credits {pack_code.upper()}"},
+        metadata={"pack_code": pack_code},
+    )
+    return price.id
+
+
+def _plan_name_from_price_id(price_id: Optional[str]) -> Optional[str]:
+    if not price_id:
+        return None
+
+    for name, pid in PLAN_TO_PRICE.items():
+        if pid and pid == price_id:
+            return name
+
+    try:
+        price = stripe.Price.retrieve(price_id)
+    except Exception:
+        return None
+
+    metadata = (price or {}).get("metadata", {}) or {}
+    from_meta = (metadata.get("plan_name") or "").strip().lower()
+    if from_meta in {"light", "pro", "agency"}:
+        return from_meta
+
+    lookup_key = (price or {}).get("lookup_key") or ""
+    match = PLAN_NAME_RE.match(str(lookup_key))
+    if match:
+        return match.group(1)
+    return None
+
+
+def create_subscription_checkout(user: AppUser, plan_name: str) -> str:
+    price_id = _resolve_or_create_subscription_price_id(plan_name, prefer_env=True)
+    customer_id = ensure_customer(user)
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=_success_url(),
+            cancel_url=_cancel_url(),
+            metadata={"user_id": str(user.id), "plan_name": plan_name},
+            subscription_data={"metadata": {"user_id": str(user.id), "plan_name": plan_name}},
+        )
+    except stripe.error.InvalidRequestError as exc:
+        if "No such price" not in str(exc):
+            raise
+        fallback_price = _resolve_or_create_subscription_price_id(plan_name, prefer_env=False)
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": fallback_price, "quantity": 1}],
+            success_url=_success_url(),
+            cancel_url=_cancel_url(),
+            metadata={"user_id": str(user.id), "plan_name": plan_name},
+            subscription_data={"metadata": {"user_id": str(user.id), "plan_name": plan_name}},
+        )
     return session.url
 
 
 def create_credit_pack_checkout(user: AppUser, pack_code: str) -> str:
-    price_id = PACK_TO_PRICE.get(pack_code)
-    if not price_id:
-        raise RuntimeError("Stripe price id for selected credit pack is not configured")
-
+    price_id = _resolve_or_create_pack_price_id(pack_code, prefer_env=True)
     customer_id = ensure_customer(user)
-    session = stripe.checkout.Session.create(
-        mode="payment",
-        customer=customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=settings.STRIPE_SUCCESS_URL,
-        cancel_url=settings.STRIPE_CANCEL_URL,
-        metadata={"user_id": str(user.id), "pack_code": pack_code},
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=_success_url(),
+            cancel_url=_cancel_url(),
+            metadata={"user_id": str(user.id), "pack_code": pack_code},
+        )
+    except stripe.error.InvalidRequestError as exc:
+        if "No such price" not in str(exc):
+            raise
+        fallback_price = _resolve_or_create_pack_price_id(pack_code, prefer_env=False)
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": fallback_price, "quantity": 1}],
+            success_url=_success_url(),
+            cancel_url=_cancel_url(),
+            metadata={"user_id": str(user.id), "pack_code": pack_code},
+        )
     return session.url
 
 
 def create_portal_link(user: AppUser) -> str:
-    if not user.stripe_customer_id:
-        raise RuntimeError("Stripe customer is not linked")
-    session = stripe.billing_portal.Session.create(customer=user.stripe_customer_id, return_url=settings.STRIPE_PORTAL_RETURN_URL)
+    customer_id = ensure_customer(user)
+    session = stripe.billing_portal.Session.create(customer=customer_id, return_url=_portal_return_url())
     return session.url
 
 
@@ -166,13 +322,12 @@ def process_stripe_event(event: dict) -> None:
 
     if event_type in {"customer.subscription.created", "customer.subscription.updated"}:
         sub = data_object
-        plan_name = sub.get("metadata", {}).get("plan_name")
+        plan_name = (sub.get("metadata", {}).get("plan_name") or "").strip().lower()
+        if plan_name not in {"light", "pro", "agency"}:
+            plan_name = None
         if not plan_name:
             price_id = (sub.get("items", {}).get("data", [{}])[0].get("price", {}) or {}).get("id")
-            for name, pid in PLAN_TO_PRICE.items():
-                if pid and pid == price_id:
-                    plan_name = name
-                    break
+            plan_name = _plan_name_from_price_id(price_id)
         if plan_name:
             _set_user_plan(
                 user_id=user.id,
@@ -192,11 +347,28 @@ def process_stripe_event(event: dict) -> None:
             if refreshed:
                 plan_name = refreshed.plan or "free"
                 reset_monthly_credits(refreshed.id, plan_name)
+                refreshed.billing_status = "active"
+                db.commit()
         finally:
             db.close()
 
     if event_type == "checkout.session.completed":
         metadata = data_object.get("metadata", {}) or {}
+        mode = (data_object.get("mode") or "").strip().lower()
+
+        if mode == "subscription":
+            plan_name = (metadata.get("plan_name") or "").strip().lower()
+            if plan_name not in {"light", "pro", "agency"}:
+                plan_name = None
+            if plan_name:
+                _set_user_plan(
+                    user_id=user.id,
+                    plan_name=plan_name,
+                    subscription_id=data_object.get("subscription"),
+                    billing_status="active",
+                    period_end_ts=None,
+                )
+
         pack_code = metadata.get("pack_code")
         if pack_code in CREDIT_PACKS:
             credits = CREDIT_PACKS[pack_code]["credits"]
@@ -223,3 +395,4 @@ def verify_and_construct_event(payload: bytes, sig_header: str) -> dict:
     if not settings.STRIPE_WEBHOOK_SECRET:
         raise RuntimeError("STRIPE_WEBHOOK_SECRET is not configured")
     return stripe.Webhook.construct_event(payload=payload, sig_header=sig_header, secret=settings.STRIPE_WEBHOOK_SECRET)
+

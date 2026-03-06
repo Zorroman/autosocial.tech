@@ -433,8 +433,8 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
   letter-spacing: 0.03em;
 }
 .badge-free { background: color-mix(in oklab, var(--border) 58%, transparent); color: var(--text-muted); }
-.badge-light { background: color-mix(in oklab, var(--brand-accent) 18%, transparent); color: color-mix(in oklab, var(--brand-accent) 72%, #164e63); }
-.badge-pro { background: color-mix(in oklab, var(--brand-primary) 24%, transparent); color: color-mix(in oklab, var(--brand-primary) 80%, #1e3a8a); }
+.badge-starter { background: color-mix(in oklab, var(--brand-accent) 18%, transparent); color: color-mix(in oklab, var(--brand-accent) 72%, #164e63); }
+.badge-growth { background: color-mix(in oklab, var(--brand-primary) 24%, transparent); color: color-mix(in oklab, var(--brand-primary) 80%, #1e3a8a); }
 .badge-agency { background: color-mix(in oklab, var(--brand-violet) 20%, transparent); color: color-mix(in oklab, var(--brand-violet) 72%, #3b0764); }
 
 .progress {

@@ -36,13 +36,13 @@ def local_front_server():
 
 
 def make_mocks(page, status: str = "not_connected"):
-    page.route("**/api/me", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"id": 1, "email": "qa@autosocial.tech", "role": "admin", "plan": "pro"})))
+    page.route("**/api/me", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"id": 1, "email": "qa@autosocial.tech", "role": "admin", "plan": "growth"})))
     page.route("**/api/billing/summary", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({
-        "plan": "pro",
-        "usage": {"posts_per_month": 0, "daily_posts": 0},
-        "limits": {"posts_per_month": 1000, "daily_posts": 60, "can_schedule": True, "can_autopublish": True, "monthly_credits": 1200000},
-        "credits_left": 1200000,
-        "approx_posts_left": 1000,
+        "plan": "growth",
+        "usage": {"posts_per_month": 0, "videos_per_month": 0, "projects": 1, "daily_posts": 0},
+        "limits": {"posts_per_month": 600, "videos_per_month": 40, "projects": 5, "daily_posts": 60, "can_schedule": True, "can_autopublish": True, "monthly_credits": 1800000, "analytics_level": "advanced"},
+        "credits_left": 1800000,
+        "approx_posts_left": 600,
     })))
 
     conn = {
