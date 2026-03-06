@@ -68,9 +68,11 @@ from saas_models import (
     ContentMetricDaily,
     ContentDraft,
     ContentStrategy,
+    Niche,
     Project,
     GenerationJob,
     Subscription,
+    Template,
     UsageCounter,
     UsageEvent,
     UserTemplate,
@@ -880,6 +882,38 @@ def _template_payload(row: UserTemplate) -> dict:
         "preset": _json_loads_safe(row.preset_json, {}),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def _catalog_template_payload(row: Template) -> dict:
+    return {
+        "id": row.id,
+        "slug": row.slug,
+        "title": row.title,
+        "description": row.description,
+        "type": row.type,
+        "platform": row.platform,
+        "goal": row.goal,
+        "tone": row.tone,
+        "hook_line": row.hook_line,
+        "cta": row.cta,
+        "prompt_system": row.prompt_system,
+        "prompt_user": row.prompt_user,
+        "variables_schema_json": _json_loads_safe(row.variables_schema_json, {}),
+        "preview_text": row.preview_text,
+        "sort_order": row.sort_order,
+    }
+
+
+def _catalog_niche_payload(row: Niche, templates: list[Template]) -> dict:
+    return {
+        "id": row.id,
+        "slug": row.slug,
+        "title": row.title,
+        "description": row.description,
+        "icon": row.icon,
+        "sort_order": row.sort_order,
+        "templates": [_catalog_template_payload(item) for item in templates],
     }
 
 
@@ -2593,6 +2627,78 @@ def create_templates_list():
             .all()
         )
         return jsonify({"status": "ok", "items": [_template_payload(r) for r in rows], "warnings": [], "debug_code": ""})
+    finally:
+        db.close()
+
+
+@saas_api.route("/create/niche-catalog", methods=["GET"])
+@require_auth
+def create_niche_catalog():
+    db = SessionLocal()
+    try:
+        niches = db.query(Niche).order_by(Niche.sort_order.asc(), Niche.id.asc()).all()
+        items = []
+        for niche in niches:
+            templates = (
+                db.query(Template)
+                .filter(Template.niche_id == niche.id)
+                .order_by(Template.sort_order.asc(), Template.id.asc())
+                .all()
+            )
+            items.append(_catalog_niche_payload(niche, templates))
+        return jsonify({"status": "ok", "items": items, "warnings": [], "debug_code": ""})
+    finally:
+        db.close()
+
+
+@saas_api.route("/create/templates/import-catalog", methods=["POST"])
+@require_auth
+def create_templates_import_catalog():
+    user = g.current_user
+    data = request.get_json(silent=True) or {}
+    niche_slug = str(data.get("niche_slug") or "").strip().lower()
+    template_slug = str(data.get("template_slug") or "").strip().lower()
+    if not niche_slug or not template_slug:
+        return jsonify({"status": "error", "warnings": ["niche_slug and template_slug are required"], "debug_code": "missing_catalog_keys"}), 400
+    db = SessionLocal()
+    try:
+        niche = db.query(Niche).filter(Niche.slug == niche_slug).first()
+        if not niche:
+            return jsonify({"status": "error", "warnings": ["niche not found"], "debug_code": "catalog_niche_not_found"}), 404
+        template = (
+            db.query(Template)
+            .filter(Template.niche_id == niche.id, Template.slug == template_slug)
+            .first()
+        )
+        if not template:
+            return jsonify({"status": "error", "warnings": ["template not found"], "debug_code": "catalog_template_not_found"}), 404
+        preset = {
+            "source": "catalog",
+            "niche_slug": niche.slug,
+            "niche_title": niche.title,
+            "template_slug": template.slug,
+            "template_type": template.type,
+            "platform": template.platform,
+            "goal": template.goal,
+            "tone": template.tone,
+            "hook_line": template.hook_line,
+            "cta": template.cta,
+            "prompt_system": template.prompt_system,
+            "prompt_user": template.prompt_user,
+            "variables_schema_json": _json_loads_safe(template.variables_schema_json, {}),
+            "preview_text": template.preview_text,
+        }
+        row = UserTemplate(
+            user_id=user.id,
+            name=f"{niche.title} · {template.title}"[:160],
+            preset_json=json.dumps(preset, ensure_ascii=False),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return jsonify({"status": "ok", "item": _template_payload(row), "warnings": [], "debug_code": ""}), 201
     finally:
         db.close()
 
