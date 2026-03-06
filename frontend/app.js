@@ -24,6 +24,14 @@ const _defaultApiBase = _isLocal
   : `${window.location.protocol}//api.${_rootHost}`;
 const API_BASE = _savedApiAllowed ? _savedApiBase : _defaultApiBase;
 const SUPPORTED_LANGS = ['ru', 'en', 'es', 'de', 'fr', 'uk'];
+const CONTENT_LANG_OPTIONS = [
+  { value: 'ru', label: 'Русский' },
+  { value: 'ua', label: 'Українська' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'fr', label: 'Français' },
+];
 const LANGUAGE_LABELS = {
   ru: 'Русский',
   en: 'English',
@@ -32,6 +40,25 @@ const LANGUAGE_LABELS = {
   fr: 'Français',
   uk: 'Українська',
 };
+const DIRECTOR_NICHE_ENGINE = window.AutoSocialNiches || {};
+const DIRECTOR_NICHE_OPTIONS = typeof DIRECTOR_NICHE_ENGINE.getNicheOptions === 'function'
+  ? DIRECTOR_NICHE_ENGINE.getNicheOptions()
+  : [{ value: 'smm_marketing', label: 'SMM и маркетинг' }];
+const DEFAULT_DIRECTOR_NICHE = String(DIRECTOR_NICHE_ENGINE.DEFAULT_NICHE_ID || DIRECTOR_NICHE_OPTIONS[0]?.value || 'smm_marketing').trim();
+const MARKETING_PRICING_PLANS = [
+  { key: 'free', name: 'Free Trial 7 days', price: '€0', desc: 'Попробовать сценарий работы без карты и лишних расходов.', points: ['30 постов', '3 видео', '1 проект'], cta: 'Начать trial' },
+  { key: 'starter', name: 'Starter', price: '€29', desc: 'Для малого бизнеса, которому нужен стабильный контент и автопостинг.', points: ['150 постов/мес', '10 видео/мес', '2 проекта'], cta: 'Выбрать Starter' },
+  { key: 'growth', name: 'Growth', price: '€79', desc: 'Основной тариф для регулярного контента, видео и роста без ручной рутины.', points: ['600 постов/мес', '40 видео/мес', '5 проектов'], cta: 'Выбрать Growth' },
+  { key: 'agency', name: 'Agency', price: '€199', desc: 'Для агентств и multi-client работы с большим объёмом контента.', points: ['2000 постов/мес', '150 видео/мес', 'Безлимит проектов'], cta: 'Выбрать Agency' },
+];
+const DASHBOARD_QUICK_ACTIONS = [
+  { key: 'weekly_plan', title: 'Контент-план на 7 дней', description: 'Быстрый недельный план публикаций для вашей ниши.', buttonLabel: 'Создать план', accent: '7D', size: 'large', contentType: 'post' },
+  { key: 'monthly_plan', title: 'Контент-план на 30 дней', description: 'Полный контент-план на месяц с идеями и структурой.', buttonLabel: 'Создать план', accent: '30D', size: 'large', contentType: 'post' },
+  { key: 'post_series', title: 'Серия постов', description: 'Готовая серия постов под ваш бизнес и формат контента.', buttonLabel: 'Сгенерировать', accent: 'POST', size: 'large', contentType: 'post' },
+  { key: 'video_series', title: 'Серия видео', description: 'Идеи и структура коротких видео для соцсетей.', buttonLabel: 'Сгенерировать', accent: 'VIDEO', size: 'large', contentType: 'video' },
+  { key: 'hooks_pack', title: 'Hooks', description: 'Цепляющие начала для постов, Reels и Shorts.', buttonLabel: 'Создать hooks', accent: 'HOOK', size: 'small', contentType: 'post' },
+  { key: 'cta_pack', title: 'CTA', description: 'Призывы к действию для вовлечения и заявок.', buttonLabel: 'Создать CTA', accent: 'CTA', size: 'small', contentType: 'post' },
+];
 const LOGIN_I18N = {
   ru: {
     language_label: 'Язык',
@@ -47,7 +74,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Создать',
     auth_hint_default: 'Введите email и пароль. Отправим 4-значный код на почту.',
     auth_hint_code_prefix: 'Код отправлен на',
-    hero_title: 'AutoSocial GPT — AI-ассистент для контента и автопостинга.',
+    hero_title: 'AutoSocial.tech — AI-ассистент для контента и автопостинга.',
     hero_subtitle: 'Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.',
     hero_cta: 'Начать бесплатно по email',
     hero_microcopy: 'Без привязки карт сейчас — начните с Free плана.',
@@ -57,23 +84,23 @@ const LOGIN_I18N = {
     features_3: 'Интеллектуальные шаблоны для любых ниш',
     features_4: 'Планировщик, который думает за вас',
     features_5: 'Метрики и аналитика для роста',
-    how_title: 'Как AutoSocial GPT помогает вашему бизнесу',
+    how_title: 'Как AutoSocial.tech помогает вашему бизнесу',
     how_1_title: 'Создавайте контент за секунды',
     how_1_text: 'Введите тему или ключевое сообщение — получите готовые посты с хештегами и CTA.',
     how_2_title: 'Планируйте. Автоматизируйте. Забывайте о ручной публикации',
     how_2_text: 'Настройте расписание — и система публикует сама.',
     how_3_title: 'Следите за эффективностью',
     how_3_text: 'Показы, вовлечённость, рост аудитории — всё в одной панели.',
-    trust_title: 'Почему маркетологи выбирают AutoSocial GPT',
+    trust_title: 'Почему маркетологи выбирают AutoSocial.tech',
     trust_1: 'Экономит до 10 часов в неделю на публикациях',
     trust_2: 'Генерирует контент, основанный на бест-практиках SMM',
     trust_3: 'Интеграции с Facebook + Instagram Business',
     trust_4: 'SSL / GDPR-ready. Готово к оплате.',
-    quote: '“AutoSocial GPT перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB',
+    quote: '“AutoSocial.tech перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB',
     final_title: 'Готовы автоматизировать свои соцсети?',
     final_cta_account: 'Создать аккаунт по email',
     final_cta_pricing: 'Узнать тарифы',
-    final_note: 'Начните с Free плана. Обновление на Pro доступно в любой момент.',
+    final_note: 'Начните с Free Trial. Перейти на Growth можно в любой момент.',
     footer_pricing: 'Тарифы',
     footer_privacy: 'Политика конфиденциальности',
     footer_support: 'Поддержка',
@@ -100,7 +127,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Create',
     auth_hint_default: 'Enter email and password. We will send a 4-digit code.',
     auth_hint_code_prefix: 'Code sent to',
-    hero_title: 'AutoSocial GPT — AI assistant for content and autoposting.',
+    hero_title: 'AutoSocial.tech — AI assistant for content and autoposting.',
     hero_subtitle: 'Create content, schedule posts, and manage Facebook + Instagram from one place automatically.',
     hero_cta: 'Start free with email',
     hero_microcopy: 'No card required now — start on the Free plan.',
@@ -110,23 +137,23 @@ const LOGIN_I18N = {
     features_3: 'Smart templates for any niche',
     features_4: 'A planner that thinks ahead for you',
     features_5: 'Metrics and analytics for growth',
-    how_title: 'How AutoSocial GPT helps your business',
+    how_title: 'How AutoSocial.tech helps your business',
     how_1_title: 'Create content in seconds',
     how_1_text: 'Enter a topic or key message and get ready-to-post drafts with hashtags and CTA.',
     how_2_title: 'Plan. Automate. Stop manual posting',
     how_2_text: 'Set a schedule and the platform publishes automatically.',
     how_3_title: 'Track performance',
     how_3_text: 'Reach, engagement, and audience growth in one dashboard.',
-    trust_title: 'Why marketers choose AutoSocial GPT',
+    trust_title: 'Why marketers choose AutoSocial.tech',
     trust_1: 'Saves up to 10 hours per week on publishing',
     trust_2: 'Generates content based on SMM best practices',
     trust_3: 'Facebook + Instagram Business integrations',
     trust_4: 'SSL / GDPR-ready. Billing-ready.',
-    quote: '"AutoSocial GPT put our social media on autopilot — posting got consistent and engagement grew." — SMB marketer',
+    quote: '"AutoSocial.tech put our social media on autopilot — posting got consistent and engagement grew." — SMB marketer',
     final_title: 'Ready to automate your social media?',
     final_cta_account: 'Create account with email',
     final_cta_pricing: 'See pricing',
-    final_note: 'Start with Free. Upgrade to Pro anytime.',
+    final_note: 'Start with Free Trial. Upgrade to Growth anytime.',
     footer_pricing: 'Pricing',
     footer_privacy: 'Privacy policy',
     footer_support: 'Support',
@@ -153,7 +180,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Crear',
     auth_hint_default: 'Introduce email y contraseña. Enviaremos un código de 4 dígitos.',
     auth_hint_code_prefix: 'Código enviado a',
-    hero_title: 'AutoSocial GPT — asistente de IA para contenido y autopublicación.',
+    hero_title: 'AutoSocial.tech — asistente de IA para contenido y autopublicación.',
     hero_subtitle: 'Crea contenido, programa publicaciones y gestiona Facebook + Instagram desde un solo lugar automáticamente.',
     hero_cta: 'Empezar gratis con email',
     hero_microcopy: 'Sin tarjeta por ahora: empieza con el plan Free.',
@@ -163,23 +190,23 @@ const LOGIN_I18N = {
     features_3: 'Plantillas inteligentes para cualquier nicho',
     features_4: 'Planificador que piensa por ti',
     features_5: 'Métricas y analítica para crecer',
-    how_title: 'Cómo AutoSocial GPT ayuda a tu negocio',
+    how_title: 'Cómo AutoSocial.tech ayuda a tu negocio',
     how_1_title: 'Crea contenido en segundos',
     how_1_text: 'Introduce un tema o mensaje clave y obtén borradores con hashtags y CTA.',
     how_2_title: 'Planifica. Automatiza. Olvida la publicación manual',
     how_2_text: 'Configura un horario y la plataforma publica sola.',
     how_3_title: 'Mide resultados',
     how_3_text: 'Alcance, interacción y crecimiento en un solo panel.',
-    trust_title: 'Por qué los marketers eligen AutoSocial GPT',
+    trust_title: 'Por qué los marketers eligen AutoSocial.tech',
     trust_1: 'Ahorra hasta 10 horas por semana en publicaciones',
     trust_2: 'Genera contenido con buenas prácticas de SMM',
     trust_3: 'Integraciones con Facebook + Instagram Business',
     trust_4: 'Listo para SSL / GDPR y pagos.',
-    quote: '"AutoSocial GPT puso nuestras redes en piloto automático: publicamos más y mejoró la interacción." — Marketer SMB',
+    quote: '"AutoSocial.tech puso nuestras redes en piloto automático: publicamos más y mejoró la interacción." — Marketer SMB',
     final_title: '¿Listo para automatizar tus redes sociales?',
     final_cta_account: 'Crear cuenta con email',
     final_cta_pricing: 'Ver precios',
-    final_note: 'Empieza con Free. Pasa a Pro cuando quieras.',
+    final_note: 'Empieza con Free Trial. Cambia a Growth cuando quieras.',
     footer_pricing: 'Precios',
     footer_privacy: 'Política de privacidad',
     footer_support: 'Soporte',
@@ -206,7 +233,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Erstellen',
     auth_hint_default: 'E-Mail und Passwort eingeben. Wir senden einen 4-stelligen Code.',
     auth_hint_code_prefix: 'Code gesendet an',
-    hero_title: 'AutoSocial GPT — KI-Assistent für Content und Auto-Posting.',
+    hero_title: 'AutoSocial.tech — KI-Assistent für Content und Auto-Posting.',
     hero_subtitle: 'Inhalte erstellen, Beiträge planen und Facebook + Instagram automatisch an einem Ort verwalten.',
     hero_cta: 'Kostenlos mit E-Mail starten',
     hero_microcopy: 'Keine Karte nötig — starte mit dem Free-Plan.',
@@ -216,23 +243,23 @@ const LOGIN_I18N = {
     features_3: 'Intelligente Vorlagen für jede Nische',
     features_4: 'Planer, der für dich vorausdenkt',
     features_5: 'Metriken und Analysen für Wachstum',
-    how_title: 'So hilft AutoSocial GPT deinem Business',
+    how_title: 'So hilft AutoSocial.tech deinem Business',
     how_1_title: 'Content in Sekunden erstellen',
     how_1_text: 'Thema oder Kernbotschaft eingeben und fertige Entwürfe mit Hashtags und CTA erhalten.',
     how_2_title: 'Planen. Automatisieren. Manuelles Posten vergessen',
     how_2_text: 'Zeitplan festlegen und die Plattform veröffentlicht automatisch.',
     how_3_title: 'Leistung verfolgen',
     how_3_text: 'Reichweite, Engagement und Wachstum in einem Panel.',
-    trust_title: 'Warum Marketer AutoSocial GPT wählen',
+    trust_title: 'Warum Marketer AutoSocial.tech wählen',
     trust_1: 'Spart bis zu 10 Stunden pro Woche beim Publizieren',
     trust_2: 'Generiert Content nach SMM-Best-Practices',
     trust_3: 'Integrationen mit Facebook + Instagram Business',
     trust_4: 'SSL / DSGVO-ready. Zahlungsbereit.',
-    quote: '"AutoSocial GPT hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und höheres Engagement." — SMB-Marketer',
+    quote: '"AutoSocial.tech hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und höheres Engagement." — SMB-Marketer',
     final_title: 'Bereit, deine Social Media zu automatisieren?',
     final_cta_account: 'Konto per E-Mail erstellen',
     final_cta_pricing: 'Preise ansehen',
-    final_note: 'Mit Free starten. Jederzeit auf Pro wechseln.',
+    final_note: 'Mit Free Trial starten. Jederzeit auf Growth wechseln.',
     footer_pricing: 'Preise',
     footer_privacy: 'Datenschutz',
     footer_support: 'Support',
@@ -259,7 +286,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Créer',
     auth_hint_default: 'Entrez e-mail et mot de passe. Nous enverrons un code à 4 chiffres.',
     auth_hint_code_prefix: 'Code envoyé à',
-    hero_title: "AutoSocial GPT — assistant IA pour le contenu et l'auto-publication.",
+    hero_title: "AutoSocial.tech — assistant IA pour le contenu et l'auto-publication.",
     hero_subtitle: 'Créez du contenu, planifiez des publications et gérez Facebook + Instagram automatiquement depuis un seul endroit.',
     hero_cta: 'Commencer gratuitement par e-mail',
     hero_microcopy: "Pas de carte requise pour l'instant — commencez avec Free.",
@@ -269,23 +296,23 @@ const LOGIN_I18N = {
     features_3: 'Modèles intelligents pour tous les secteurs',
     features_4: 'Planificateur qui anticipe pour vous',
     features_5: 'Métriques et analyses pour la croissance',
-    how_title: 'Comment AutoSocial GPT aide votre business',
+    how_title: 'Comment AutoSocial.tech aide votre business',
     how_1_title: 'Créez du contenu en quelques secondes',
     how_1_text: 'Entrez un sujet ou un message clé et obtenez des brouillons avec hashtags et CTA.',
     how_2_title: 'Planifiez. Automatisez. Oubliez le manuel',
     how_2_text: 'Définissez un planning et la plateforme publie automatiquement.',
     how_3_title: 'Suivez les performances',
     how_3_text: "Portée, engagement et croissance dans un seul tableau de bord.",
-    trust_title: 'Pourquoi les marketeurs choisissent AutoSocial GPT',
+    trust_title: 'Pourquoi les marketeurs choisissent AutoSocial.tech',
     trust_1: "Jusqu'à 10 heures gagnées par semaine",
     trust_2: 'Contenu basé sur les bonnes pratiques SMM',
     trust_3: 'Intégrations Facebook + Instagram Business',
     trust_4: 'Prêt pour SSL / RGPD et paiement.',
-    quote: '"AutoSocial GPT a mis nos réseaux en pilote automatique: plus de régularité et plus d engagement." — Marketeur SMB',
+    quote: '"AutoSocial.tech a mis nos réseaux en pilote automatique: plus de régularité et plus d engagement." — Marketeur SMB',
     final_title: 'Prêt à automatiser vos réseaux sociaux ?',
     final_cta_account: 'Créer un compte par e-mail',
     final_cta_pricing: 'Voir les tarifs',
-    final_note: 'Commencez avec Free. Passez à Pro à tout moment.',
+    final_note: 'Commencez avec Free Trial. Passez à Growth à tout moment.',
     footer_pricing: 'Tarifs',
     footer_privacy: 'Politique de confidentialité',
     footer_support: 'Support',
@@ -312,7 +339,7 @@ const LOGIN_I18N = {
     switch_label_login: 'Створити',
     auth_hint_default: 'Введіть email і пароль. Ми надішлемо 4-значний код.',
     auth_hint_code_prefix: 'Код надіслано на',
-    hero_title: 'AutoSocial GPT — AI-асистент для контенту й автопостингу.',
+    hero_title: 'AutoSocial.tech — AI-асистент для контенту й автопостингу.',
     hero_subtitle: 'Створюйте контент, плануйте публікації та керуйте Facebook + Instagram з одного місця автоматично.',
     hero_cta: 'Почати безкоштовно через email',
     hero_microcopy: 'Без привʼязки картки зараз — почніть із Free плану.',
@@ -322,23 +349,23 @@ const LOGIN_I18N = {
     features_3: 'Розумні шаблони для будь-якої ніші',
     features_4: 'Планувальник, що думає за вас',
     features_5: 'Метрики та аналітика для зростання',
-    how_title: 'Як AutoSocial GPT допомагає вашому бізнесу',
+    how_title: 'Як AutoSocial.tech допомагає вашому бізнесу',
     how_1_title: 'Створюйте контент за секунди',
     how_1_text: 'Вкажіть тему або ключове повідомлення — отримайте готові пости з хештегами та CTA.',
     how_2_title: 'Плануйте. Автоматизуйте. Забудьте про ручні публікації',
     how_2_text: 'Налаштуйте графік — і система публікує сама.',
     how_3_title: 'Відстежуйте ефективність',
     how_3_text: 'Охоплення, залученість і зростання аудиторії — все в одній панелі.',
-    trust_title: 'Чому маркетологи обирають AutoSocial GPT',
+    trust_title: 'Чому маркетологи обирають AutoSocial.tech',
     trust_1: 'Економить до 10 годин на тиждень',
     trust_2: 'Генерує контент на основі найкращих SMM-практик',
     trust_3: 'Інтеграції з Facebook + Instagram Business',
     trust_4: 'SSL / GDPR-ready. Готово до оплати.',
-    quote: '«AutoSocial GPT перевів наші соцмережі на автопілот — публікацій стало більше, а залученість зросла.» — Маркетолог, SMB',
+    quote: '«AutoSocial.tech перевів наші соцмережі на автопілот — публікацій стало більше, а залученість зросла.» — Маркетолог, SMB',
     final_title: 'Готові автоматизувати свої соцмережі?',
     final_cta_account: 'Створити акаунт через email',
     final_cta_pricing: 'Дізнатися тарифи',
-    final_note: 'Почніть з Free плану. Перехід на Pro доступний у будь-який момент.',
+    final_note: 'Почніть з Free Trial. Перехід на Growth доступний у будь-який момент.',
     footer_pricing: 'Тарифи',
     footer_privacy: 'Політика конфіденційності',
     footer_support: 'Підтримка',
@@ -384,6 +411,12 @@ function setLanguage(lang, opts = {}) {
     localStorage.setItem('siteLang', normalized);
   }
 }
+function normalizeContentLanguage(value) {
+  const normalized = normalizeLang(value);
+  if (normalized === 'uk') return 'ua';
+  if (normalized === 'ru' || normalized === 'ua' || normalized === 'en' || normalized === 'es' || normalized === 'de' || normalized === 'fr') return normalized;
+  return 'ru';
+}
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
@@ -426,6 +459,11 @@ const state = {
     recent: [],
     chartMetric: 'reach',
     recentSort: 'engagement',
+  },
+  dashboardQuickStart: {
+    nicheId: '',
+    actionType: '',
+    seed: 0,
   },
   plans: [],
   blog: [],
@@ -522,6 +560,9 @@ const state = {
     mode: 'quick',
     contentType: 'post',
     topic: '',
+    topicPreset: DEFAULT_DIRECTOR_NICHE,
+    customTopicMode: false,
+    customBaseTopicInput: '',
     goal: 'engagement',
     offer: '',
     language: 'ru',
@@ -534,7 +575,9 @@ const state = {
     loadingSuggest: false,
     loadingDrafts: false,
     suggestions: null,
-    selectedTopic: '',
+    selectedSuggestedTopic: '',
+    manualTopicInput: '',
+    appliedManualTopic: '',
     selectedAngle: '',
     selectedHashtags: [],
     selectedCta: '',
@@ -571,6 +614,8 @@ const state = {
     videoVoiceTone: 'neutral',
     previewVideoTab: 'meta',
     previewVideoMetaPlatform: 'facebook',
+    previewExpanded: {},
+    videoStructureExpanded: false,
     videoStructureLoading: false,
     videoStructure: null,
     videoRenderLoading: false,
@@ -600,6 +645,10 @@ const state = {
     postWeekApplying: false,
     postWeekItems: [],
     postWeekSelectedDate: '',
+    quickActionType: '',
+    quickActionNicheId: '',
+    quickActionSeed: 0,
+    quickActionPreviewOnly: false,
     scheduleAt: '',
     planHorizon: 'week',
     planLoading: false,
@@ -777,7 +826,7 @@ async function api(path, options = {}) {
       if (htmlResponse) throw makeErr(`Ошибка сервера (${res.status}). Повторите позже.`);
       throw makeErr(payload || `Ошибка запроса (${res.status})`);
     }
-    throw makeErr(payload.error || `Ошибка запроса (${res.status})`);
+    throw makeErr(payload.message || payload.error || `Ошибка запроса (${res.status})`);
   }
   return payload;
 }
@@ -822,8 +871,23 @@ function icon(name) {
 
 function planBadge(plan) {
   const p = String(plan || 'free').toLowerCase();
-  const cls = p === 'pro' ? 'badge-pro' : p === 'agency' ? 'badge-agency' : p === 'light' ? 'badge-light' : 'badge-free';
-  return `<span class="badge-plan ${cls}">${esc(p)}</span>`;
+  const labels = {
+    free: 'Free Trial',
+    starter: 'Starter',
+    growth: 'Growth',
+    agency: 'Agency',
+    admin: 'Admin Unlimited',
+  };
+  const cls = p === 'admin'
+    ? 'badge-agency'
+    : p === 'growth'
+      ? 'badge-pro'
+      : p === 'agency'
+        ? 'badge-agency'
+        : p === 'starter'
+          ? 'badge-light'
+          : 'badge-free';
+  return `<span class="badge-plan ${cls}">${esc(labels[p] || p)}</span>`;
 }
 
 function statusBadge(status) {
@@ -861,6 +925,222 @@ function field(id, label, type = 'text', value = '', placeholder = '') {
 }
 function selectField(id, label, value, options) {
   return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}">${options.map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>`;
+}
+function normalizeCheckoutPlanCode(plan) {
+  const key = String(plan || '').trim().toLowerCase();
+  if (key === 'starter') return ['starter', 'light'];
+  if (key === 'growth') return ['growth', 'pro'];
+  if (key === 'agency') return ['agency'];
+  if (key === 'light') return ['light', 'starter'];
+  if (key === 'pro') return ['pro', 'growth'];
+  return [key].filter(Boolean);
+}
+function directorEffectiveTopic(d, fallback = '') {
+  return String(d?.appliedManualTopic || '').trim()
+    || String(d?.selectedSuggestedTopic || '').trim()
+    || String(fallback || '').trim();
+}
+function directorBaseTopic(d, fallback = '') {
+  const customEnabled = !!d?.customTopicMode;
+  const customValue = String(d?.customBaseTopicInput || '').trim();
+  const presetId = String(d?.topicPreset || fallback || DEFAULT_DIRECTOR_NICHE).trim();
+  const presetMeta = typeof DIRECTOR_NICHE_ENGINE.getNicheTemplates === 'function'
+    ? DIRECTOR_NICHE_ENGINE.getNicheTemplates(presetId)
+    : null;
+  const presetValue = String(presetMeta?.label || presetId || fallback || '').trim();
+  return customEnabled ? customValue : presetValue;
+}
+function directorCurrentNicheId(d) {
+  const customEnabled = !!d?.customTopicMode;
+  if (customEnabled) return 'fallback';
+  if (typeof DIRECTOR_NICHE_ENGINE.normalizeCategory === 'function') {
+    return DIRECTOR_NICHE_ENGINE.normalizeCategory(d?.topicPreset || DEFAULT_DIRECTOR_NICHE);
+  }
+  return DEFAULT_DIRECTOR_NICHE;
+}
+function directorCurrentNicheMeta(d) {
+  if (typeof DIRECTOR_NICHE_ENGINE.getNicheTemplates === 'function') {
+    return DIRECTOR_NICHE_ENGINE.getNicheTemplates(directorCurrentNicheId(d));
+  }
+  return { id: DEFAULT_DIRECTOR_NICHE, label: 'SMM и маркетинг', contentAngles: [], topicTemplates: [], bannedCrossNicheWords: [] };
+}
+function directorNicheAiContext(d) {
+  if (!d || d.customTopicMode) return null;
+  if (typeof DIRECTOR_NICHE_ENGINE.buildNicheAiContext === 'function') {
+    return DIRECTOR_NICHE_ENGINE.buildNicheAiContext(directorCurrentNicheId(d));
+  }
+  return null;
+}
+function normalizePublicPlan(plan) {
+  const key = String(plan || 'free').trim().toLowerCase();
+  if (key === 'light') return 'starter';
+  if (key === 'pro') return 'growth';
+  return ['free', 'starter', 'growth', 'agency', 'admin'].includes(key) ? key : 'free';
+}
+function ensureDashboardQuickStartState() {
+  if (!state.dashboardQuickStart || typeof state.dashboardQuickStart !== 'object') {
+    state.dashboardQuickStart = { nicheId: '', actionType: '', seed: 0 };
+  }
+}
+function savedDashboardNicheId() {
+  const userId = String(state.user?.id || 'anon').trim() || 'anon';
+  try {
+    return String(localStorage.getItem(`dashboardQuickNiche:${userId}`) || '').trim();
+  } catch {
+    return '';
+  }
+}
+function persistDashboardNicheId(nicheId) {
+  const userId = String(state.user?.id || 'anon').trim() || 'anon';
+  try {
+    localStorage.setItem(`dashboardQuickNiche:${userId}`, String(nicheId || '').trim());
+  } catch {}
+}
+function normalizeNicheIdSafe(value) {
+  if (typeof DIRECTOR_NICHE_ENGINE.normalizeCategory === 'function') {
+    return DIRECTOR_NICHE_ENGINE.normalizeCategory(value || '');
+  }
+  return String(value || '').trim();
+}
+function isExplicitDirectorNicheSelected() {
+  const d = state.createDirector || {};
+  if (d.customTopicMode) {
+    const customId = normalizeNicheIdSafe(String(d.customBaseTopicInput || '').trim());
+    return customId && customId !== 'fallback' ? customId : '';
+  }
+  const presetId = normalizeNicheIdSafe(String(d.topicPreset || '').trim());
+  if (presetId && presetId !== DEFAULT_DIRECTOR_NICHE) return presetId;
+  return '';
+}
+function resolveDashboardActiveNicheId() {
+  ensureDashboardQuickStartState();
+  const directorNicheId = isExplicitDirectorNicheSelected();
+  if (directorNicheId) return directorNicheId;
+  const savedId = normalizeNicheIdSafe(state.dashboardQuickStart.nicheId || savedDashboardNicheId());
+  if (savedId && savedId !== 'fallback') return savedId;
+  const wizardNicheId = normalizeNicheIdSafe(state.aiWizard?.niche || '');
+  if (wizardNicheId && wizardNicheId !== 'fallback') return wizardNicheId;
+  return '';
+}
+function dashboardQuickNicheMeta(nicheId) {
+  if (typeof DIRECTOR_NICHE_ENGINE.getNicheTemplates === 'function') {
+    return DIRECTOR_NICHE_ENGINE.getNicheTemplates(nicheId || '');
+  }
+  return { id: '', label: '', audience: '', keywords: [] };
+}
+function getQuickActionAccess(actionType, billing) {
+  const plan = normalizePublicPlan(billing?.plan || 'free');
+  const freeModes = {
+    weekly_plan: { mode: 'full', limit: 7 },
+    monthly_plan: { mode: 'preview', limit: 7 },
+    post_series: { mode: 'preview', limit: 5 },
+    video_series: { mode: 'preview', limit: 3 },
+    hooks_pack: { mode: 'full', limit: 8 },
+    cta_pack: { mode: 'full', limit: 6 },
+  };
+  const starterModes = {
+    weekly_plan: { mode: 'full', limit: 7 },
+    monthly_plan: { mode: 'full', limit: 30 },
+    post_series: { mode: 'full', limit: 8 },
+    video_series: { mode: 'full', limit: 6 },
+    hooks_pack: { mode: 'full', limit: 10 },
+    cta_pack: { mode: 'full', limit: 10 },
+  };
+  const growthModes = {
+    weekly_plan: { mode: 'full', limit: 7 },
+    monthly_plan: { mode: 'full', limit: 30 },
+    post_series: { mode: 'full', limit: 10 },
+    video_series: { mode: 'full', limit: 10 },
+    hooks_pack: { mode: 'full', limit: 12 },
+    cta_pack: { mode: 'full', limit: 12 },
+  };
+  const matrix = plan === 'free'
+    ? freeModes
+    : (plan === 'starter' ? starterModes : growthModes);
+  const access = matrix[actionType] || { mode: 'full', limit: 7 };
+  return {
+    ...access,
+    plan,
+    isPreview: access.mode === 'preview',
+    isLocked: access.mode === 'locked',
+  };
+}
+function buildQuickActionResult(actionType, nicheId, billing, seed = 0) {
+  const nicheMeta = dashboardQuickNicheMeta(nicheId);
+  const access = getQuickActionAccess(actionType, billing);
+  const result = {
+    actionType,
+    nicheId: nicheMeta.id,
+    nicheLabel: nicheMeta.label,
+    access,
+    title: '',
+    subtitle: '',
+    items: [],
+  };
+  if (actionType === 'weekly_plan') {
+    result.title = 'Контент-план на 7 дней';
+    result.subtitle = '7 тем с форматом, углом подачи и CTA под выбранную нишу.';
+    result.items = (DIRECTOR_NICHE_ENGINE.get7DayContentPlan?.(nicheId, 'post') || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'monthly_plan') {
+    result.title = 'Контент-план на 30 дней';
+    result.subtitle = access.isPreview
+      ? 'Preview первых 7 дней. Полный месяц доступен после апгрейда.'
+      : 'Месячный план публикаций с темами, форматами и углами подачи.';
+    result.items = (DIRECTOR_NICHE_ENGINE.get30DayContentPlan?.(nicheId, 'post') || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'post_series') {
+    result.title = 'Серия постов';
+    result.subtitle = access.isPreview
+      ? 'Первые идеи серии доступны уже на текущем тарифе.'
+      : 'Серия постов для регулярного контента по вашей нише.';
+    result.items = (DIRECTOR_NICHE_ENGINE.getPostSeries?.(nicheId, Math.max(access.limit, 5)) || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'video_series') {
+    result.title = 'Серия видео';
+    result.subtitle = access.isPreview
+      ? 'Preview short-form видео по вашей нише. Больше идей доступно после апгрейда.'
+      : 'Идеи коротких видео с hook, углом подачи и CTA.';
+    result.items = (DIRECTOR_NICHE_ENGINE.getVideoSeries?.(nicheId, Math.max(access.limit, 5)) || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'hooks_pack') {
+    const hooks = (DIRECTOR_NICHE_ENGINE.getTopicHooks?.(nicheId) || []).slice();
+    const shuffled = hooks.length ? hooks.slice(seed % Math.max(1, hooks.length)).concat(hooks.slice(0, seed % Math.max(1, hooks.length))) : [];
+    result.title = 'Набор hooks';
+    result.subtitle = 'Цепляющие начала для постов, Reels и Shorts по выбранной нише.';
+    result.items = shuffled.slice(0, access.limit).map((text, idx) => ({ index: idx + 1, hook: text }));
+    return result;
+  }
+  const ctas = (DIRECTOR_NICHE_ENGINE.getCtaTemplates?.(nicheId) || []).slice();
+  const shuffled = ctas.length ? ctas.slice(seed % Math.max(1, ctas.length)).concat(ctas.slice(0, seed % Math.max(1, ctas.length))) : [];
+  result.title = 'Набор CTA';
+  result.subtitle = 'Призывы к действию для вовлечения, сообщений и заявок.';
+  result.items = shuffled.slice(0, access.limit).map((text, idx) => ({ index: idx + 1, cta: text }));
+  return result;
+}
+function directorLocalTopicIdeas(d, count = 10, seed = 0) {
+  if (d?.customTopicMode) return [];
+  if (typeof DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas === 'function') {
+    return DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas(directorCurrentNicheId(d), count, seed);
+  }
+  return [];
+}
+function directorLocalAngles(d) {
+  if (typeof DIRECTOR_NICHE_ENGINE.getContentAngles === 'function') {
+    return DIRECTOR_NICHE_ENGINE.getContentAngles(directorCurrentNicheId(d));
+  }
+  return [];
+}
+function directorTopicBelongsToNiche(topic, d) {
+  const text = String(topic || '').trim().toLowerCase();
+  if (!text) return false;
+  const nicheMeta = directorCurrentNicheMeta(d);
+  const banned = Array.isArray(nicheMeta?.bannedCrossNicheWords) ? nicheMeta.bannedCrossNicheWords : [];
+  return !banned.some((word) => String(word || '').trim() && text.includes(String(word).trim().toLowerCase()));
 }
 function progressBar(value, max) {
   const pct = max > 0 ? Math.max(2, Math.min(100, Math.round((value / max) * 100))) : 0;
@@ -1201,7 +1481,7 @@ function Step3GeneratePreview(w, errors) {
         `).join('')}
       </div>
       ${errors.outputs ? `<p class="small wizard-error">${esc(errors.outputs)}</p>` : ''}
-      <div class="small wizard-plan-note">В бесплатной версии ограничено количество постов. В PRO — полный план на месяц и автопостинг.</div>
+      <div class="small wizard-plan-note">В Free Trial доступны базовые лимиты. В Growth открываются расширенные лимиты и автопостинг.</div>
     </div>
   `;
 }
@@ -1273,7 +1553,7 @@ function appLayout(path, title, body) {
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
   const logoutNav = !isAdminArea ? `<button type="button" id="sidebarLogoutBtn" class="nav-link nav-link-logout">${icon('logout')}<span>Выйти</span></button>` : '';
   const footer = `<div class="footer-note"><div class="small">Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.</div><div class="small">Stripe защищенные платежи · SSL защищено · GDPR совместимо</div></div>`;
-  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg" alt="AutoSocial GPT"/><div><div class="brand-name">AutoSocial GPT</div><div class="small">AI SMM менеджер</div></div></div>${navHtml}${logoutNav}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
+  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg?v=brand-mark-2026-03-06-01" alt="AutoSocial.tech"/><div><div class="brand-name">AutoSocial.tech</div><div class="small">AI SMM менеджер</div></div></div>${navHtml}${logoutNav}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
   const t = loginText;
@@ -1292,43 +1572,39 @@ function pageLogin() {
     : t('auth_hint_default');
   const painCards = [
     {
-      title: 'Контент съедает рабочий день',
-      text: 'Команды тратят часы на идеи, тексты и ручную доработку каждого поста.',
+      title: 'Контент забирает часы каждую неделю',
+      text: 'Идеи, тексты, согласования и публикация вручную съедают время владельца или маркетолога.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
     },
     {
-      title: 'Публикации выходят хаотично',
-      text: 'Без единого процесса контент публикуется нерегулярно, охваты проседают.',
+      title: 'Постинг идёт нерегулярно',
+      text: 'Когда публикации зависят от ручного режима, соцсети быстро становятся хаотичными и нестабильными.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3.5" y="4.5" width="17" height="16" rx="2.4"></rect><path d="M8 3v3.5M16 3v3.5M3.5 9h17"></path></svg>',
     },
     {
-      title: 'Слабые CTA и конверсия',
-      text: 'Посты без структуры и оффера не превращают просмотры в заявки.',
+      title: 'Посты не приводят к заявкам',
+      text: 'Без понятной структуры, оффера и CTA контент набирает просмотры, но не помогает продавать.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><path d="M4 18h16M7 14l3-3 3 2 4-5"></path><circle cx="17" cy="8" r="1.1"></circle></svg>',
     },
     {
-      title: 'Рост упирается в людей',
-      text: 'Чтобы вести больше проектов, приходится нанимать, а не масштабировать систему.',
+      title: 'Рост упирается в операционку',
+      text: 'Чтобы вести больше аккаунтов и кампаний, приходится нанимать людей вместо масштабирования процесса.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="7" height="7" rx="1.4"></rect><rect x="14" y="4" width="7" height="7" rx="1.4"></rect><rect x="8.5" y="13" width="7" height="7" rx="1.4"></rect></svg>',
     },
   ];
   const features = [
-    ['AI-контент по вашей нише', 'Темы, хуки, структура текста и CTA, адаптированные под цель бизнеса.'],
-    ['YouTube Studio режим', 'Сценарий ролика, таймлайн и тексты для Community-постов в одном потоке.'],
-    ['Meta автопубликация', 'Публикации и планирование в Facebook и Instagram без ручной рутины.'],
-    ['Календарь контента', 'Контроль публикаций на неделю и месяц, без потери ритма.'],
-    ['Командная работа', 'Удобно для in-house и агентств: понятные процессы и прозрачный статус.'],
-    ['Масштабирование без хаоса', 'Больше аккаунтов и контента без роста операционной нагрузки.'],
+    ['Готовые темы и идеи', 'Сервис подсказывает темы, углы подачи и форматы, чтобы не начинать с пустого листа.'],
+    ['Посты и видео в одном сервисе', 'Генерируйте тексты, сценарии, структуры и материалы для регулярного контент-потока.'],
+    ['Автопостинг по расписанию', 'Публикуйте в нужное время без ручной рутины и потери ритма.'],
+    ['Контент-календарь', 'Планируйте неделю и месяц вперёд, чтобы видеть весь поток публикаций в одном месте.'],
+    ['Понятно для малого бизнеса', 'Не нужен отдельный контент-отдел: владелец, маркетолог или SMM могут запустить процесс сами.'],
+    ['Рост без хаоса', 'Больше проектов, клиентов и каналов без роста операционной нагрузки на команду.'],
   ];
-  const pricing = [
-    { name: 'Starter', price: '€29', desc: 'Для малого бизнеса', points: ['120 постов/мес', 'Meta-публикация', 'Базовые AI-шаблоны'] },
-    { name: 'Growth', price: '€79', desc: 'Для растущей команды', points: ['500 постов/мес', 'Meta + YouTube', 'Календарь и приоритет'] },
-    { name: 'Agency', price: '€199', desc: 'Для агентств', points: ['Безлимит проектов', 'Командные роли', 'Расширенные лимиты'] },
-  ];
+  const pricing = MARKETING_PRICING_PLANS;
 
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial GPT"/>
+      <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial.tech"/>
       <div class="landing-2026-top-actions">
         <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
         <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
@@ -1338,17 +1614,17 @@ function pageLogin() {
 
     <section class="landing-2026-hero reveal">
       <div class="landing-2026-hero-copy">
-        <span class="landing-2026-chip">Для малого и среднего бизнеса и in-house SMM-команд</span>
-        <h1>Создавайте до 30 постов в месяц за 5 минут и публикуйте автоматически.</h1>
-        <p>AutoSocial.tech для малого и среднего бизнеса, который устал от ручного SMM: сервис генерирует контент, собирает календарь и публикует в Meta + YouTube автоматически.</p>
+        <span class="landing-2026-chip">Для малого бизнеса, маркетолога и in-house SMM без отдельной контент-команды</span>
+        <h1>Генерируйте посты и видео для соцсетей и запускайте автопостинг из одного сервиса.</h1>
+        <p>AutoSocial.tech помогает малому бизнесу быстрее вести соцсети: подсказывает темы, собирает контент, формирует календарь и публикует в Meta и YouTube без ручной рутины.</p>
         <div class="cta-row">
-          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
-          <a class="btn btn-secondary cta__button" href="#landingHow">Как это работает</a>
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Попробовать 7 дней бесплатно</button>
+          <a class="btn btn-secondary cta__button" href="#landingPricing">Посмотреть тарифы</a>
         </div>
         <div class="landing-2026-cta-proof">
           <span class="landing-2026-cta-pill">7 дней бесплатно</span>
           <span class="landing-2026-cta-pill">Без карты</span>
-          <span class="landing-2026-cta-pill">Отмена в любой момент</span>
+          <span class="landing-2026-cta-pill">30 постов и 3 видео в trial</span>
         </div>
       </div>
       <div class="landing-2026-hero-visual">
@@ -1367,47 +1643,50 @@ function pageLogin() {
     </section>
 
     <section class="landing-2026-section">
-      <h2>Почему контент-система у большинства не работает</h2>
+      <h2>Почему малому бизнесу сложно вести соцсети стабильно</h2>
       <div class="landing-2026-grid-4">
         ${painCards.map((c) => `<article class="landing-2026-card"><div class="landing-2026-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p></article>`).join('')}
       </div>
     </section>
 
     <section id="landingHow" class="landing-2026-section">
-      <h2>Как это работает</h2>
+      <h2>Как AutoSocial.tech экономит время каждую неделю</h2>
       <div class="landing-2026-steps">
-        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Подключите каналы</h3><p>Meta и YouTube через защищенный OAuth.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Задайте тему и цель</h3><p>AI соберет контент под ваш рынок и формат.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Публикуйте по расписанию</h3><p>Запускайте автопостинг и держите стабильный ритм.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Выберите тему или получите идеи</h3><p>Сервис предлагает темы, форматы и углы подачи под ваш бизнес.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Сгенерируйте посты и видео</h3><p>Получите текст, структуру, CTA и материалы для контента без долгой ручной подготовки.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Запланируйте и публикуйте</h3><p>Соберите контент-календарь и поддерживайте регулярный постинг без хаоса.</p></article>
       </div>
     </section>
 
     <section class="landing-2026-demo">
-      <h2>Демо платформы</h2>
-      <p>Здесь будет видео-обзор и живой walkthrough интерфейса.</p>
-      <div class="landing-2026-demo-box">Здесь будет интерактивное демо продукта</div>
+      <h2>Что получает бизнес на выходе</h2>
+      <p>Вместо ручного цикла "придумать -> написать -> согласовать -> опубликовать" вы получаете один рабочий процесс для идей, контента и автопостинга.</p>
+      <div class="landing-2026-demo-box">
+        <strong>В одном окне:</strong><br/>
+        идеи и темы -> генерация постов и видео -> календарь -> публикация по расписанию
+      </div>
     </section>
 
     <section class="landing-2026-section">
-      <h2>Функции, которые дают результат</h2>
+      <h2>Что получает малый бизнес вместо ручного SMM</h2>
       <div class="landing-2026-grid-3">
         ${features.map(([title, text]) => `<article class="landing-2026-card landing-2026-feature"><h3>${title}</h3><p>${text}</p></article>`).join('')}
       </div>
     </section>
 
-    <section class="landing-2026-section">
+    <section id="landingPricing" class="landing-2026-section">
       <div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-        <h2 style="margin:0;">Прозрачные тарифы</h2>
+        <h2 style="margin:0;">Тарифы без перегруза и скрытых условий</h2>
         <button id="finalPricingBtn" class="btn btn-ghost" type="button">${t('footer_pricing')}</button>
       </div>
       <div class="landing-2026-pricing">
-        ${pricing.map((p, idx) => `<article class="landing-2026-card landing-2026-price ${idx === 1 ? 'is-featured' : ''}">
-          ${idx === 1 ? '<span class="landing-2026-popular">Самый популярный</span>' : ''}
+        ${pricing.map((p) => `<article class="landing-2026-card landing-2026-price ${p.key === 'growth' ? 'is-featured' : ''}">
+          ${p.key === 'growth' ? '<span class="landing-2026-popular">Recommended</span>' : ''}
           <h3>${p.name}</h3>
           <p class="landing-2026-price-value">${p.price}<span>/month</span></p>
           <p class="small">${p.desc}</p>
           <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
-          <button class="btn ${idx === 1 ? 'btn-primary' : 'btn-secondary'} connection-btn-sm">${idx === 2 ? 'Запросить демо' : 'Начать бесплатно'}</button>
+          <button class="btn ${p.key === 'growth' ? 'btn-primary' : 'btn-secondary'} connection-btn-sm" type="button" data-pricing-cta="${p.key}">${p.cta}</button>
         </article>`).join('')}
       </div>
     </section>
@@ -1420,9 +1699,9 @@ function pageLogin() {
     </section>
 
     <section class="landing-2026-final">
-      <h2>Готовы перевести SMM на системный автопилот?</h2>
-      <p>Запустите AutoSocial.tech и получайте стабильный контент-поток без перегруза команды.</p>
-      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
+      <h2>Попробуйте AutoSocial.tech на своём контенте в течение 7 дней</h2>
+      <p>Free Trial показывает сценарий работы без риска: темы, генерация постов и видео, календарь и базовые лимиты без привязки карты.</p>
+      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Запустить Free Trial</button>
       <div class="landing-2026-cta-proof" style="justify-content:center;">
         <span class="landing-2026-cta-pill">7 дней бесплатно</span>
         <span class="landing-2026-cta-pill">Без карты</span>
@@ -1433,7 +1712,7 @@ function pageLogin() {
     <section class="landing-2026-auth-wrap">
       <article class="landing-2026-auth-info landing-2026-card">
         <h3>Создайте аккаунт за минуту</h3>
-        <p>Подтверждение по email, без карты на старте. После входа вы сразу попадете в мастер создания контента и подключений.</p>
+        <p>Подтверждение по email, без карты на старте. После входа вы сразу попадете в мастер создания контента и сможете использовать 7-дневный trial с лимитом 30 постов, 3 видео и 1 проекта.</p>
         <div class="trust-row">
           <span class="trust-chip">SSL</span>
           <span class="trust-chip">GDPR</span>
@@ -1462,14 +1741,21 @@ function pageLogin() {
 }
 
 function pageDashboard() {
+  const billing = state.billing || { plan: 'free', usage: {}, limits: {}, remaining: {} };
   const stats = state.dashboardMetrics || {};
+  const dashboardUserId = String(state.user?.id || 'anon').trim() || 'anon';
+  const onboardingDismissKey = `dashboardOnboardingDismissed:${dashboardUserId}`;
   const summary = stats.summary || { reach: 0, views: 0, likes: 0, comments: 0, shares: 0, items: 0, by_platform: {} };
   const current = summary.current || summary;
   const prev = summary.prev || { reach: 0, views: 0, clicks: 0, likes: 0, comments: 0, shares: 0, items: 0, engagement_rate: 0 };
   const delta = summary.delta || {};
   const aiScore = stats.aiScore || { current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [] };
   const forecast = stats.forecast || { horizon_days: 7, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, scenarios: { current: {}, plus30: {} }, points: [] };
-  const byPlatform = summary.by_platform || current.by_platform || { meta: { reach: 0, views: 0, items: 0 }, youtube: { reach: 0, views: 0, items: 0 } };
+  const byPlatform = summary.by_platform || current.by_platform || {
+    facebook: { reach: 0, views: 0, items: 0 },
+    instagram: { reach: 0, views: 0, items: 0 },
+    youtube: { reach: 0, views: 0, items: 0 },
+  };
   const points = Array.isArray(stats?.timeseries?.points) ? stats.timeseries.points : [];
   const aiPoints = Array.isArray(aiScore.timeseries) ? aiScore.timeseries : [];
   const insights = Array.isArray(stats.insights) ? stats.insights : [];
@@ -1494,11 +1780,23 @@ function pageDashboard() {
     return (t - Date.now()) <= 1000 * 60 * 60 * 24 * 3;
   };
   const metaReady = (state.connections || []).filter((c) => isConnectionReady(c));
-  const metaStatus = !metaReady.length ? 'needs' : (metaReady.some((c) => tokenExpiring(c.token_expires_at)) ? 'expiring' : 'connected');
+  const fbStatus = !metaReady.length ? 'needs' : (metaReady.some((c) => tokenExpiring(c.token_expires_at)) ? 'expiring' : 'connected');
+  const igReady = metaReady.filter((c) => String(c?.ig_user_id || '').trim());
+  const igStatus = !igReady.length ? 'needs' : (igReady.some((c) => tokenExpiring(c.token_expires_at)) ? 'expiring' : 'connected');
   const ytConnected = !!state.youtubeConnection?.connected;
   const ytStatus = ytConnected ? 'connected' : 'needs';
+  const hasConnectedChannels = fbStatus === 'connected' || igStatus === 'connected' || ytStatus === 'connected';
+  const hasGeneratedContent = Number(billing?.usage?.posts_per_month || 0) > 0 || Number(billing?.usage?.videos_per_month || 0) > 0;
+  const hasAnalyticsData = Number(current?.items || 0) > 0
+    || recent.length > 0
+    || points.some((p) => Number(p?.reach || 0) > 0 || Number(p?.views || 0) > 0 || Number(p?.engagement_rate || 0) > 0)
+    || ['facebook', 'instagram', 'youtube'].some((key) => Number(byPlatform?.[key]?.items || 0) > 0 || Number(byPlatform?.[key]?.reach || 0) > 0 || Number(byPlatform?.[key]?.views || 0) > 0);
+  const onboardingDismissed = localStorage.getItem(onboardingDismissKey) === '1';
+  const shouldShowOnboardingHero = !stats.loading && !hasAnalyticsData && !onboardingDismissed;
+  const shouldShowAnalyticsEmptyState = !stats.loading && !hasAnalyticsData;
 
-  const metaSeries = points.map((p) => Number(p.meta_reach || 0) + Number(p.meta_views || 0));
+  const fbSeries = points.map((p) => Number(p.facebook_reach || 0) + Number(p.facebook_views || 0));
+  const igSeries = points.map((p) => Number(p.instagram_reach || 0) + Number(p.instagram_views || 0));
   const ytSeries = points.map((p) => Number(p.youtube_reach || 0) + Number(p.youtube_views || 0));
   const buildSpark = (vals, css) => {
     if (!vals.length) return `<div class="dash-sparkline ${css}"></div>`;
@@ -1540,7 +1838,13 @@ function pageDashboard() {
   })();
   const chartUnit = chartMetric === 'engagement' ? 'percent' : (chartMetric === 'ai_score' ? 'score' : 'number');
   const chartValue = (v) => chartUnit === 'number' ? fmt(Math.round(v)) : `${Number(v || 0).toFixed(1)}${chartUnit === 'score' ? '' : '%'}`;
-  const chartTitle = { reach: 'Охват', views: 'Просмотры', engagement: 'Вовлеченность', ai_score: 'AI-Score' }[chartMetric] || 'Охват';
+  const chartTitle = { reach: 'Охват аудитории', views: 'Просмотры контента', engagement: 'Уровень вовлечённости', ai_score: 'AI-Score' }[chartMetric] || 'Охват аудитории';
+  const chartDescription = {
+    reach: 'Показывает, сколько людей увидели ваш контент по дням за последние 30 дней.',
+    views: 'Показывает, сколько просмотров набрал контент по дням за последние 30 дней.',
+    engagement: 'Показывает, как менялась вовлечённость: лайки, комментарии и репосты относительно охвата.',
+    ai_score: 'Показывает, как менялся AI-Score аккаунта на основе регулярности, вовлечённости и роста.',
+  }[chartMetric] || 'Показывает динамику результатов по дням за последние 30 дней.';
 
   const mainChartHtml = (() => {
     if (stats.loading) return '<div class="dash-skeleton dash-skeleton-chart"></div>';
@@ -1626,43 +1930,201 @@ function pageDashboard() {
       : '<tr><td colspan="6" class="small">Нет материалов за период.</td></tr>');
 
   const skeletonCards = '<div class="dash-skeleton-grid"><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div></div>';
-
-  return appLayout('/dashboard', 'Панель управления', `
-    <section class="dash-client-shell dash-v2-shell">
-      <header class="dash-card dash-hero glass-card">
-        <div>
-          <div class="dash-hero-topline">Ваш рост за 30 дней</div>
-          <div class="dash-hero-score-row">
-            <div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
-            <div class="dash-hero-score-meta">
-              <span>AI-Score / 100</span>
-              <strong class="${Number(aiScore.delta_vs_prev_period || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_vs_prev_period || 0)} к прошлым 30 дням</strong>
-            </div>
-          </div>
-          <div class="dash-hero-badge">данные: Meta + YouTube / период: 30 дней</div>
-          <button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>
+  const projectLimitLabel = Number(billing?.limits?.projects || 0) >= 999999 ? 'Без ограничений' : String(billing?.limits?.projects || '—');
+  const postsRemaining = Math.max(0, Number(billing?.remaining?.posts_generated ?? ((billing?.limits?.posts_per_month || 0) - (billing?.usage?.posts_per_month || 0))));
+  const videosRemaining = Math.max(0, Number(billing?.remaining?.videos_generated ?? ((billing?.limits?.videos_per_month || 0) - (billing?.usage?.videos_per_month || 0))));
+  const projectsRemaining = Number(billing?.limits?.projects || 0) >= 999999
+    ? 'без лимита'
+    : String(Math.max(0, Number(billing?.remaining?.projects ?? ((billing?.limits?.projects || 0) - (billing?.usage?.projects || 0)))));
+  const trialLine = billing.plan === 'free'
+    ? `<div class="small">Пробный период: <strong>${Number(billing.trial_days_left || 0)} дн.</strong>${billing.trial_ends_at ? ` · до ${esc(new Date(billing.trial_ends_at).toLocaleDateString('ru-RU'))}` : ''}</div>`
+    : '<div class="small">Платный тариф активен. Лимиты синхронизированы с backend.</div>';
+  const lockedItems = [];
+  if (!billing?.limits?.can_autopublish) lockedItems.push('Автопостинг');
+  if (String(billing?.limits?.analytics_level || 'none') === 'none') lockedItems.push('Аналитика');
+  const lockText = lockedItems.length ? lockedItems.join(', ') : 'Все ключевые функции доступны';
+  const trialExpiringSoon = billing.plan === 'free' && Number(billing.trial_days_left || 0) <= 2;
+  const nextBestStep = hasGeneratedContent
+    ? (hasConnectedChannels ? 'Синхронизируйте метрики или опубликуйте следующий материал.' : 'Подключите соцсети позже, а пока продолжайте генерировать контент.')
+    : 'Начните с первой темы и получите пост или структуру видео меньше чем за минуту.';
+  ensureDashboardQuickStartState();
+  const resolvedQuickNicheId = resolveDashboardActiveNicheId();
+  if (resolvedQuickNicheId && state.dashboardQuickStart.nicheId !== resolvedQuickNicheId) {
+    state.dashboardQuickStart.nicheId = resolvedQuickNicheId;
+  }
+  const dashboardNicheId = String(state.dashboardQuickStart.nicheId || '').trim();
+  const dashboardNicheMeta = dashboardNicheId ? dashboardQuickNicheMeta(dashboardNicheId) : null;
+  const quickActionCardsHtml = dashboardNicheId
+    ? DASHBOARD_QUICK_ACTIONS.map((action) => {
+      const access = getQuickActionAccess(action.key, billing);
+      const stateLabel = access.isLocked ? 'Locked' : (access.isPreview ? 'Preview' : 'Доступно');
+      const accessText = access.isPreview
+        ? 'Preview на вашем тарифе'
+        : (access.isLocked ? 'Недоступно на текущем тарифе' : 'Доступно на вашем тарифе');
+      const buttonLabel = access.isLocked ? 'Обновить тариф' : action.buttonLabel;
+      return `<article class="dash-quick-card glass-card dash-quick-card-${esc(action.size)} ${access.isLocked ? 'is-locked' : ''} ${access.isPreview ? 'is-preview' : ''}">
+        <div class="dash-quick-accent">${esc(action.accent)}</div>
+        <div class="dash-quick-topline">
+          <div class="dash-quick-meta">${esc(accessText)}</div>
+          <span class="dash-quick-status">${esc(stateLabel)}</span>
         </div>
-        <div class="dash-hero-kpis">
-          ${stats.loading ? skeletonCards : `
+        <h3>${esc(action.title)}</h3>
+        <p>${esc(action.description)}</p>
+        <div class="small">Ниша: <strong>${esc(dashboardNicheMeta?.label || '—')}</strong></div>
+        ${access.isLocked ? '<div class="small">На текущем тарифе действие закрыто. Откроется после апгрейда.</div>' : ''}
+        <button type="button" class="btn ${access.isLocked ? 'btn-ghost' : 'btn-primary'}" data-dash-quick-action="${esc(action.key)}">${esc(buttonLabel)}</button>
+      </article>`;
+    }).join('')
+    : '';
+  const quickStartShell = dashboardNicheId
+    ? `<section class="dash-card dash-quick-shell glass-card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+          <div style="max-width:760px;">
+            <div class="dash-hero-topline">Быстрый старт</div>
+            <h2 style="margin:10px 0 8px 0;">Что хотите создать?</h2>
+            <p class="small" style="margin:0;">Выберите действие и получите результат за пару кликов. На основе ниши <strong>${esc(dashboardNicheMeta?.label || '—')}</strong> AI подготовит идеи, структуру и готовые заготовки.</p>
+          </div>
+          <div class="dash-quick-controls">
+            ${selectField('dashQuickNiche', 'Ниша', dashboardNicheId, DIRECTOR_NICHE_OPTIONS)}
+          </div>
+        </div>
+        <div class="dash-quick-grid">${quickActionCardsHtml}</div>
+      </section>`
+    : `<section class="dash-card dash-quick-shell glass-card">
+        <div class="dash-quick-empty">
+          <div class="dash-hero-topline">Быстрый старт</div>
+          <h2 style="margin:10px 0 8px 0;">Сначала выберите нишу</h2>
+          <p class="small">Ниша нужна, чтобы контент-планы, серии постов, видео, hooks и CTA были релевантны именно вашему бизнесу.</p>
+          <div class="dash-quick-empty-controls">
+            ${selectField('dashQuickNiche', 'Ниша', '', [{ value: '', label: 'Выберите нишу' }].concat(DIRECTOR_NICHE_OPTIONS))}
+            <button id="dashQuickPickNicheBtn" class="btn btn-primary" type="button">Выбрать нишу</button>
+          </div>
+        </div>
+      </section>`;
+  const onboardingHero = shouldShowOnboardingHero ? `
+      <section class="card glass-card" style="margin-bottom:18px;border:1px solid rgba(54,102,255,.18);box-shadow:0 18px 48px rgba(15,26,61,.08);">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+          <div style="max-width:720px;">
+            <div class="pill active" style="margin-bottom:10px;">Добро пожаловать в AutoSocial</div>
+            <h2 style="margin:0 0 8px 0;">Начните с первого результата, а не с пустой аналитики</h2>
+            <p class="small" style="margin:0 0 12px 0;">Ваш план: <strong>${esc(billing.plan_title || planBadge(billing.plan || 'free').replace(/<[^>]+>/g, ''))}</strong>. Осталось: <strong>${postsRemaining}</strong> постов, <strong>${videosRemaining}</strong> видео, <strong>${esc(projectsRemaining)}</strong> проекта. ${trialExpiringSoon ? 'Trial скоро закончится, поэтому лучше получить первый результат сейчас.' : 'Первый результат можно получить меньше чем за минуту.'}</p>
+            <div class="cta-row">
+              <button id="dashFirstPostBtn" class="btn btn-primary" type="button">Создать первый пост</button>
+              <button id="dashFirstVideoBtn" class="btn btn-secondary" type="button">Создать первое видео</button>
+              <button id="dashConnectChannelsBtn" class="btn btn-ghost" type="button">Подключить соцсети</button>
+            </div>
+            <div class="small" style="margin-top:10px;">${hasConnectedChannels ? 'Каналы уже можно использовать для публикации и синхронизации.' : 'Сначала можно сгенерировать контент, а подключить каналы позже для автопостинга и аналитики.'}</div>
+          </div>
+          <button id="dashDismissOnboardingBtn" class="btn btn-ghost" type="button">Скрыть</button>
+        </div>
+        <div class="grid-3" style="margin-top:16px;">
+          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 1</div><strong>Выберите тему или получите идеи</strong><p class="small" style="margin:8px 0 0 0;">AI предложит темы и варианты подачи, если не хотите начинать с пустого поля.</p></article>
+          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 2</div><strong>Сгенерируйте пост или структуру видео</strong><p class="small" style="margin:8px 0 0 0;">Получите первый черновик сразу и отредактируйте его при необходимости.</p></article>
+          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 3</div><strong>Опубликуйте сейчас или подключите каналы позже</strong><p class="small" style="margin:8px 0 0 0;">Контент можно подготовить заранее, а автопостинг включить после подключения соцсетей.</p></article>
+        </div>
+      </section>` : '';
+  const analyticsEmptyState = shouldShowAnalyticsEmptyState ? `
+        <section class="card glass-card" style="margin-bottom:18px;">
+          <h3 style="margin-top:0;">Аналитика появится после первых публикаций</h3>
+          <p class="small">Сейчас панель не пустая и не сломана: данные подтянутся после публикаций и синхронизации. Пока главный путь к value - создать первый пост или первое видео.</p>
+          <div class="cta-row">
+            <button id="dashEmptyCreateBtn" class="btn btn-primary" type="button">Начать с контента</button>
+            <button id="dashEmptySyncBtn" class="btn btn-ghost" type="button">Понятно</button>
+          </div>
+        </section>` : '';
+  const analyticsHeader = shouldShowAnalyticsEmptyState ? 'Первые данные появятся после публикаций' : 'Ваш рост за 30 дней';
+  const analyticsBadge = shouldShowAnalyticsEmptyState ? 'Пока нет данных для графиков - сначала создайте и опубликуйте контент' : 'данные: Facebook + Instagram + YouTube / период: 30 дней';
+  const analyticsHeroButton = shouldShowAnalyticsEmptyState
+    ? '<button id="dashOpenCreateBtn" class="btn btn-primary" type="button">Начать с контента</button>'
+    : '<button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>';
+  const analyticsHeroKpis = shouldShowAnalyticsEmptyState
+    ? `<article class="dash-kpi-card glass-card"><p>Следующий шаг</p><strong>Создать</strong><small>${esc(nextBestStep)}</small></article>
+       <article class="dash-kpi-card glass-card"><p>Каналы</p><strong>${hasConnectedChannels ? 'Есть' : 'Пока нет'}</strong><small>${hasConnectedChannels ? 'Можно публиковать и синхронизировать.' : 'Сначала можно работать без подключений.'}</small></article>
+       <article class="dash-kpi-card glass-card"><p>Trial</p><strong>${billing.plan === 'free' ? `${Number(billing.trial_days_left || 0)} дн.` : 'Активен'}</strong><small>${billing.plan === 'free' ? 'Покажите первую ценность до конца пробного периода.' : 'Лимиты и доступ уже активны.'}</small></article>
+       <article class="dash-kpi-card glass-card"><p>Лимиты</p><strong>${postsRemaining}/${videosRemaining}</strong><small>Осталось постов / видео в текущем периоде.</small></article>`
+    : (stats.loading ? skeletonCards : `
             <article class="dash-kpi-card glass-card"><p>Охват</p><strong>${fmt(current.reach)}</strong><small class="${Number(delta?.reach?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.reach)}</small></article>
             <article class="dash-kpi-card glass-card"><p>Просмотры</p><strong>${fmt(current.views)}</strong><small class="${Number(delta?.views?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.views)}</small></article>
             <article class="dash-kpi-card glass-card"><p>Уровень вовлеченности</p><strong>${pct(current.engagement_rate || 0)}</strong><small class="${Number(delta?.engagement_rate?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.engagement_rate)}</small></article>
             <article class="dash-kpi-card glass-card"><p>Количество постов</p><strong>${fmt(current.items)}</strong><small class="${Number(delta?.items?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.items)}</small></article>
-          `}
+          `);
+
+  return appLayout('/dashboard', 'Панель управления', `
+    <section class="dash-client-shell dash-v2-shell">
+      ${onboardingHero}
+      ${quickStartShell}
+      <header class="dash-card dash-hero glass-card">
+        <div>
+          <div class="dash-hero-topline">${analyticsHeader}</div>
+          <div class="dash-hero-score-row">
+            ${shouldShowAnalyticsEmptyState
+              ? `<div class="dash-hero-score">1</div>
+                 <div class="dash-hero-score-meta">
+                   <span>Лучший следующий шаг</span>
+                   <strong class="is-positive">Создать первый контент и получить первые данные</strong>
+                 </div>`
+              : `<div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
+                 <div class="dash-hero-score-meta">
+                   <span>AI-Score / 100</span>
+                   <strong class="${Number(aiScore.delta_vs_prev_period || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_vs_prev_period || 0)} к прошлым 30 дням</strong>
+                 </div>`}
+          </div>
+          <div class="dash-hero-badge">${analyticsBadge}</div>
+          ${analyticsHeroButton}
+        </div>
+        <div class="dash-hero-kpis">
+          ${analyticsHeroKpis}
           <div class="cta-row">
-            <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : 'Синхронизировать'}</button>
-            <button id="dashCreatePostBtn" class="btn btn-secondary">Создать пост</button>
+            <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : (shouldShowAnalyticsEmptyState ? 'Синхронизировать позже' : 'Синхронизировать')}</button>
+            <button id="dashCreatePostBtn" class="btn btn-secondary">${shouldShowAnalyticsEmptyState ? 'Создать первый пост' : 'Создать пост'}</button>
           </div>
         </div>
       </header>
       <main class="dash-client-content">
-        <section class="dash-platform-grid">
+        <section class="grid-2" style="margin-bottom:18px;">
+          <article class="card glass-card">
+            <h3 style="margin-top:0;">Текущий план</h3>
+            <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div class="small">План</div>
+                <div style="margin-top:6px;">${planBadge(billing.plan || 'free')}</div>
+              </div>
+              <button type="button" class="btn btn-primary" data-link="/billing">Апгрейд</button>
+            </div>
+            <div class="small" style="margin-top:12px;">Посты: <strong>${Number(billing?.usage?.posts_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.posts_per_month || 0)}</strong></div>
+            <div class="small" style="margin-top:6px;">Видео: <strong>${Number(billing?.usage?.videos_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.videos_per_month || 0)}</strong></div>
+            <div class="small" style="margin-top:6px;">Проекты: <strong>${Number(billing?.usage?.projects || 0)}</strong> / <strong>${esc(projectLimitLabel)}</strong></div>
+            <div class="small" style="margin-top:6px;">Locked / недоступно: <strong>${esc(lockText)}</strong></div>
+            <div style="margin-top:10px;">${trialLine}</div>
+          </article>
+          <article class="card glass-card">
+            <h3 style="margin-top:0;">Что доступно сейчас</h3>
+            <ul class="small">
+              <li>Автопостинг: <strong>${billing?.limits?.can_autopublish ? 'Да' : 'Нет'}</strong></li>
+              <li>Планирование: <strong>${billing?.limits?.can_schedule ? 'Да' : 'Нет'}</strong></li>
+              <li>Аналитика: <strong>${esc(String(billing?.limits?.analytics_level || 'none'))}</strong></li>
+              <li>Шаблоны по нишам: <strong>${esc(String(billing?.limits?.niche_templates || 'limited'))}</strong></li>
+            </ul>
+            <p class="small">${Number(billing?.usage?.posts_per_month || 0) <= 0 && Number(billing?.usage?.videos_per_month || 0) <= 0
+              ? 'Следующий шаг: откройте «Создать», выберите тему и получите первый пост или структуру видео за несколько минут.'
+              : 'Если лимит закончится или функция недоступна, paywall должен вести на страницу тарифа без ложных кнопок и пустых действий.'}</p>
+          </article>
+        </section>
+        ${analyticsEmptyState}
+        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-platform-grid">
           <article class="dash-platform-card glass-card">
-            <div class="dash-platform-head"><h4>Meta</h4><span class="dash-status-chip ${statusClass(metaStatus)}">${statusLabel(metaStatus)}</span></div>
-            <p>Охват: <strong>${fmt(byPlatform.meta?.reach)}</strong></p>
-            <p>Просмотры: <strong>${fmt(byPlatform.meta?.views)}</strong></p>
-            <p class="small">Контент-единиц: ${fmt(byPlatform.meta?.items)}</p>
-            ${buildSpark(metaSeries, 'meta')}
+            <div class="dash-platform-head"><h4>Facebook</h4><span class="dash-status-chip ${statusClass(fbStatus)}">${statusLabel(fbStatus)}</span></div>
+            <p>Охват: <strong>${fmt(byPlatform.facebook?.reach)}</strong></p>
+            <p>Просмотры: <strong>${fmt(byPlatform.facebook?.views)}</strong></p>
+            <p class="small">Контент-единиц: ${fmt(byPlatform.facebook?.items)}</p>
+            ${buildSpark(fbSeries, 'facebook')}
+          </article>
+          <article class="dash-platform-card glass-card">
+            <div class="dash-platform-head"><h4>Instagram</h4><span class="dash-status-chip ${statusClass(igStatus)}">${statusLabel(igStatus)}</span></div>
+            <p>Охват: <strong>${fmt(byPlatform.instagram?.reach)}</strong></p>
+            <p>Просмотры: <strong>${fmt(byPlatform.instagram?.views)}</strong></p>
+            <p class="small">Контент-единиц: ${fmt(byPlatform.instagram?.items)}</p>
+            ${buildSpark(igSeries, 'instagram')}
           </article>
           <article class="dash-platform-card glass-card">
             <div class="dash-platform-head"><h4>YouTube</h4><span class="dash-status-chip ${statusClass(ytStatus)}">${statusLabel(ytStatus)}</span></div>
@@ -1671,20 +2133,23 @@ function pageDashboard() {
             <p class="small">Контент-единиц: ${fmt(byPlatform.youtube?.items)}</p>
             ${buildSpark(ytSeries, 'youtube')}
           </article>
-        </section>
-        <section class="dash-card glass-card">
+        </section>`}
+        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <h3>Динамика метрик</h3>
+            <div>
+              <h3>График результатов за 30 дней</h3>
+              <p class="small">${esc(chartDescription)}</p>
+            </div>
             <div class="dash-metric-switch" role="tablist" aria-label="Metric switch">
-              <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">Охват</button>
+              <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">Охват аудитории</button>
               <button type="button" data-dash-metric="views" class="${chartMetric === 'views' ? 'active' : ''}">Просмотры</button>
-              <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">Вовлеченность</button>
+              <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">Вовлечённость</button>
               <button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>
             </div>
           </div>
           ${mainChartHtml}
-        </section>
-        <section class="dash-card glass-card">
+        </section>`}
+        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div>
               <h3>Прогноз</h3>
@@ -1704,8 +2169,8 @@ function pageDashboard() {
             <div><strong>Текущий темп</strong><p class="small">${Number(forecast?.scenarios?.current?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.current?.reach || 0)}</p></div>
             <div><strong>+30% частоты</strong><p class="small">${Number(forecast?.scenarios?.plus30?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.plus30?.reach || 0)}</p></div>
           </div>
-        </section>
-        <section class="dash-card dash-ai-card glass-card">
+        </section>`}
+        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card dash-ai-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div>
               <h3>AI-инсайты</h3>
@@ -1717,10 +2182,10 @@ function pageDashboard() {
             </div>
           </div>
           <div class="dash-insights-grid">${stats.loading ? skeletonCards : insightCards}</div>
-        </section>
-        <section class="dash-card glass-card">
+        </section>`}
+        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <h3>Последний контент</h3>
+            <h3>Опубликованные посты</h3>
             <div class="dash-sort-row">
               <button type="button" class="${recentSort === 'reach' ? 'active' : ''}" data-dash-sort="reach">Сортировка по охвату</button>
               <button type="button" class="${recentSort === 'views' ? 'active' : ''}" data-dash-sort="views">Сортировка по просмотрам</button>
@@ -1742,7 +2207,7 @@ function pageDashboard() {
               <tbody>${recentRows}</tbody>
             </table>
           </div>
-        </section>
+        </section>`}
       </main>
       ${stats.aiBreakdownOpen ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
         <div class="dash-modal glass-card">
@@ -2043,20 +2508,44 @@ function pageConnections() {
     if (s === 'token_expired' || s === 'permissions_missing' || s === 'disconnected') return { action: 'reconnect', label: 'Переподключить' };
     return { action: 'retry', label: 'Повторить' };
   };
+  const renderConnectionAvatar = (imageUrl, fallbackText, extraClass = '') => {
+    const cls = `avatar connection-brand-avatar ${extraClass}`.trim();
+    if (imageUrl) return `<span class="${cls}"><img src="${esc(imageUrl)}" alt="" loading="lazy" /></span>`;
+    return `<span class="${cls}">${esc((safeText(fallbackText, 'A')[0] || 'A').toUpperCase())}</span>`;
+  };
+  const platformIcons = {
+    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.8l.4-3h-3.2V9.1c0-.9.3-1.6 1.7-1.6H17V4.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.3V11H8v3h2.2v7h3.3z" fill="currentColor"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2" ry="5.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/></svg>',
+    youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.2 8.2a2.8 2.8 0 0 0-2-2c-1.8-.5-7.2-.5-7.2-.5s-5.4 0-7.2.5a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2.3 12a29 29 0 0 0 .5 3.8 2.8 2.8 0 0 0 2 2c1.8.5 7.2.5 7.2.5s5.4 0 7.2-.5a2.8 2.8 0 0 0 2-2 29 29 0 0 0 .5-3.8 29 29 0 0 0-.5-3.8z" fill="currentColor"/><path d="M10 15.3l5.2-3.3L10 8.7v6.6z" fill="#fff"/></svg>',
+  };
+  const renderPlatformMini = (label, kind) => `<span class="connection-platform-mini connection-platform-mini-${esc(kind)}">${platformIcons[kind] || ''}<span>${esc(label)}</span></span>`;
 
-  const visibleMetaConnections = (state.connections || []).filter((c) => {
-    const status = String(c?.status || '').toLowerCase();
-    if (status !== 'not_connected' && status !== 'disconnected') return true;
-    return !!(c?.facebook_page_id || c?.facebook_page_name || c?.instagram_business_id || c?.page_id || c?.token_expires_at);
-  });
+  const visibleMetaConnections = (() => {
+    const base = (state.connections || []).filter((c) => {
+      const status = String(c?.status || '').toLowerCase();
+      if (status !== 'not_connected' && status !== 'disconnected') return true;
+      return !!(c?.facebook_page_id || c?.facebook_page_name || c?.instagram_business_id || c?.page_id || c?.token_expires_at);
+    });
+    const seen = new Set();
+    return base.filter((c) => {
+      const dedupeKey = [
+        String(c?.facebook_page_id || c?.page_id || '').trim().toLowerCase(),
+        String(c?.instagram_business_id || c?.ig_user_id || '').trim().toLowerCase(),
+        String(c?.facebook_page_name || c?.page_name || '').trim().toLowerCase(),
+      ].join('|');
+      if (!dedupeKey.replace(/\|/g, '')) return true;
+      if (seen.has(dedupeKey)) return false;
+      seen.add(dedupeKey);
+      return true;
+    });
+  })();
 
   const metaCards = visibleMetaConnections.length
     ? `${visibleMetaConnections.map((c) => {
         const status = String(c.status || 'not_connected').toLowerCase();
         const primary = primaryByStatus(status);
-        const avatar = c.facebook_page_picture_url
-          ? `<span class="avatar"><img src="${esc(c.facebook_page_picture_url)}" alt="" /></span>`
-          : `<span class="avatar">${esc((safeText(c.facebook_page_name, 'P')[0] || 'P').toUpperCase())}</span>`;
+        const avatar = renderConnectionAvatar(c.facebook_page_picture_url, c.facebook_page_name || 'Facebook', 'connection-brand-avatar-meta');
+        const brandTitle = safeText(c.facebook_page_name, 'Страница Facebook');
         const pageLine = c.facebook_page_name
           ? `${esc(c.facebook_page_name)}`
           : `<span class="small">Страница не выбрана</span>`;
@@ -2066,32 +2555,26 @@ function pageConnections() {
         const howToFix = c.status_help_text || 'Проверьте детали подключения.';
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         const canAddPage = status === 'connected_ready' || status === 'connected' || status === 'connected_need_page';
-        const statusText = status === 'connected_ready' || status === 'connected' ? 'Готово к публикации' : 'Требуется действие';
-        const syncText = canRefresh ? 'Live sync' : 'Ограничено';
+        const statusText = status === 'connected_ready' || status === 'connected' ? 'Готово' : 'Нужно действие';
+        const syncText = canRefresh ? 'Синхронизация OK' : 'Ограничено';
         const pageHealth = c.facebook_page_name ? 'Страница привязана' : 'Страница не выбрана';
         const igHealth = c.instagram_business_id ? 'IG business активен' : 'IG business не найден';
         return `<article class="card connection-card">
           <div class="row connection-head">
             <div>
-              <div class="row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">Enterprise Ready</span></div>
-              <div class="row connection-title-row">${avatar}<h3 class="connection-title">Facebook + Instagram</h3></div>
-              <div class="small connection-subtitle">Подключение для автопостинга. Токены не показываем.</div>
+              <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">Автопостинг</span></div>
+              <div class="row connection-title-row">${avatar}<div><h3 class="connection-title">${esc(brandTitle)}</h3><div class="connection-platform-stack">${renderPlatformMini('Facebook', 'facebook')}${renderPlatformMini('Instagram', 'instagram')}</div></div></div>
+              <div class="small connection-subtitle">Подключённый бренд-аккаунт для публикации в Facebook и Instagram.</div>
             </div>
             <div>${statusBadge(status)}</div>
-          </div>
-          <div class="connection-features">
-            <span class="pill">Facebook Page</span>
-            <span class="pill">Instagram Business</span>
-            <span class="pill">Secure OAuth</span>
           </div>
           <div class="grid-2 connection-grid-info">
             <div class="connection-identity"><span class="connection-label">Facebook Page</span><div class="connection-main-text">${pageLine}</div></div>
             <div class="connection-identity"><span class="connection-label">Instagram Business</span><div class="connection-main-text">${igLine}</div></div>
           </div>
-          <div class="connection-kpis">
+          <div class="connection-kpis connection-kpis-compact">
             <div class="connection-kpi"><strong>${esc(statusText)}</strong><span>Состояние публикации</span></div>
             <div class="connection-kpi"><strong>${esc(syncText)}</strong><span>Статус синхронизации</span></div>
-            <div class="connection-kpi"><strong>${esc(c.token_expires_at ? 'Token tracked' : 'Token active')}</strong><span>Контроль токена</span></div>
           </div>
           <div class="connection-hint-wrap">
             <div class="small connection-hint">${esc(howToFix)}</div>
@@ -2113,9 +2596,9 @@ function pageConnections() {
     <article class="card connection-card yt-connection-card">
       <div class="row connection-head">
         <div>
-          <div class="row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">Creator Suite</span></div>
-          <div class="row connection-title-row"><span class="avatar yt-avatar"><svg class="yt-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.2" width="19" height="11.6" rx="4.2" fill="currentColor"></rect><path d="M10 9.3v5.4l4.9-2.7-4.9-2.7z" fill="#fff"></path></svg></span><h3 class="connection-title">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3></div>
-          <div class="small connection-subtitle">YouTube подключен. Можно открывать студию и генерировать ролики/посты.</div>
+          <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">Видео и Shorts</span></div>
+          <div class="row connection-title-row">${renderConnectionAvatar(y.channel_picture_url, y.channel_name || 'YouTube', 'connection-brand-avatar-youtube')}<div><h3 class="connection-title">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3><div class="connection-platform-stack">${renderPlatformMini('YouTube', 'youtube')}</div></div></div>
+          <div class="small connection-subtitle">Подключённый канал для роликов, Shorts и постов сообщества.</div>
         </div>
         <div>${statusBadge(y.status || 'connected_ready')}</div>
       </div>
@@ -2124,14 +2607,12 @@ function pageConnections() {
         <span class="pill">Long 120-480с</span>
         <span class="pill">AI Script + Post</span>
       </div>
-      <div class="grid-2 connection-grid-info">
-        <div class="connection-identity"><span class="connection-label">Channel ID</span><div class="connection-main-text">${esc(safeText(y.channel_id, 'не указан'))}</div></div>
-        <div class="connection-identity"><span class="connection-label">Статус</span><div class="connection-main-text">${esc(safeText(y.status, 'connected_ready'))}</div></div>
+      <div class="connection-grid-info">
+        <div class="connection-identity"><span class="connection-label">Канал</span><div class="connection-main-text">${esc(safeText(y.channel_name, 'YouTube канал'))}</div></div>
       </div>
-      <div class="connection-kpis">
-        <div class="connection-kpi"><strong>Ready</strong><span>Контент-пайплайн</span></div>
-        <div class="connection-kpi"><strong>Multi-format</strong><span>Shorts и Long</span></div>
-        <div class="connection-kpi"><strong>SaaS Control</strong><span>В одной панели</span></div>
+      <div class="connection-kpis connection-kpis-compact">
+        <div class="connection-kpi"><strong>Готово</strong><span>Контент-пайплайн</span></div>
+        <div class="connection-kpi"><strong>Мультиформат</strong><span>Shorts и long-form</span></div>
       </div>
       <div class="connection-hint-wrap">
         <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
@@ -2177,16 +2658,20 @@ function pageConnections() {
 
   const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterNotConnectedBtn" class="btn btn-ghost">Неподключенные</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
 
-  const connectYoutubeBtn = youtubeConnected ? '' : '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button">Подключить YouTube</button>';
-  return appLayout('/connections', 'Подключения', `<section class="card"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. Если страниц Meta несколько, выберите нужную.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Facebook</button>${connectYoutubeBtn}</div>${cards}</section>${modal}`);
+  const connectYoutubeBtn = youtubeConnected
+    ? '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button" disabled>YouTube подключён</button>'
+    : '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button">Подключить YouTube</button>';
+  return appLayout('/connections', 'Подключения', `<section class="card connection-shell"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. В карточке показывается реальное лого подключённой страницы или канала.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Meta</button>${connectYoutubeBtn}</div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
   const planMap = {};
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
+  const marketingMap = Object.fromEntries(MARKETING_PRICING_PLANS.map((p) => [p.key, p]));
   const f = (name, key, fallback = '-') => planMap[name]?.[key] ?? fallback;
   const yesNo = (v) => (v ? 'Да' : 'Нет');
   const price = (name) => {
+    if (marketingMap[name]?.price) return marketingMap[name].price;
     const v = planMap[name]?.price_eur_month;
     if (v === undefined || v === null) return '—';
     const n = Number(v) || 0;
@@ -2194,50 +2679,113 @@ function plansTable() {
   };
   const projects = (name) => {
     const v = planMap[name]?.max_projects;
-    if (String(name) === 'agency') return 'Без ограничений';
+    if (Number(v || 0) >= 999999 || String(name) === 'agency') return 'Без ограничений';
     return v ?? '—';
   };
-  const templates = (name) => yesNo(!!planMap[name]?.templates_enabled);
-  const team = (name) => {
-    const v = planMap[name]?.team_seats;
-    return v ? `${v}` : '—';
+  const analytics = (name) => {
+    const key = String(planMap[name]?.analytics_level || 'none').toLowerCase();
+    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
   };
-  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>Функция</th><th>Free</th><th>Light</th><th>Pro</th><th>Agency</th></tr></thead><tbody>
-    <tr><td>Цена / месяц</td><td>${price('free')}</td><td>${price('light')}</td><td>${price('pro')}</td><td>${price('agency')}</td></tr>
-    <tr><td>Постов / месяц</td><td>${f('free','max_posts_month',10)}</td><td>${f('light','max_posts_month',300)}</td><td>${f('pro','max_posts_month',1000)}</td><td>${f('agency','max_posts_month',5000)}</td></tr>
-    <tr><td>Проекты</td><td>${projects('free')}</td><td>${projects('light')}</td><td>${projects('pro')}</td><td>${projects('agency')}</td></tr>
-    <tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('light','can_schedule',true))}</td><td>${yesNo(f('pro','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr>
-    <tr><td>Автопубликация</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('light','can_autopublish',true))}</td><td>${yesNo(f('pro','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
-    <tr><td>Шаблоны</td><td>${templates('free')}</td><td>${templates('light')}</td><td>${templates('pro')}</td><td>${templates('agency')}</td></tr>
-    <tr><td>Команда</td><td>—</td><td>—</td><td>—</td><td>${team('agency')}</td></tr>
+  const templates = (name) => {
+    const key = String(planMap[name]?.niche_templates || 'limited').toLowerCase();
+    return key === 'full' ? 'Полные' : (key === 'standard' ? 'Стандартные' : 'Ограниченные');
+  };
+  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>Функция</th><th>Free Trial</th><th>Starter</th><th>Growth</th><th>Agency</th></tr></thead><tbody>
+    <tr><td>Цена / месяц</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
+    <tr><td>Пробный период</td><td>7 дней</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Постов / месяц</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
+    <tr><td>Видео / месяц</td><td>${f('free','max_videos_period',3)}</td><td>${f('starter','max_videos_period',10)}</td><td>${f('growth','max_videos_period',40)}</td><td>${f('agency','max_videos_period',150)}</td></tr>
+    <tr><td>Проекты</td><td>${projects('free')}</td><td>${projects('starter')}</td><td>${projects('growth')}</td><td>${projects('agency')}</td></tr>
+    <tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('starter','can_schedule',true))}</td><td>${yesNo(f('growth','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr>
+    <tr><td>Автопостинг</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
+    <tr><td>Аналитика</td><td>${analytics('free')}</td><td>${analytics('starter')}</td><td>${analytics('growth')}</td><td>${analytics('agency')}</td></tr>
+    <tr><td>Шаблоны по нишам</td><td>${templates('free')}</td><td>${templates('starter')}</td><td>${templates('growth')}</td><td>${templates('agency')}</td></tr>
   </tbody></table></div>`;
 }
 
 function pricingCards() {
   const planMap = {};
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
+  const marketingMap = Object.fromEntries(MARKETING_PRICING_PLANS.map((p) => [p.key, p]));
+  const marketingFeatures = {
+    free: { posts: '30', videos: '3', projects: '1', autopublish: false, analytics: 'none' },
+    starter: { posts: '150', videos: '10', projects: '2', autopublish: true, analytics: 'basic' },
+    growth: { posts: '600', videos: '40', projects: '5', autopublish: true, analytics: 'basic' },
+    agency: { posts: '2000', videos: '150', projects: 'Без ограничений', autopublish: true, analytics: 'advanced' },
+  };
 
   const stripe = state.billing?.stripe || {};
   const stripeReady = !!stripe.subscriptions_ready;
-  const current = String(state.user?.plan || 'free').toLowerCase();
-  const order = ['free', 'light', 'pro', 'agency'];
+  const current = String(state.billing?.plan || state.user?.plan || 'free').toLowerCase();
+  const order = ['free', 'starter', 'growth', 'agency'];
   const meta = {
-    free: { title: 'Free', desc: 'Для теста: подключили соцсети, сделали первые посты.' },
-    light: { title: 'Light', desc: 'Для малого бизнеса: регулярные посты и планирование.' },
-    pro: { title: 'Pro', desc: 'Для тех, кто хочет автопостинг и стабильный поток контента.', highlight: true },
-    agency: { title: 'Agency', desc: 'Для агентств и команд: много проектов и лимитов.' },
+    free: { title: marketingMap.free?.name || 'Free Trial 7 days', desc: marketingMap.free?.desc || 'Чтобы попробовать генерацию контента и понять сценарий работы.' },
+    starter: { title: marketingMap.starter?.name || 'Starter', desc: marketingMap.starter?.desc || 'Для малого бизнеса и соло-специалиста.' },
+    growth: { title: marketingMap.growth?.name || 'Growth', desc: marketingMap.growth?.desc || 'Основной тариф для стабильного контент-потока и автопостинга.', highlight: true },
+    agency: { title: marketingMap.agency?.name || 'Agency', desc: marketingMap.agency?.desc || 'Для агентств и нескольких клиентов.' },
+    admin: { title: 'Admin Unlimited', desc: 'Внутренний безлимитный тариф администратора с полным доступом.' },
   };
   const price = (name) => {
+    if (marketingMap[name]?.price) return marketingMap[name].price;
     const v = planMap[name]?.price_eur_month;
     const n = Number(v) || 0;
     return n <= 0 ? '€0' : `€${n}`;
   };
-  const projects = (name) => (name === 'agency' ? 'Без ограничений' : (planMap[name]?.max_projects ?? '—'));
-  const posts = (name) => (planMap[name]?.max_posts_month ?? '—');
-  const daily = (name) => (planMap[name]?.max_daily_posts ?? '—');
+  const projects = (name) => {
+    const live = planMap[name]?.max_projects;
+    if (Number(live || 0) >= 999999 || name === 'agency') return 'Без ограничений';
+    if (live !== undefined && live !== null && String(live).trim() !== '') return live;
+    return marketingFeatures[name]?.projects ?? '—';
+  };
+  const posts = (name) => {
+    const live = planMap[name]?.max_posts_month;
+    if (live !== undefined && live !== null && String(live).trim() !== '') return live;
+    return marketingFeatures[name]?.posts ?? '—';
+  };
+  const videos = (name) => {
+    const live = planMap[name]?.max_videos_period;
+    if (live !== undefined && live !== null && String(live).trim() !== '') return live;
+    return marketingFeatures[name]?.videos ?? '—';
+  };
+  const autopublish = (name) => {
+    if (typeof planMap[name]?.can_autopublish === 'boolean') return !!planMap[name].can_autopublish;
+    return !!marketingFeatures[name]?.autopublish;
+  };
+  const analytics = (name) => {
+    const key = String(planMap[name]?.analytics_level || marketingFeatures[name]?.analytics || 'none').toLowerCase();
+    return key === 'advanced' ? 'advanced' : (key === 'basic' ? 'basic' : 'none');
+  };
+  const analyticsLabel = (name) => {
+    const key = analytics(name);
+    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
+  };
   const yesNo = (v) => (v ? 'Да' : 'Нет');
+  const adminCard = current === 'admin'
+    ? `<article class="card plan-card highlight">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div>
+            <div class="plan-title">${esc(meta.admin.title)}</div>
+            <div class="plan-price">Безлимит<span class="plan-price-suffix">/internal</span></div>
+            <div class="small muted" style="margin-top:6px;">${esc(meta.admin.desc)}</div>
+          </div>
+          <div>${planBadge('admin')}</div>
+        </div>
+        <div class="plan-features">
+          <div class="small"><strong>Без лимита</strong> постов/мес</div>
+          <div class="small"><strong>Без лимита</strong> видео/мес</div>
+          <div class="small"><strong>Без лимита</strong> проектов</div>
+          <div class="small">Автопостинг: <strong>Да</strong></div>
+          <div class="small">Аналитика: <strong>Расширенная</strong></div>
+        </div>
+        <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
+          <button class="btn btn-secondary" disabled>Текущий внутренний тариф</button>
+          <span class="hint-pill">Admin</span>
+        </div>
+      </article>`
+    : '';
 
   return `<div class="pricing-grid">
+    ${adminCard}
     ${order.map((name) => {
       const m = meta[name] || { title: name, desc: '' };
       const isCurrent = current === name;
@@ -2247,7 +2795,7 @@ function pricingCards() {
         : canUpgrade
           ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">Перейти на ${esc(m.title)}</button>`
           : name === 'free'
-            ? `<button class="btn btn-ghost" disabled>Бесплатно</button>`
+            ? `<button class="btn btn-ghost" disabled>Активируется при регистрации</button>`
             : `<button class="btn btn-ghost" disabled title="Stripe не настроен">Оплата недоступна</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -2260,10 +2808,10 @@ function pricingCards() {
         </div>
         <div class="plan-features">
           <div class="small"><strong>${posts(name)}</strong> постов/мес</div>
+          <div class="small"><strong>${videos(name)}</strong> видео/мес</div>
           <div class="small"><strong>${projects(name)}</strong> проектов</div>
-          <div class="small"><strong>${daily(name)}</strong> постов/день</div>
-          <div class="small">Планирование: <strong>${yesNo(!!planMap[name]?.can_schedule)}</strong></div>
-          <div class="small">Автопостинг: <strong>${yesNo(!!planMap[name]?.can_autopublish)}</strong></div>
+          <div class="small">Автопостинг: <strong>${yesNo(autopublish(name))}</strong></div>
+          <div class="small">Аналитика: <strong>${esc(analyticsLabel(name))}</strong></div>
         </div>
         <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
           ${btn}
@@ -2500,26 +3048,38 @@ function pageBilling() {
   const stripe = b.stripe || {};
   const usedMonth = b.usage.posts_per_month || 0;
   const limitMonth = b.limits.posts_per_month || 0;
+  const usedVideos = b.usage.videos_per_month || 0;
+  const limitVideos = b.limits.videos_per_month || 0;
+  const usedProjects = b.usage.projects || 0;
+  const limitProjects = b.limits.projects || 0;
   const usedDaily = b.usage.daily_posts || 0;
   const limitDaily = b.limits.daily_posts || 0;
   const monthlyUnlimited = Number(limitMonth) >= 1000000000;
+  const videosUnlimited = Number(limitVideos) >= 1000000000;
+  const projectsUnlimited = Number(limitProjects) >= 999999;
   const dailyUnlimited = Number(limitDaily) >= 1000000000;
   const monthMax = monthlyUnlimited ? Math.max(Number(usedMonth) || 0, 1) : Math.max(Number(limitMonth) || 0, 1);
+  const videoMax = videosUnlimited ? Math.max(Number(usedVideos) || 0, 1) : Math.max(Number(limitVideos) || 0, 1);
+  const projectsMax = projectsUnlimited ? Math.max(Number(usedProjects) || 0, 1) : Math.max(Number(limitProjects) || 0, 1);
   const dayMax = dailyUnlimited ? Math.max(Number(usedDaily) || 0, 1) : Math.max(Number(limitDaily) || 0, 1);
   const stripeHint = stripe.subscriptions_ready
     ? ''
     : `<section class="card" style="margin-bottom:18px;">
          <h3>Оплата временно недоступна</h3>
-         <p class="small">Stripe не настроен: добавьте STRIPE_SECRET_KEY в server .env.</p>
+         <p class="small">${b.plan === 'admin' ? 'Для администратора checkout не нужен: активен внутренний безлимитный тариф.' : 'Stripe не настроен: добавьте STRIPE_SECRET_KEY в server .env.'}</p>
        </section>`;
+  const analyticsLevelLabel = (() => {
+    const key = String(b.limits.analytics_level || 'none').toLowerCase();
+    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
+  })();
 
   const billingInfo = `<section class="grid-2" style="margin-bottom:18px;">
     <article class="card">
       <h2 style="margin-bottom:6px;">Тарифы и биллинг</h2>
-      <p class="small">Платите за автопостинг и удобство. Лимиты отображаются в постах.</p>
-      <p class="small muted" style="margin-top:8px;">Важно: у Instagram есть лимит публикаций через API на один IG Business (обычно до ~100 за 24 часа). Если подключений несколько, система распределяет нагрузку.</p>
+      <p class="small">Текущий план: <strong>${esc(b.plan_title || planBadge(b.plan || 'free').replace(/<[^>]+>/g, ''))}</strong></p>
+      <p class="small muted" style="margin-top:8px;">${b.plan === 'free' ? `Пробный период: ${Number(b.trial_days_left || 0)} дн. осталось. После окончания trial понадобится платный тариф для генерации и публикации.` : (b.plan === 'admin' ? 'Внутренний admin-тариф: безлимит по контенту, видео, проектам и расширенная аналитика.' : `Аналитика: ${esc(analyticsLevelLabel)}. Автопостинг: ${b.limits.can_autopublish ? 'включен' : 'выключен'}.`)}</p>
       <div class="cta-row" style="margin-top:12px;">
-        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : 'Stripe не настроен'}">Управление подпиской</button>
+        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? 'Для admin-плана управление подпиской не требуется' : 'Stripe не настроен')}">Управление подпиской</button>
       </div>
       <div class="small muted" style="margin-top:8px;">Статус биллинга: ${esc(b.billing_status || 'inactive')}</div>
     </article>
@@ -2527,6 +3087,10 @@ function pageBilling() {
       <h3>Использование</h3>
       <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${monthlyUnlimited ? 'без лимита' : (limitMonth || '—')}</strong></div>
       ${progressBar(usedMonth, monthMax)}
+      <div class="small" style="margin-top:10px;">Видео в месяц: <strong>${usedVideos}</strong> / <strong>${videosUnlimited ? 'без лимита' : (limitVideos || '—')}</strong></div>
+      ${progressBar(usedVideos, videoMax)}
+      <div class="small" style="margin-top:10px;">Проектов: <strong>${usedProjects}</strong> / <strong>${projectsUnlimited ? 'без лимита' : (limitProjects || '—')}</strong></div>
+      ${progressBar(usedProjects, projectsMax)}
       <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${dailyUnlimited ? 'без лимита' : (limitDaily || '—')}</strong></div>
       ${progressBar(usedDaily, dayMax)}
     </article>
@@ -2540,7 +3104,7 @@ function pageBilling() {
      <section class="card" style="margin-top:18px;">
        <h3>Сравнение тарифов</h3>
        ${plansTable()}
-       <div class="small muted" style="margin-top:10px;">Оплата и управление подпиской работают после настройки Stripe на сервере.</div>
+       <div class="small muted" style="margin-top:10px;">Growth - основной тариф для регулярного контента, видео и автопостинга.</div>
      </section>`
   );
 }
@@ -2673,7 +3237,7 @@ function pageYouTubeStudio() {
 }
 
 function pageContact() {
-  return appLayout('/contact','РљРѕРЅС‚Р°РєС‚С‹',`<section class="grid-2"><article class="card"><h2>РљРѕРЅС‚Р°РєС‚С‹</h2><p class="small">РќСѓР¶РЅР° РїРѕРјРѕС‰СЊ СЃ РѕРЅР±РѕСЂРґРёРЅРіРѕРј, РЅР°СЃС‚СЂРѕР№РєРѕР№ Meta РёР»Рё Р±РёР»Р»РёРЅРіРѕРј?</p><p><strong>Email:</strong> support@autosocial-gpt.local</p><p><strong>РљРѕРјРїР°РЅРёСЏ:</strong> AutoSocial GPT SaaS</p><p><strong>Р’СЂРµРјСЏ СЂР°Р±РѕС‚С‹:</strong> РџРЅ-РџС‚ 09:00-18:00 UTC</p></article><article class="card"><h2>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ Рё СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ</h2><ul class="small"><li>Р‘РµР·РѕРїР°СЃРЅС‹Рµ РїР»Р°С‚РµР¶Рё Stripe</li><li>SSL-С€РёС„СЂРѕРІР°РЅРёРµ СЃРѕРµРґРёРЅРµРЅРёР№</li><li>РЎРѕРѕС‚РІРµС‚СЃС‚РІРёРµ GDPR</li><li>Р‘РµР· СЃРєСЂС‹С‚С‹С… РїР»Р°С‚РµР¶РµР№</li></ul></article></section>`);
+  return appLayout('/contact','РљРѕРЅС‚Р°РєС‚С‹',`<section class="grid-2"><article class="card"><h2>РљРѕРЅС‚Р°РєС‚С‹</h2><p class="small">РќСѓР¶РЅР° РїРѕРјРѕС‰СЊ СЃ РѕРЅР±РѕСЂРґРёРЅРіРѕРј, РЅР°СЃС‚СЂРѕР№РєРѕР№ Meta РёР»Рё Р±РёР»Р»РёРЅРіРѕРј?</p><p><strong>Email:</strong> support@autosocial-gpt.local</p><p><strong>РљРѕРјРїР°РЅРёСЏ:</strong> AutoSocial.tech SaaS</p><p><strong>Р’СЂРµРјСЏ СЂР°Р±РѕС‚С‹:</strong> РџРЅ-РџС‚ 09:00-18:00 UTC</p></article><article class="card"><h2>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ Рё СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ</h2><ul class="small"><li>Р‘РµР·РѕРїР°СЃРЅС‹Рµ РїР»Р°С‚РµР¶Рё Stripe</li><li>SSL-С€РёС„СЂРѕРІР°РЅРёРµ СЃРѕРµРґРёРЅРµРЅРёР№</li><li>РЎРѕРѕС‚РІРµС‚СЃС‚РІРёРµ GDPR</li><li>Р‘РµР· СЃРєСЂС‹С‚С‹С… РїР»Р°С‚РµР¶РµР№</li></ul></article></section>`);
 }
 
 function pageSupport() {
@@ -2698,6 +3262,18 @@ function pageSupport() {
 
 const CREATE_DRAFT_KEY = 'createCampaignDraftV1';
 const CREATE_DIRECTOR_TYPE_KEY = 'createDirectorContentTypeV1';
+const DIRECTOR_FIXED_NICHES = [
+  { id: 'smm_auto', title: 'Автоматизация SMM' },
+  { id: 'content_plan', title: 'Контент-план для бизнеса' },
+  { id: 'autoposting', title: 'Автопостинг в соцсетях' },
+  { id: 'leads_social', title: 'Лиды из Facebook/Instagram' },
+  { id: 'youtube_shorts', title: 'YouTube Shorts для бренда' },
+  { id: 'analytics', title: 'Аналитика и рост метрик' },
+  { id: 'brand_voice', title: 'Бренд и коммуникация' },
+  { id: 'local_business', title: 'Локальный бизнес в соцсетях' },
+  { id: 'small_business', title: 'SMM для малого бизнеса' },
+  { id: 'agency_mode', title: 'Агентский режим и мультиаккаунт' },
+];
 
 function normalizeDirectorContentType(value) {
   return String(value || '').trim().toLowerCase() === 'video' ? 'video' : 'post';
@@ -2737,6 +3313,84 @@ function normalizeHashtagSet(rawSet, fallback = ['#контент', '#марке
     tags.push(tag);
   }
   return tags.slice(0, 20);
+}
+
+function buildVideoPublicationText(directorState, platform = 'facebook') {
+  const d = directorState || {};
+  const p = String(platform || 'facebook').trim().toLowerCase();
+  const durationSec = Math.max(20, Math.min(480, Number(d.videoDurationPreset || 30) || 30));
+  const cta = String(d.selectedCta || d.videoStructure?.cta || '').trim();
+  const ytDescription = String(d.videoStructure?.description || '').trim();
+  const rawLines = Array.isArray(d.videoStructure?.subtitles?.lines)
+    ? d.videoStructure.subtitles.lines
+    : (Array.isArray(d.videoStructure?.scenes) ? d.videoStructure.scenes.map((x) => x?.text).filter(Boolean) : []);
+  const base = (p === 'youtube' && ytDescription)
+    ? ytDescription
+    : String(rawLines.join(' ').replace(/\s+/g, ' ').trim() || '');
+  if (!base) return 'Сначала сгенерируйте структуру, затем соберите видео.';
+  const sentenceParts = String(base)
+    .replace(/\s+/g, ' ')
+    .match(/[^.!?]+[.!?]?/g) || [String(base).trim()];
+  const skipBoilerplateRe = /(покажем один|короткий пример|добавим конкретик|фиксируем ожидаемый эффект|плавно подводим|простыми словами|без лишней сложности|на простой метрике)/i;
+  const seen = new Set();
+  const cleaned = [];
+  for (const raw of sentenceParts) {
+    const sentence = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!sentence) continue;
+    if (skipBoilerplateRe.test(sentence)) continue;
+    const key = sentence
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(sentence);
+  }
+  const fallback = cleaned.length ? cleaned : sentenceParts.map((s) => String(s || '').trim()).filter(Boolean);
+  const targetChars = p === 'youtube'
+    ? Math.max(360, Math.min(1600, Math.round(durationSec * 5.2)))
+    : Math.max(220, Math.min(760, Math.round(durationSec * 3.0)));
+  const targetSentences = p === 'youtube'
+    ? Math.max(3, Math.min(10, Math.round(durationSec / 35)))
+    : Math.max(2, Math.min(6, Math.round(durationSec / 25)));
+  const picked = [];
+  let acc = 0;
+  for (const sentence of fallback) {
+    if (picked.length >= targetSentences && acc >= targetChars) break;
+    const nextLen = acc + sentence.length + 1;
+    if (picked.length >= 2 && nextLen > targetChars) break;
+    picked.push(sentence);
+    acc = nextLen;
+  }
+  let out = picked.join(' ').replace(/\s+/g, ' ').trim();
+  if (!out) out = fallback.slice(0, targetSentences).join(' ').replace(/\s+/g, ' ').trim();
+  if (cta) {
+    const lowOut = out.toLowerCase();
+    if (!lowOut.includes(cta.toLowerCase())) {
+      out = `${out}\n\n${cta}`.trim();
+    }
+  }
+  return out || 'Сначала сгенерируйте структуру, затем соберите видео.';
+}
+
+function getVideoPreviewTextState(directorState, platform = 'facebook') {
+  const d = directorState || {};
+  if (!d.previewExpanded || typeof d.previewExpanded !== 'object') d.previewExpanded = {};
+  const p = String(platform || 'facebook').trim().toLowerCase();
+  const fullText = buildVideoPublicationText(d, p);
+  const limits = { facebook: 300, instagram: 280, youtube: 420 };
+  const limit = limits[p] || 300;
+  const expanded = !!d.previewExpanded[p];
+  const shortText = fullText.length > limit
+    ? `${fullText.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
+    : fullText;
+  return {
+    fullText,
+    text: expanded ? fullText : shortText,
+    canExpand: fullText.length > limit,
+    expanded,
+  };
 }
 
 function loadCampaignDraftLocal() {
@@ -3116,9 +3770,18 @@ function pageCreateDirector() {
   }
   const platformOrder = isVideo ? ['facebook', 'instagram', 'youtube'] : ['facebook', 'instagram'];
   const selectedPlatforms = platformOrder.filter((k) => !!platforms[k]);
-  const topics = (d.suggestions?.topics || []).slice(0, 5);
-  const topicsAll = Array.isArray(d.topicPool) && d.topicPool.length ? d.topicPool.slice(0, 25) : topics;
-  const angles = (d.suggestions?.angles || []).slice(0, 3);
+  const topics = (d.suggestions?.topics || []).slice(0, 10);
+  const localTopics = directorLocalTopicIdeas(d, 10, d.refreshCount || 0);
+  const topicsAll = Array.isArray(d.topicPool) && d.topicPool.length
+    ? d.topicPool.slice(0, 10)
+    : (localTopics.length ? localTopics : topics);
+  const baseTopic = directorBaseTopic(d, d.topic);
+  const effectiveSelectedTopic = directorEffectiveTopic(d);
+  const nicheMeta = directorCurrentNicheMeta(d);
+  const quickActionResult = String(d.quickActionType || '').trim() && String(d.quickActionNicheId || '').trim()
+    ? buildQuickActionResult(d.quickActionType, d.quickActionNicheId, state.billing, Number(d.quickActionSeed || 0))
+    : null;
+  const angles = ((d.suggestions?.angles || []).slice(0, 3).length ? (d.suggestions?.angles || []).slice(0, 3) : directorLocalAngles(d).slice(0, 3));
   const ctaOptions = (d.suggestions?.cta_options || []).slice(0, 3);
   const hashtagSets = Array.isArray(d.suggestions?.hashtag_sets)
     ? d.suggestions.hashtag_sets.slice(0, 6).map((set) => normalizeHashtagSet(set))
@@ -3129,24 +3792,24 @@ function pageCreateDirector() {
   const variantTabs = draftsForPlatform.map((x) => Number(x.variant_index || x.variant || 1));
   const activeVariant = Number(d.activeVariant || variantTabs[0] || 1);
   const activeDraft = draftsForPlatform.find((x) => Number(x.variant_index || x.variant || 1) === activeVariant) || draftsForPlatform[0] || null;
-  const hasSelection = String(d.selectedTopic || '').trim() && String(d.selectedAngle || '').trim();
+  const hasSelection = effectiveSelectedTopic && String(d.selectedAngle || '').trim();
   const draftMatchesSelection = !!activeDraft
-    && String(d.lastDraftTopic || '').trim() === String(d.selectedTopic || '').trim()
+    && String(d.lastDraftTopic || '').trim() === effectiveSelectedTopic
     && String(d.lastDraftAngle || '').trim() === String(d.selectedAngle || '').trim();
+  const selectedThemePreviewText = [
+    String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
+    String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
+    'Готовим текст под выбранную тему…',
+  ].filter(Boolean).join('\n');
+  const videoPreviewTextState = isVideo ? getVideoPreviewTextState(d, activePlatform) : null;
   const previewText = isVideo
-    ? (() => {
-        const lines = Array.isArray(d.videoStructure?.subtitles?.lines)
-          ? d.videoStructure.subtitles.lines
-          : (Array.isArray(d.videoStructure?.scenes) ? d.videoStructure.scenes.map((x) => x?.text).filter(Boolean) : []);
-        const joined = String(lines.join(' ').replace(/\s+/g, ' ').trim() || '');
-        return joined || 'Сначала сгенерируйте структуру, затем соберите видео.';
-      })()
+    ? (videoPreviewTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
     : (draftMatchesSelection
       ? (String(activeDraft?.post_text || '').trim() || 'Сгенерируйте контент, чтобы увидеть результат.')
       : (d.loadingDrafts
-        ? 'Генерируем текст по выбранной теме и подходу...'
+        ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
         : (hasSelection
-          ? 'Выберите платформу и нажмите «Сгенерировать 3 варианта по выбору».'
+          ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
           : 'Сгенерируйте контент, чтобы увидеть результат.')));
   const selectedTagSet = Array.isArray(d.selectedHashtags) ? normalizeHashtagSet(d.selectedHashtags, []) : [];
   const hasVideoStructure = !!d.videoStructure;
@@ -3219,6 +3882,83 @@ function pageCreateDirector() {
   const miniPlanRows = planItems.slice(0, 6).map((x) => `<div class="small" style="display:flex;justify-content:space-between;gap:8px;"><span>${esc(new Date(x.scheduled_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }))}</span><span class="truncate">${esc(x.topic || '—')}</span></div>`).join('');
   const isHorizontalVideo = String(d.videoOrientation || 'vertical') === 'horizontal';
   const durationOptions = (isHorizontalVideo ? ['120', '180', '240', '300', '360', '420', '480'] : ['20', '30', '40', '60']).map((v) => ({ value: v, label: `${v} сек` }));
+  const step3Label = isVideo ? 'Шаг 3 — Структура' : 'Шаг 3 — Генерация';
+  const generationHintText = isVideo
+    ? '1. Сначала выберите тему<br>2. Затем сгенерируйте структуру<br>3. После этого можно собрать видео'
+    : '1. Сначала выберите тему<br>2. Затем выберите подход<br>3. После этого можно сгенерировать пост';
+  const previewStateText = !effectiveSelectedTopic
+    ? 'Выберите тему чтобы начать'
+    : (isVideo
+      ? (d.videoStructure ? 'Можно собрать видео' : 'Нажмите «Сгенерировать структуру»')
+      : 'Выберите подход и нажмите «Сгенерировать пост»');
+
+  const topicChooserHtml = `
+      <article class="card create-topic-picker">
+        <div class="row create-topic-toolbar">
+          <div>
+            <h4 style="margin:0;">Темы от AI</h4>
+            <p class="small" style="margin:4px 0 0 0;">AI подобрал 10 тем именно для ниши «${esc(nicheMeta?.label || baseTopic || 'ваш бизнес')}». Нажмите на вариант, чтобы использовать эту тему.</p>
+          </div>
+          <button id="cdGenerateIdeas" class="btn btn-secondary" type="button" ${loading ? 'disabled' : ''}>
+            ${loading ? 'Подбираем темы…' : (topicsAll.length ? 'Обновить идеи' : 'Подобрать 10 тем')}
+          </button>
+        </div>
+        <div class="create-assist-list create-topic-list">
+          ${topicsAll.length ? topicsAll.map((t) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === t && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(t)}" title="Использовать эту тему">${esc(t)}</button>`).join('') : '<span class="small">Нажмите «Подобрать 10 тем», чтобы получить варианты.</span>'}
+        </div>
+        <div class="create-topic-manual">
+          ${field('cdManualTopic', 'Своя тема', 'text', d.manualTopicInput || '', 'Не нашли нужный вариант? Введите тему вручную')}
+          <div class="row" style="gap:8px;flex-wrap:wrap;">
+            <button id="cdApplyManualTopic" class="btn btn-ghost" type="button" ${String(d.manualTopicInput || '').trim() ? '' : 'disabled'}>Использовать эту тему</button>
+            ${effectiveSelectedTopic ? `<span class="pill active">Выбрано: ${esc(effectiveSelectedTopic)}</span>` : '<span class="small">Тема пока не выбрана</span>'}
+          </div>
+        </div>
+      </article>
+  `;
+  const quickActionItemsHtml = (() => {
+    if (!quickActionResult) return '';
+    if (quickActionResult.actionType === 'hooks_pack') {
+      return quickActionResult.items.map((item) => `<article class="dash-quick-result-card">
+        <div class="small">Hook ${Number(item.index || 0)}</div>
+        <strong>${esc(item.hook || '—')}</strong>
+        <button type="button" class="btn btn-ghost" data-cd-quick-hook="${encodeURIComponent(String(item.hook || ''))}">Использовать как тему</button>
+      </article>`).join('');
+    }
+    if (quickActionResult.actionType === 'cta_pack') {
+      return quickActionResult.items.map((item) => `<article class="dash-quick-result-card">
+        <div class="small">CTA ${Number(item.index || 0)}</div>
+        <strong>${esc(item.cta || '—')}</strong>
+        <button type="button" class="btn btn-ghost" data-cd-quick-cta="${encodeURIComponent(String(item.cta || ''))}">Использовать CTA</button>
+      </article>`).join('');
+    }
+    return quickActionResult.items.map((item) => `<article class="dash-quick-result-card">
+      <div class="row" style="justify-content:space-between;gap:8px;align-items:flex-start;">
+        <div class="small">${quickActionResult.actionType === 'monthly_plan' || quickActionResult.actionType === 'weekly_plan' ? `День ${Number(item.day || 0)}` : `Элемент ${Number(item.seriesIndex || item.day || 0)}`}</div>
+        <span class="pill">${esc(item.contentFormat || item.objective || 'план')}</span>
+      </div>
+      <strong>${esc(item.topic || '—')}</strong>
+      <p class="small">${esc(item.angle || '—')}</p>
+      <p class="small" style="margin:0 0 8px 0;"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
+      <button type="button" class="btn btn-ghost" data-cd-quick-topic="${encodeURIComponent(String(item.topic || ''))}" data-cd-quick-angle="${encodeURIComponent(String(item.angle || ''))}" data-cd-quick-cta="${encodeURIComponent(String(item.cta || ''))}" data-cd-quick-type="${esc(item.contentType || 'post')}">Использовать в директоре</button>
+    </article>`).join('');
+  })();
+  const quickActionPanel = quickActionResult ? `
+    <article class="card glass-card create-director-card dash-quick-result-shell">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="max-width:760px;">
+          <div class="create-step-label">Быстрый старт</div>
+          <h3 style="margin:0 0 8px 0;">${esc(quickActionResult.title)} · ${esc(quickActionResult.nicheLabel || nicheMeta?.label || '—')}</h3>
+          <p class="small" style="margin:0;">${esc(quickActionResult.subtitle)}</p>
+          ${quickActionResult.access.isPreview ? '<p class="small" style="margin:8px 0 0 0;"><strong>Preview:</strong> полный объём доступен после апгрейда тарифа.</p>' : ''}
+        </div>
+        <div class="cta-row">
+          <button id="cdQuickActionRefresh" class="btn btn-secondary" type="button">Обновить подборку</button>
+          ${quickActionResult.access.isPreview ? '<button class="btn btn-ghost" type="button" data-link="/billing">Обновить тариф</button>' : ''}
+        </div>
+      </div>
+      <div class="dash-quick-results-grid" style="margin-top:14px;">${quickActionItemsHtml}</div>
+    </article>
+  ` : '';
 
   const quickCard = `
     <article class="card glass-card create-director-card">
@@ -3231,17 +3971,19 @@ function pageCreateDirector() {
           </div>
         </div>
       </div>
-      ${field('cdTopic', 'Ниша/тема *', 'text', d.topic || '', 'Например: контент-маркетинг для стоматологии')}
+      <div class="create-step-label">Шаг 1 — Ниша</div>
+      <p class="small" style="margin:0 0 8px 0;">Выберите сферу бизнеса, чтобы AI предложил релевантные идеи, формулировки и шаблоны именно под вашу нишу.</p>
+      ${selectField('cdTopicPreset', 'Ниша *', d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+      <label class="create-toggle" style="margin-top:8px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> Своя ниша/тема</label>
+      ${d.customTopicMode ? field('cdTopic', 'Своя ниша/тема', 'text', d.customBaseTopicInput || '', 'Например: контент-маркетинг для стоматологии') : ''}
+      <p class="small create-selected-topic">Выбранная тема: <strong>${esc(effectiveSelectedTopic || '—')}</strong></p>
+      ${topicChooserHtml}
       <div class="grid-2">
         ${selectField('cdGoal', 'Цель *', d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
         ${field('cdOffer', 'Оффер (опционально)', 'text', d.offer || '', 'Например: бесплатный аудит за 15 минут')}
       </div>
-      ${selectField('cdLang', 'Язык', d.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'ua', label: 'Українська' }, { value: 'de', label: 'Deutsch' }, { value: 'en', label: 'English' }])}
-      <div class="row" style="gap:12px;flex-wrap:wrap;margin:8px 0;">
-        <label class="create-toggle"><input id="cdFb" type="checkbox" ${platforms.facebook ? 'checked' : ''}/> Facebook</label>
-        <label class="create-toggle"><input id="cdIg" type="checkbox" ${platforms.instagram ? 'checked' : ''}/> Instagram</label>
-        ${isVideo ? `<label class="create-toggle"><input id="cdYt" type="checkbox" ${platforms.youtube ? 'checked' : ''}/> YouTube</label>` : ''}
-      </div>
+      ${selectField('cdLang', 'Язык', d.language || 'ru', CONTENT_LANG_OPTIONS)}
+
       <details class="create-pro-accordion">
         <summary>Расширенные настройки</summary>
         ${isVideo
@@ -3270,11 +4012,13 @@ function pageCreateDirector() {
               ${field('cdRules', 'Запреты/бренд-правила', 'textarea', d.brandRules || '', 'Например: без черного юмора, без сравнения с конкурентами')}
             </article>`}
       </details>
-      <div class="cta-row" style="margin-top:12px;">
-        <button id="cdGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? (isVideo ? 'Генерируем структуру…' : 'Генерируем пост…') : (isVideo ? 'Сгенерировать структуру' : 'Сгенерировать пост')}</button>
-        ${isVideo ? `<button id="cdRefreshStructure" class="btn btn-ghost" type="button" ${(loading || d.videoStructureLoading) ? 'disabled' : ''}>Обновить структуру</button>` : ''}
+      <div class="create-step-label" style="margin-top:12px;">${step3Label}</div>
+      <div class="cta-row" style="margin-top:8px;">
+        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || (!effectiveSelectedTopic) || !String(d.selectedAngle || '').trim()) ? 'disabled' : ''}>${loading ? (isVideo ? 'Генерируем структуру…' : 'Генерируем пост…') : (isVideo ? 'Сгенерировать структуру' : 'Сгенерировать пост')}</button>
         ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${d.videoRenderLoading ? 'Собираем видео…' : 'Собрать видео'}</button>` : ''}
       </div>
+      <p class="small create-flow-hint">${generationHintText}</p>
+      ${isVideo ? `<div class="create-step-label">Шаг 4 — Видео</div>` : ''}
       ${isVideo ? `<p id="cdVideoStatusText" class="small">${esc(d.videoJobStatus ? `Статус видео: ${d.videoJobStatus}` : 'Статус видео: ожидание')}</p>` : ''}
       ${d.status === 'loading' ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
       ${warningsReadable.length ? `<p class="small">${warningsReadable.map((w) => esc(w)).join(' · ')}</p>` : ''}
@@ -3288,24 +4032,15 @@ function pageCreateDirector() {
       ${isVideo ? `<article class="card" style="margin:8px 0 12px 0;padding:10px;">
         <h4 style="margin:0 0 8px 0;">Структура видео</h4>
         ${d.videoStructureLoading ? '<p class="small">AI формирует структуру...</p>' : ''}
-        ${d.videoStructure ? `<p class="small"><strong>${esc(d.videoStructure.title || d.selectedTopic || d.topic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
+        ${d.videoStructure ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
           <p class="small">Озвучка: мужской голос Eddy · Субтитры: включены · Фоновая музыка: тихая</p>
           <div style="display:grid;gap:6px;margin-top:8px;">
             ${(Array.isArray(d.videoStructure.scenes) ? d.videoStructure.scenes : []).map((s) => `<div class="small"><strong>${Number(s.index || 0) + 1}.</strong> ${esc(s.text || '')} <span style="opacity:.75;">(~${Number(s.duration_s || 0).toFixed(1)} c)</span></div>`).join('')}
           </div>` : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить план сцен под выбранную длительность.</p>'}
       </article>` : ''}
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-        <label style="margin:0;">Темы</label>
-        <button id="cdRefreshTopics" type="button" class="btn btn-ghost" ${(loading || d.refreshingTopics || (Number(d.refreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
-          ${d.refreshingTopics ? 'Обновляю…' : `Обновить темы (${Math.min(Number(d.refreshCount || 0), 5)}/5)`}
-        </button>
-      </div>
-      <div class="create-assist-list">
-        ${topicsAll.length ? topicsAll.map((t) => `<button type="button" class="btn ${d.selectedTopic === t ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(t)}">${esc(t)}</button>`).join('') : '<span class="small">Пока пусто</span>'}
-      </div>
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
         <label style="margin:0;">Подходы</label>
-        <button id="cdRefreshApproaches" type="button" class="btn btn-ghost" ${(loading || d.refreshingApproaches || (Number(d.approachesRefreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
+        <button id="cdRefreshApproaches" type="button" class="btn btn-ghost" ${(loading || d.refreshingApproaches || (Number(d.approachesRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
           ${d.refreshingApproaches ? 'Обновляю…' : `Обновить подходы (${Math.min(Number(d.approachesRefreshCount || 0), 5)}/5)`}
         </button>
       </div>
@@ -3314,7 +4049,7 @@ function pageCreateDirector() {
       </div>
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
         <label style="margin:0;">Призыв к действию</label>
-        <button id="cdRefreshCta" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
+        <button id="cdRefreshCta" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
           ${d.refreshingCta ? 'Обновляю…' : `Обновить призыв (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
         </button>
       </div>
@@ -3341,7 +4076,7 @@ function pageCreateDirector() {
       </article>
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
         <label style="margin:0;">Хештеги</label>
-        <button id="cdRefreshTags" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
+        <button id="cdRefreshTags" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
           ${d.refreshingHashtags ? 'Обновляю…' : `Обновить хештеги (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
         </button>
       </div>
@@ -3356,14 +4091,6 @@ function pageCreateDirector() {
           : '<span class="small">Пока пусто</span>'}
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${selectedPlatforms.map((p) => `<button type="button" class="btn ${activePlatform === p ? 'btn-primary' : 'btn-ghost'}" data-cd-platform="${p}">${p === 'youtube' ? 'YouTube' : (p === 'instagram' ? 'Instagram' : 'Facebook')}</button>`).join('')}
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
-        <button id="cdGenerateDrafts" type="button" class="btn btn-secondary" ${(loading || !String(d.selectedTopic || '').trim() || !String(d.selectedAngle || '').trim()) ? 'disabled' : ''}>
-          ${d.loadingDrafts ? 'Генерируем варианты…' : 'Сгенерировать 3 варианта по выбору'}
-        </button>
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
         ${variantTabs.length ? variantTabs.map((v) => `<button type="button" class="btn ${activeVariant === v ? 'btn-secondary' : 'btn-ghost'}" data-cd-variant="${v}">Вариант ${v}</button>`).join('') : '<span class="small">Варианты появятся после генерации</span>'}
       </div>
       ${activeDraft ? `<div style="margin-top:12px;">
@@ -3372,6 +4099,10 @@ function pageCreateDirector() {
         ${field('cdCta', 'Призыв к действию', 'text', String(d.selectedCta || '').trim() || activeDraft.cta || '', 'Что сделать после прочтения')}
         ${field('cdTags', 'Хештеги', 'text', activeTagsValue, '#маркетинг #контент')}
       </div>` : ''}
+      <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px;">
+        <label class="create-toggle"><input id="cdFb" type="checkbox" ${platforms.facebook ? 'checked' : ''}/> Facebook</label>
+        <label class="create-toggle"><input id="cdIg" type="checkbox" ${platforms.instagram ? 'checked' : ''}/> Instagram</label>
+      </div>
       <div class="cta-row" style="margin-top:10px;">
         <button id="cdSave" type="button" class="btn btn-ghost" ${activeDraft ? '' : 'disabled'}>Сохранить</button>
         <button id="cdSchedule" type="button" class="btn btn-secondary" ${activeDraft ? '' : 'disabled'}>Запланировать</button>
@@ -3393,8 +4124,19 @@ function pageCreateDirector() {
       </article>
     </article>
   `;
+  const shouldShowPostResult = isVideo || d.status !== 'idle' || d.loadingSuggest || d.loadingDrafts;
+  if (!isVideo && !shouldShowPostResult) {
+    resultCard = '';
+  }
+  if (isVideo && !d.videoStructure) {
+    resultCard = '';
+  }
   if (isVideo) {
     const scenes = Array.isArray(d.videoStructure?.scenes) ? d.videoStructure.scenes : [];
+    const structureSceneLimit = 4;
+    const structureCanToggle = scenes.length > structureSceneLimit;
+    const structureExpanded = !!d.videoStructureExpanded;
+    const visibleScenes = (!structureCanToggle || structureExpanded) ? scenes : scenes.slice(0, structureSceneLimit);
     const showVideoStructure = !!d.videoStructure;
     const hasReadyVideo = !!String(d.videoFinalUrl || d.videoPreviewUrl || '').trim();
     const resolvedVoiceGender = String(
@@ -3411,13 +4153,18 @@ function pageCreateDirector() {
     ).toLowerCase();
     resultCard = showVideoStructure ? `
       <article class="card glass-card create-director-card">
-        <h3 style="margin-top:0;">Структура видео</h3>
+        <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+          <h3 style="margin:0;">Структура видео</h3>
+          ${structureCanToggle
+            ? `<button id="cdToggleStructure" type="button" class="btn btn-ghost">${structureExpanded ? 'Свернуть' : 'Открыть больше'}</button>`
+            : ''}
+        </div>
         ${d.videoStructure
-          ? `<p class="small"><strong>${esc(d.videoStructure.title || d.selectedTopic || d.topic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
+          ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
              <p class="small">Голос: ${esc((resolvedVoiceGender === 'female' ? 'женский' : 'мужской'))} · Интонация: ${esc((resolvedVoiceTone === 'calm' ? 'спокойная' : (resolvedVoiceTone === 'live' ? 'живая' : 'нейтральная')))} · Субтитры: включены · Фон: тихая музыка</p>
              <p class="small">Перетяните сцены, чтобы изменить порядок в итоговом видео.</p>
              <div style="display:grid;gap:8px;margin-top:10px;">
-               ${scenes.map((s, scenePos) => `
+               ${visibleScenes.map((s, scenePos) => `
                  <div class="small card" draggable="true" data-cd-scene="${scenePos}" style="padding:10px;border:1px solid rgba(99,102,241,.18);cursor:grab;">
                    <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
                      <span><strong>${scenePos + 1}.</strong> <span style="opacity:.75;">~${Number(s.duration_s || 0).toFixed(1)} c</span></span>
@@ -3433,7 +4180,10 @@ function pageCreateDirector() {
                    >${esc(s.text || '')}</textarea>
                  </div>
                `).join('')}
-             </div>`
+             </div>
+             ${structureCanToggle && !structureExpanded
+               ? `<p class="small" style="margin-top:8px;">Показано ${visibleScenes.length} из ${scenes.length} сцен.</p>`
+               : ''}`
           : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить структуру, хештеги и призыв.</p>'}
         ${showVideoStructure ? `<div class="row" style="margin-top:10px;justify-content:flex-end;gap:8px;">
           <button id="cdSceneAdd" type="button" class="btn btn-ghost">Добавить сцену</button>
@@ -3442,7 +4192,7 @@ function pageCreateDirector() {
           <div class="create-preview-meta-block">
             <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
               <p class="small" style="margin:0;"><strong>Хештеги</strong></p>
-              <button id="cdRefreshTagsInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
+              <button id="cdRefreshTagsInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
                 ${d.refreshingHashtags ? 'Обновляю…' : `Обновить (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
               </button>
             </div>
@@ -3452,7 +4202,7 @@ function pageCreateDirector() {
           <div class="create-preview-meta-block">
             <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
               <p class="small" style="margin:0;"><strong>Призыв</strong></p>
-              <button id="cdRefreshCtaInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(d.topic || '').trim()) ? 'disabled' : ''}>
+              <button id="cdRefreshCtaInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
                 ${d.refreshingCta ? 'Обновляю…' : `Обновить (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
               </button>
             </div>
@@ -3460,6 +4210,11 @@ function pageCreateDirector() {
             <input id="cdVideoCtaInline" class="director-meta-input" type="text" value="${esc(String(d.selectedCta || '').trim())}" ${d.videoStructure ? '' : 'disabled'} />
           </div>
         </div>` : ''}
+        <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px;">
+          <label class="create-toggle"><input id="cdFb" type="checkbox" ${platforms.facebook ? 'checked' : ''}/> Facebook</label>
+          <label class="create-toggle"><input id="cdIg" type="checkbox" ${platforms.instagram ? 'checked' : ''}/> Instagram</label>
+          <label class="create-toggle"><input id="cdYt" type="checkbox" ${platforms.youtube ? 'checked' : ''}/> YouTube</label>
+        </div>
         <div class="cta-row" style="margin-top:12px;">
           <button type="button" class="btn btn-ghost" data-link="/create/video-week">План 7 дней</button>
           <button id="cdDownloadVideo" type="button" class="btn btn-secondary" ${(!String(d.videoFinalUrl || d.videoPreviewUrl || '').trim()) ? 'disabled' : ''}>Скачать видео</button>
@@ -3490,7 +4245,8 @@ function pageCreateDirector() {
           return `<button type="button" class="${cls}" data-cd-preview-platform="${p}" ${enabled ? '' : 'disabled'} title="${enabled ? '' : 'Включите платформу слева'}" aria-pressed="${activePlatform === p ? 'true' : 'false'}">${label}</button>`;
         }).join('')}
       </div>
-      <h3 id="cdPreviewTitle">${esc(d.selectedTopic || d.topic || 'Тема')}</h3>
+      <h3 id="cdPreviewTitle">${esc(effectiveSelectedTopic || baseTopic || 'Тема')}</h3>
+      <p class="small create-preview-state">${esc(previewStateText)}</p>
       ${isVideo
         ? `<div class="create-video-preview-block">
             ${videoPlayableUrl
@@ -3512,8 +4268,13 @@ function pageCreateDirector() {
                    <div id="cdVideoStepPills" class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;">${videoStepPills}</div>
                    <p id="cdVideoProgressMessage" class="small" style="margin-top:8px;">${esc(String(d.videoMessage || d.videoJobStatus || 'Ожидаем запуск сборки видео.'))}</p>
                  </div>`}
-            <p class="small" style="margin-top:10px;"><strong>Текст к видео:</strong></p>
+            <p class="small" style="margin-top:10px;"><strong>Текст публикации:</strong></p>
             <p id="cdPreviewText" class="create-preview-text">${esc(previewText)}</p>
+            ${videoPreviewTextState?.canExpand
+              ? `<div class="row" style="margin-top:6px;">
+                   <button id="cdPreviewToggleText" class="btn btn-ghost" type="button">${videoPreviewTextState.expanded ? 'Свернуть' : 'Открыть больше'}</button>
+                 </div>`
+              : ''}
             <div class="create-preview-meta-block">
               <p class="small" style="margin:0 0 6px 0;"><strong>Хештеги:</strong></p>
               <div id="cdPreviewTags" class="create-preview-tags">${previewTags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
@@ -3524,7 +4285,9 @@ function pageCreateDirector() {
             </div>
           </div>`
         : `${(d.imageEnabled && String(d.imageUrl || '').trim())
-            ? `<div style="margin:8px 0 10px 0;"><img src="${esc(d.imageUrl)}" alt="Preview image" style="width:100%;max-height:280px;object-fit:cover;border-radius:14px;border:1px solid rgba(99,102,241,.2);" /></div>`
+            ? `<div style="margin:8px 0 10px 0;border-radius:14px;border:1px solid rgba(99,102,241,.2);background:rgba(99,102,241,.05);overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:220px;max-height:320px;">
+                 <img src="${esc(d.imageUrl)}" alt="Preview image" style="width:100%;height:100%;max-height:320px;object-fit:contain;display:block;" />
+               </div>`
             : ''}
           ${d.loadingDrafts ? '<div class="create-skeleton-lines" style="margin:6px 0 10px 0;"><span></span><span></span><span></span></div>' : ''}
           <p id="cdPreviewText" class="create-preview-text">${esc(previewText)}</p>
@@ -3566,10 +4329,11 @@ function pageCreateDirector() {
     <section class="create-wizard-shell create-director-shell">
       <div class="create-wizard-grid">
         <article class="create-main-col">
+          ${quickActionPanel}
           ${quickCard}
           ${resultCard}
         </article>
-        <aside class="create-preview-col">
+        <aside class="create-preview-col create-preview-col-static">
           ${previewCard}
           ${qualityCard}
           ${miniPlanCard}
@@ -3601,7 +4365,7 @@ function pageCreateVideoWeek() {
         .filter(Boolean)
         .join(' · ')
     : '';
-  const selectedTopic = String(d.selectedTopic || d.topic || '').trim();
+  const selectedTopic = directorEffectiveTopic(d, d.topic || '');
   const selectedCta = String(d.selectedCta || '').trim() || 'Сохраните и напишите «ПЛАН».';
   const selectedTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).join(' ') || '#контент #маркетинг #smm';
   const preview = items[0] || null;
@@ -3738,7 +4502,7 @@ function pageCreatePostWeek() {
         .filter(Boolean)
         .join(' · ')
     : '';
-  const selectedTopic = String(d.selectedTopic || d.topic || '').trim();
+  const selectedTopic = directorEffectiveTopic(d, d.topic || '');
   const selectedCta = String(d.selectedCta || '').trim() || 'Сохраните и напишите «ПЛАН».';
   const selectedTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).join(' ') || '#контент #маркетинг #smm';
   const preview = items[0] || null;
@@ -4241,7 +5005,7 @@ function adminUsersTable() {
 function pageAdmin() {
   if (state.user?.role !== 'admin') return appLayout('/admin','РђРґРјРёРЅ',emptyState('Р”РѕСЃС‚СѓРї Р·Р°РїСЂРµС‰РµРЅ','РўСЂРµР±СѓРµС‚СЃСЏ СЂРѕР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.','РќР°Р·Р°Рґ РЅР° РїР°РЅРµР»СЊ','/dashboard'));
   const revenue = state.adminRevenue ? `<p class="small">РўРѕРєРµРЅС‹: ${state.adminRevenue.tokens_total} В· OpenAI: в‚¬${state.adminRevenue.estimated_openai_cost_eur} В· Stripe: в‚¬${state.adminRevenue.stripe_revenue_eur} В· РњР°СЂР¶Р°: ${state.adminRevenue.margin_percent}%</p>` : '<p class="small">Р—Р°РіСЂСѓР·РёС‚Рµ РїР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё.</p>';
-  return appLayout('/admin','РђРґРјРёРЅ',`<section class="grid-2"><article class="card"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2><button id="adminUsersBtn" class="btn btn-primary">Р—Р°РіСЂСѓР·РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>РўР°СЂРёС„С‹ Рё РєСЂРµРґРёС‚С‹</h2>${field('adminUserId','ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')}${selectField('adminPlan','РўР°СЂРёС„','free',[{value:'free',label:'Free'},{value:'light',label:'Light'},{value:'pro',label:'Pro'},{value:'agency',label:'Agency'}])}${field('adminDelta','Р·РјРµРЅРµРЅРёРµ РєСЂРµРґРёС‚РѕРІ','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°СЂРёС„</button><button id="adminCreditsBtn" class="btn btn-ghost">Р·РјРµРЅРёС‚СЊ РєСЂРµРґРёС‚С‹</button></div></article><article class="card"><h2>РџР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">РћР±РЅРѕРІРёС‚СЊ РІС‹СЂСѓС‡РєСѓ</button></article><article class="card"><h2>Р”РµР№СЃС‚РІРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СЊСЋ</button><button id="adminRunPlanBtn" class="btn btn-ghost">Р—Р°РїСѓСЃС‚РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ</button></div></article></section>`);
+  return appLayout('/admin','РђРґРјРёРЅ',`<section class="grid-2"><article class="card"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2><button id="adminUsersBtn" class="btn btn-primary">Р—Р°РіСЂСѓР·РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>РўР°СЂРёС„С‹ Рё РєСЂРµРґРёС‚С‹</h2>${field('adminUserId','ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')}${selectField('adminPlan','РўР°СЂРёС„','free',[{value:'free',label:'Free Trial'},{value:'starter',label:'Starter'},{value:'growth',label:'Growth'},{value:'agency',label:'Agency'}])}${field('adminDelta','Р·РјРµРЅРµРЅРёРµ РєСЂРµРґРёС‚РѕРІ','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°СЂРёС„</button><button id="adminCreditsBtn" class="btn btn-ghost">Р·РјРµРЅРёС‚СЊ РєСЂРµРґРёС‚С‹</button></div></article><article class="card"><h2>РџР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">РћР±РЅРѕРІРёС‚СЊ РІС‹СЂСѓС‡РєСѓ</button></article><article class="card"><h2>Р”РµР№СЃС‚РІРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СЊСЋ</button><button id="adminRunPlanBtn" class="btn btn-ghost">Р—Р°РїСѓСЃС‚РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ</button></div></article></section>`);
 }
 
 function page(path) {
@@ -4348,6 +5112,14 @@ function bindCommon() {
   if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
   const themeToggle = document.getElementById('themeToggleBtn');
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
+  const siteLangSelect = document.getElementById('siteLangSelect');
+  if (siteLangSelect && !siteLangSelect.dataset.boundAppLang) {
+    siteLangSelect.dataset.boundAppLang = '1';
+    siteLangSelect.addEventListener('change', () => {
+      const siteLang = String(siteLangSelect.value || '').trim();
+      setLanguage(siteLang, { persist: true });
+    });
+  }
 }
 
 async function bindCreateWizardV2(path) {
@@ -5224,7 +5996,24 @@ async function bindCreateWizardV2(path) {
 
 async function bindCreateDirector(path) {
   if (path !== '/create') return false;
+  if (window.__campaignAutosaveTimer) {
+    clearInterval(window.__campaignAutosaveTimer);
+    window.__campaignAutosaveTimer = null;
+  }
+  if (window.__campaignDeliveriesPoller) {
+    clearInterval(window.__campaignDeliveriesPoller);
+    window.__campaignDeliveriesPoller = null;
+  }
   const d = state.createDirector;
+  if (!Object.prototype.hasOwnProperty.call(d, 'manualTopicInput')) d.manualTopicInput = String(d.manualTopic || '').trim();
+  if (!Object.prototype.hasOwnProperty.call(d, 'appliedManualTopic')) d.appliedManualTopic = String(d.manualTopic || '').trim();
+  if (!Object.prototype.hasOwnProperty.call(d, 'selectedSuggestedTopic')) d.selectedSuggestedTopic = String(d.selectedTopic || '').trim();
+  if (!Object.prototype.hasOwnProperty.call(d, 'topicPreset')) d.topicPreset = String(d.topic || DEFAULT_DIRECTOR_NICHE).trim() || DEFAULT_DIRECTOR_NICHE;
+  if (!Object.prototype.hasOwnProperty.call(d, 'customTopicMode')) d.customTopicMode = false;
+  if (!Object.prototype.hasOwnProperty.call(d, 'customBaseTopicInput')) d.customBaseTopicInput = String(d.topic || '').trim();
+  d.topicPreset = directorCurrentNicheId({ ...d, customTopicMode: false, topicPreset: d.topicPreset || DEFAULT_DIRECTOR_NICHE });
+  if (!String(d.topicPreset || '').trim()) d.topicPreset = DEFAULT_DIRECTOR_NICHE;
+  d.topic = directorBaseTopic(d, d.topic);
   const persistContentType = (value) => {
     const nextType = normalizeDirectorContentType(value);
     d.contentType = nextType;
@@ -5246,6 +6035,33 @@ async function bindCreateDirector(path) {
     persistContentType(nextType);
     d._contentTypeInited = true;
   };
+  const hydrateQuickActionFromLocation = () => {
+    let queryAction = '';
+    let queryNiche = '';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      queryAction = String(params.get('quickAction') || '').trim();
+      queryNiche = String(params.get('niche') || '').trim();
+    } catch {}
+    const validActions = new Set(DASHBOARD_QUICK_ACTIONS.map((item) => item.key));
+    if (!validActions.has(queryAction)) {
+      d.quickActionType = '';
+      d.quickActionNicheId = '';
+      d.quickActionPreviewOnly = false;
+      return;
+    }
+    const normalizedNicheId = normalizeNicheIdSafe(queryNiche || d.quickActionNicheId || '');
+    if (!normalizedNicheId || normalizedNicheId === 'fallback') {
+      d.quickActionType = '';
+      d.quickActionNicheId = '';
+      d.quickActionPreviewOnly = false;
+      return;
+    }
+    d.quickActionType = queryAction;
+    d.quickActionNicheId = normalizedNicheId;
+    d.quickActionPreviewOnly = getQuickActionAccess(queryAction, state.billing).isPreview;
+    if (!d.customTopicMode) d.topicPreset = normalizedNicheId;
+  };
   const ensureVideoDefaults = () => {
     if (!d.videoOrientation || !['vertical', 'horizontal'].includes(String(d.videoOrientation))) d.videoOrientation = 'vertical';
     const allowed = String(d.videoOrientation || 'vertical') === 'horizontal'
@@ -5261,6 +6077,8 @@ async function bindCreateDirector(path) {
     if (!['calm', 'neutral', 'live'].includes(String(d.videoVoiceTone || ''))) d.videoVoiceTone = 'neutral';
     if (!d.previewVideoTab || !['meta', 'youtube'].includes(String(d.previewVideoTab))) d.previewVideoTab = 'meta';
     if (!d.previewVideoMetaPlatform || !['facebook', 'instagram'].includes(String(d.previewVideoMetaPlatform))) d.previewVideoMetaPlatform = 'facebook';
+    if (!d.previewExpanded || typeof d.previewExpanded !== 'object') d.previewExpanded = {};
+    if (typeof d.videoStructureExpanded !== 'boolean') d.videoStructureExpanded = false;
   };
   const ensureContentTypePlatforms = () => {
     const type = normalizeDirectorContentType(d.contentType || 'post');
@@ -5293,6 +6111,7 @@ async function bindCreateDirector(path) {
     }
   };
   hydrateContentType();
+  hydrateQuickActionFromLocation();
   ensureVideoDefaults();
   setDefaultsFromConnections();
   ensureContentTypePlatforms();
@@ -5374,32 +6193,42 @@ async function bindCreateDirector(path) {
   };
   const refreshDirectorPreviewDom = () => {
     const draft = activeDraft();
-    const hasSelection = String(d.selectedTopic || '').trim() && String(d.selectedAngle || '').trim();
+    const effectiveSelectedTopic = directorEffectiveTopic(d);
+    const baseTopic = directorBaseTopic(d, d.topic);
+    const hasSelection = effectiveSelectedTopic && String(d.selectedAngle || '').trim();
     const draftMatchesSelection = !!draft
-      && String(d.lastDraftTopic || '').trim() === String(d.selectedTopic || '').trim()
+      && String(d.lastDraftTopic || '').trim() === effectiveSelectedTopic
       && String(d.lastDraftAngle || '').trim() === String(d.selectedAngle || '').trim();
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
+    const selectedThemePreviewText = [
+      String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
+      String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
+      'Готовим текст под выбранную тему…',
+    ].filter(Boolean).join('\n');
+    const videoTextState = isVideoType ? getVideoPreviewTextState(d, String(d.activePlatform || 'facebook')) : null;
     const nextText = isVideoType
-      ? (() => {
-          const lines = Array.isArray(d.videoStructure?.subtitles?.lines)
-            ? d.videoStructure.subtitles.lines
-            : (Array.isArray(d.videoStructure?.scenes) ? d.videoStructure.scenes.map((x) => x?.text).filter(Boolean) : []);
-          return String(lines.join(' ').replace(/\s+/g, ' ').trim() || 'Сначала сгенерируйте структуру, затем соберите видео.');
-        })()
+      ? String(videoTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
       : (draftMatchesSelection
         ? (String(draft?.post_text || '').trim() || 'Сгенерируйте контент, чтобы увидеть результат.')
         : (d.loadingDrafts
-          ? 'Генерируем текст по выбранной теме и подходу...'
-          : (hasSelection ? 'Выберите платформу и нажмите «Сгенерировать 3 варианта по выбору».'
+          ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
+          : (hasSelection ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
             : 'Сгенерируйте контент, чтобы увидеть результат.')));
     const selectedTagSet = Array.isArray(d.selectedHashtags) ? normalizeHashtagSet(d.selectedHashtags) : [];
     const tags = selectedTagSet.length ? selectedTagSet : normalizeHashtagSet(Array.isArray(draft?.hashtags) ? draft.hashtags : []);
     const cta = String(d.selectedCta || '').trim() || String(draft?.cta || '').trim() || 'Призыв';
 
     const titleEl = document.getElementById('cdPreviewTitle');
-    if (titleEl) titleEl.textContent = String(d.selectedTopic || d.topic || 'Тема');
+    if (titleEl) titleEl.textContent = String(effectiveSelectedTopic || baseTopic || 'Тема');
     const textEl = document.getElementById('cdPreviewText');
     if (textEl) textEl.textContent = nextText;
+    const toggleBtn = document.getElementById('cdPreviewToggleText');
+    if (toggleBtn && isVideoType && videoTextState?.canExpand) {
+      toggleBtn.textContent = videoTextState.expanded ? 'Свернуть' : 'Открыть больше';
+      toggleBtn.style.display = '';
+    } else if (toggleBtn) {
+      toggleBtn.style.display = 'none';
+    }
     const tagsEl = document.getElementById('cdPreviewTags');
     if (tagsEl) tagsEl.innerHTML = tags.map((h) => `<span class="pill">${esc(h)}</span>`).join('');
     const ctaEl = document.getElementById('cdPreviewCta');
@@ -5450,8 +6279,41 @@ async function bindCreateDirector(path) {
     d.videoDurationPreset = preferred;
     sel.value = preferred;
   };
+  const resetDirectorTopicSelection = ({ keepManualInput = true } = {}) => {
+    d.manualTopicInput = keepManualInput ? String(d.manualTopicInput || '').trim() : '';
+    d.appliedManualTopic = '';
+    d.selectedSuggestedTopic = '';
+    d.selectedAngle = '';
+    d.topicPool = [];
+    d.suggestions = null;
+    d.selectedHashtags = [];
+    d.selectedCta = '';
+    d.activeVariant = 1;
+    d.drafts = [];
+    d.lastDraftTopic = '';
+    d.lastDraftAngle = '';
+    d.imageUrl = '';
+    state.notice = null;
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
+      resetVideoGenerationState({ clearStructure: true });
+    }
+  };
+  const buildDirectorTopicPool = (seed = 0, incoming = []) => {
+    const localPool = directorLocalTopicIdeas(d, 10, seed);
+    const scopedIncoming = (Array.isArray(incoming) ? incoming : []).filter((topic) => directorTopicBelongsToNiche(topic, d));
+    if (localPool.length) return mergeTopicPool(localPool, scopedIncoming);
+    return mergeTopicPool([], scopedIncoming);
+  };
   const collectPayloadBase = () => ({
-    topic: String(document.getElementById('cdTopic')?.value || d.topic || '').trim(),
+    niche_id: directorCurrentNicheId(d),
+    niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
+    niche_context: directorNicheAiContext(d),
+    topic: directorBaseTopic({
+      ...d,
+      topicPreset: document.getElementById('cdTopicPreset')?.value || d.topicPreset || DEFAULT_DIRECTOR_NICHE,
+      customTopicMode: !!(document.getElementById('cdTopicCustomEnabled')?.checked ?? d.customTopicMode),
+      customBaseTopicInput: String(document.getElementById('cdTopic')?.value || d.customBaseTopicInput || '').trim(),
+    }, d.topic),
     offer: String(document.getElementById('cdOffer')?.value || d.offer || '').trim() || null,
     goal: document.getElementById('cdGoal')?.value || d.goal || 'engagement',
     language: document.getElementById('cdLang')?.value || d.language || 'ru',
@@ -5635,6 +6497,56 @@ async function bindCreateDirector(path) {
     });
     return out;
   };
+  const normalizeDraftTextForTopic = (text, topic, angle, platform) => {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
+    const seen = new Set();
+    const cleaned = [];
+    for (const s of sentences) {
+      const one = String(s || '').replace(/\s+/g, ' ').trim();
+      if (!one) continue;
+      const key = one.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      cleaned.push(one);
+    }
+    let body = cleaned.join(' ').trim();
+    const topicWords = String(topic || '')
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 4);
+    const hasTopic = topicWords.some((w) => body.toLowerCase().includes(w));
+    if (!hasTopic && String(topic || '').trim()) {
+      body = `${String(topic).trim()}. ${body}`.trim();
+    }
+    if (!body) {
+      body = `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Что важно клиенту.\n2) Что вы предлагаете.\n3) Как записаться.`;
+    }
+    const platformHint = platform === 'instagram'
+      ? 'Сохраните пост и напишите в директ для деталей.'
+      : (platform === 'facebook'
+        ? 'Напишите в сообщения — подскажем лучший вариант для вас.'
+        : 'Смотрите до конца и переходите по ссылке в описании.');
+    if (!body.toLowerCase().includes(platformHint.toLowerCase())) {
+      body = `${body}\n\n${platformHint}`.trim();
+    }
+    return body;
+  };
+  const normalizeDraftRowsForPreview = (rows, topic, angle) => {
+    const list = Array.isArray(rows) ? rows : [];
+    return list.map((row, idx) => {
+      const platform = String(row?.platform || 'facebook').trim().toLowerCase();
+      const normalizedText = normalizeDraftTextForTopic(row?.post_text || row?.body_text || '', topic, angle, platform);
+      return {
+        ...(row || {}),
+        platform,
+        variant: Number(row?.variant || row?.variant_index || ((idx % 3) + 1)),
+        variant_index: Number(row?.variant_index || row?.variant || ((idx % 3) + 1)),
+        post_text: normalizedText,
+      };
+    });
+  };
   let regenerateSeq = 0;
   const applySelectedTagsToActiveDraft = () => {
     const draft = activeDraft();
@@ -5649,6 +6561,48 @@ async function bindCreateDirector(path) {
     const cta = String(d.selectedCta || '').trim();
     if (cta) draft.cta = cta;
   };
+  const resetVideoGenerationState = ({ clearStructure = true } = {}) => {
+    if (clearStructure) {
+      d.videoStructure = null;
+      d.videoStructureExpanded = false;
+    }
+    d.selectedHashtags = [];
+    d.selectedCta = '';
+    d.videoJobId = null;
+    d.videoJobStatus = '';
+    d.videoProgress = 0;
+    d.videoStep = 'queued';
+    d.videoMessage = '';
+    d.videoPreviewUrl = '';
+    d.videoFinalUrl = '';
+    d.videoRenderedVoiceGender = '';
+    d.videoRenderedVoiceTone = '';
+    d.videoRenderRequestedVoiceGender = '';
+    d.videoRenderRequestedVoiceTone = '';
+    d.videoRenderLoading = false;
+    if (Object.prototype.hasOwnProperty.call(d, 'videoError')) d.videoError = '';
+  };
+  const getEffectiveSelectedTopic = (fallback = '') => directorEffectiveTopic(d, fallback);
+  const applySuggestedTopicSelection = (topic) => {
+    d.selectedSuggestedTopic = String(topic || '').trim();
+    d.appliedManualTopic = '';
+    d.activeVariant = 1;
+    state.notice = null;
+    if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') d.imageUrl = '';
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
+      resetVideoGenerationState({ clearStructure: true });
+    }
+  };
+  const applyManualTopicSelection = (topic) => {
+    d.appliedManualTopic = String(topic || '').trim();
+    d.selectedSuggestedTopic = '';
+    d.activeVariant = 1;
+    state.notice = null;
+    if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') d.imageUrl = '';
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
+      resetVideoGenerationState({ clearStructure: true });
+    }
+  };
   const mergeTopicPool = (existing, incoming) => {
     const out = [];
     const seen = new Set();
@@ -5662,124 +6616,163 @@ async function bindCreateDirector(path) {
     };
     (Array.isArray(existing) ? existing : []).forEach(push);
     (Array.isArray(incoming) ? incoming : []).forEach(push);
-    return out.slice(0, 25);
+    return out.slice(0, 10);
   };
 
-  const generateDirector = async () => {
+  let suggestSeq = 0;
+  let suggestAbortController = null;
+
+  const requestTopicSuggestions = async ({ seed = 0, notify = true } = {}) => {
     const base = collectPayloadBase();
-    const pro = collectPro();
-    const isVideoType = normalizeDirectorContentType(d.contentType) === 'video';
-    const video = isVideoType ? collectVideo() : {};
+    const video = normalizeDirectorContentType(d.contentType) === 'video' ? collectVideo() : {};
     d.topic = base.topic;
     d.offer = base.offer || '';
     d.goal = base.goal;
     d.language = base.language;
     d.tone = base.tone;
-    d.audienceSegment = pro.audienceSegment;
-    d.length = pro.length;
-    d.style = pro.style;
-    d.brandRules = pro.brandRules;
-    if (!base.topic) {
-      state.notice = { type: 'error', text: 'Введите нишу/тему.' };
-      render();
-      return;
+    if (!String(base.topic || '').trim()) throw new Error('Введите нишу/тему.');
+    if (!base.platforms.length) throw new Error('Выберите хотя бы одну платформу.');
+    const seq = ++suggestSeq;
+    if (suggestAbortController) {
+      try { suggestAbortController.abort(); } catch {}
     }
-    if (!base.platforms.length) {
-      state.notice = { type: 'error', text: 'Выберите хотя бы одну платформу.' };
-      render();
-      return;
-    }
-
-    if (isVideoType) {
-      d.videoStructure = null;
-      d.selectedHashtags = [];
-      d.selectedCta = '';
-      d.videoStructureLoading = true;
-      d.status = 'loading';
-      d.warnings = [];
-      render();
-      try {
-        const targetSeconds = Math.max(20, Math.min(480, Number(video.duration_preset || 30) || 30));
-        const out = await api('/api/video/structure', {
-          method: 'POST',
-          body: JSON.stringify({
-            topic: base.topic,
-            offer: base.offer,
-            language: base.language || 'ru',
-            style: base.tone || 'friendly',
-            target_seconds: targetSeconds,
-            orientation: video.orientation || 'vertical',
-            scene_every_4s: !!video.scene_every_4s,
-            scene_seconds: Number(video.shot_seconds || 0) || 0,
-          }),
-          timeoutMs: 120000,
-        });
-        d.videoStructure = out?.data || null;
-        normalizeVideoScenesBudget({ silent: true });
-        d.selectedTopic = String(out?.data?.title || base.topic || '').trim();
-        d.selectedHashtags = normalizeHashtagSet(out?.data?.hashtags || []);
-        d.selectedCta = String(out?.data?.cta || '').trim() || 'Сохраните, чтобы не потерять и напишите «ПЛАН».';
-        d.videoStructureLoading = false;
-        d.status = 'ready';
-        syncQuality();
-        state.notice = { type: 'ok', text: 'Структура видео готова. Проверьте план сцен и нажмите «Собрать видео».' };
-      } catch (e) {
-        d.videoStructureLoading = false;
-        d.status = 'error';
-        state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать структуру видео.' };
-      }
-      render();
-      return;
-    }
-
+    suggestAbortController = new AbortController();
     d.loadingSuggest = true;
     d.loadingDrafts = false;
     d.status = 'loading';
     d.warnings = [];
+    render();
+    try {
+      const out = await api('/api/ai/director/suggest', {
+        method: 'POST',
+        body: JSON.stringify({ ...base, ...video, variation_seed: seed }),
+        timeoutMs: 120000,
+        signal: suggestAbortController.signal,
+      });
+      if (seq !== suggestSeq) return null;
+      const suggestData = out?.data || {};
+      const freshTopics = buildDirectorTopicPool(seed, suggestData.topics || []);
+      d.suggestions = suggestData;
+      d.topicPool = freshTopics;
+      if (!String(d.appliedManualTopic || '').trim() && !String(d.selectedSuggestedTopic || '').trim()) {
+        d.selectedSuggestedTopic = String(freshTopics[0] || base.topic || '').trim();
+      }
+      if (!String(d.selectedAngle || '').trim()) {
+        const localAngles = directorLocalAngles(d);
+        d.selectedAngle = String((suggestData.angles || [])[0] || localAngles[0] || 'Практический подход: шаги и сроки').trim();
+      }
+      d.selectedHashtags = normalizeHashtagSet(suggestData.hashtag_sets?.[0]);
+      d.selectedCta = String((suggestData.cta_options || [])[0] || '').trim();
+      d.warnings = out?.warnings || [];
+      d.debugCode = out?.debug_code || '';
+      d.loadingSuggest = false;
+      d.status = 'ready';
+      const preferredPlatform = Array.isArray(base.platforms) && base.platforms.length ? base.platforms[0] : 'facebook';
+      if (!base.platforms.includes(String(d.activePlatform || '').toLowerCase())) d.activePlatform = preferredPlatform;
+      if (notify) {
+        state.notice = { type: 'ok', text: freshTopics.length ? 'AI подобрал 10 тем. Выберите нужную.' : 'Темы обновлены.' };
+      }
+      return suggestData;
+    } catch (e) {
+      if (seq !== suggestSeq) return null;
+      if (e && /долго отвечает/i.test(String(e.message || ''))) throw e;
+      if (e && String(e.name || '').toLowerCase() === 'aborterror') return null;
+      d.loadingSuggest = false;
+      d.status = 'error';
+      throw e;
+    } finally {
+      if (seq === suggestSeq) suggestAbortController = null;
+      render();
+    }
+  };
+
+  const generateVideoStructureFromSelection = async () => {
+    const base = collectPayloadBase();
+    const video = collectVideo();
+    const selectedTopic = getEffectiveSelectedTopic(base.topic);
+    if (!selectedTopic) {
+      state.notice = { type: 'error', text: 'Сначала выберите тему для видео.' };
+      render();
+      return;
+    }
+    if (!String(d.selectedAngle || '').trim()) {
+      state.notice = { type: 'error', text: 'Сначала выберите подход для видео.' };
+      render();
+      return;
+    }
+    resetVideoGenerationState({ clearStructure: true });
+    d.selectedHashtags = [];
+    d.selectedCta = '';
+    d.videoStructureLoading = true;
+    d.status = 'loading';
+    d.warnings = [];
+    render();
+    try {
+      const targetSeconds = Math.max(20, Math.min(480, Number(video.duration_preset || 30) || 30));
+      const out = await api('/api/video/structure', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: selectedTopic,
+          offer: base.offer,
+          language: base.language || 'ru',
+          style: base.tone || 'friendly',
+          target_seconds: targetSeconds,
+          orientation: video.orientation || 'vertical',
+          scene_every_4s: !!video.scene_every_4s,
+          scene_seconds: Number(video.shot_seconds || 0) || 0,
+        }),
+        timeoutMs: 120000,
+      });
+      d.videoStructure = out?.data || null;
+      d.videoStructureExpanded = false;
+      normalizeVideoScenesBudget({ silent: true });
+      if (String(d.appliedManualTopic || '').trim()) d.appliedManualTopic = selectedTopic;
+      else d.selectedSuggestedTopic = selectedTopic;
+      d.selectedHashtags = normalizeHashtagSet(out?.data?.hashtags || []);
+      d.selectedCta = String(out?.data?.cta || '').trim() || 'Сохраните, чтобы не потерять и напишите «ПЛАН».';
+      d.videoStructureLoading = false;
+      d.status = 'ready';
+      syncQuality();
+      state.notice = { type: 'ok', text: 'Структура видео готова. Теперь можно сразу нажать «Собрать видео».' };
+    } catch (e) {
+      d.videoStructureLoading = false;
+      d.status = 'error';
+      state.notice = { type: 'error', text: e.message || 'Не удалось сгенерировать структуру видео.' };
+    }
+    render();
+  };
+
+  const generateDirector = async () => {
+    const pro = collectPro();
+    d.audienceSegment = pro.audienceSegment;
+    d.length = pro.length;
+    d.style = pro.style;
+    d.brandRules = pro.brandRules;
     d.refreshCount = 0;
     d.hashtagsRefreshCount = 0;
     d.ctaRefreshCount = 0;
     d.approachesRefreshCount = 0;
     d.imageRefreshCount = 0;
     d.topicPool = [];
+    d.selectedSuggestedTopic = '';
+    d.appliedManualTopic = '';
     d.selectedHashtags = [];
     d.selectedCta = '';
     d.imageUrl = '';
-    render();
-    let suggestData = null;
+    d.manualTopicInput = '';
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
+      resetVideoGenerationState({ clearStructure: true });
+    }
     try {
-      const out = await api('/api/ai/director/suggest', { method: 'POST', body: JSON.stringify({ ...base, ...video, variation_seed: 0 }), timeoutMs: 120000 });
-      suggestData = out?.data || {};
-      d.suggestions = suggestData;
-      d.topicPool = mergeTopicPool([], suggestData.topics || []);
-      d.selectedTopic = String((suggestData.topics || [])[0] || base.topic || '').trim();
-      d.selectedAngle = String((suggestData.angles || [])[0] || 'Практический подход: шаги и сроки').trim();
-      d.selectedHashtags = normalizeHashtagSet(suggestData.hashtag_sets?.[0]);
-      d.selectedCta = String((suggestData.cta_options || [])[0] || '').trim();
-      d.warnings = out?.warnings || [];
-      d.debugCode = out?.debug_code || '';
-      d.loadingSuggest = false;
-      d.loadingDrafts = false;
-      d.status = 'ready';
-      state.notice = { type: 'ok', text: 'Темы, подходы и хештеги готовы. Выберите тему и подход для генерации вариантов.' };
-      render();
+      d.topicPool = buildDirectorTopicPool(0, []);
+      await requestTopicSuggestions({ seed: 0, notify: true });
     } catch (e) {
-      d.loadingSuggest = false;
-      d.status = 'error';
       state.notice = { type: 'error', text: e.message || 'Не удалось получить AI рекомендации.' };
       render();
-      return;
     }
   };
 
   const refreshTopics = async () => {
-    const base = collectPayloadBase();
-    const video = normalizeDirectorContentType(d.contentType) === 'video' ? collectVideo() : {};
-    if (!String(base.topic || '').trim()) {
-      state.notice = { type: 'error', text: 'Сначала введите нишу/тему.' };
-      render();
-      return;
-    }
     if (Number(d.refreshCount || 0) >= 5) {
       state.notice = { type: 'error', text: 'Лимит обновления тем: 5 раз.' };
       render();
@@ -5790,22 +6783,8 @@ async function bindCreateDirector(path) {
     render();
     try {
       const nextSeed = Number(d.refreshCount || 0) + 1;
-      const out = await api('/api/ai/director/suggest', {
-        method: 'POST',
-        body: JSON.stringify({ ...base, ...video, variation_seed: nextSeed }),
-        timeoutMs: 120000,
-      });
-      const suggestData = out?.data || {};
-      const freshTopics = Array.isArray(suggestData.topics) ? suggestData.topics : [];
-      d.suggestions = {
-        ...(d.suggestions || {}),
-        ...suggestData,
-        topics: mergeTopicPool(d.topicPool, freshTopics),
-      };
-      d.topicPool = d.suggestions.topics || [];
+      await requestTopicSuggestions({ seed: nextSeed, notify: false });
       d.refreshCount = nextSeed;
-      if (!d.selectedTopic && d.topicPool.length) d.selectedTopic = d.topicPool[0];
-      d.warnings = out?.warnings || [];
       state.notice = { type: 'ok', text: `Темы обновлены (${d.refreshCount}/5).` };
     } catch (e) {
       state.notice = { type: 'error', text: e.message || 'Не удалось обновить темы.' };
@@ -5943,7 +6922,7 @@ async function bindCreateDirector(path) {
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
     if (!isVideoType && !d.imageEnabled) return;
     const base = collectPayloadBase();
-    const topicForImage = String(d.selectedTopic || base.topic || d.topic || '').trim();
+    const topicForImage = getEffectiveSelectedTopic(base.topic || d.topic || '');
     if (!topicForImage) {
       state.notice = { type: 'error', text: 'Сначала выберите или введите тему.' };
       render();
@@ -5989,7 +6968,8 @@ async function bindCreateDirector(path) {
   const regenerateBySelection = async (variantsCount = 1) => {
     const base = collectPayloadBase();
     const video = normalizeDirectorContentType(d.contentType) === 'video' ? collectVideo() : {};
-    if (!d.selectedTopic || !d.selectedAngle) return;
+    const selectedTopic = getEffectiveSelectedTopic(base.topic);
+    if (!selectedTopic || !d.selectedAngle) return;
     const seq = ++regenerateSeq;
     d.loadingDrafts = true;
     d.status = 'loading';
@@ -6000,7 +6980,7 @@ async function bindCreateDirector(path) {
         body: JSON.stringify({
           ...base,
           ...video,
-          topic: d.selectedTopic,
+          topic: selectedTopic,
           angle: d.selectedAngle,
           variants: Math.max(1, Math.min(Number(variantsCount || 1), 3)),
         }),
@@ -6010,9 +6990,14 @@ async function bindCreateDirector(path) {
       d.loadingDrafts = false;
       d.status = 'ready';
       d.briefId = draftsOut?.data?.brief_id || d.briefId || null;
-      d.drafts = Array.isArray(draftsOut?.data?.drafts) ? draftsOut.data.drafts : d.drafts;
+      const incomingDrafts = Array.isArray(draftsOut?.data?.drafts) ? draftsOut.data.drafts : [];
+      d.drafts = normalizeDraftRowsForPreview(
+        incomingDrafts.length ? incomingDrafts : d.drafts,
+        selectedTopic || base.topic || d.topic || 'Тема',
+        d.selectedAngle || 'Практический подход',
+      );
       d.activeVariant = 1;
-      d.lastDraftTopic = String(d.selectedTopic || '').trim();
+      d.lastDraftTopic = selectedTopic;
       d.lastDraftAngle = String(d.selectedAngle || '').trim();
       applySelectedTagsToActiveDraft();
       applySelectedCtaToActiveDraft();
@@ -6023,9 +7008,9 @@ async function bindCreateDirector(path) {
       if (seq !== regenerateSeq) return;
       d.loadingDrafts = false;
       d.status = 'partial';
-      d.drafts = buildLocalDraftFallback(d.selectedTopic || base.topic || d.topic || 'Тема', d.selectedAngle || 'Практический подход', base.platforms);
+      d.drafts = buildLocalDraftFallback(selectedTopic || base.topic || d.topic || 'Тема', d.selectedAngle || 'Практический подход', base.platforms);
       d.activeVariant = 1;
-      d.lastDraftTopic = String(d.selectedTopic || '').trim();
+      d.lastDraftTopic = selectedTopic;
       d.lastDraftAngle = String(d.selectedAngle || '').trim();
       applySelectedTagsToActiveDraft();
       applySelectedCtaToActiveDraft();
@@ -6088,16 +7073,31 @@ async function bindCreateDirector(path) {
     }
   };
 
-  const genBtn = document.getElementById('cdGenerate');
-  if (genBtn) genBtn.onclick = generateDirector;
-  const refreshStructureBtn = document.getElementById('cdRefreshStructure');
-  if (refreshStructureBtn) refreshStructureBtn.onclick = generateDirector;
+  const genBtn = document.getElementById('cdGenerateIdeas');
+  if (genBtn) genBtn.onclick = () => {
+    if (Array.isArray(d.topicPool) && d.topicPool.length) {
+      refreshTopics();
+      return;
+    }
+    generateDirector();
+  };
+  const genSelectedBtn = document.getElementById('cdGenerateSelected');
+  if (genSelectedBtn) genSelectedBtn.onclick = async () => {
+    if (normalizeDirectorContentType(d.contentType) === 'video') {
+      await generateVideoStructureFromSelection();
+      return;
+    }
+    await regenerateBySelection(1);
+    state.notice = { type: 'ok', text: 'Пост сгенерирован по выбранной теме.' };
+    render();
+  };
   const renderVideoBtn = document.getElementById('cdRenderVideo');
   if (renderVideoBtn) renderVideoBtn.onclick = async () => {
     syncVideoStructureFromInputs();
     const base = collectPayloadBase();
     const video = collectVideo();
-    if (!String(base.topic || '').trim()) {
+    const resolvedTopic = getEffectiveSelectedTopic(base.topic);
+    if (!String(resolvedTopic || '').trim()) {
       state.notice = { type: 'error', text: 'Введите тему для видео.' };
       render();
       return;
@@ -6121,7 +7121,7 @@ async function bindCreateDirector(path) {
       const start = await api('/api/ai/video/render', {
         method: 'POST',
         body: JSON.stringify({
-          topic: base.topic,
+          topic: resolvedTopic,
           offer: base.offer,
           language: base.language || 'ru',
           style: base.tone || 'friendly',
@@ -6131,7 +7131,7 @@ async function bindCreateDirector(path) {
           scene_seconds: Number(video.shot_seconds || 0) || 0,
           minimize_repeats: !!video.minimize_repeats,
           realistic_only: !!video.realistic_only,
-          custom_title: String(d.videoStructure?.title || d.selectedTopic || base.topic || '').trim(),
+          custom_title: String(d.videoStructure?.title || resolvedTopic).trim(),
           custom_description: String(d.videoStructure?.description || '').trim(),
           custom_hashtags: Array.isArray(d.videoStructure?.hashtags) ? d.videoStructure.hashtags : (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []),
           custom_cta: String(d.selectedCta || d.videoStructure?.cta || '').trim(),
@@ -6289,13 +7289,23 @@ async function bindCreateDirector(path) {
   if (previewTypePostBtn) previewTypePostBtn.onclick = () => { persistContentType('post'); ensureContentTypePlatforms(); render(); };
   const previewTypeVideoBtn = document.getElementById('cdPreviewTypeVideo');
   if (previewTypeVideoBtn) previewTypeVideoBtn.onclick = () => { persistContentType('video'); ensureVideoDefaults(); ensureContentTypePlatforms(); render(); };
+  const toggleStructureBtn = document.getElementById('cdToggleStructure');
+  if (toggleStructureBtn) toggleStructureBtn.onclick = () => {
+    d.videoStructureExpanded = !d.videoStructureExpanded;
+    render();
+  };
   const openVideoBtn = document.getElementById('cdOpenVideo');
   if (openVideoBtn) openVideoBtn.onclick = () => {
     const url = String(d.videoFinalUrl || d.videoPreviewUrl || '').trim();
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
-  const refreshTopicsBtn = document.getElementById('cdRefreshTopics');
-  if (refreshTopicsBtn) refreshTopicsBtn.onclick = refreshTopics;
+  const previewToggleTextBtn = document.getElementById('cdPreviewToggleText');
+  if (previewToggleTextBtn) previewToggleTextBtn.onclick = () => {
+    const key = String(d.activePlatform || 'facebook').trim().toLowerCase();
+    if (!d.previewExpanded || typeof d.previewExpanded !== 'object') d.previewExpanded = {};
+    d.previewExpanded[key] = !d.previewExpanded[key];
+    refreshDirectorPreviewDom();
+  };
   const refreshApproachesBtn = document.getElementById('cdRefreshApproaches');
   if (refreshApproachesBtn) refreshApproachesBtn.onclick = refreshApproaches;
   const refreshTagsBtn = document.getElementById('cdRefreshTags');
@@ -6312,23 +7322,79 @@ async function bindCreateDirector(path) {
   if (refreshImageBtn) refreshImageBtn.onclick = () => generatePreviewImage({ refresh: true });
   const genDraftsBtn = document.getElementById('cdGenerateDrafts');
   if (genDraftsBtn) genDraftsBtn.onclick = () => regenerateBySelection(3);
+  const quickActionRefreshBtn = document.getElementById('cdQuickActionRefresh');
+  if (quickActionRefreshBtn) quickActionRefreshBtn.onclick = () => {
+    d.quickActionSeed = Number(d.quickActionSeed || 0) + 1;
+    render();
+  };
+  document.querySelectorAll('[data-cd-quick-topic]').forEach((btn) => {
+    btn.onclick = () => {
+      const topic = decodeURIComponent(String(btn.getAttribute('data-cd-quick-topic') || ''));
+      const angle = decodeURIComponent(String(btn.getAttribute('data-cd-quick-angle') || ''));
+      const cta = decodeURIComponent(String(btn.getAttribute('data-cd-quick-cta') || ''));
+      const nextType = normalizeDirectorContentType(btn.getAttribute('data-cd-quick-type') || d.contentType || 'post');
+      if (!d.customTopicMode && d.quickActionNicheId) d.topicPreset = d.quickActionNicheId;
+      d.contentType = nextType;
+      applySuggestedTopicSelection(topic);
+      d.selectedAngle = String(angle || directorLocalAngles(d)[0] || '').trim();
+      d.selectedCta = String(cta || d.selectedCta || '').trim();
+      d.quickActionType = '';
+      state.notice = { type: 'ok', text: 'Тема перенесена в AI Контент-директор. Теперь можно продолжить генерацию.' };
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cd-quick-hook]').forEach((btn) => {
+    btn.onclick = () => {
+      const hook = decodeURIComponent(String(btn.getAttribute('data-cd-quick-hook') || ''));
+      if (!d.customTopicMode && d.quickActionNicheId) d.topicPreset = d.quickActionNicheId;
+      d.manualTopicInput = hook;
+      applyManualTopicSelection(hook);
+      d.selectedAngle = String(directorLocalAngles(d)[0] || '').trim();
+      d.quickActionType = '';
+      state.notice = { type: 'ok', text: 'Hook выбран как стартовая тема. Теперь можно сгенерировать результат.' };
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cd-quick-cta]').forEach((btn) => {
+    btn.onclick = () => {
+      const cta = decodeURIComponent(String(btn.getAttribute('data-cd-quick-cta') || ''));
+      d.selectedCta = cta;
+      applySelectedCtaToActiveDraft();
+      syncQuality();
+      refreshQualityDom();
+      state.notice = { type: 'ok', text: 'CTA применён. Можно использовать его в черновике или видео.' };
+      render();
+    };
+  });
 
-  ['cdTopic', 'cdGoal', 'cdOffer', 'cdLang', 'cdTone', 'cdAudience', 'cdLength', 'cdStyle', 'cdRules', 'cdScheduleAt', 'cdVideoOrientation', 'cdVideoDurationPreset', 'cdVideoShotSeconds', 'cdVideoVoiceGender', 'cdVideoVoiceTone'].forEach((id) => {
+  ['cdTopicPreset', 'cdTopic', 'cdManualTopic', 'cdGoal', 'cdOffer', 'cdLang', 'cdTone', 'cdAudience', 'cdLength', 'cdStyle', 'cdRules', 'cdScheduleAt', 'cdVideoOrientation', 'cdVideoDurationPreset', 'cdVideoShotSeconds', 'cdVideoVoiceGender', 'cdVideoVoiceTone'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.oninput = () => {
         if (id === 'cdScheduleAt') d.scheduleAt = el.value;
-        if (id === 'cdTopic') {
-          d.topic = el.value;
-          if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
-            d.videoStructure = null;
-            d.selectedHashtags = [];
-            d.selectedCta = '';
+        if (id === 'cdTopicPreset') {
+          d.topicPreset = String(el.value || DEFAULT_DIRECTOR_NICHE).trim() || DEFAULT_DIRECTOR_NICHE;
+          if (!d.customTopicMode) resetDirectorTopicSelection({ keepManualInput: false });
+          d.topic = directorBaseTopic(d, d.topic);
+          if (!d.customTopicMode) {
+            d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), []);
+            requestTopicSuggestions({ seed: Number(d.refreshCount || 0), notify: true }).catch((e) => {
+              state.notice = { type: 'error', text: e.message || 'Не удалось обновить идеи для выбранной ниши.' };
+              render();
+            });
           }
         }
+        if (id === 'cdTopic') {
+          d.customBaseTopicInput = el.value;
+          if (d.customTopicMode) {
+            resetDirectorTopicSelection({ keepManualInput: false });
+            d.topic = directorBaseTopic(d, d.topic);
+          }
+        }
+        if (id === 'cdManualTopic') d.manualTopicInput = el.value;
         if (id === 'cdOffer') d.offer = el.value;
         if (id === 'cdGoal') d.goal = el.value;
-        if (id === 'cdLang') d.language = el.value;
+        if (id === 'cdLang') d.language = normalizeContentLanguage(el.value);
         if (id === 'cdTone') d.tone = el.value;
         if (id === 'cdVideoOrientation') d.videoOrientation = el.value;
         if (id === 'cdVideoShotSeconds') d.videoShotSeconds = Math.max(2, Math.min(12, Number(el.value || 4) || 4));
@@ -6362,6 +7428,23 @@ async function bindCreateDirector(path) {
       el.onchange = el.oninput;
     }
   });
+  const customTopicModeEl = document.getElementById('cdTopicCustomEnabled');
+  if (customTopicModeEl) {
+    customTopicModeEl.onchange = () => {
+      d.customTopicMode = !!customTopicModeEl.checked;
+      resetDirectorTopicSelection({ keepManualInput: false });
+      d.topic = directorBaseTopic(d, d.topic);
+      if (!d.customTopicMode) {
+        d.topicPool = buildDirectorTopicPool(0, []);
+        requestTopicSuggestions({ seed: 0, notify: true }).catch((e) => {
+          state.notice = { type: 'error', text: e.message || 'Не удалось обновить идеи для выбранной ниши.' };
+          render();
+        });
+        return;
+      }
+      render();
+    };
+  }
   const videoScene4El = document.getElementById('cdVideoSceneEvery4');
   if (videoScene4El) {
     videoScene4El.onchange = () => {
@@ -6419,23 +7502,26 @@ async function bindCreateDirector(path) {
   }
 
   document.querySelectorAll('[data-cd-topic]').forEach((btn) => {
-    btn.onclick = async () => {
-      d.selectedTopic = decodeURIComponent(btn.getAttribute('data-cd-topic') || '');
-      state.notice = null;
-      d.activeVariant = 1;
-      if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') d.imageUrl = '';
+    btn.onclick = () => {
+      applySuggestedTopicSelection(decodeURIComponent(btn.getAttribute('data-cd-topic') || ''));
       render();
-      if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') await generatePreviewImage({ refresh: false });
-      await regenerateBySelection(1);
     };
   });
+  const applyManualTopicBtn = document.getElementById('cdApplyManualTopic');
+  if (applyManualTopicBtn) {
+    applyManualTopicBtn.onclick = () => {
+      const manual = String(document.getElementById('cdManualTopic')?.value || d.manualTopicInput || '').trim();
+      if (!manual) return;
+      applyManualTopicSelection(manual);
+      render();
+    };
+  }
   document.querySelectorAll('[data-cd-angle]').forEach((btn) => {
-    btn.onclick = async () => {
+    btn.onclick = () => {
       d.selectedAngle = decodeURIComponent(btn.getAttribute('data-cd-angle') || '');
       state.notice = null;
       d.activeVariant = 1;
       render();
-      await regenerateBySelection(1);
     };
   });
   document.querySelectorAll('[data-cd-hset]').forEach((btn) => {
@@ -6647,6 +7733,16 @@ async function bindCreateDirector(path) {
     videoCtaInlineEl.onchange = videoCtaInlineEl.oninput;
   }
 
+  if (!Array.isArray(d.topicPool) || !d.topicPool.length) {
+    d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), d.suggestions?.topics || []);
+  }
+  if (!d._nicheIdeasBootstrapped && !d.customTopicMode) {
+    d._nicheIdeasBootstrapped = true;
+    d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), d.suggestions?.topics || []);
+    requestTopicSuggestions({ seed: Number(d.refreshCount || 0), notify: false }).catch(() => {
+      render();
+    });
+  }
   syncQuality();
   refreshQualityDom();
   return true;
@@ -6655,7 +7751,7 @@ async function bindCreateDirector(path) {
 async function bindCreateVideoWeek(path) {
   if (path !== '/create/video-week') return false;
   const d = state.createDirector;
-  if (!d.topic && d.selectedTopic) d.topic = d.selectedTopic;
+  if (!d.topic && getEffectiveSelectedTopic('')) d.topic = getEffectiveSelectedTopic('');
   if (!Number.isFinite(Number(d.videoWeekPostsPerDay)) || Number(d.videoWeekPostsPerDay) < 1) d.videoWeekPostsPerDay = 1;
   if (!['ai', 'manual'].includes(String(d.videoWeekTimeMode || ''))) d.videoWeekTimeMode = 'ai';
   if (!String(d.videoWeekManualTime || '').trim()) d.videoWeekManualTime = '12:00';
@@ -6685,7 +7781,7 @@ async function bindCreateVideoWeek(path) {
     return slots.slice(0, count);
   };
   const buildVideoWeekPlan = async () => {
-    const topic = String(document.getElementById('vwTopic')?.value || d.topic || d.selectedTopic || '').trim();
+    const topic = String(document.getElementById('vwTopic')?.value || d.manualTopicInput || d.appliedManualTopic || d.selectedSuggestedTopic || d.topic || '').trim();
     if (!topic) throw new Error('Укажите тему.');
     d.topic = topic;
     d.videoWeekLoading = true;
@@ -6745,6 +7841,9 @@ async function bindCreateVideoWeek(path) {
             method: 'POST',
             body: JSON.stringify({
               topic,
+              niche_id: directorCurrentNicheId(d),
+              niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
+              niche_context: directorNicheAiContext(d),
               offer: String(d.offer || '').trim() || null,
               goal: d.goal || 'engagement',
               language: d.language || 'ru',
@@ -6953,7 +8052,8 @@ async function bindCreateVideoWeek(path) {
       });
       if (d.videoWeekItems[0]) {
         d.videoWeekSelectedDate = String(d.videoWeekItems[0].scheduled_at || '').slice(0, 10);
-        d.selectedTopic = d.videoWeekItems[0].topic;
+        d.selectedSuggestedTopic = d.videoWeekItems[0].topic;
+        d.appliedManualTopic = '';
         d.selectedCta = d.videoWeekItems[0].cta;
         d.selectedHashtags = parseCampaignHashtags(d.videoWeekItems[0].hashtags).slice(0, 20);
       }
@@ -7032,7 +8132,7 @@ async function bindCreateVideoWeek(path) {
 async function bindCreatePostWeek(path) {
   if (path !== '/create/post-week') return false;
   const d = state.createDirector;
-  if (!d.topic && d.selectedTopic) d.topic = d.selectedTopic;
+  if (!d.topic && getEffectiveSelectedTopic('')) d.topic = getEffectiveSelectedTopic('');
   if (!Number.isFinite(Number(d.postWeekPostsPerDay)) || Number(d.postWeekPostsPerDay) < 1) d.postWeekPostsPerDay = 1;
   if (!['ai', 'manual'].includes(String(d.postWeekTimeMode || ''))) d.postWeekTimeMode = 'ai';
   if (!String(d.postWeekManualTime || '').trim()) d.postWeekManualTime = '12:00';
@@ -7060,7 +8160,7 @@ async function bindCreatePostWeek(path) {
     return slots.slice(0, count);
   };
   const buildPostWeekPlan = async () => {
-    const topic = String(document.getElementById('pwTopic')?.value || d.topic || d.selectedTopic || '').trim();
+    const topic = String(document.getElementById('pwTopic')?.value || d.manualTopicInput || d.appliedManualTopic || d.selectedSuggestedTopic || d.topic || '').trim();
     if (!topic) throw new Error('Укажите тему.');
     d.topic = topic;
     d.postWeekLoading = true;
@@ -7115,6 +8215,9 @@ async function bindCreatePostWeek(path) {
             method: 'POST',
             body: JSON.stringify({
               topic,
+              niche_id: directorCurrentNicheId(d),
+              niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
+              niche_context: directorNicheAiContext(d),
               offer: String(d.offer || '').trim() || null,
               goal: d.goal || 'engagement',
               language: d.language || 'ru',
@@ -7287,7 +8390,8 @@ async function bindCreatePostWeek(path) {
       });
       if (d.postWeekItems[0]) {
         d.postWeekSelectedDate = String(d.postWeekItems[0].scheduled_at || '').slice(0, 10);
-        d.selectedTopic = d.postWeekItems[0].topic;
+        d.selectedSuggestedTopic = d.postWeekItems[0].topic;
+        d.appliedManualTopic = '';
         d.selectedCta = d.postWeekItems[0].cta;
         d.selectedHashtags = parseCampaignHashtags(d.postWeekItems[0].hashtags).slice(0, 20);
       }
@@ -7420,6 +8524,21 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   const finalPricingBtn = document.getElementById('finalPricingBtn');
   if (finalPricingBtn) finalPricingBtn.onclick = () => nav('/billing');
+
+  document.querySelectorAll('[data-pricing-cta]').forEach((btn) => {
+    btn.onclick = () => {
+      const plan = String(btn.getAttribute('data-pricing-cta') || '').trim();
+      if (plan === 'free') {
+        state.authMode = 'register';
+        state.authChallenge = null;
+        state.notice = null;
+        render();
+        focusAuthEmail();
+        return;
+      }
+      nav('/billing');
+    };
+  });
 
   const authBackBtn = document.getElementById('authBackBtn');
   if (authBackBtn) authBackBtn.onclick = () => {
@@ -7782,7 +8901,121 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   // Dashboard interactions
   const dashCreatePostBtn = document.getElementById('dashCreatePostBtn');
-  if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => nav('/create');
+  if (dashCreatePostBtn) dashCreatePostBtn.onclick = () => openCreateFromDashboard('post');
+  const dismissDashboardOnboarding = () => {
+    localStorage.setItem(`dashboardOnboardingDismissed:${String(state.user?.id || 'anon').trim() || 'anon'}`, '1');
+  };
+  const openCreateFromDashboard = (mode = 'post') => {
+    dismissDashboardOnboarding();
+    state.createDirector = {
+      ...state.createDirector,
+      contentType: mode === 'video' ? 'video' : 'post',
+      quickActionType: '',
+      quickActionNicheId: '',
+      quickActionSeed: 0,
+      quickActionPreviewOnly: false,
+    };
+    state.notice = {
+      type: 'ok',
+      text: mode === 'video'
+        ? 'Шаг 1: выберите тему или нажмите «Подобрать 10 тем», затем сгенерируйте структуру видео.'
+        : 'Шаг 1: выберите тему или нажмите «Подобрать 10 тем», затем сгенерируйте первый пост.',
+    };
+    nav('/create', { keepNotice: true });
+  };
+  const setDashboardQuickNiche = (value) => {
+    ensureDashboardQuickStartState();
+    const normalized = normalizeNicheIdSafe(value || '');
+    state.dashboardQuickStart = {
+      ...state.dashboardQuickStart,
+      nicheId: normalized && normalized !== 'fallback' ? normalized : '',
+    };
+    if (state.dashboardQuickStart.nicheId) persistDashboardNicheId(state.dashboardQuickStart.nicheId);
+  };
+  const openDashboardQuickAction = (actionType) => {
+    ensureDashboardQuickStartState();
+    const nicheId = String(state.dashboardQuickStart.nicheId || resolveDashboardActiveNicheId() || '').trim();
+    if (!nicheId) {
+      state.notice = { type: 'error', text: 'Сначала выберите нишу.' };
+      render();
+      return;
+    }
+    const access = getQuickActionAccess(actionType, state.billing);
+    if (access.isLocked) {
+      state.notice = { type: 'error', text: 'Это действие недоступно на текущем тарифе. Обновите тариф, чтобы продолжить.' };
+      nav('/billing', { keepNotice: true });
+      return;
+    }
+    dismissDashboardOnboarding();
+    const nextType = actionType === 'video_series' ? 'video' : 'post';
+    state.dashboardQuickStart = {
+      ...state.dashboardQuickStart,
+      nicheId,
+      actionType,
+    };
+    state.createDirector = {
+      ...state.createDirector,
+      contentType: nextType,
+      quickActionType: actionType,
+      quickActionNicheId: nicheId,
+      quickActionSeed: Number(state.dashboardQuickStart.seed || 0),
+      quickActionPreviewOnly: access.isPreview,
+      topicPreset: nicheId,
+      customTopicMode: false,
+    };
+    state.notice = {
+      type: 'ok',
+      text: access.isPreview
+        ? 'Открыт preview по выбранной нише. Полный объём доступен после апгрейда.'
+        : 'Открыт быстрый сценарий по выбранной нише. Можно сразу использовать результат в AI Контент-директоре.',
+    };
+    const query = new URLSearchParams();
+    query.set('quickAction', actionType);
+    query.set('niche', nicheId);
+    if (nextType === 'video') query.set('type', 'video');
+    nav(`/create?${query.toString()}`, { keepNotice: true });
+  };
+  const dashFirstPostBtn = document.getElementById('dashFirstPostBtn');
+  if (dashFirstPostBtn) dashFirstPostBtn.onclick = () => openCreateFromDashboard('post');
+  const dashFirstVideoBtn = document.getElementById('dashFirstVideoBtn');
+  if (dashFirstVideoBtn) dashFirstVideoBtn.onclick = () => openCreateFromDashboard('video');
+  const dashOpenCreateBtn = document.getElementById('dashOpenCreateBtn');
+  if (dashOpenCreateBtn) dashOpenCreateBtn.onclick = () => openCreateFromDashboard('post');
+  const dashEmptyCreateBtn = document.getElementById('dashEmptyCreateBtn');
+  if (dashEmptyCreateBtn) dashEmptyCreateBtn.onclick = () => openCreateFromDashboard('post');
+  const dashConnectChannelsBtn = document.getElementById('dashConnectChannelsBtn');
+  if (dashConnectChannelsBtn) dashConnectChannelsBtn.onclick = () => {
+    dismissDashboardOnboarding();
+    nav('/connections');
+  };
+  const dashDismissOnboardingBtn = document.getElementById('dashDismissOnboardingBtn');
+  if (dashDismissOnboardingBtn) dashDismissOnboardingBtn.onclick = () => {
+    dismissDashboardOnboarding();
+    render();
+  };
+  const dashEmptySyncBtn = document.getElementById('dashEmptySyncBtn');
+  if (dashEmptySyncBtn) dashEmptySyncBtn.onclick = () => {
+    dismissDashboardOnboarding();
+    render();
+  };
+  const dashQuickNiche = document.getElementById('dashQuickNiche');
+  if (dashQuickNiche) dashQuickNiche.onchange = () => {
+    setDashboardQuickNiche(dashQuickNiche.value);
+    render();
+  };
+  const dashQuickPickNicheBtn = document.getElementById('dashQuickPickNicheBtn');
+  if (dashQuickPickNicheBtn) dashQuickPickNicheBtn.onclick = () => {
+    setDashboardQuickNiche(document.getElementById('dashQuickNiche')?.value || '');
+    if (!String(state.dashboardQuickStart?.nicheId || '').trim()) {
+      state.notice = { type: 'error', text: 'Сначала выберите нишу.' };
+    }
+    render();
+  };
+  document.querySelectorAll('[data-dash-quick-action]').forEach((btn) => {
+    btn.onclick = () => {
+      openDashboardQuickAction(String(btn.getAttribute('data-dash-quick-action') || '').trim());
+    };
+  });
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
   if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
   const dashAiBreakdownBtn = document.getElementById('dashAiBreakdownBtn');
@@ -7825,7 +9058,8 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       const sync = await api('/api/dashboard/sync', { method: 'POST', body: JSON.stringify({}) });
       await loadDashboardMetrics(30);
       const parts = [
-        `Meta: ${Number(sync.meta_items || 0)}`,
+        `Facebook: ${Number(sync.facebook_items || 0)}`,
+        `Instagram: ${Number(sync.instagram_items || 0)}`,
         `YouTube: ${Number(sync.youtube_items || 0)}`,
       ];
       if (Array.isArray(sync.errors) && sync.errors.length) {
@@ -8838,8 +10072,22 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   const checkoutSubscription = async (plan) => {
     try {
-      const r = await api('/api/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ plan }) });
-      location.href = r.checkout_url;
+      const candidates = normalizeCheckoutPlanCode(plan);
+      let lastErr = null;
+      for (const planCode of candidates) {
+        try {
+          const r = await api('/api/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ plan: planCode }) });
+          location.href = r.checkout_url;
+          return;
+        } catch (e) {
+          lastErr = e;
+          const msg = String(e?.message || '').toLowerCase();
+          if (!/валидный тариф|starter|growth|agency|light\/pro\/agency|light\/pro|light|pro/.test(msg)) {
+            throw e;
+          }
+        }
+      }
+      throw lastErr || new Error('Не удалось открыть оплату.');
     } catch (e) {
       const msg = String(e?.message || '');
       const stripeConfigError = /stripe.+not configured|price id.+not configured/i.test(msg);
@@ -9119,6 +10367,9 @@ document.addEventListener('click', (e) => {
 });
 loadAiWizardDraft();
 render();
+
+
+
 
 
 
