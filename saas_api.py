@@ -38,6 +38,13 @@ from facebook_api import (
     publish_to_facebook,
     publish_to_instagram,
 )
+from backend.services.media.pexels_service import (
+    PexelsConfigError,
+    PexelsEmptyResultError,
+    PexelsRateLimitError,
+    PexelsRequestError,
+    fetch_post_image,
+)
 from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_structured_text_with_usage
 from plans_catalog import all_public_plan_specs, get_plan_spec, normalize_plan_code, to_plan_payload
 from content_pipeline import (
@@ -5272,6 +5279,170 @@ def _resolve_page_access_token(user_access_token: str, page_id: str) -> str:
         return ""
     return str(selected.get("access_token") or "").strip()
 
+
+def _fetch_post_media_or_error(
+    *,
+    niche: str | None,
+    topic: str,
+    platform: str,
+    post_text: str | None = None,
+    db=None,
+    project_id: int | None = None,
+    used_external_ids: set[str] | None = None,
+    used_urls: set[str] | None = None,
+):
+    return fetch_post_image(
+        niche=niche,
+        topic=topic,
+        platform=platform,
+        post_text=post_text,
+        db=db,
+        project_id=project_id,
+        used_external_ids=used_external_ids,
+        used_urls=used_urls,
+    )
+
+
+def _latest_meta_connection(db, user_id: int):
+    return (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == user_id,
+            SocialAccount.provider == "meta",
+        )
+        .order_by(SocialAccount.updated_at.desc(), SocialAccount.created_at.desc())
+        .first()
+    )
+
+
+def _publish_post_via_meta(db, post: Post, *, publish_to_linked_instagram: bool = False) -> dict:
+    connection = _latest_meta_connection(db, post.user_id)
+    if not connection:
+        return {"ok": False, "error": "??? ????????????? Meta ???????? ??? ??????????"}
+    if not connection.token_encrypted:
+        return {"ok": False, "error": "????? ??????????? ?? ??????. ?????????????? Facebook."}
+
+    try:
+        access_token = decrypt_meta_token(connection.token_encrypted)
+    except Exception:
+        return {"ok": False, "error": "?? ??????? ???????????? ?????. ?????????????? Facebook."}
+
+    caption = (post.generated_text or post.topic or "").strip()
+    if not caption:
+        return {"ok": False, "error": "? ????? ??? ?????? ??? ??????????"}
+
+    image_url = (post.media_url or "").strip() or None
+    needs_instagram = str(post.platform or "").lower() == "instagram"
+    if needs_instagram and not image_url:
+        try:
+            media = _fetch_post_media_or_error(
+                niche=getattr(post, "category", None) or post.topic,
+                topic=post.topic or post.prompt_text or "social media",
+                platform="instagram",
+                post_text=post.generated_text or "",
+                db=db,
+                project_id=int(getattr(post, "project_id", 0) or 0) or None,
+            )
+            image_url = media.local_url
+            post.media_url = media.local_url
+            db.flush()
+        except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
+            image_url = None
+
+    if str(post.platform or "").lower() == "facebook":
+        if not connection.page_id:
+            post.status = "failed"
+            post.error_message = "?? ??????? Facebook Page ? ???????????."
+            db.flush()
+            return {"ok": False, "error": post.error_message}
+        page_access_token = _resolve_page_access_token(access_token, connection.page_id)
+        if not page_access_token:
+            _apply_meta_status(connection, "permissions_missing", "page_token_missing")
+            post.status = "failed"
+            post.error_message = "Meta ?? ????? page access token. ?????????????? Facebook ? ??????????? ????? ??? ????????."
+            db.flush()
+            return {"ok": False, "error": post.error_message, "status_reason_code": "page_token_missing"}
+        result = publish_to_facebook(connection.page_id, page_access_token, image_url, caption)
+        fb_err = result.get("error") if isinstance(result, dict) else None
+        fb_code = str((fb_err or {}).get("code", ""))
+        if fb_err and fb_code == "324":
+            result = publish_to_facebook(connection.page_id, page_access_token, None, caption)
+        remote_id = result.get("post_id") or result.get("id")
+        if result.get("error") or not remote_id:
+            meta_error = result.get("error") or {}
+            if isinstance(meta_error, str):
+                details = result.get("details") if isinstance(result, dict) else None
+                if isinstance(details, dict) and isinstance(details.get("error"), dict):
+                    meta_error = details.get("error")
+            status_from_error, reason = _meta_error_to_status(meta_error)
+            _apply_meta_status(connection, status_from_error, reason)
+            post.status = "failed"
+            post.error_message = str(result.get("error") or result)
+            db.flush()
+            return {"ok": False, "error": "?????? ?????????? ? Facebook", "details": result}
+        post.status = "done"
+        post.published_at = datetime.utcnow()
+        post.remote_id = str(remote_id)
+        post.error_message = None
+        _apply_meta_status(connection, "connected_ready", None)
+        connection.last_success_at = datetime.utcnow()
+        db.flush()
+        return {"ok": True, "facebook": result, "remote_id": str(remote_id)}
+
+    if not connection.ig_user_id:
+        post.status = "failed"
+        post.error_message = "??? ?????????? Instagram Business ? ????????? ????????."
+        db.flush()
+        return {"ok": False, "error": post.error_message}
+
+    result = publish_to_instagram(connection.ig_user_id, access_token, image_url, caption)
+    remote_id = result.get("id")
+    if result.get("error") or not remote_id:
+        meta_error = result.get("error") or {}
+        status_from_error, reason = _meta_error_to_status(meta_error)
+        _apply_meta_status(connection, status_from_error, reason)
+        post.status = "failed"
+        post.error_message = str(result.get("error") or result)
+        db.flush()
+        return {"ok": False, "error": "?????? ?????????? ? Instagram", "details": result}
+
+    post.status = "done"
+    post.published_at = datetime.utcnow()
+    post.remote_id = str(remote_id)
+    post.error_message = None
+    _apply_meta_status(connection, "connected_ready", None)
+    connection.last_success_at = datetime.utcnow()
+    db.flush()
+    return {"ok": True, "instagram": result, "remote_id": str(remote_id)}
+
+
+def publish_due_scheduled_posts(limit: int = 20) -> dict:
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        rows = (
+            db.query(Post)
+            .filter(
+                Post.status.in_(["scheduled", "queued"]),
+                Post.schedule_at.isnot(None),
+                Post.schedule_at <= now,
+            )
+            .order_by(Post.schedule_at.asc(), Post.id.asc())
+            .limit(max(1, int(limit or 20)))
+            .all()
+        )
+        published = 0
+        failed = 0
+        for post in rows:
+            result = _publish_post_via_meta(db, post)
+            if result.get("ok"):
+                published += 1
+            else:
+                failed += 1
+            db.commit()
+        return {"published": published, "failed": failed, "processed": len(rows)}
+    finally:
+        db.close()
 
 def _apply_meta_status(row: SocialAccount, status: str, reason_code: str = None) -> None:
     row.status = _normalize_connection_status(status)
