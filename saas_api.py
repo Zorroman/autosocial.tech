@@ -1,4 +1,5 @@
 ﻿import json
+import logging
 import os
 import random
 import re
@@ -20,6 +21,7 @@ from email.message import EmailMessage
 
 import requests
 from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
+from sqlalchemy import text
 
 from dashboard_metrics import (
     dashboard_ai_score,
@@ -5416,31 +5418,175 @@ def _publish_post_via_meta(db, post: Post, *, publish_to_linked_instagram: bool 
     return {"ok": True, "instagram": result, "remote_id": str(remote_id)}
 
 
+def _scheduled_publish_error_text(result: dict | None = None, exc: Exception | None = None) -> str:
+    if exc is not None:
+        return f"{exc.__class__.__name__}: {str(exc)[:1000]}".strip()
+    if isinstance(result, dict):
+        details_text = _extract_meta_error_text(result.get("details"))
+        if details_text:
+            return details_text[:1000]
+        err = str(result.get("error") or "").strip()
+        if err:
+            return err[:1000]
+        reason = str(result.get("status_reason_code") or "").strip()
+        if reason:
+            return reason[:1000]
+    return "scheduled_publish_failed"
+
+
+def _claim_due_scheduled_posts(db, now: datetime, limit: int) -> list[dict]:
+    safe_limit = max(1, int(limit or 20))
+    bind = db.get_bind()
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "") or ""
+
+    if dialect_name == "postgresql":
+        rows = db.execute(
+            text(
+                """
+                WITH due AS (
+                    SELECT id, status AS previous_status, platform, schedule_at
+                    FROM posts
+                    WHERE status IN ('scheduled', 'queued')
+                      AND schedule_at IS NOT NULL
+                      AND schedule_at <= :now
+                    ORDER BY schedule_at ASC, id ASC
+                    LIMIT :limit
+                    FOR UPDATE SKIP LOCKED
+                )
+                UPDATE posts AS p
+                SET status = 'publishing'
+                FROM due
+                WHERE p.id = due.id
+                RETURNING
+                    p.id AS id,
+                    due.previous_status AS previous_status,
+                    p.platform AS platform,
+                    p.schedule_at AS schedule_at
+                """
+            ),
+            {"now": now, "limit": safe_limit},
+        ).mappings().all()
+        db.commit()
+        return [dict(row) for row in rows]
+
+    # Best-effort fallback for non-Postgres/dev runtimes. Production correctness relies on the
+    # Postgres path above; this branch keeps local import/runtime compatibility without widening scope.
+    rows = (
+        db.query(Post.id, Post.status, Post.platform, Post.schedule_at)
+        .filter(
+            Post.status.in_(["scheduled", "queued"]),
+            Post.schedule_at.isnot(None),
+            Post.schedule_at <= now,
+        )
+        .order_by(Post.schedule_at.asc(), Post.id.asc())
+        .limit(safe_limit)
+        .all()
+    )
+    claimed: list[dict] = []
+    for row in rows:
+        updated = (
+            db.query(Post)
+            .filter(Post.id == row.id, Post.status == row.status)
+            .update({"status": "publishing"}, synchronize_session=False)
+        )
+        if updated:
+            claimed.append(
+                {
+                    "id": int(row.id),
+                    "previous_status": str(row.status or ""),
+                    "platform": str(row.platform or ""),
+                    "schedule_at": row.schedule_at,
+                }
+            )
+    db.commit()
+    return claimed
+
+
 def publish_due_scheduled_posts(limit: int = 20) -> dict:
     db = SessionLocal()
     try:
         now = datetime.utcnow()
-        rows = (
-            db.query(Post)
-            .filter(
-                Post.status.in_(["scheduled", "queued"]),
-                Post.schedule_at.isnot(None),
-                Post.schedule_at <= now,
-            )
-            .order_by(Post.schedule_at.asc(), Post.id.asc())
-            .limit(max(1, int(limit or 20)))
-            .all()
-        )
+        claimed = _claim_due_scheduled_posts(db, now, limit)
+        logging.info("scheduled publish claimed limit=%s claimed=%s", max(1, int(limit or 20)), len(claimed))
         published = 0
         failed = 0
-        for post in rows:
-            result = _publish_post_via_meta(db, post)
-            if result.get("ok"):
-                published += 1
-            else:
+        if not claimed:
+            return {"published": 0, "failed": 0, "processed": 0}
+
+        post_ids = [int(item["id"]) for item in claimed]
+        posts = db.query(Post).filter(Post.id.in_(post_ids)).all()
+        posts_by_id = {int(post.id): post for post in posts}
+
+        for item in claimed:
+            post_id = int(item["id"])
+            post = posts_by_id.get(post_id)
+            platform = str(item.get("platform") or "")
+            if not post:
                 failed += 1
-            db.commit()
-        return {"published": published, "failed": failed, "processed": len(rows)}
+                logging.error(
+                    "scheduled publish missing claimed post post_id=%s platform=%s previous_status=%s",
+                    post_id,
+                    platform,
+                    item.get("previous_status"),
+                )
+                continue
+
+            logging.info(
+                "scheduled publish picked post_id=%s platform=%s status_before=%s claimed_status=%s schedule_at=%s",
+                post_id,
+                platform,
+                item.get("previous_status"),
+                str(post.status or ""),
+                item.get("schedule_at"),
+            )
+
+            try:
+                result = _publish_post_via_meta(db, post)
+                if result.get("ok"):
+                    published += 1
+                    db.commit()
+                    logging.info(
+                        "scheduled publish success post_id=%s platform=%s remote_id=%s",
+                        post_id,
+                        platform,
+                        result.get("remote_id"),
+                    )
+                    continue
+
+                failed += 1
+                if str(post.status or "") == "publishing":
+                    post.status = "failed"
+                    post.error_message = _scheduled_publish_error_text(result=result)
+                    db.flush()
+                db.commit()
+                logging.warning(
+                    "scheduled publish failure post_id=%s platform=%s reason=%s status_reason_code=%s",
+                    post_id,
+                    platform,
+                    _scheduled_publish_error_text(result=result),
+                    result.get("status_reason_code"),
+                )
+            except Exception as exc:
+                db.rollback()
+                failed += 1
+                recovery_post = db.query(Post).filter_by(id=post_id).first()
+                if recovery_post and str(recovery_post.status or "") == "publishing":
+                    recovery_post.status = "failed"
+                    recovery_post.error_message = _scheduled_publish_error_text(exc=exc)
+                    db.commit()
+                logging.exception(
+                    "scheduled publish unexpected error post_id=%s platform=%s",
+                    post_id,
+                    platform,
+                )
+
+        logging.info(
+            "scheduled publish batch processed=%s published=%s failed=%s",
+            len(claimed),
+            published,
+            failed,
+        )
+        return {"published": published, "failed": failed, "processed": len(claimed)}
     finally:
         db.close()
 
@@ -7125,6 +7271,7 @@ def admin_niche_hooks():
         return jsonify([{"id": r.id, "niche": r.niche, "hook": r.hook} for r in rows])
     finally:
         db.close()
+
 
 
 
