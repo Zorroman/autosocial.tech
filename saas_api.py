@@ -5434,6 +5434,95 @@ def _scheduled_publish_error_text(result: dict | None = None, exc: Exception | N
     return "scheduled_publish_failed"
 
 
+def _scheduled_publish_timeout_minutes() -> int:
+    return 20
+
+
+def _recover_stuck_publishing_posts(db, now: datetime, timeout_minutes: int = 20) -> int:
+    safe_timeout = max(1, int(timeout_minutes or 20))
+    cutoff = now - timedelta(minutes=safe_timeout)
+    recovery_reason = f"publishing timeout recovery after {safe_timeout} minutes"
+    bind = db.get_bind()
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "") or ""
+
+    if dialect_name == "postgresql":
+        rows = db.execute(
+            text(
+                """
+                WITH stuck AS (
+                    SELECT id, platform, schedule_at, created_at
+                    FROM posts
+                    WHERE status = 'publishing'
+                      AND published_at IS NULL
+                      AND COALESCE(schedule_at, created_at) <= :cutoff
+                    ORDER BY COALESCE(schedule_at, created_at) ASC, id ASC
+                    FOR UPDATE SKIP LOCKED
+                )
+                UPDATE posts AS p
+                SET status = 'failed',
+                    error_message = :recovery_reason,
+                    retry_count = COALESCE(p.retry_count, 0) + 1
+                FROM stuck
+                WHERE p.id = stuck.id
+                RETURNING
+                    p.id AS id,
+                    p.platform AS platform,
+                    p.schedule_at AS schedule_at,
+                    p.created_at AS created_at,
+                    p.retry_count AS retry_count
+                """
+            ),
+            {
+                "cutoff": cutoff,
+                "recovery_reason": recovery_reason,
+            },
+        ).mappings().all()
+        db.commit()
+        for row in rows:
+            age_basis = row.get("schedule_at") or row.get("created_at")
+            logging.warning(
+                "scheduled publish recovered stuck post post_id=%s platform=%s reason=%s timeout_minutes=%s age_basis=%s retry_count=%s",
+                row.get("id"),
+                row.get("platform"),
+                recovery_reason,
+                safe_timeout,
+                age_basis,
+                row.get("retry_count"),
+            )
+        return len(rows)
+
+    # Best-effort fallback for non-Postgres/dev runtimes. Production correctness relies on the
+    # Postgres path above; this branch keeps local import/runtime compatibility without widening scope.
+    rows = (
+        db.query(Post)
+        .filter(
+            Post.status == "publishing",
+            Post.published_at.is_(None),
+            func.coalesce(Post.schedule_at, Post.created_at) <= cutoff,
+        )
+        .order_by(func.coalesce(Post.schedule_at, Post.created_at).asc(), Post.id.asc())
+        .all()
+    )
+    recovered = 0
+    for post in rows:
+        post.status = "failed"
+        post.error_message = recovery_reason
+        post.retry_count = int(post.retry_count or 0) + 1
+        recovered += 1
+        age_basis = post.schedule_at or post.created_at
+        logging.warning(
+            "scheduled publish recovered stuck post post_id=%s platform=%s reason=%s timeout_minutes=%s age_basis=%s retry_count=%s",
+            post.id,
+            post.platform,
+            recovery_reason,
+            safe_timeout,
+            age_basis,
+            post.retry_count,
+        )
+    db.commit()
+    return recovered
+
+
 def _claim_due_scheduled_posts(db, now: datetime, limit: int) -> list[dict]:
     safe_limit = max(1, int(limit or 20))
     bind = db.get_bind()
@@ -5506,6 +5595,13 @@ def publish_due_scheduled_posts(limit: int = 20) -> dict:
     db = SessionLocal()
     try:
         now = datetime.utcnow()
+        timeout_minutes = _scheduled_publish_timeout_minutes()
+        recovered = _recover_stuck_publishing_posts(db, now, timeout_minutes)
+        logging.info(
+            "scheduled publish recovery recovered=%s timeout_minutes=%s",
+            recovered,
+            timeout_minutes,
+        )
         claimed = _claim_due_scheduled_posts(db, now, limit)
         logging.info("scheduled publish claimed limit=%s claimed=%s", max(1, int(limit or 20)), len(claimed))
         published = 0
