@@ -452,6 +452,23 @@ def _parse_iso_datetime(raw_value: str) -> datetime:
     return dt
 
 
+def _normalize_requested_platforms(raw_platforms, raw_platform: str | None = None, *, default: list[str] | None = None) -> list[str]:
+    out = []
+    if isinstance(raw_platforms, list):
+        for item in raw_platforms:
+            key = str(item or "").strip().lower()
+            if key in {"facebook", "instagram", "youtube"} and key not in out:
+                out.append(key)
+    single = str(raw_platform or "").strip().lower()
+    if single in {"facebook", "instagram", "youtube"} and single not in out:
+        out.append(single)
+    if out:
+        return out
+    fallback = default or []
+    return [p for p in fallback if p in {"facebook", "instagram", "youtube"}]
+
+
+
 def _json_loads_safe(raw_value, fallback):
     try:
         if not raw_value:
@@ -5186,6 +5203,155 @@ def schedule_post(post_id: int):
         return jsonify({"id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat()})
     finally:
         db.close()
+
+
+@saas_api.route("/posts/bulk-schedule", methods=["POST"])
+@require_auth
+def bulk_schedule_posts():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    raw_items = data.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        return jsonify({"error": "РџРµСЂРµРґР°Р№С‚Рµ items РјР°СЃСЃРёРІРѕРј"}), 400
+
+    platforms = _normalize_requested_platforms(
+        data.get("platforms"),
+        data.get("platform"),
+        default=["instagram"],
+    )
+    if not platforms:
+        return jsonify({"error": "Р’С‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРЅСѓ РїР»Р°С‚С„РѕСЂРјСѓ"}), 400
+
+    project_id_raw = data.get("project_id")
+    try:
+        project_id = int(project_id_raw) if project_id_raw not in (None, "") else 0
+    except (TypeError, ValueError):
+        return jsonify({"error": "project_id РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ С‡РёСЃР»РѕРј"}), 400
+    if not project_id:
+        project_id = get_or_create_default_project(user.id).id
+
+    if not can_access_project(user, project_id):
+        return jsonify({"error": "РЈ РІР°СЃ РЅРµС‚ РґРѕСЃС‚СѓРїР° Рє РїСЂРѕРµРєС‚Сѓ"}), 403
+
+    pw = _paywall_response_if_needed(
+        authorizeAction(
+            user,
+            ACTION_SCHEDULE_CREATE,
+            {"endpoint": "/api/posts/bulk-schedule", "platforms": platforms, "count": len(raw_items)},
+        )
+    )
+    if pw:
+        return pw
+
+    category = (data.get("category") or "").strip() or None
+    language = (data.get("language") or "ru").strip() or "ru"
+    tone = (data.get("tone") or "friendly").strip() or "friendly"
+    image_enabled = bool(data.get("image_enabled"))
+
+    normalized_items = []
+    for idx, item in enumerate(raw_items):
+        if not isinstance(item, dict):
+            return jsonify({"error": f"items[{idx}] РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕР±СЉРµРєС‚РѕРј"}), 400
+        topic = (item.get("topic") or "").strip()
+        if not topic:
+            return jsonify({"error": f"items[{idx}].topic РѕР±СЏР·Р°С‚РµР»РµРЅ"}), 400
+        schedule_at_raw = item.get("schedule_at")
+        if not schedule_at_raw:
+            return jsonify({"error": f"items[{idx}].schedule_at РѕР±СЏР·Р°С‚РµР»РµРЅ"}), 400
+        try:
+            schedule_at = _parse_iso_datetime(str(schedule_at_raw))
+        except Exception:
+            return jsonify({"error": f"items[{idx}].schedule_at РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ ISO С„РѕСЂРјР°С‚Рµ"}), 400
+        generated_text = (item.get("generated_text") or "").strip()
+        media_url = (item.get("media_url") or "").strip() or None
+        normalized_items.append(
+            {
+                "topic": topic,
+                "generated_text": generated_text,
+                "schedule_at": schedule_at,
+                "media_url": media_url,
+            }
+        )
+
+    db = SessionLocal()
+    try:
+        created = 0
+        reused = 0
+        created_ids = []
+        reused_ids = []
+        for item in normalized_items:
+            for platform in platforms:
+                existing_post = (
+                    db.query(Post)
+                    .filter(
+                        Post.user_id == user.id,
+                        Post.project_id == project_id,
+                        Post.platform == platform,
+                        Post.topic == item["topic"],
+                        Post.schedule_at == item["schedule_at"],
+                        Post.status != "deleted",
+                    )
+                    .order_by(Post.id.asc())
+                    .first()
+                )
+                if existing_post:
+                    reused += 1
+                    reused_ids.append(int(existing_post.id))
+                    continue
+
+                media_url = item["media_url"]
+                if image_enabled and not media_url and platform in {"facebook", "instagram"}:
+                    try:
+                        media = _fetch_post_media_or_error(
+                            niche=category or item["topic"],
+                            topic=item["topic"],
+                            platform=platform,
+                            post_text=item["generated_text"],
+                            db=db,
+                            project_id=project_id,
+                        )
+                        media_url = media.local_url
+                    except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
+                        media_url = None
+
+                post = Post(
+                    user_id=user.id,
+                    project_id=project_id,
+                    platform=platform,
+                    prompt_text=item["topic"],
+                    generated_text=item["generated_text"] or item["topic"],
+                    topic=item["topic"],
+                    category=category,
+                    language=language,
+                    tone=tone,
+                    media_url=media_url,
+                    tokens_input=0,
+                    tokens_output=0,
+                    tokens_total=0,
+                    credits_charged=0,
+                    status="scheduled",
+                    schedule_at=item["schedule_at"],
+                    published_at=None,
+                    error_message=None,
+                )
+                db.add(post)
+                db.flush()
+                created += 1
+                created_ids.append(int(post.id))
+
+        db.commit()
+        return jsonify(
+            {
+                "created": created,
+                "reused": reused,
+                "total": created + reused,
+                "created_ids": created_ids,
+                "reused_ids": reused_ids,
+            }
+        )
+    finally:
+        db.close()
+
 
 
 META_CONNECTION_STATUSES = {
