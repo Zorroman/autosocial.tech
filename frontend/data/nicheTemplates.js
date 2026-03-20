@@ -413,6 +413,80 @@
     offerTemplates: ['первичная консультация', 'разбор задачи', 'подбор решения'],
     bannedCrossNicheWords: [],
   };
+  const NICHE_IMAGE_GUIDELINES = {
+    smm_marketing: {
+      style: 'clean editorial workspace',
+      focus: 'marketing planning, content workflow, analytics on screen, business owner or marketer at work',
+      mood: 'professional, modern, clear',
+      avoid: ['stock handshake', 'random abstract gradients', 'empty office scene'],
+    },
+    cosmetology: {
+      style: 'clean beauty editorial',
+      focus: 'healthy skin, cosmetology cabinet, specialist hands, skincare routine details',
+      mood: 'premium, soft, sterile, trustworthy',
+      avoid: ['plastic doll skin', 'medical horror visuals', 'oversexualized beauty'],
+    },
+    barbershop: {
+      style: 'masculine lifestyle portrait',
+      focus: 'grooming process, haircut details, beard care, barbershop interior',
+      mood: 'confident, stylish, authentic',
+      avoid: ['fashion runway glamour', 'female beauty salon cues', 'cartoon barber tools'],
+    },
+    autoservice: {
+      style: 'realistic automotive service photo',
+      focus: 'car diagnostics, mechanic inspection, workshop details, under-hood service moments',
+      mood: 'reliable, practical, honest',
+      avoid: ['race cars', 'luxury showroom', 'toy car look', 'crash scene'],
+    },
+    detailing: {
+      style: 'premium auto detailing visual',
+      focus: 'paint protection, polished bodywork, interior care, close-up detailing process',
+      mood: 'clean, premium, precise',
+      avoid: ['repair garage look', 'oil and dirt focus', 'racing aesthetic'],
+    },
+    apartment_renovation: {
+      style: 'interior renovation documentary',
+      focus: 'apartment renovation stages, materials, measuring, neat work process, before/after readiness',
+      mood: 'practical, trustworthy, organized',
+      avoid: ['luxury palace interior', 'messy demolition chaos only', 'DIY meme look'],
+    },
+    psychology: {
+      style: 'calm human-centered lifestyle',
+      focus: 'thoughtful person, safe conversation, reflection, emotional balance, everyday life scenes',
+      mood: 'warm, safe, grounded',
+      avoid: ['clinical psychiatry clichés', 'esoteric symbols', 'dramatic crying close-ups'],
+    },
+    consulting: {
+      style: 'business strategy editorial',
+      focus: 'decision-making, leadership meeting, documents, planning session, process clarity',
+      mood: 'strategic, premium, confident',
+      avoid: ['generic corporate handshake', 'startup party vibe', 'stock presentation clichés'],
+    },
+    online_courses: {
+      style: 'modern online learning scene',
+      focus: 'expert teaching, laptop learning, lesson fragments, study notes, remote education',
+      mood: 'clear, motivating, expert',
+      avoid: ['school classroom for children', 'gaming streamer setup', 'random webinar stock'],
+    },
+    fitness: {
+      style: 'realistic fitness lifestyle',
+      focus: 'training process, movement, recovery, coach guidance, gym or home workout setup',
+      mood: 'energetic, healthy, disciplined',
+      avoid: ['extreme bodybuilding only', 'supplement ads', 'unreal body proportions'],
+    },
+    esoterica: {
+      style: 'calm spiritual lifestyle visual',
+      focus: 'inner state, meditation, moonlight, candles, gentle rituals, intuitive reflective moments',
+      mood: 'mysterious, soft, thoughtful, elegant',
+      avoid: ['cheap magic props', 'horror occult look', 'circus mysticism', 'neon fantasy chaos'],
+    },
+    fallback: {
+      style: 'clean commercial editorial',
+      focus: 'service, client value, real-world scene connected to the topic',
+      mood: 'clear, useful, trustworthy',
+      avoid: ['abstract stock filler', 'text on image', 'random unrelated objects'],
+    },
+  };
 
   function normalizeKey(value) {
     return String(value || '').trim().toLowerCase();
@@ -430,7 +504,11 @@
 
   function getNicheTemplates(category) {
     const normalized = normalizeCategory(category);
-    return nicheList.find((item) => item.id === normalized) || fallback;
+    const niche = nicheList.find((item) => item.id === normalized) || fallback;
+    return {
+      ...niche,
+      imageGuidelines: { ...(NICHE_IMAGE_GUIDELINES[niche.id] || NICHE_IMAGE_GUIDELINES.fallback) },
+    };
   }
 
   function seededShuffle(items, seed = 0) {
@@ -442,12 +520,12 @@
     return [...items].sort(() => next() - 0.5);
   }
 
-  function getRandomTopicIdeas(category, count = 10, seed = 0) {
+  function getRandomTopicIdeas(category, count = 5, seed = 0) {
     const niche = getNicheTemplates(category);
     const pool = Array.isArray(niche.topicTemplates) && niche.topicTemplates.length
       ? niche.topicTemplates
       : fallback.topicTemplates;
-    return seededShuffle(pool, `${niche.id}:${seed}`).slice(0, Math.max(1, Math.min(Number(count) || 10, pool.length)));
+    return seededShuffle(pool, `${niche.id}:${seed}`).slice(0, Math.max(1, Math.min(Number(count) || 5, pool.length)));
   }
 
   function getTopicHooks(category) {
@@ -470,36 +548,159 @@
     return fallback;
   }
 
+  const GENERIC_POST_CTA_POOL = [
+    'Сохраните пост, чтобы вернуться к нему в нужный момент.',
+    'Поделитесь с тем, кому это сейчас может быть полезно.',
+    'Напишите в комментариях, если узнали свою ситуацию.',
+    'Ответьте одним словом: откликается или нет?',
+    'Возьмите этот пост как ориентир перед следующим шагом.',
+  ];
+
+  const POST_CONTENT_SHAPES = [
+    { key: 'educational', format: 'expert_post' },
+    { key: 'checklist', format: 'checklist_post' },
+    { key: 'question', format: 'question_post' },
+    { key: 'mini_story', format: 'story_post' },
+    { key: 'practical_step', format: 'tips_post' },
+    { key: 'reflection', format: 'reflect_post' },
+  ];
+
+  function normalizePlanText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[«»"'`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function dedupeStrings(items, fallbackItems = []) {
+    const source = Array.isArray(items) && items.length ? items : fallbackItems;
+    const out = [];
+    const seen = new Set();
+    for (const item of source || []) {
+      const text = String(item || '').trim();
+      const key = normalizePlanText(text);
+      if (!text || !key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(text);
+    }
+    return out;
+  }
+
+  function pickBalanced(sourceItems, usageMap, previousValue, seedIndex = 0, fallbackItems = []) {
+    const source = dedupeStrings(sourceItems, fallbackItems);
+    if (!source.length) return '';
+    let minCount = Infinity;
+    let candidateIndexes = [];
+    source.forEach((item, idx) => {
+      if (item === previousValue && source.length > 1) return;
+      const used = Number(usageMap.get(item) || 0);
+      if (used < minCount) {
+        minCount = used;
+        candidateIndexes = [idx];
+      } else if (used === minCount) {
+        candidateIndexes.push(idx);
+      }
+    });
+    if (!candidateIndexes.length) {
+      candidateIndexes = source.map((_, idx) => idx);
+    }
+    const chosenIndex = candidateIndexes[seedIndex % candidateIndexes.length];
+    const chosen = source[chosenIndex] || source[0];
+    usageMap.set(chosen, Number(usageMap.get(chosen) || 0) + 1);
+    return chosen;
+  }
+
+  function buildPostDraft(entry, index) {
+    const topic = String(entry.topic || '').trim();
+    const angle = String(entry.angle || '').trim();
+    const hook = String(entry.hook || topic).trim();
+    const cta = String(entry.cta || '').trim();
+    const shape = String(entry.contentShape || 'educational').trim();
+    const finalLine = cta || 'Сохраните пост, чтобы вернуться к нему позже.';
+
+    if (shape === 'checklist') {
+      return `${hook}\n\nПроверьте себя по трём точкам: что уже работает, где чаще всего появляется сбой и какой шаг даст самый быстрый сдвиг.\n\n${angle} помогает увидеть это без лишней суеты.\n\n${finalLine}`.trim();
+    }
+    if (shape === 'question') {
+      return `${hook}\n\nЧасто всё начинается с одного вопроса: что именно сейчас мешает получить более ровный результат?\n\n${angle} помогает посмотреть на ситуацию спокойнее и честнее.\n\n${finalLine}`.trim();
+    }
+    if (shape === 'mini_story') {
+      return `${hook}\n\nОбычно человек замечает проблему не сразу: сначала кажется, что можно отложить, а потом та же ситуация повторяется снова.\n\n${angle} как раз про тот момент, когда становится ясно, где теряется опора.\n\n${finalLine}`.trim();
+    }
+    if (shape === 'practical_step') {
+      return `${hook}\n\nНачните с одного простого действия уже сегодня, не пытаясь переделать всё сразу.\n\n${angle} лучше всего работает тогда, когда есть один конкретный шаг и понятный ориентир на ближайшие дни.\n\n${finalLine}`.trim();
+    }
+    if (shape === 'reflection') {
+      return `${hook}\n\nИногда полезнее не ускоряться, а честно посмотреть, что именно повторяется из раза в раз.\n\n${angle} помогает заметить это без давления и лишнего шума.\n\n${finalLine}`.trim();
+    }
+    return `${hook}\n\n${angle} помогает быстрее понять, где именно теряется результат и на что стоит обратить внимание в первую очередь.\n\nОдин понятный шаг всегда работает лучше, чем перегруз из советов.\n\n${finalLine}`.trim();
+  }
+
   function pickCycled(items, index, fallbackItems = []) {
     const source = Array.isArray(items) && items.length ? items : fallbackItems;
     if (!source.length) return '';
     return String(source[index % source.length] || '').trim();
   }
 
-  function buildPlanEntry(category, index, contentType = 'post') {
+  function buildPlanEntry(category, index, contentType = 'post', planContext = null) {
     const niche = getNicheTemplates(category);
     const fallbackNiche = getFallbackTemplates();
-    const topics = getRandomTopicIdeas(category, Math.max(10, niche.topicTemplates?.length || 10), index);
-    const hooks = getTopicHooks(category);
-    const ctas = getCtaTemplates(category);
-    const offers = getOfferTemplates(category);
-    const angles = getContentAngles(category);
-    const topic = pickCycled(topics, index, fallbackNiche.topicTemplates);
-    const angle = pickCycled(angles, index, fallbackNiche.contentAngles);
-    const hook = pickCycled(hooks, index, fallbackNiche.hookTemplates);
-    const cta = pickCycled(ctas, index, fallbackNiche.ctaTemplates);
-    const offer = pickCycled(offers, index, fallbackNiche.offerTemplates);
+    const topics = planContext?.topicsPool || getRandomTopicIdeas(category, Math.max(10, niche.topicTemplates?.length || 10), index);
+    const hooks = planContext?.hooksPool || getTopicHooks(category);
+    const ctas = planContext?.ctasPool || getCtaTemplates(category);
+    const offers = planContext?.offersPool || getOfferTemplates(category);
+    const angles = planContext?.anglesPool || getContentAngles(category);
+    const topic = pickBalanced(
+      topics,
+      planContext?.topicUsage || new Map(),
+      planContext?.lastTopic || '',
+      index,
+      fallbackNiche.topicTemplates,
+    );
+    const angle = pickBalanced(
+      angles,
+      planContext?.angleUsage || new Map(),
+      planContext?.lastAngle || '',
+      index + 1,
+      fallbackNiche.contentAngles,
+    );
+    const hook = pickBalanced(
+      hooks,
+      planContext?.hookUsage || new Map(),
+      planContext?.lastHook || '',
+      index + 2,
+      fallbackNiche.hookTemplates,
+    );
+    const cta = pickBalanced(
+      ctas,
+      planContext?.ctaUsage || new Map(),
+      planContext?.lastCta || '',
+      index + 3,
+      fallbackNiche.ctaTemplates,
+    );
+    const offer = pickBalanced(
+      offers,
+      planContext?.offerUsage || new Map(),
+      planContext?.lastOffer || '',
+      index + 4,
+      fallbackNiche.offerTemplates,
+    );
     const stage = index % 4;
     const objectiveMap = ['awareness', 'engagement', 'lead', 'trust'];
-    const contentFormat = contentType === 'video'
-      ? (index % 2 === 0 ? 'short_video' : 'talking_head_video')
-      : (index % 3 === 0 ? 'expert_post' : index % 3 === 1 ? 'checklist_post' : 'story_post');
-    return {
+    const shapeSource = Array.isArray(planContext?.shapePool) && planContext.shapePool.length
+      ? planContext.shapePool
+      : POST_CONTENT_SHAPES;
+    const shapeEntry = contentType === 'video'
+      ? { key: index % 2 === 0 ? 'short_video' : 'talking_head_video', format: index % 2 === 0 ? 'short_video' : 'talking_head_video' }
+      : shapeSource[index % shapeSource.length];
+    const entry = {
       day: index + 1,
       nicheId: niche.id,
       nicheLabel: niche.label,
       contentType,
-      contentFormat,
+      contentFormat: shapeEntry.format,
+      contentShape: shapeEntry.key,
       objective: objectiveMap[stage],
       angle,
       topic,
@@ -508,11 +709,60 @@
       offer,
       keywords: [...(niche.keywords || fallbackNiche.keywords || [])],
     };
+    if (planContext) {
+      planContext.lastTopic = topic;
+      planContext.lastAngle = angle;
+      planContext.lastHook = hook;
+      planContext.lastCta = cta;
+      planContext.lastOffer = offer;
+    }
+    if (contentType === 'post') {
+      const draft = buildPostDraft(entry, index);
+      entry.captionText = draft;
+      entry.postText = draft;
+      entry.caption = draft;
+    }
+    return entry;
   }
 
   function getContentPlan(category, days = 7, contentType = 'post') {
     const total = Math.max(1, Math.min(30, Number(days) || 7));
-    return Array.from({ length: total }, (_, idx) => buildPlanEntry(category, idx, contentType));
+    const niche = getNicheTemplates(category);
+    const fallbackNiche = getFallbackTemplates();
+    const planContext = {
+      topicsPool: seededShuffle(
+        dedupeStrings(niche.topicTemplates, fallbackNiche.topicTemplates),
+        `${niche.id}:${contentType}:topics:${total}`,
+      ),
+      hooksPool: seededShuffle(
+        dedupeStrings(niche.hookTemplates, fallbackNiche.hookTemplates),
+        `${niche.id}:${contentType}:hooks:${total}`,
+      ),
+      anglesPool: seededShuffle(
+        dedupeStrings(niche.contentAngles, fallbackNiche.contentAngles),
+        `${niche.id}:${contentType}:angles:${total}`,
+      ),
+      ctasPool: seededShuffle(
+        dedupeStrings([...(niche.ctaTemplates || []), ...GENERIC_POST_CTA_POOL], [...fallbackNiche.ctaTemplates, ...GENERIC_POST_CTA_POOL]),
+        `${niche.id}:${contentType}:ctas:${total}`,
+      ),
+      offersPool: seededShuffle(
+        dedupeStrings(niche.offerTemplates, fallbackNiche.offerTemplates),
+        `${niche.id}:${contentType}:offers:${total}`,
+      ),
+      shapePool: seededShuffle(POST_CONTENT_SHAPES, `${niche.id}:${contentType}:shapes:${total}`),
+      topicUsage: new Map(),
+      hookUsage: new Map(),
+      angleUsage: new Map(),
+      ctaUsage: new Map(),
+      offerUsage: new Map(),
+      lastTopic: '',
+      lastHook: '',
+      lastAngle: '',
+      lastCta: '',
+      lastOffer: '',
+    };
+    return Array.from({ length: total }, (_, idx) => buildPlanEntry(category, idx, contentType, planContext));
   }
 
   function get7DayContentPlan(category, contentType = 'post') {
@@ -556,6 +806,7 @@
       hookTemplates: [...(niche.hookTemplates || [])],
       ctaTemplates: [...(niche.ctaTemplates || [])],
       offerTemplates: [...(niche.offerTemplates || [])],
+      imageGuidelines: { ...(niche.imageGuidelines || NICHE_IMAGE_GUIDELINES.fallback) },
       bannedCrossNicheWords: [...(niche.bannedCrossNicheWords || [])],
       contentPlan7Days: get7DayContentPlan(niche.id, 'post'),
       contentPlan30Days: get30DayContentPlan(niche.id, 'post'),

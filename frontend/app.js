@@ -1,4 +1,4 @@
-﻿
+
 // API base:
 // - local override: localStorage.apiBase
 // - localhost dev:  http://127.0.0.1:5000
@@ -28,35 +28,38 @@ const CONTENT_LANG_OPTIONS = [
   { value: 'ru', label: 'Русский' },
   { value: 'ua', label: 'Українська' },
   { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
+  { value: 'es', label: 'Espanol' },
   { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
+  { value: 'fr', label: 'Francais' },
 ];
 const LANGUAGE_LABELS = {
   ru: 'Русский',
   en: 'English',
-  es: 'Español',
+  es: 'Espanol',
   de: 'Deutsch',
-  fr: 'Français',
+  fr: 'Francais',
   uk: 'Українська',
 };
 const DIRECTOR_NICHE_ENGINE = window.AutoSocialNiches || {};
 const AUTOSOCIAL_RELEASE_MARKER_2026 = 'AUTOSOCIAL_RELEASE_MARKER_2026';
 const AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1 = 'AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1';
 const AUTOSOCIAL_CREATE_FLOW_V1 = 'AUTOSOCIAL_CREATE_FLOW_V1';
+const DIRECTOR_TOPIC_IDEA_COUNT = 5;
 const DIRECTOR_NICHE_OPTIONS = typeof DIRECTOR_NICHE_ENGINE.getNicheOptions === 'function'
   ? DIRECTOR_NICHE_ENGINE.getNicheOptions()
   : [{ value: 'smm_marketing', label: 'SMM и маркетинг' }];
 const DEFAULT_DIRECTOR_NICHE = String(DIRECTOR_NICHE_ENGINE.DEFAULT_NICHE_ID || DIRECTOR_NICHE_OPTIONS[0]?.value || 'smm_marketing').trim();
 const MARKETING_PRICING_PLANS = [
-  { key: 'free', name: 'Free Trial 7 days', price: '€0', desc: 'Попробовать сценарий работы без карты и лишних расходов.', points: ['30 постов', '3 видео', '1 проект'], cta: 'Начать trial' },
-  { key: 'starter', name: 'Starter', price: '€29', desc: 'Для малого бизнеса, которому нужен стабильный контент и автопостинг.', points: ['150 постов/мес', '10 видео/мес', '2 проекта'], cta: 'Выбрать Starter' },
-  { key: 'growth', name: 'Growth', price: '€79', desc: 'Основной тариф для регулярного контента, видео и роста без ручной рутины.', points: ['600 постов/мес', '40 видео/мес', '5 проектов'], cta: 'Выбрать Growth' },
-  { key: 'agency', name: 'Agency', price: '€199', desc: 'Для агентств и multi-client работы с большим объёмом контента.', points: ['2000 постов/мес', '150 видео/мес', 'Безлимит проектов'], cta: 'Выбрать Agency' },
+  { key: 'free', name: 'Free Trial 7 days', price: '€0', desc: 'Попробовать сценарий работы без карты и лишних расходов.', points: ['30 постов', '3 видео', '1 рабочее пространство'], cta: 'Начать trial' },
+  { key: 'starter', name: 'Starter', price: '€29', desc: 'Для малого бизнеса, которому нужен стабильный контент и автопостинг.', points: ['150 постов/мес', '10 видео/мес', '2 рабочих пространства'], cta: 'Выбрать Starter' },
+  { key: 'growth', name: 'Growth', price: '€79', desc: 'Основной тариф для регулярного контента, видео и роста без ручной рутины.', points: ['600 постов/мес', '40 видео/мес', '5 рабочих пространств'], cta: 'Выбрать Growth' },
+  { key: 'agency', name: 'Agency', price: '€199', desc: 'Для агентств и multi-client работы с большим объёмом контента.', points: ['2000 постов/мес', '150 видео/мес', 'Безлимит рабочих пространств'], cta: 'Выбрать Agency' },
 ];
 const DASHBOARD_QUICK_ACTIONS = [
   { key: 'weekly_plan', title: 'Контент-план на 7 дней', description: 'Быстрый недельный план публикаций для вашей ниши.', buttonLabel: 'Создать план', accent: '7D', size: 'large', contentType: 'post' },
   { key: 'monthly_plan', title: 'Контент-план на 30 дней', description: 'Полный контент-план на месяц с идеями и структурой.', buttonLabel: 'Создать план', accent: '30D', size: 'large', contentType: 'post' },
+  { key: 'video_week_plan', title: 'Видео-посты на 7 дней', description: 'Недельный видеоплан с темами, слотами и CTA.', buttonLabel: 'Создать план', accent: 'V7', size: 'large', contentType: 'video' },
+  { key: 'video_month_plan', title: 'Видео-посты на 30 дней', description: 'Месячный видеоплан для регулярного short-form контента.', buttonLabel: 'Создать план', accent: 'V30', size: 'large', contentType: 'video' },
   { key: 'post_series', title: 'Серия постов', description: 'Готовая серия постов под ваш бизнес и формат контента.', buttonLabel: 'Сгенерировать', accent: 'POST', size: 'large', contentType: 'post' },
   { key: 'video_series', title: 'Серия видео', description: 'Идеи и структура коротких видео для соцсетей.', buttonLabel: 'Сгенерировать', accent: 'VIDEO', size: 'large', contentType: 'video' },
   { key: 'hooks_pack', title: 'Hooks', description: 'Цепляющие начала для постов, Reels и Shorts.', buttonLabel: 'Создать hooks', accent: 'HOOK', size: 'small', contentType: 'post' },
@@ -144,7 +147,7 @@ const LOGIN_I18N = {
     how_1_title: 'Create content in seconds',
     how_1_text: 'Enter a topic or key message and get ready-to-post drafts with hashtags and CTA.',
     how_2_title: 'Plan. Automate. Stop manual posting',
-    how_2_text: 'Set a schedule and the platform publishes automatically.',
+
     how_3_title: 'Track performance',
     how_3_text: 'Reach, engagement, and audience growth in one dashboard.',
     trust_title: 'Why marketers choose AutoSocial.tech',
@@ -172,93 +175,93 @@ const LOGIN_I18N = {
   es: {
     language_label: 'Idioma',
     form_title_register: 'Crear cuenta',
-    form_title_login: 'Iniciar sesión',
+    form_title_login: 'Iniciar sesion',
     flow_title_register: 'Confirmar registro',
-    flow_title_login: 'Confirmar inicio de sesión',
-    submit_get_code: 'Obtener código',
-    submit_verify_code: 'Confirmar código',
-    switch_text_register: '¿Ya tienes cuenta?',
-    switch_text_login: '¿No tienes cuenta?',
+    flow_title_login: 'Confirmar inicio de sesion',
+    submit_get_code: 'Obtener codigo',
+    submit_verify_code: 'Confirmar codigo',
+    switch_text_register: '?Ya tienes cuenta?',
+    switch_text_login: '?No tienes cuenta?',
     switch_label_register: 'Entrar',
     switch_label_login: 'Crear',
-    auth_hint_default: 'Introduce email y contraseña. Enviaremos un código de 4 dígitos.',
-    auth_hint_code_prefix: 'Código enviado a',
-    hero_title: 'AutoSocial.tech — asistente de IA para contenido y autopublicación.',
-    hero_subtitle: 'Crea contenido, programa publicaciones y gestiona Facebook + Instagram desde un solo lugar automáticamente.',
+    auth_hint_default: 'Introduce email y contrasena. Enviaremos un codigo de 4 digitos.',
+    auth_hint_code_prefix: 'Codigo enviado a',
+    hero_title: 'AutoSocial.tech — asistente de IA para contenido y autopublicacion.',
+    hero_subtitle: 'Crea contenido, programa publicaciones y gestiona Facebook + Instagram desde un solo lugar automaticamente.',
     hero_cta: 'Empezar gratis con email',
     hero_microcopy: 'Sin tarjeta por ahora: empieza con el plan Free.',
     features_title: 'Todo lo que necesitas para SMM en un panel',
-    features_1: 'Generación de contenido único con IA',
-    features_2: 'Autopublicación programada en Facebook e Instagram',
+    features_1: 'Generacion de contenido unico con IA',
+    features_2: 'Autopublicacion programada en Facebook e Instagram',
     features_3: 'Plantillas inteligentes para cualquier nicho',
     features_4: 'Planificador que piensa por ti',
-    features_5: 'Métricas y analítica para crecer',
-    how_title: 'Cómo AutoSocial.tech ayuda a tu negocio',
+    features_5: 'Metricas y analitica para crecer',
+    how_title: 'Como AutoSocial.tech ayuda a tu negocio',
     how_1_title: 'Crea contenido en segundos',
-    how_1_text: 'Introduce un tema o mensaje clave y obtén borradores con hashtags y CTA.',
-    how_2_title: 'Planifica. Automatiza. Olvida la publicación manual',
+    how_1_text: 'Introduce un tema o mensaje clave y obten borradores con hashtags y CTA.',
+    how_2_title: 'Planifica. Automatiza. Olvida la publicacion manual',
     how_2_text: 'Configura un horario y la plataforma publica sola.',
     how_3_title: 'Mide resultados',
-    how_3_text: 'Alcance, interacción y crecimiento en un solo panel.',
-    trust_title: 'Por qué los marketers eligen AutoSocial.tech',
+    how_3_text: 'Alcance, interaccion y crecimiento en un solo panel.',
+    trust_title: 'Por que los marketers eligen AutoSocial.tech',
     trust_1: 'Ahorra hasta 10 horas por semana en publicaciones',
-    trust_2: 'Genera contenido con buenas prácticas de SMM',
+    trust_2: 'Genera contenido con buenas practicas de SMM',
     trust_3: 'Integraciones con Facebook + Instagram Business',
     trust_4: 'Listo para SSL / GDPR y pagos.',
-    quote: '"AutoSocial.tech puso nuestras redes en piloto automático: publicamos más y mejoró la interacción." — Marketer SMB',
-    final_title: '¿Listo para automatizar tus redes sociales?',
+    quote: '"AutoSocial.tech puso nuestras redes en piloto automatico: publicamos mas y mejoro la interaccion." — Marketer SMB',
+    final_title: '?Listo para automatizar tus redes sociales?',
     final_cta_account: 'Crear cuenta con email',
     final_cta_pricing: 'Ver precios',
     final_note: 'Empieza con Free Trial. Cambia a Growth cuando quieras.',
     footer_pricing: 'Precios',
-    footer_privacy: 'Política de privacidad',
+    footer_privacy: 'Politica de privacidad',
     footer_support: 'Soporte',
     field_email: 'Email',
-    field_password: 'Contraseña',
-    field_code: 'Código del correo',
+    field_password: 'Contrasena',
+    field_code: 'Codigo del correo',
     placeholder_email: 'you@company.com',
-    placeholder_password: 'Mínimo 8 caracteres',
-    placeholder_code: '4 dígitos',
-    resend_code: 'Reenviar código',
-    back_to_auth: 'Cambiar email/contraseña',
+    placeholder_password: 'Minimo 8 caracteres',
+    placeholder_code: '4 digitos',
+    resend_code: 'Reenviar codigo',
+    back_to_auth: 'Cambiar email/contrasena',
   },
   de: {
     language_label: 'Sprache',
     form_title_register: 'Konto erstellen',
     form_title_login: 'Anmelden',
-    flow_title_register: 'Registrierung bestätigen',
-    flow_title_login: 'Anmeldung bestätigen',
+    flow_title_register: 'Registrierung bestatigen',
+    flow_title_login: 'Anmeldung bestatigen',
     submit_get_code: 'Code erhalten',
-    submit_verify_code: 'Code bestätigen',
+    submit_verify_code: 'Code bestatigen',
     switch_text_register: 'Schon ein Konto?',
     switch_text_login: 'Noch kein Konto?',
     switch_label_register: 'Anmelden',
     switch_label_login: 'Erstellen',
     auth_hint_default: 'E-Mail und Passwort eingeben. Wir senden einen 4-stelligen Code.',
     auth_hint_code_prefix: 'Code gesendet an',
-    hero_title: 'AutoSocial.tech — KI-Assistent für Content und Auto-Posting.',
-    hero_subtitle: 'Inhalte erstellen, Beiträge planen und Facebook + Instagram automatisch an einem Ort verwalten.',
+    hero_title: 'AutoSocial.tech — KI-Assistent fur Content und Auto-Posting.',
+    hero_subtitle: 'Inhalte erstellen, Beitrage planen und Facebook + Instagram automatisch an einem Ort verwalten.',
     hero_cta: 'Kostenlos mit E-Mail starten',
-    hero_microcopy: 'Keine Karte nötig — starte mit dem Free-Plan.',
-    features_title: 'Alles für SMM in einem Dashboard',
+    hero_microcopy: 'Keine Karte notig — starte mit dem Free-Plan.',
+    features_title: 'Alles fur SMM in einem Dashboard',
     features_1: 'Einzigartige Content-Erstellung mit KI',
-    features_2: 'Geplantes Auto-Posting für Facebook und Instagram',
-    features_3: 'Intelligente Vorlagen für jede Nische',
-    features_4: 'Planer, der für dich vorausdenkt',
-    features_5: 'Metriken und Analysen für Wachstum',
+    features_2: 'Geplantes Auto-Posting fur Facebook und Instagram',
+    features_3: 'Intelligente Vorlagen fur jede Nische',
+    features_4: 'Planer, der fur dich vorausdenkt',
+    features_5: 'Metriken und Analysen fur Wachstum',
     how_title: 'So hilft AutoSocial.tech deinem Business',
     how_1_title: 'Content in Sekunden erstellen',
-    how_1_text: 'Thema oder Kernbotschaft eingeben und fertige Entwürfe mit Hashtags und CTA erhalten.',
+    how_1_text: 'Thema oder Kernbotschaft eingeben und fertige Entwurfe mit Hashtags und CTA erhalten.',
     how_2_title: 'Planen. Automatisieren. Manuelles Posten vergessen',
-    how_2_text: 'Zeitplan festlegen und die Plattform veröffentlicht automatisch.',
+    how_2_text: 'Zeitplan festlegen und die Plattform veroffentlicht automatisch.',
     how_3_title: 'Leistung verfolgen',
     how_3_text: 'Reichweite, Engagement und Wachstum in einem Panel.',
-    trust_title: 'Warum Marketer AutoSocial.tech wählen',
+    trust_title: 'Warum Marketer AutoSocial.tech wahlen',
     trust_1: 'Spart bis zu 10 Stunden pro Woche beim Publizieren',
     trust_2: 'Generiert Content nach SMM-Best-Practices',
     trust_3: 'Integrationen mit Facebook + Instagram Business',
     trust_4: 'SSL / DSGVO-ready. Zahlungsbereit.',
-    quote: '"AutoSocial.tech hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und höheres Engagement." — SMB-Marketer',
+    quote: '"AutoSocial.tech hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und hoheres Engagement." — SMB-Marketer',
     final_title: 'Bereit, deine Social Media zu automatisieren?',
     final_cta_account: 'Konto per E-Mail erstellen',
     final_cta_pricing: 'Preise ansehen',
@@ -273,57 +276,57 @@ const LOGIN_I18N = {
     placeholder_password: 'Mindestens 8 Zeichen',
     placeholder_code: '4 Ziffern',
     resend_code: 'Code erneut senden',
-    back_to_auth: 'E-Mail/Passwort ändern',
+    back_to_auth: 'E-Mail/Passwort andern',
   },
   fr: {
     language_label: 'Langue',
-    form_title_register: 'Créer un compte',
+    form_title_register: 'Creer un compte',
     form_title_login: 'Se connecter',
     flow_title_register: "Confirmer l'inscription",
     flow_title_login: 'Confirmer la connexion',
     submit_get_code: 'Obtenir le code',
     submit_verify_code: 'Confirmer le code',
-    switch_text_register: 'Vous avez déjà un compte ?',
+    switch_text_register: 'Vous avez deja un compte ?',
     switch_text_login: "Vous n'avez pas de compte ?",
     switch_label_register: 'Se connecter',
-    switch_label_login: 'Créer',
-    auth_hint_default: 'Entrez e-mail et mot de passe. Nous enverrons un code à 4 chiffres.',
-    auth_hint_code_prefix: 'Code envoyé à',
+    switch_label_login: 'Creer',
+    auth_hint_default: 'Entrez e-mail et mot de passe. Nous enverrons un code a 4 chiffres.',
+    auth_hint_code_prefix: 'Code envoye a',
     hero_title: "AutoSocial.tech — assistant IA pour le contenu et l'auto-publication.",
-    hero_subtitle: 'Créez du contenu, planifiez des publications et gérez Facebook + Instagram automatiquement depuis un seul endroit.',
+    hero_subtitle: 'Creez du contenu, planifiez des publications et gerez Facebook + Instagram automatiquement depuis un seul endroit.',
     hero_cta: 'Commencer gratuitement par e-mail',
     hero_microcopy: "Pas de carte requise pour l'instant — commencez avec Free.",
     features_title: 'Tout pour le SMM dans un seul panneau',
-    features_1: 'Génération de contenu unique avec IA',
-    features_2: 'Auto-publication planifiée sur Facebook et Instagram',
-    features_3: 'Modèles intelligents pour tous les secteurs',
+    features_1: 'Generation de contenu unique avec IA',
+    features_2: 'Auto-publication planifiee sur Facebook et Instagram',
+    features_3: 'Modeles intelligents pour tous les secteurs',
     features_4: 'Planificateur qui anticipe pour vous',
-    features_5: 'Métriques et analyses pour la croissance',
+    features_5: 'Metriques et analyses pour la croissance',
     how_title: 'Comment AutoSocial.tech aide votre business',
-    how_1_title: 'Créez du contenu en quelques secondes',
-    how_1_text: 'Entrez un sujet ou un message clé et obtenez des brouillons avec hashtags et CTA.',
+    how_1_title: 'Creez du contenu en quelques secondes',
+    how_1_text: 'Entrez un sujet ou un message cle et obtenez des brouillons avec hashtags et CTA.',
     how_2_title: 'Planifiez. Automatisez. Oubliez le manuel',
-    how_2_text: 'Définissez un planning et la plateforme publie automatiquement.',
+    how_2_text: 'Definissez un planning et la plateforme publie automatiquement.',
     how_3_title: 'Suivez les performances',
-    how_3_text: "Portée, engagement et croissance dans un seul tableau de bord.",
+    how_3_text: "Portee, engagement et croissance dans un seul tableau de bord.",
     trust_title: 'Pourquoi les marketeurs choisissent AutoSocial.tech',
-    trust_1: "Jusqu'à 10 heures gagnées par semaine",
-    trust_2: 'Contenu basé sur les bonnes pratiques SMM',
-    trust_3: 'Intégrations Facebook + Instagram Business',
-    trust_4: 'Prêt pour SSL / RGPD et paiement.',
-    quote: '"AutoSocial.tech a mis nos réseaux en pilote automatique: plus de régularité et plus d engagement." — Marketeur SMB',
-    final_title: 'Prêt à automatiser vos réseaux sociaux ?',
-    final_cta_account: 'Créer un compte par e-mail',
+    trust_1: "Jusqu'a 10 heures gagnees par semaine",
+    trust_2: 'Contenu base sur les bonnes pratiques SMM',
+    trust_3: 'Integrations Facebook + Instagram Business',
+    trust_4: 'Pret pour SSL / RGPD et paiement.',
+    quote: '"AutoSocial.tech a mis nos reseaux en pilote automatique: plus de regularite et plus d engagement." — Marketeur SMB',
+    final_title: 'Pret a automatiser vos reseaux sociaux ?',
+    final_cta_account: 'Creer un compte par e-mail',
     final_cta_pricing: 'Voir les tarifs',
-    final_note: 'Commencez avec Free Trial. Passez à Growth à tout moment.',
+    final_note: 'Commencez avec Free Trial. Passez a Growth a tout moment.',
     footer_pricing: 'Tarifs',
-    footer_privacy: 'Politique de confidentialité',
+    footer_privacy: 'Politique de confidentialite',
     footer_support: 'Support',
     field_email: 'E-mail',
     field_password: 'Mot de passe',
-    field_code: 'Code reçu par e-mail',
+    field_code: 'Code recu par e-mail',
     placeholder_email: 'you@company.com',
-    placeholder_password: '8 caractères minimum',
+    placeholder_password: '8 caracteres minimum',
     placeholder_code: '4 chiffres',
     resend_code: 'Renvoyer le code',
     back_to_auth: 'Changer e-mail/mot de passe',
@@ -345,7 +348,7 @@ const LOGIN_I18N = {
     hero_title: 'AutoSocial.tech — AI-асистент для контенту й автопостингу.',
     hero_subtitle: 'Створюйте контент, плануйте публікації та керуйте Facebook + Instagram з одного місця автоматично.',
     hero_cta: 'Почати безкоштовно через email',
-    hero_microcopy: 'Без привʼязки картки зараз — почніть із Free плану.',
+    hero_microcopy: 'Без прив?язки картки зараз — почніть із Free плану.',
     features_title: 'Усе для SMM в одній панелі',
     features_1: 'Генерація унікального контенту на базі AI',
     features_2: 'Автопостинг за розкладом у Facebook та Instagram',
@@ -561,6 +564,7 @@ const state = {
   },
   createDirector: {
     mode: 'quick',
+    generationMode: 'manual',
     contentType: 'post',
     topic: '',
     topicPreset: DEFAULT_DIRECTOR_NICHE,
@@ -605,6 +609,7 @@ const state = {
     refreshingApproaches: false,
     imageEnabled: false,
     imageUrl: '',
+    videoCoverUrl: '',
     imageLoading: false,
     imageRefreshCount: 0,
     videoOrientation: 'vertical',
@@ -629,6 +634,8 @@ const state = {
     videoMessage: '',
     videoPreviewUrl: '',
     videoFinalUrl: '',
+    videoSrtUrl: '',
+    videoDebug: null,
     videoRenderedVoiceGender: '',
     videoRenderedVoiceTone: '',
     videoRenderRequestedVoiceGender: '',
@@ -641,13 +648,30 @@ const state = {
     videoWeekApplying: false,
     videoWeekItems: [],
     videoWeekSelectedDate: '',
+    videoMonthPostsPerDay: 1,
+    videoMonthDurationPreset: '30',
+    videoMonthTimeMode: 'ai',
+    videoMonthManualTime: '12:00',
+    videoMonthLoading: false,
+    videoMonthApplying: false,
+    videoMonthItems: [],
+    videoMonthSelectedDate: '',
     postWeekPostsPerDay: 1,
     postWeekTimeMode: 'ai',
     postWeekManualTime: '12:00',
     postWeekLoading: false,
     postWeekApplying: false,
+    postWeekScheduling: false,
     postWeekItems: [],
     postWeekSelectedDate: '',
+    postMonthPostsPerDay: 1,
+    postMonthTimeMode: 'ai',
+    postMonthManualTime: '12:00',
+    postMonthLoading: false,
+    postMonthApplying: false,
+    postMonthScheduling: false,
+    postMonthItems: [],
+    postMonthSelectedDate: '',
     quickActionType: '',
     quickActionNicheId: '',
     quickActionSeed: 0,
@@ -659,6 +683,11 @@ const state = {
     planItemsAll: [],
     planLoaded: false,
     bestSlots: null,
+    planFlowState: 'idle',
+    planFlowError: '',
+    planFlowItems: [],
+    planFlowSelectedDay: 1,
+    planFlowProgressStep: 0,
   },
   campaignDetails: null,
   campaignList: [],
@@ -771,11 +800,16 @@ function toLocalIsoNoTz(value) {
   if (Number.isNaN(d.getTime())) return '';
   return `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:${_pad2(d.getSeconds())}`;
 }
-function localInputToIsoNoTz(value) {
+function localInputToUtcIso(value) {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return toLocalIsoNoTz(d);
+  return d.toISOString();
+}
+function localInputToIsoNoTz(value) {
+  // Legacy helper name preserved to keep existing scheduling callers stable.
+  // The returned payload is now explicit UTC ISO instead of a naive local datetime string.
+  return localInputToUtcIso(value);
 }
 const isAuthRoute = (p) => !['/login', '/blog'].includes(p);
 let renderVersion = 0;
@@ -962,6 +996,36 @@ function directorCurrentNicheMeta(d) {
   }
   return { id: DEFAULT_DIRECTOR_NICHE, label: 'SMM и маркетинг', contentAngles: [], topicTemplates: [], bannedCrossNicheWords: [] };
 }
+function buildDirectorHashtagToken(text) {
+  const cleaned = String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+  return cleaned.length >= 3 ? `#${cleaned}` : '';
+}
+function directorNicheHashtagFallback(d, limit = 5) {
+  const niche = directorCurrentNicheMeta(d);
+  const out = [];
+  const seen = new Set();
+  const push = (value) => {
+    const token = buildDirectorHashtagToken(value);
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(token);
+  };
+  push(niche?.label || '');
+  (Array.isArray(niche?.keywords) ? niche.keywords : []).forEach(push);
+  return out.slice(0, Math.max(3, Math.min(Number(limit) || 5, 8)));
+}
+function directorPreferNicheHashtags(d, rawSet, limit = 8) {
+  const nicheFallback = directorNicheHashtagFallback(d, 5);
+  const normalized = normalizeHashtagSet(rawSet, nicheFallback);
+  if (!nicheFallback.length) return normalized.slice(0, limit);
+  const nicheKeys = new Set(nicheFallback.map((tag) => String(tag || '').trim().toLowerCase()));
+  const hasNicheMatch = normalized.some((tag) => nicheKeys.has(String(tag || '').trim().toLowerCase()));
+  if (!hasNicheMatch) return nicheFallback.slice(0, Math.min(limit, nicheFallback.length));
+  return normalizeHashtagSet([...nicheFallback, ...normalized], nicheFallback).slice(0, limit);
+}
 function directorNicheAiContext(d) {
   if (!d || d.customTopicMode) return null;
   if (typeof DIRECTOR_NICHE_ENGINE.buildNicheAiContext === 'function') {
@@ -1031,6 +1095,8 @@ function getQuickActionAccess(actionType, billing) {
   const freeModes = {
     weekly_plan: { mode: 'full', limit: 7 },
     monthly_plan: { mode: 'preview', limit: 7 },
+    video_week_plan: { mode: 'full', limit: 7 },
+    video_month_plan: { mode: 'preview', limit: 7 },
     post_series: { mode: 'preview', limit: 5 },
     video_series: { mode: 'preview', limit: 3 },
     hooks_pack: { mode: 'full', limit: 8 },
@@ -1039,6 +1105,8 @@ function getQuickActionAccess(actionType, billing) {
   const starterModes = {
     weekly_plan: { mode: 'full', limit: 7 },
     monthly_plan: { mode: 'full', limit: 30 },
+    video_week_plan: { mode: 'full', limit: 7 },
+    video_month_plan: { mode: 'full', limit: 30 },
     post_series: { mode: 'full', limit: 8 },
     video_series: { mode: 'full', limit: 6 },
     hooks_pack: { mode: 'full', limit: 10 },
@@ -1047,6 +1115,8 @@ function getQuickActionAccess(actionType, billing) {
   const growthModes = {
     weekly_plan: { mode: 'full', limit: 7 },
     monthly_plan: { mode: 'full', limit: 30 },
+    video_week_plan: { mode: 'full', limit: 7 },
+    video_month_plan: { mode: 'full', limit: 30 },
     post_series: { mode: 'full', limit: 10 },
     video_series: { mode: 'full', limit: 10 },
     hooks_pack: { mode: 'full', limit: 12 },
@@ -1084,9 +1154,23 @@ function buildQuickActionResult(actionType, nicheId, billing, seed = 0) {
   if (actionType === 'monthly_plan') {
     result.title = 'Контент-план на 30 дней';
     result.subtitle = access.isPreview
-      ? 'Preview первых 7 дней. Полный месяц доступен после апгрейда.'
-      : 'Месячный план публикаций с темами, форматами и углами подачи.';
+      ? 'Первые 7 тем с форматом, углом подачи и CTA под выбранную нишу. Полный месяц доступен после апгрейда.'
+      : '30 тем с форматом, углом подачи и CTA под выбранную нишу.';
     result.items = (DIRECTOR_NICHE_ENGINE.get30DayContentPlan?.(nicheId, 'post') || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'video_week_plan') {
+    result.title = 'Видео-посты на 7 дней';
+    result.subtitle = '7 идей для short-form видео с hook, подачей и CTA под выбранную нишу.';
+    result.items = (DIRECTOR_NICHE_ENGINE.get7DayContentPlan?.(nicheId, 'video') || []).slice(0, access.limit);
+    return result;
+  }
+  if (actionType === 'video_month_plan') {
+    result.title = 'Видео-посты на 30 дней';
+    result.subtitle = access.isPreview
+      ? 'Первые 7 видео-идей доступны сразу. Полный видеоплан на месяц открывается после апгрейда.'
+      : '30 идей для видео-постов с hook, подачей и CTA на месяц.';
+    result.items = (DIRECTOR_NICHE_ENGINE.get30DayContentPlan?.(nicheId, 'video') || []).slice(0, access.limit);
     return result;
   }
   if (actionType === 'post_series') {
@@ -1120,7 +1204,303 @@ function buildQuickActionResult(actionType, nicheId, billing, seed = 0) {
   result.items = shuffled.slice(0, access.limit).map((text, idx) => ({ index: idx + 1, cta: text }));
   return result;
 }
-function directorLocalTopicIdeas(d, count = 10, seed = 0) {
+const PLAN_FORMAT_LABELS = {
+  expert_post: 'Экспертный пост',
+  checklist_post: 'Пост-чеклист',
+  story_post: 'История / кейс',
+  video_series: 'Видео',
+  reels_idea: 'Идея для Reels',
+  reel: 'Reels',
+  post: 'Пост',
+  carousel: 'Карусель',
+  community: 'Пост для сообщества',
+  short_video: 'Короткое видео',
+  tutorial_post: 'Обучающий пост',
+  sales_post: 'Продающий пост',
+  behind_scenes: 'Закулисье',
+  comparison_post: 'Сравнение',
+};
+function planFormatLabel(raw) {
+  const key = String(raw || '').trim().toLowerCase();
+  if (!key) return 'Публикация';
+  if (PLAN_FORMAT_LABELS[key]) return PLAN_FORMAT_LABELS[key];
+  if (key.includes('expert')) return 'Экспертный пост';
+  if (key.includes('checklist')) return 'Пост-чеклист';
+  if (key.includes('story') || key.includes('case')) return 'История / кейс';
+  if (key.includes('reel')) return 'Идея для Reels';
+  if (key.includes('video')) return 'Видео';
+  if (key.includes('carousel')) return 'Карусель';
+  if (key.includes('community')) return 'Пост для сообщества';
+  if (key.includes('post')) return 'Пост';
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (s) => s.toUpperCase());
+}
+function planGoalLabel(raw) {
+  const key = String(raw || '').trim().toLowerCase();
+  if (['sales', 'lead', 'leads'].includes(key)) return 'Продажи';
+  if (key === 'awareness') return 'Охват';
+  if (key === 'engagement') return 'Вовлечение';
+  return 'Вовлечение';
+}
+function planDayPreview(item) {
+  if (!item || typeof item !== 'object') return '';
+  const topic = String(item.topic || '').trim();
+  const formatHint = String(item.format_hint || '').trim();
+  const angle = String(item.angle || '').trim();
+  const focusHint = String(item.focus_hint || '').trim();
+  const endingHint = String(item.ending_hint || '').trim();
+  const cta = String(item.cta || '').trim();
+  const scheduledAt = String(item.scheduled_at || '').trim();
+  const scheduleLabel = (() => {
+    if (!scheduledAt) return '';
+    try {
+      return new Date(scheduledAt).toLocaleString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  })();
+  const parts = [];
+  if (scheduleLabel) parts.push(`Публикация: ${scheduleLabel}`);
+  if (topic) parts.push(`Тема: ${topic}`);
+  if (formatHint) parts.push(`Формат: ${formatHint}`);
+  if (angle) parts.push(`Угол подачи: ${angle}`);
+  if (focusHint) parts.push(`Фокус: ${focusHint}`);
+  if (endingHint) parts.push(`Финал: ${endingHint}`);
+  if (cta) parts.push(`CTA: ${cta}`);
+  if (parts.length) return parts.join('. ');
+  return topic ? `Идея на тему «${topic}» с акцентом на пользу для клиента.` : '';
+}
+function groupPlanItemsByWeek(items) {
+  const grouped = [];
+  const list = Array.isArray(items) ? items : [];
+  for (let index = 0; index < list.length; index += 7) {
+    grouped.push({
+      index: Math.floor(index / 7) + 1,
+      items: list.slice(index, index + 7),
+    });
+  }
+  return grouped;
+}
+function normalizePlannerKind(value) {
+  return String(value || '').trim().toLowerCase() === 'video' ? 'video' : 'post';
+}
+function normalizePlannerDays(value) {
+  return String(value || '').trim() === '30' || Number(value) === 30 ? 30 : 7;
+}
+function plannerUrl(kind = 'post', days = 7, extras = {}) {
+  const query = new URLSearchParams();
+  query.set('mode', 'plan');
+  query.set('kind', normalizePlannerKind(kind));
+  query.set('days', String(normalizePlannerDays(days)));
+  Object.entries(extras || {}).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    query.set(key, String(value));
+  });
+  return `/create?${query.toString()}`;
+}
+function getCreatePlannerRoute(path = location.pathname.replace(/\/$/, '') || '/') {
+  if (path === '/create') {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (String(params.get('mode') || '').trim() !== 'plan') return null;
+      return {
+        kind: normalizePlannerKind(params.get('kind') || 'post'),
+        days: normalizePlannerDays(params.get('days') || 7),
+        legacy: false,
+      };
+    } catch {
+      return null;
+    }
+  }
+  if (path === '/create/post-week') return { kind: 'post', days: 7, legacy: true };
+  if (path === '/create/video-week') return { kind: 'video', days: 7, legacy: true };
+  if (path === '/create/video-month') return { kind: 'video', days: 30, legacy: true };
+  return null;
+}
+function getPlannerStateConfig(kind, days) {
+  const normalizedKind = normalizePlannerKind(kind);
+  const normalizedDays = normalizePlannerDays(days);
+  const baseKey = normalizedKind === 'video'
+    ? (normalizedDays === 30 ? 'videoMonth' : 'videoWeek')
+    : (normalizedDays === 30 ? 'postMonth' : 'postWeek');
+  return {
+    kind: normalizedKind,
+    days: normalizedDays,
+    baseKey,
+    itemsKey: `${baseKey}Items`,
+    selectedDateKey: `${baseKey}SelectedDate`,
+    postsPerDayKey: `${baseKey}PostsPerDay`,
+    timeModeKey: `${baseKey}TimeMode`,
+    manualTimeKey: `${baseKey}ManualTime`,
+    loadingKey: `${baseKey}Loading`,
+    applyingKey: `${baseKey}Applying`,
+    schedulingKey: `${baseKey}Scheduling`,
+    title: normalizedKind === 'video'
+      ? (normalizedDays === 30 ? 'Видео-посты на 30 дней' : 'Видео-посты на 7 дней')
+      : (normalizedDays === 30 ? 'Контент-план постов на 30 дней' : 'Контент-план постов на 7 дней'),
+    subtitle: normalizedKind === 'video'
+      ? 'Единый planner для short-form видео: темы, слоты публикации, CTA и превью по дням.'
+      : 'Единый planner для постов: темы, слоты публикации, платформы и подготовка к автопостингу.',
+    backUrl: `/create?type=${normalizedKind}`,
+  };
+}
+function groupPlannerDays(dayKeys) {
+  const list = Array.isArray(dayKeys) ? dayKeys : [];
+  if (list.length <= 7) return [{ index: 1, from: 1, to: list.length || 7, days: list }];
+  const groups = [];
+  for (let index = 0; index < list.length; index += 7) {
+    const isFinalThirtyDayGroup = list.length >= 30 && index >= 21;
+    const slice = isFinalThirtyDayGroup ? list.slice(index) : list.slice(index, index + 7);
+    groups.push({
+      index: Math.floor(index / 7) + 1,
+      from: index + 1,
+      to: index + slice.length,
+      days: slice,
+    });
+    if (isFinalThirtyDayGroup) break;
+  }
+  return groups;
+}
+function getPlannerDayState(items, selectedDate) {
+  const dayMap = {};
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const iso = String(item?.scheduled_at || '').trim();
+    if (!iso) return;
+    const day = iso.slice(0, 10);
+    if (!dayMap[day]) dayMap[day] = [];
+    dayMap[day].push(item);
+  });
+  const dayKeys = Object.keys(dayMap).sort();
+  const effectiveSelectedDate = String(selectedDate || '').trim() || dayKeys[0] || '';
+  const selectedDayItems = effectiveSelectedDate ? (dayMap[effectiveSelectedDate] || []) : [];
+  return {
+    dayMap,
+    dayKeys,
+    effectiveSelectedDate,
+    selectedDayItems,
+    selectedPreviewItem: selectedDayItems[0] || (Array.isArray(items) ? items[0] : null) || null,
+  };
+}
+function renderPostPlannerPreview(item, d) {
+  const timeLabel = new Date(item.scheduled_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const captionText = String(item.caption_text || item.post_text || item.caption || '').trim();
+  const captionParagraphs = captionText
+    ? captionText.split(/\r?\n\s*\r?\n/).map((part) => String(part || '').trim()).filter(Boolean)
+    : [];
+  const ctaText = String(item.cta || '').trim();
+  const hashtagsText = String(item.hashtags || '').trim();
+  return `<article class="card" style="padding:12px;border:1px solid rgba(148,163,184,.18);">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
+      <strong>${esc(timeLabel)}</strong>
+      <span class="small">Формат: ${esc(planFormatLabel(item.format_hint || 'post'))} · Изображение: ${d.imageEnabled ? 'AI-картинка' : 'Без картинки'}</span>
+    </div>
+    <p class="small" style="margin:8px 0 8px 0;"><strong>${esc(item.topic || '—')}</strong></p>
+    ${captionParagraphs.length
+      ? captionParagraphs.map((part) => `<p class="small" style="margin:0 0 8px 0;white-space:pre-wrap;">${esc(part)}</p>`).join('')
+      : '<p class="small" style="margin:0 0 8px 0;">—</p>'}
+    ${ctaText ? `<p class="small" style="margin:0 0 8px 0;">${esc(ctaText)}</p>` : ''}
+    ${hashtagsText ? `<p class="small" style="margin:0;white-space:pre-wrap;">${esc(hashtagsText)}</p>` : ''}
+  </article>`;
+}
+function renderVideoPlannerPreview(item, d) {
+  const timeLabel = new Date(item.scheduled_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `<article class="card" style="padding:12px;border:1px solid rgba(148,163,184,.18);">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
+      <strong>${esc(timeLabel)}</strong>
+      <span class="small">Длительность: ${esc(String(item.duration_sec || d.videoDurationPreset || '30'))} сек · Формат: ${esc(String(item.format || item.orientation || d.videoOrientation || 'vertical'))}</span>
+    </div>
+    <p class="small" style="margin:8px 0 4px 0;"><strong>Тема:</strong> ${esc(item.topic || '—')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>Hook:</strong> ${esc(item.hook || '—')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>Script:</strong> ${esc(item.script || '—')}</p>
+    <p class="small" style="margin:0;"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
+  </article>`;
+}
+function renderPlannerPreview(data, config) {
+  const rows = data.selectedDayItems
+    .slice()
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    .map((item) => config.previewType === 'video' ? renderVideoPlannerPreview(item, data.d) : renderPostPlannerPreview(item, data.d))
+    .join('');
+  return rows || '<p class="small">Выберите день, чтобы увидеть детали.</p>';
+}
+function getPlannerRenderConfig(kind, d) {
+  if (normalizePlannerKind(kind) === 'video') {
+    return {
+      previewType: 'video',
+      panelLabel: 'Видео-план',
+      fieldConfig: {
+        secondaryField: selectField('plannerOrientation', 'Формат видео', String(d.videoOrientation || 'vertical'), [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное (16:9)' }]),
+        tertiaryField: selectField('plannerDuration', 'Длительность', String(d.videoDurationPreset || d.videoWeekDurationPreset || '30'), String(d.videoOrientation || 'vertical') === 'horizontal'
+          ? [{ value: '120', label: '120 сек' }, { value: '180', label: '180 сек' }, { value: '240', label: '240 сек' }, { value: '300', label: '300 сек' }, { value: '360', label: '360 сек' }, { value: '420', label: '420 сек' }, { value: '480', label: '480 сек' }]
+          : [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }]),
+        postsPerDayLabel: 'Видео в день',
+        topicPlaceholder: 'Например: короткие видео для салона красоты',
+        platformsMarkup: `<label class="create-toggle"><input id="plannerPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
+              <label class="create-toggle"><input id="plannerPlatformInstagram" type="checkbox" ${d.platforms?.instagram ? 'checked' : ''}/> Instagram</label>
+              <label class="create-toggle"><input id="plannerPlatformYouTube" type="checkbox" ${d.platforms?.youtube ? 'checked' : ''}/> YouTube</label>`,
+      },
+    };
+  }
+  return {
+    previewType: 'post',
+    panelLabel: 'План постов',
+    fieldConfig: {
+      secondaryField: '<div></div>',
+      tertiaryField: `<div class="field"><label>Медиа</label><label class="create-toggle"><input id="plannerImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''} /> С картинкой</label></div>`,
+      postsPerDayLabel: 'Постов в день',
+      topicPlaceholder: 'Если нужно сузить тему внутри выбранной ниши',
+      platformsMarkup: `<label class="create-toggle"><input id="plannerPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
+              <label class="create-toggle"><input id="plannerPlatformInstagram" type="checkbox" ${d.platforms?.instagram ? 'checked' : ''}/> Instagram</label>`,
+    },
+  };
+}
+function renderPlanner(data, config) {
+  const cardTitle = (day) => {
+    const dt = new Date(`${day}T00:00:00`);
+    return Number.isFinite(dt.getTime())
+      ? dt.toLocaleDateString('ru-RU', { weekday: 'long', day: '2-digit', month: '2-digit' })
+      : day;
+  };
+  const cardSubtitle = (rows) => {
+    const count = Array.isArray(rows) ? rows.length : 0;
+    if (!count) return 'Публикаций пока нет';
+    return count === 1 ? '1 слот публикации' : `${count} слота публикации`;
+  };
+  const renderDayCard = (day, rows) => {
+    const previewItem = Array.isArray(rows) && rows.length ? rows[0] : null;
+    const active = data.effectiveSelectedDate === day;
+    return `<button type="button" class="card create-planner-day-card ${active ? 'is-active' : ''}" data-planner-day="${esc(day)}" style="text-align:left;padding:14px;border:1px solid ${active ? 'rgba(59,130,246,.45)' : 'rgba(148,163,184,.18)'};">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <h4 style="margin:0 0 4px 0;">${esc(cardTitle(day))}</h4>
+          <p class="small" style="margin:0;">${esc(cardSubtitle(rows))}</p>
+        </div>
+        <span class="pill">${esc(String((Array.isArray(rows) ? rows.length : 0) || 0))}</span>
+      </div>
+      <p class="small" style="margin:10px 0 0 0;">${esc(planDayPreview(previewItem) || 'Откройте день, чтобы увидеть детали.')}</p>
+    </button>`;
+  };
+  const sections = !data.dayKeys.length
+    ? '<p class="small">После генерации здесь появятся карточки по дням.</p>'
+    : (data.cfg.days === 7
+      ? `<div style="display:grid;gap:10px;">${data.dayKeys.map((day) => renderDayCard(day, data.dayMap[day] || [])).join('')}</div>`
+      : `<div style="display:grid;gap:12px;">
+          ${groupPlannerDays(data.dayKeys).map((group, index) => {
+            const open = index === 0 ? 'open' : '';
+            return `<details class="card" ${open} style="padding:12px;">
+              <summary style="cursor:pointer;font-weight:600;">Неделя ${group.index}: дни ${group.from}-${group.to}</summary>
+              <div style="display:grid;gap:10px;margin-top:12px;">
+                ${group.days.map((day) => renderDayCard(day, data.dayMap[day] || [])).join('')}
+              </div>
+            </details>`;
+          }).join('')}
+        </div>`);
+  return {
+    sections,
+    preview: renderPlannerPreview(data, config),
+    previewTitle: data.effectiveSelectedDate ? cardTitle(data.effectiveSelectedDate) : (data.selectedTopic || data.cfg.title),
+  };
+}
+function directorLocalTopicIdeas(d, count = DIRECTOR_TOPIC_IDEA_COUNT, seed = 0) {
   if (d?.customTopicMode) return [];
   if (typeof DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas === 'function') {
     return DIRECTOR_NICHE_ENGINE.getRandomTopicIdeas(directorCurrentNicheId(d), count, seed);
@@ -1139,6 +1519,41 @@ function directorTopicBelongsToNiche(topic, d) {
   const nicheMeta = directorCurrentNicheMeta(d);
   const banned = Array.isArray(nicheMeta?.bannedCrossNicheWords) ? nicheMeta.bannedCrossNicheWords : [];
   return !banned.some((word) => String(word || '').trim() && text.includes(String(word).trim().toLowerCase()));
+}
+function directorAngleHeadlineHint(angle) {
+  const raw = String(angle || '').trim();
+  if (!raw) return '';
+  const colonPart = raw.includes(':') ? raw.split(':').slice(1).join(':').trim() : raw;
+  const cleaned = String(colonPart || raw)
+    .replace(/^через\s+/i, '')
+    .replace(/^подход\s+/i, '')
+    .replace(/^фокус\s+/i, '')
+    .replace(/\.$/, '')
+    .trim();
+  return cleaned.length > 56 ? `${cleaned.slice(0, 53).trim()}...` : cleaned;
+}
+function directorHeadlineByAngle(topic, angle) {
+  const base = String(topic || '').trim();
+  if (!base) return '';
+  return base;
+}
+function directorHeadlineItems(topics, angle) {
+  return (Array.isArray(topics) ? topics : [])
+    .map((topic, idx) => {
+      const rawTopic = String(topic || '').trim();
+      if (!rawTopic) return null;
+      return {
+        index: idx,
+        rawTopic,
+        title: directorHeadlineByAngle(rawTopic, angle),
+      };
+    })
+    .filter(Boolean);
+}
+function directorIdeasButtonLabel(directorState, loading = false) {
+  if (loading) return 'Подбираем заголовки…';
+  const hasTopics = Array.isArray(directorState?.topicPool) && directorState.topicPool.length > 0;
+  return hasTopics ? `Обновить ${DIRECTOR_TOPIC_IDEA_COUNT} заголовков` : 'Сгенерировать темы';
 }
 function progressBar(value, max) {
   const pct = max > 0 ? Math.max(2, Math.min(100, Math.round((value / max) * 100))) : 0;
@@ -1312,6 +1727,7 @@ function defaultAiWizardState() {
     goal: '',
     tone: '',
     language: 'ru',
+    platforms: { facebook: true, instagram: true },
     outputs: {
       plan7: true,
       posts10: true,
@@ -1321,6 +1737,15 @@ function defaultAiWizardState() {
       bio: false,
     },
   };
+}
+
+function wizardSelectedPlatforms(w) {
+  const src = w?.platforms || {};
+  const out = [
+    src.facebook ? 'facebook' : null,
+    src.instagram ? 'instagram' : null,
+  ].filter(Boolean);
+  return out.length ? out : ['facebook', 'instagram'];
 }
 
 function ensureAiWizardState() {
@@ -1336,6 +1761,7 @@ function loadAiWizardDraft() {
     state.aiWizard = {
       ...defaultAiWizardState(),
       ...parsed,
+      platforms: { ...defaultAiWizardState().platforms, ...(parsed.platforms || {}) },
       outputs: { ...defaultAiWizardState().outputs, ...(parsed.outputs || {}) },
     };
   } catch {}
@@ -1350,13 +1776,16 @@ function saveAiWizardDraft() {
 
 function mapWizardStateToExistingPayload(w) {
   const mapper = WizardUtils.mapWizardStateToExistingPayload;
-  if (typeof mapper === 'function') return mapper(w);
-  return {
+  const mapped = typeof mapper === 'function' ? mapper(w) : {
     project_id: w.project_id ? Number(w.project_id) : null,
     business_type: String(w.business_type || '').trim(),
     niche: String(w.niche || '').trim(),
     goal: String(w.goal || '').trim(),
     language: String(w.language || 'ru').trim(),
+  };
+  return {
+    ...mapped,
+    platforms: Array.isArray(mapped?.platforms) && mapped.platforms.length ? mapped.platforms : wizardSelectedPlatforms(w),
   };
 }
 
@@ -1368,7 +1797,7 @@ function buildPreviewFromWizard(w) {
   const goal = (w.goal || 'Охваты').toLowerCase();
   return {
     weeklyTopic: `Неделя 1: «${niche} — практические советы и кейсы»`,
-    samplePost: `Как в нише «${niche}» получить ${goal}: 3 шага без лишних затрат. Сохраняйте пост и внедряйте сегодня.`,
+
     strategyMix: { expert: 50, nurture: 30, sales: 20 },
     focusHint: `Фокус: ${goal}. Тон: ${tone}. Давайте 1 конкретную пользу в каждом посте.`,
   };
@@ -1384,6 +1813,7 @@ function getWizardValidationErrors(w, step) {
   if (step >= 2) {
     if (!String(w.goal || '').trim()) errors.goal = 'Выберите цель';
     if (!String(w.tone || '').trim()) errors.tone = 'Выберите стиль';
+    if (!wizardSelectedPlatforms(w).length) errors.platforms = 'Выберите хотя бы одну платформу';
   }
   if (step >= 3) {
     const selected = Object.values(w.outputs || {}).filter(Boolean).length;
@@ -1449,6 +1879,15 @@ function Step2GoalTone(w, errors) {
         ${chipsGroup('wizardTone', 'Стиль', WIZARD_TONES, w.tone, 'data-wizard-tone')}
         ${errors.tone ? `<p class="small wizard-error">${esc(errors.tone)}</p>` : ''}
       </div>
+      <div class="field">
+        <label>Платформы контент-плана</label>
+        <div class="row" style="gap:12px;flex-wrap:wrap;">
+          <label class="create-toggle"><input id="wizardPlatformFacebook" type="checkbox" ${w.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
+          <label class="create-toggle"><input id="wizardPlatformInstagram" type="checkbox" ${w.platforms?.instagram ? 'checked' : ''}/> Instagram</label>
+        </div>
+        ${errors.platforms ? `<p class="small wizard-error">${esc(errors.platforms)}</p>` : ''}
+        <p class="small">Если выбрать обе сети, для контент-плана будут создаваться отдельные публикации на каждую платформу.</p>
+      </div>
       ${selectField('wizardLang', 'Язык', w.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
       <article class="wizard-ai-hint" aria-live="polite">
         <h4>AI подсказка</h4>
@@ -1464,8 +1903,8 @@ function PreviewCard(w) {
     <article class="wizard-preview card" aria-live="polite">
       <h4>AI уже подготовил черновик</h4>
       <div class="small"><strong>Тема недели:</strong> ${esc(p.weeklyTopic)}</div>
-      <div class="small" style="margin-top:8px;"><strong>Пример поста:</strong><br>${esc(p.samplePost)}</div>
-      <div class="small" style="margin-top:8px;">
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
         <strong>Стратегия:</strong> экспертный ${Number(p.strategyMix.expert) || 0}% · прогрев ${Number(p.strategyMix.nurture) || 0}% · продажи ${Number(p.strategyMix.sales) || 0}%
       </div>
       <button id="wizardRefreshPreviewBtn" type="button" class="btn btn-ghost" style="margin-top:10px;">Обновить предпросмотр</button>
@@ -1730,8 +2169,8 @@ function pageLogin() {
         <h2>${formTitle}</h2>
         <p class="small mobile-microcopy">${authHint}</p>
         ${socialBlock}
-        ${codeStep ? '' : field('authEmail', t('field_email'), 'email', '', t('placeholder_email'))}
-        ${codeStep ? '' : field('authPassword', t('field_password'), 'password', '', t('placeholder_password'))}
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
         ${codeStep ? field('authCode', t('field_code'), 'text', '', t('placeholder_code')) : ''}
         ${codeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
@@ -1837,7 +2276,7 @@ function pageDashboard() {
     let worstDay = '';
     chartSeries.forEach((p) => {
       sum += Number(p.value || 0);
-      if (p.value > peak) { peak = Number(p.value || 0); peakDay = p.day || ''; }
+
       if (p.value < worst) { worst = Number(p.value || 0); worstDay = p.day || ''; }
     });
     return { avg: sum / chartSeries.length, peak, worst, peakDay, worstDay };
@@ -1862,6 +2301,7 @@ function pageDashboard() {
     const chartW = width - padX * 2;
     const chartH = height - padY * 2;
     const maxValue = Math.max(1, ...chartSeries.map((p) => Number(p.value || 0)));
+
     const xAt = (i) => padX + (chartSeries.length <= 1 ? 0 : (i * chartW) / (chartSeries.length - 1));
     const yAt = (v) => padY + chartH - (Number(v || 0) / maxValue) * chartH;
     const d = chartSeries.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(2)} ${yAt(p.value).toFixed(2)}`).join(' ');
@@ -1937,10 +2377,11 @@ function pageDashboard() {
 
   const skeletonCards = '<div class="dash-skeleton-grid"><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div></div>';
   const projectLimitLabel = Number(billing?.limits?.projects || 0) >= 999999 ? 'Без ограничений' : String(billing?.limits?.projects || '—');
+  const accountLimitLabel = Number(billing?.limits?.accounts_connected || 0) >= 999999 ? '\u0411\u0435\u0437 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0439' : String(billing?.limits?.accounts_connected || '\u2014');
   const postsRemaining = Math.max(0, Number(billing?.remaining?.posts_generated ?? ((billing?.limits?.posts_per_month || 0) - (billing?.usage?.posts_per_month || 0))));
   const videosRemaining = Math.max(0, Number(billing?.remaining?.videos_generated ?? ((billing?.limits?.videos_per_month || 0) - (billing?.usage?.videos_per_month || 0))));
   const projectsRemaining = Number(billing?.limits?.projects || 0) >= 999999
-    ? 'без лимита'
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
     : String(Math.max(0, Number(billing?.remaining?.projects ?? ((billing?.limits?.projects || 0) - (billing?.usage?.projects || 0)))));
   const trialLine = billing.plan === 'free'
     ? `<div class="small">Пробный период: <strong>${Number(billing.trial_days_left || 0)} дн.</strong>${billing.trial_ends_at ? ` · до ${esc(new Date(billing.trial_ends_at).toLocaleDateString('ru-RU'))}` : ''}</div>`
@@ -2013,7 +2454,7 @@ function pageDashboard() {
           <div style="max-width:720px;">
             <div class="pill active" style="margin-bottom:10px;">Добро пожаловать в AutoSocial</div>
             <h2 style="margin:0 0 8px 0;">Начните с первого результата, а не с пустой аналитики</h2>
-            <p class="small" style="margin:0 0 12px 0;">Ваш план: <strong>${esc(billing.plan_title || planBadge(billing.plan || 'free').replace(/<[^>]+>/g, ''))}</strong>. Осталось: <strong>${postsRemaining}</strong> постов, <strong>${videosRemaining}</strong> видео, <strong>${esc(projectsRemaining)}</strong> проекта. ${trialExpiringSoon ? 'Trial скоро закончится, поэтому лучше получить первый результат сейчас.' : 'Первый результат можно получить меньше чем за минуту.'}</p>
+            <p class="small" style="margin:0 0 12px 0;">Ваш план: <strong>${esc(billing.plan_title || planBadge(billing.plan || 'free').replace(/<[^>]+>/g, ''))}</strong>. Осталось: <strong>${postsRemaining}</strong> постов, <strong>${videosRemaining}</strong> видео, <strong>${esc(projectsRemaining)}</strong> рабочего пространства. ${trialExpiringSoon ? 'Trial скоро закончится, поэтому лучше получить первый результат сейчас.' : 'Первый результат можно получить меньше чем за минуту.'}</p>
             <div class="cta-row">
               <button id="dashFirstPostBtn" class="btn btn-primary" type="button">Создать первый пост</button>
               <button id="dashFirstVideoBtn" class="btn btn-secondary" type="button">Создать первое видео</button>
@@ -2024,7 +2465,7 @@ function pageDashboard() {
           <button id="dashDismissOnboardingBtn" class="btn btn-ghost" type="button">Скрыть</button>
         </div>
         <div class="grid-3" style="margin-top:16px;">
-          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 1</div><strong>Выберите тему или получите идеи</strong><p class="small" style="margin:8px 0 0 0;">AI предложит темы и варианты подачи, если не хотите начинать с пустого поля.</p></article>
+
           <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 2</div><strong>Сгенерируйте пост или структуру видео</strong><p class="small" style="margin:8px 0 0 0;">Получите первый черновик сразу и отредактируйте его при необходимости.</p></article>
           <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 3</div><strong>Опубликуйте сейчас или подключите каналы позже</strong><p class="small" style="margin:8px 0 0 0;">Контент можно подготовить заранее, а автопостинг включить после подключения соцсетей.</p></article>
         </div>
@@ -2067,12 +2508,12 @@ function pageDashboard() {
               ? `<div class="dash-hero-score">1</div>
                  <div class="dash-hero-score-meta">
                    <span>Лучший следующий шаг</span>
-                   <strong class="is-positive">Создать первый контент и получить первые данные</strong>
+
                  </div>`
               : `<div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
                  <div class="dash-hero-score-meta">
                    <span>AI-Score / 100</span>
-                   <strong class="${Number(aiScore.delta_vs_prev_period || 0) >= 0 ? 'is-positive' : 'is-negative'}">${deltaFmt(aiScore.delta_vs_prev_period || 0)} к прошлым 30 дням</strong>
+
                  </div>`}
           </div>
           <div class="dash-hero-badge">${analyticsBadge}</div>
@@ -2099,15 +2540,17 @@ function pageDashboard() {
             </div>
             <div class="small" style="margin-top:12px;">Посты: <strong>${Number(billing?.usage?.posts_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.posts_per_month || 0)}</strong></div>
             <div class="small" style="margin-top:6px;">Видео: <strong>${Number(billing?.usage?.videos_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.videos_per_month || 0)}</strong></div>
-            <div class="small" style="margin-top:6px;">Проекты: <strong>${Number(billing?.usage?.projects || 0)}</strong> / <strong>${esc(projectLimitLabel)}</strong></div>
+            <div class="small" style="margin-top:6px;">Рабочие пространства: <strong>${Number(billing?.usage?.projects || 0)}</strong> / <strong>${esc(projectLimitLabel)}</strong></div>
+            <div class="small" style="margin-top:6px;">Каналы: <strong>${Number(billing?.usage?.accounts_connected || 0)}</strong> / <strong>${esc(accountLimitLabel)}</strong></div>
             <div class="small" style="margin-top:6px;">Locked / недоступно: <strong>${esc(lockText)}</strong></div>
             <div style="margin-top:10px;">${trialLine}</div>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
           </article>
           <article class="card glass-card">
             <h3 style="margin-top:0;">Что доступно сейчас</h3>
             <ul class="small">
-              <li>Автопостинг: <strong>${billing?.limits?.can_autopublish ? 'Да' : 'Нет'}</strong></li>
-              <li>Планирование: <strong>${billing?.limits?.can_schedule ? 'Да' : 'Нет'}</strong></li>
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
               <li>Аналитика: <strong>${esc(String(billing?.limits?.analytics_level || 'none'))}</strong></li>
               <li>Шаблоны по нишам: <strong>${esc(String(billing?.limits?.niche_templates || 'limited'))}</strong></li>
             </ul>
@@ -2163,7 +2606,7 @@ function pageDashboard() {
             </div>
             <div class="dash-sort-row">
               <button type="button" data-dash-forecast-horizon="7" class="${Number(stats.forecastHorizon || 7) === 7 ? 'active' : ''}">7 дней</button>
-              <button type="button" data-dash-forecast-horizon="30" class="${Number(stats.forecastHorizon || 7) === 30 ? 'active' : ''}">30 дней</button>
+
             </div>
           </div>
           <div class="dash-forecast-grid">
@@ -2221,13 +2664,13 @@ function pageDashboard() {
             <h3 style="margin:0;">Из чего складывается AI-Score</h3>
             <button id="dashAiBreakdownClose" type="button" class="btn btn-ghost">Закрыть</button>
           </div>
-          <p class="small">Период: ${esc(aiScore?.breakdown?.period?.from || '—')} → ${esc(aiScore?.breakdown?.period?.to || '—')}</p>
+          <p class="small">Период: ${esc(aiScore?.breakdown?.period?.from || '—')} > ${esc(aiScore?.breakdown?.period?.to || '—')}</p>
           <div class="dash-breakdown-list">
             ${(Array.isArray(aiScore?.breakdown?.factors) && aiScore.breakdown.factors.length)
               ? aiScore.breakdown.factors.map((f) => {
-                const score = Number(f?.score || 0);
+
                 const weight = Math.max(Number(f?.weight || 1), 1);
-                const ratio = Math.max(0, Math.min(100, (score / weight) * 100));
+
                 const conf = String(f?.confidence || 'low');
                 const confText = conf === 'high' ? 'Высокая' : (conf === 'medium' ? 'Средняя' : 'Низкая');
                 const actionPath = String(f?.key || '').includes('timing') ? '/calendar' : '/create';
@@ -2241,7 +2684,7 @@ function pageDashboard() {
                   <p class="small">${esc(f?.how_to_improve || '—')}</p>
                   <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
                     <small>Ожидаемый эффект: ${esc(f?.expected_gain || '—')}</small>
-                    <button type="button" class="btn btn-ghost" data-link="${actionPath}">Применить</button>
+
                   </div>
                 </article>`;
               }).join('')
@@ -2508,7 +2951,7 @@ function pageConnections() {
   const platformIcons = {
     facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.8l.4-3h-3.2V9.1c0-.9.3-1.6 1.7-1.6H17V4.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.3V11H8v3h2.2v7h3.3z" fill="currentColor"/></svg>',
     instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2" ry="5.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/></svg>',
-    youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.2 8.2a2.8 2.8 0 0 0-2-2c-1.8-.5-7.2-.5-7.2-.5s-5.4 0-7.2.5a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2.3 12a29 29 0 0 0 .5 3.8 2.8 2.8 0 0 0 2 2c1.8.5 7.2.5 7.2.5s5.4 0 7.2-.5a2.8 2.8 0 0 0 2-2 29 29 0 0 0 .5-3.8 29 29 0 0 0-.5-3.8z" fill="currentColor"/><path d="M10 15.3l5.2-3.3L10 8.7v6.6z" fill="#fff"/></svg>',
+
   };
   const renderPlatformMini = (label, kind) => `<span class="connection-platform-mini connection-platform-mini-${esc(kind)}">${platformIcons[kind] || ''}<span>${esc(label)}</span></span>`;
 
@@ -2641,9 +3084,9 @@ function pageConnections() {
                 ? `<div class="list">${visiblePages.map((p) => {
                 const pic = p.page_picture_url ? `<span class="avatar"><img src="${esc(p.page_picture_url)}" alt="" /></span>` : `<span class="avatar">${esc((safeText(p.page_name,'P')[0] || 'P').toUpperCase())}</span>`;
                 const ig = p.has_ig ? `<span class="pill ok">IG привязан</span>` : `<span class="pill warn">Без IG</span>`;
-                const checked = String(picker.selectedPageId) === String(p.page_id) ? 'checked' : '';
-                const already = p.already_connected ? `<span class="pill">уже добавлена</span>` : '';
-                return `<label class="list-item"><div><div class="row" style="align-items:center;gap:10px;">${pic}<div><div style="font-weight:800;">${esc(safeText(p.page_name))}</div><div class="meta">Page ID: ${esc(safeText(p.page_id))}${p.ig_user_id ? ` • IG: ${esc(safeText(p.ig_user_id))}` : ''}${p.ig_username ? ` (@${esc(p.ig_username)})` : ''}</div></div></div></div><div class="row" style="align-items:center;gap:10px;">${already}${ig}<input type="radio" name="pagePick" value="${esc(p.page_id)}" ${checked} /></div></label>`;
+
+
+
               }).join('')}</div>`
                 : `<p class="small">Неподключенных страниц не найдено. Все доступные страницы уже добавлены.</p>`)
             : `<p class="small">Страницы не найдены. Проверьте, что у аккаунта есть роль на Facebook Page и выданы permissions (pages_show_list).</p>`));
@@ -2660,38 +3103,41 @@ function plansTable() {
   const planMap = {};
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
   const marketingMap = Object.fromEntries(MARKETING_PRICING_PLANS.map((p) => [p.key, p]));
-  const f = (name, key, fallback = '-') => planMap[name]?.[key] ?? fallback;
-  const yesNo = (v) => (v ? 'Да' : 'Нет');
+  const f = (name, key, fallback) => {
+    const v = planMap[name]?.[key];
+    return v === undefined || v === null || String(v).trim() === '' ? fallback : v;
+  };
+  const yesNo = (v) => (v ? '\u0414\u0430' : '\u041d\u0435\u0442');
   const price = (name) => {
     if (marketingMap[name]?.price) return marketingMap[name].price;
     const v = planMap[name]?.price_eur_month;
-    if (v === undefined || v === null) return '—';
+    if (v === undefined || v === null) return '\u2014';
     const n = Number(v) || 0;
-    return n <= 0 ? '€0' : `€${n}`;
+    return n <= 0 ? '\u20ac0' : `\u20ac${n}`;
   };
-  const projects = (name) => {
+  const workspaces = (name) => {
     const v = planMap[name]?.max_projects;
-    if (Number(v || 0) >= 999999 || String(name) === 'agency') return 'Без ограничений';
-    return v ?? '—';
+    if (Number(v || 0) >= 999999 || String(name) === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    return v ?? '\u2014';
+  };
+  const channels = (name) => {
+    const v = planMap[name]?.accounts_connected;
+    if (Number(v || 0) >= 999999 || String(name) === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    return v ?? '\u2014';
   };
   const analytics = (name) => {
     const key = String(planMap[name]?.analytics_level || 'none').toLowerCase();
-    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
+    return key === 'advanced' ? '\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f' : (key === 'basic' ? '\u0431\u0430\u0437\u043e\u0432\u0430\u044f' : '\u043d\u0435\u0442');
   };
-  const templates = (name) => {
-    const key = String(planMap[name]?.niche_templates || 'limited').toLowerCase();
-    return key === 'full' ? 'Полные' : (key === 'standard' ? 'Стандартные' : 'Ограниченные');
-  };
-  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>Функция</th><th>Free Trial</th><th>Starter</th><th>Growth</th><th>Agency</th></tr></thead><tbody>
-    <tr><td>Цена / месяц</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
-    <tr><td>Пробный период</td><td>7 дней</td><td>—</td><td>—</td><td>—</td></tr>
-    <tr><td>Постов / месяц</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
-    <tr><td>Видео / месяц</td><td>${f('free','max_videos_period',3)}</td><td>${f('starter','max_videos_period',10)}</td><td>${f('growth','max_videos_period',40)}</td><td>${f('agency','max_videos_period',150)}</td></tr>
-    <tr><td>Проекты</td><td>${projects('free')}</td><td>${projects('starter')}</td><td>${projects('growth')}</td><td>${projects('agency')}</td></tr>
-    <tr><td>Планирование</td><td>${yesNo(f('free','can_schedule',false))}</td><td>${yesNo(f('starter','can_schedule',true))}</td><td>${yesNo(f('growth','can_schedule',true))}</td><td>${yesNo(f('agency','can_schedule',true))}</td></tr>
-    <tr><td>Автопостинг</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
-    <tr><td>Аналитика</td><td>${analytics('free')}</td><td>${analytics('starter')}</td><td>${analytics('growth')}</td><td>${analytics('agency')}</td></tr>
-    <tr><td>Шаблоны по нишам</td><td>${templates('free')}</td><td>${templates('starter')}</td><td>${templates('growth')}</td><td>${templates('agency')}</td></tr>
+  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>\u0424\u0443\u043d\u043a\u0446\u0438\u044f</th><th>Free Trial</th><th>Starter</th><th>Growth</th><th>Agency</th></tr></thead><tbody>
+    <tr><td>\u0426\u0435\u043d\u0430 / \u043c\u0435\u0441\u044f\u0446</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
+    <tr><td>\u041f\u0440\u043e\u0431\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434</td><td>7 \u0434\u043d\u0435\u0439</td><td>\u2014</td><td>\u2014</td><td>\u2014</td></tr>
+    <tr><td>\u041f\u043e\u0441\u0442\u044b / \u043c\u0435\u0441\u044f\u0446</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
+    <tr><td>\u0412\u0438\u0434\u0435\u043e / \u043c\u0435\u0441\u044f\u0446</td><td>${f('free','max_videos_period',3)}</td><td>${f('starter','max_videos_period',10)}</td><td>${f('growth','max_videos_period',40)}</td><td>${f('agency','max_videos_period',150)}</td></tr>
+    <tr><td>\u0420\u0430\u0431\u043e\u0447\u0438\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0430</td><td>${workspaces('free')}</td><td>${workspaces('starter')}</td><td>${workspaces('growth')}</td><td>${workspaces('agency')}</td></tr>
+    <tr><td>\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0435 \u043a\u0430\u043d\u0430\u043b\u044b</td><td>${channels('free')}</td><td>${channels('starter')}</td><td>${channels('growth')}</td><td>${channels('agency')}</td></tr>
+    <tr><td>\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
+    <tr><td>\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430</td><td>${analytics('free')}</td><td>${analytics('starter')}</td><td>${analytics('growth')}</td><td>${analytics('agency')}</td></tr>
   </tbody></table></div>`;
 }
 
@@ -2700,10 +3146,10 @@ function pricingCards() {
   (state.plans || []).forEach((p) => { planMap[p.name] = p; });
   const marketingMap = Object.fromEntries(MARKETING_PRICING_PLANS.map((p) => [p.key, p]));
   const marketingFeatures = {
-    free: { posts: '30', videos: '3', projects: '1', autopublish: false, analytics: 'none' },
-    starter: { posts: '150', videos: '10', projects: '2', autopublish: true, analytics: 'basic' },
-    growth: { posts: '600', videos: '40', projects: '5', autopublish: true, analytics: 'advanced' },
-    agency: { posts: '2000', videos: '150', projects: 'Без ограничений', autopublish: true, analytics: 'advanced' },
+    free: { posts: '30', videos: '3', workspaces: '1', channels: '1', autopublish: false, analytics: 'none' },
+    starter: { posts: '150', videos: '10', workspaces: '2', channels: '2', autopublish: true, analytics: 'basic' },
+    growth: { posts: '600', videos: '40', workspaces: '5', channels: '5', autopublish: true, analytics: 'advanced' },
+    agency: { posts: '2000', videos: '150', workspaces: '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430', channels: '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430', autopublish: true, analytics: 'advanced' },
   };
 
   const stripe = state.billing?.stripe || {};
@@ -2712,33 +3158,39 @@ function pricingCards() {
   const current = String(state.billing?.plan || state.user?.plan || 'free').toLowerCase();
   const order = ['free', 'starter', 'growth', 'agency'];
   const meta = {
-    free: { title: marketingMap.free?.name || 'Free Trial 7 days', desc: marketingMap.free?.desc || 'Чтобы попробовать генерацию контента и понять сценарий работы.' },
-    starter: { title: marketingMap.starter?.name || 'Starter', desc: marketingMap.starter?.desc || 'Для малого бизнеса и соло-специалиста.' },
-    growth: { title: marketingMap.growth?.name || 'Growth', desc: marketingMap.growth?.desc || 'Основной тариф для стабильного контент-потока и автопостинга.', highlight: true },
-    agency: { title: marketingMap.agency?.name || 'Agency', desc: marketingMap.agency?.desc || 'Для агентств и нескольких клиентов.' },
-    admin: { title: 'Admin Unlimited', desc: 'Внутренний безлимитный тариф администратора с полным доступом.' },
+    free: { title: marketingMap.free?.name || 'Free Trial 7 days', desc: '\u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u0440\u0430\u0431\u043e\u0442\u044b \u0431\u0435\u0437 \u043a\u0430\u0440\u0442\u044b \u0438 \u043b\u0438\u0448\u043d\u0438\u0445 \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432.' },
+    starter: { title: marketingMap.starter?.name || 'Starter', desc: '\u0414\u043b\u044f \u043c\u0430\u043b\u043e\u0433\u043e \u0431\u0438\u0437\u043d\u0435\u0441\u0430.' },
+    growth: { title: marketingMap.growth?.name || 'Growth', desc: '\u0414\u043b\u044f \u0440\u0435\u0433\u0443\u043b\u044f\u0440\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043d\u0442-\u043f\u043e\u0442\u043e\u043a\u0430, \u0432\u0438\u0434\u0435\u043e \u0438 \u0430\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433\u0430.', highlight: true },
+    agency: { title: marketingMap.agency?.name || 'Agency', desc: '\u0414\u043b\u044f \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u0438\u0445 \u0431\u0440\u0435\u043d\u0434\u043e\u0432 \u0438 \u043a\u043b\u0438\u0435\u043d\u0442\u0441\u043a\u0438\u0445 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432.' },
+    admin: { title: 'Admin Unlimited', desc: '\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0438\u0439 \u0441\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0439 \u0442\u0430\u0440\u0438\u0444 \u0441 \u043f\u043e\u043b\u043d\u044b\u043c \u0434\u043e\u0441\u0442\u0443\u043f\u043e\u043c.' },
   };
   const price = (name) => {
     if (marketingMap[name]?.price) return marketingMap[name].price;
     const v = planMap[name]?.price_eur_month;
     const n = Number(v) || 0;
-    return n <= 0 ? '€0' : `€${n}`;
+    return n <= 0 ? '\u20ac0' : `\u20ac${n}`;
   };
-  const projects = (name) => {
+  const workspaces = (name) => {
     const live = planMap[name]?.max_projects;
-    if (Number(live || 0) >= 999999 || name === 'agency') return 'Без ограничений';
+    if (Number(live || 0) >= 999999 || name === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
     if (live !== undefined && live !== null && String(live).trim() !== '') return live;
-    return marketingFeatures[name]?.projects ?? '—';
+    return marketingFeatures[name]?.workspaces ?? '\u2014';
+  };
+  const channels = (name) => {
+    const live = planMap[name]?.accounts_connected;
+    if (Number(live || 0) >= 999999 || name === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    if (live !== undefined && live !== null && String(live).trim() !== '') return live;
+    return marketingFeatures[name]?.channels ?? '\u2014';
   };
   const posts = (name) => {
     const live = planMap[name]?.max_posts_month;
     if (live !== undefined && live !== null && String(live).trim() !== '') return live;
-    return marketingFeatures[name]?.posts ?? '—';
+    return marketingFeatures[name]?.posts ?? '\u2014';
   };
   const videos = (name) => {
     const live = planMap[name]?.max_videos_period;
     if (live !== undefined && live !== null && String(live).trim() !== '') return live;
-    return marketingFeatures[name]?.videos ?? '—';
+    return marketingFeatures[name]?.videos ?? '\u2014';
   };
   const autopublish = (name) => {
     if (typeof planMap[name]?.can_autopublish === 'boolean') return !!planMap[name].can_autopublish;
@@ -2750,28 +3202,29 @@ function pricingCards() {
   };
   const analyticsLabel = (name) => {
     const key = analytics(name);
-    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
+    return key === 'advanced' ? '\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f' : (key === 'basic' ? '\u0431\u0430\u0437\u043e\u0432\u0430\u044f' : '\u043d\u0435\u0442');
   };
-  const yesNo = (v) => (v ? 'Да' : 'Нет');
+  const yesNo = (v) => (v ? '\u0434\u0430' : '\u043d\u0435\u0442');
   const adminCard = current === 'admin'
     ? `<article class="card plan-card highlight">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div class="plan-title">${esc(meta.admin.title)}</div>
-            <div class="plan-price">Безлимит<span class="plan-price-suffix">/internal</span></div>
+            <div class="plan-price">\u221e<span class="plan-price-suffix">/internal</span></div>
             <div class="small muted" style="margin-top:6px;">${esc(meta.admin.desc)}</div>
           </div>
           <div>${planBadge('admin')}</div>
         </div>
         <div class="plan-features">
-          <div class="small"><strong>Без лимита</strong> постов/мес</div>
-          <div class="small"><strong>Без лимита</strong> видео/мес</div>
-          <div class="small"><strong>Без лимита</strong> проектов</div>
-          <div class="small">Автопостинг: <strong>Да</strong></div>
-          <div class="small">Аналитика: <strong>Расширенная</strong></div>
+          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u0440\u0430\u0431\u043e\u0447\u0438\u0445 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432</div>
+          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u043f\u043e\u0441\u0442\u043e\u0432/\u043c\u0435\u0441</div>
+          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u0432\u0438\u0434\u0435\u043e/\u043c\u0435\u0441</div>
+          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0445 \u043a\u0430\u043d\u0430\u043b\u043e\u0432</div>
+          <div class="small">\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433: <strong>\u0434\u0430</strong></div>
+          <div class="small">\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430: <strong>\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f</strong></div>
         </div>
         <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
-          <button class="btn btn-secondary" disabled>Текущий внутренний тариф</button>
+          <button class="btn btn-secondary" disabled>\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0441\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0439 \u0442\u0430\u0440\u0438\u0444</button>
           <span class="hint-pill">Admin</span>
         </div>
       </article>`
@@ -2784,33 +3237,33 @@ function pricingCards() {
       const isCurrent = current === name;
       const canUpgrade = name !== 'free' && stripeReady && planPaymentAvailable(name);
       const btn = isCurrent
-        ? `<button class="btn btn-secondary" disabled>Текущий тариф</button>`
+        ? `<button class="btn btn-secondary" disabled>\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043f\u043b\u0430\u043d</button>`
         : canUpgrade
-          ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">Перейти на ${esc(m.title)}</button>`
+          ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">\u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043d\u0430 ${esc(m.title)}</button>`
           : name === 'free'
-            ? `<button class="btn btn-ghost" disabled>Активируется при регистрации</button>`
-            : `<button class="btn btn-ghost" disabled title="План доступен как продуктовая модель, но checkout пока выключен">Скоро доступно</button>`;
+            ? `<button class="btn btn-ghost" disabled>\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043f\u043e \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438</button>`
+            : `<button class="btn btn-ghost" disabled title="\u041f\u043b\u0430\u0442\u043d\u044b\u0435 \u043f\u043b\u0430\u043d\u044b \u0443\u0436\u0435 \u0443\u0447\u0430\u0441\u0442\u0432\u0443\u044e\u0442 \u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u043e\u0432\u043e\u0439 \u043b\u043e\u0433\u0438\u043a\u0435, \u043d\u043e checkout \u0435\u0449\u0451 \u043d\u0435 \u0432\u043a\u043b\u044e\u0447\u0451\u043d">\u0421\u043a\u043e\u0440\u043e \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div class="plan-title">${esc(m.title)}</div>
-            <div class="plan-price">${price(name)}<span class="plan-price-suffix">/мес</span></div>
+            <div class="plan-price">${price(name)}<span class="plan-price-suffix">/\u043c\u0435\u0441</span></div>
             <div class="small muted" style="margin-top:6px;">${esc(m.desc)}</div>
           </div>
           <div>${planBadge(name)}</div>
         </div>
         <div class="plan-features">
-          <div class="small"><strong>${posts(name)}</strong> постов/мес</div>
-          <div class="small"><strong>${videos(name)}</strong> видео/мес</div>
-          <div class="small"><strong>${projects(name)}</strong> проектов</div>
-          <div class="small">Автопостинг: <strong>${yesNo(autopublish(name))}</strong></div>
-          <div class="small">Аналитика: <strong>${esc(analyticsLabel(name))}</strong></div>
+          <div class="small"><strong>${workspaces(name)}</strong> \u0440\u0430\u0431\u043e\u0447\u0438\u0445 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432</div>
+          <div class="small"><strong>${posts(name)}</strong> \u043f\u043e\u0441\u0442\u043e\u0432/\u043c\u0435\u0441</div>
+          <div class="small"><strong>${videos(name)}</strong> \u0432\u0438\u0434\u0435\u043e/\u043c\u0435\u0441</div>
+          <div class="small"><strong>${channels(name)}</strong> \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0445 \u043a\u0430\u043d\u0430\u043b\u043e\u0432</div>
+          <div class="small">\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433: <strong>${yesNo(autopublish(name))}</strong></div>
+          <div class="small">\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430: <strong>${esc(analyticsLabel(name))}</strong></div>
         </div>
         <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
           ${btn}
-          ${m.highlight ? `<span class="hint-pill">Рекомендуем</span>` : `<span></span>`}
+          ${m.highlight ? `<span class="hint-pill">\u041f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u044b\u0439</span>` : `<span></span>`}
         </div>
-        ${!isCurrent && name !== 'free' && !canUpgrade ? '<div class="small muted" style="margin-top:8px;">Тариф уже включён в продуктовую модель, но оплата появится позже.</div>' : ''}
       </article>`;
     }).join('')}
   </div>`;
@@ -2901,9 +3354,9 @@ function pageHistory(showCalendar = false) {
 
   const plannerBoard = `<section class="card planner-card phone-calendar">
     <div class="phone-cal-toolbar">
-      <button class="btn btn-ghost phone-nav-btn" id="calendarPrevMonthBtn">←</button>
+      <button class="btn btn-ghost phone-nav-btn" id="calendarPrevMonthBtn"><</button>
       <h3 class="phone-cal-title">${esc(rangeLabel)}</h3>
-      <button class="btn btn-ghost phone-nav-btn" id="calendarNextMonthBtn">→</button>
+      <button class="btn btn-ghost phone-nav-btn" id="calendarNextMonthBtn">></button>
     </div>
     <div class="phone-cal-subline">
       <button class="btn btn-ghost" id="calendarTodayBtn">Сегодня</button>
@@ -2974,15 +3427,31 @@ function pageHistory(showCalendar = false) {
                   p.published_at ? `Публикация: <strong>${esc(new Date(p.published_at).toLocaleString())}</strong>` : '',
                 ].filter(Boolean).join(' • ');
                 const text = (p.generated_text || '').trim();
+                const mediaUrl = String(p.media_url || '').trim();
+                const mediaPreview = mediaUrl
+                  ? `<div style="margin:12px 0 14px 0;">
+                      <p class="small" style="margin:0 0 8px 0;"><strong>Изображение</strong></p>
+                      <a href="${esc(mediaUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;">
+                        <img
+                          src="${esc(mediaUrl)}"
+                          alt="Post image"
+                          onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='block';"
+                          style="width:100%;max-height:360px;object-fit:contain;border-radius:14px;border:1px solid rgba(99,102,241,.16);background:rgba(255,255,255,.75);display:block;"
+                        />
+
+                      </a>
+                    </div>`
+                  : '';
                 const body = text
                   ? `<div class="post-preview" style="white-space:pre-wrap;line-height:1.45;">${esc(text)}</div>`
                   : `<p class="small muted">Текст еще не готов. Если статус “queued/running”, подождите 10–30 секунд и откройте снова.</p>`;
                 const err = p.error_message ? `<p class="small" style="color:var(--error);margin-top:10px;">Ошибка: ${esc(p.error_message)}</p>` : '';
                 const prompt = (p.prompt_text || '').trim();
-                const details = prompt ? `<details style="margin-top:12px;"><summary class="small">Промпт (для диагностики)</summary><pre class="small" style="white-space:pre-wrap;margin-top:10px;">${esc(prompt)}</pre></details>` : '';
+
                 return `<div>
                   <div class="small muted">${meta || ''}</div>
                   <h3 style="margin-top:10px;">${esc(p.topic || 'Пост')}</h3>
+                  ${mediaPreview}
                   ${body}
                   ${err}
                   ${details}
@@ -3002,16 +3471,34 @@ function pageHistory(showCalendar = false) {
     </div>
   </div>`;
 
+  const editorPlatforms = editor.platforms || { facebook: String(editor.post?.platform || '').toLowerCase() === 'facebook', instagram: String(editor.post?.platform || '').toLowerCase() === 'instagram' };
   const editorBody = editor.post ? `<div>
     ${editor.error ? `<p class="small" style="color:var(--error);">${esc(editor.error)}</p>` : ''}
     ${field('editTopic', 'Тема', 'text', editor.post.topic || '')}
     ${field('editText', 'Текст', 'textarea', editor.post.generated_text || '')}
-    ${selectField('editPlatform', 'Платформа', editor.post.platform || 'instagram', [
-      { value: 'instagram', label: 'Instagram' },
-      { value: 'facebook', label: 'Facebook' },
-      { value: 'youtube', label: 'YouTube' },
-    ])}
+    <div class="field">
+      <label>Платформы</label>
+      <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;">
+        <label class="create-toggle"><input id="editPlatformFacebook" type="checkbox" ${editorPlatforms.facebook ? 'checked' : ''}/> Facebook</label>
+        <label class="create-toggle"><input id="editPlatformInstagram" type="checkbox" ${editorPlatforms.instagram ? 'checked' : ''}/> Instagram</label>
+      </div>
+      <p class="small" style="margin-top:6px;">Для каждой выбранной платформы будет сохранена отдельная запись публикации.</p>
+    </div>
     ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
+    ${String(editor.post.media_url || '').trim()
+      ? `<div style="margin:10px 0 4px 0;">
+          <p class="small" style="margin:0 0 8px 0;"><strong>Превью изображения</strong></p>
+          <a href="${esc(String(editor.post.media_url || '').trim())}" target="_blank" rel="noopener noreferrer" style="display:block;">
+            <img
+              src="${esc(String(editor.post.media_url || '').trim())}"
+              alt="Post image preview"
+              onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='block';"
+              style="width:100%;max-height:320px;object-fit:contain;border-radius:14px;border:1px solid rgba(99,102,241,.16);background:rgba(255,255,255,.75);display:block;"
+            />
+            <div style="display:none;padding:14px;border:1px solid rgba(99,102,241,.16);border-radius:14px;background:rgba(255,255,255,.75);color:var(--muted);">Изображение недоступно</div>
+          </a>
+        </div>`
+      : ''}
     ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInputValue(editor.post.schedule_at))}
     <div class="cta-row" style="justify-content:flex-end;margin-top:12px;">
       <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>Снять с расписания</button>
@@ -3071,22 +3558,23 @@ function pageBilling() {
     <article class="card">
       <h2 style="margin-bottom:6px;">Тарифы и биллинг</h2>
       <p class="small">Текущий план: <strong>${esc(b.plan_title || planBadge(b.plan || 'free').replace(/<[^>]+>/g, ''))}</strong></p>
-      <p class="small muted" style="margin-top:8px;">${b.plan === 'free' ? `Пробный период: ${Number(b.trial_days_left || 0)} дн. осталось. После окончания trial понадобится платный тариф для генерации и публикации.` : (b.plan === 'admin' ? 'Внутренний admin-тариф: безлимит по контенту, видео, проектам и расширенная аналитика.' : `Аналитика: ${esc(analyticsLevelLabel)}. Автопостинг: ${b.limits.can_autopublish ? 'включен' : 'выключен'}.`)}</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
       <div class="cta-row" style="margin-top:12px;">
         <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? 'Для admin-плана управление подпиской не требуется' : 'Портал подписки станет доступен после включения оплаты')}">Управление подпиской</button>
       </div>
-      <div class="small muted" style="margin-top:8px;">Статус биллинга: ${esc(b.billing_status || 'inactive')}</div>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
     </article>
     <article class="card">
       <h3>Использование</h3>
-      <div class="small">Постов в месяц: <strong>${usedMonth}</strong> / <strong>${monthlyUnlimited ? 'без лимита' : (limitMonth || '—')}</strong></div>
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
       ${progressBar(usedMonth, monthMax)}
-      <div class="small" style="margin-top:10px;">Видео в месяц: <strong>${usedVideos}</strong> / <strong>${videosUnlimited ? 'без лимита' : (limitVideos || '—')}</strong></div>
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
       ${progressBar(usedVideos, videoMax)}
-      <div class="small" style="margin-top:10px;">Проектов: <strong>${usedProjects}</strong> / <strong>${projectsUnlimited ? 'без лимита' : (limitProjects || '—')}</strong></div>
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
       ${progressBar(usedProjects, projectsMax)}
-      <div class="small" style="margin-top:10px;">Лимит на день: <strong>${usedDaily}</strong> / <strong>${dailyUnlimited ? 'без лимита' : (limitDaily || '—')}</strong></div>
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
       ${progressBar(usedDaily, dayMax)}
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
     </article>
   </section>`;
 
@@ -3204,7 +3692,7 @@ function pageYouTubeStudio() {
         <p class="small">Настройте тип ролика, длительность и тему. Для стабильной генерации на сервере long ограничен до 480 секунд.</p>
         ${selectField('ytProject', 'Проект', y.projectId || options[0]?.value || '', options.length ? options : [{ value: '', label: 'Нет проектов' }])}
         ${field('ytTopic', 'Тема ролика', 'text', y.topic || '', 'Например: Как малому бизнесу получать заявки из YouTube')}
-        ${selectField('ytVideoType', 'Тип ролика', y.videoType || 'short', typeOptions)}
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
         ${field('ytDuration', 'Длительность (сек)', 'number', String(y.durationSeconds || 45), '45')}
         ${selectField('ytLang', 'Язык', y.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
         ${selectField('ytTone', 'Тон', y.tone || 'expert', [{ value: 'expert', label: 'Экспертный' }, { value: 'friendly', label: 'Дружелюбный' }, { value: 'sales', label: 'Продающий' }])}
@@ -3385,6 +3873,15 @@ function getVideoPreviewTextState(directorState, platform = 'facebook') {
     canExpand: fullText.length > limit,
     expanded,
   };
+}
+
+function resolveDirectorPostPreviewText({ draft, draftMatchesSelection, loadingDrafts, selectedThemePreviewText, hasSelection }) {
+  const generatedText = String(draft?.post_text || '').trim();
+  if (generatedText) return generatedText;
+  if (loadingDrafts) return selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...';
+  if (draftMatchesSelection) return 'Сгенерируйте контент, чтобы увидеть результат.';
+  if (hasSelection) return selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...';
+  return 'Сгенерируйте контент, чтобы увидеть результат.';
 }
 
 function loadCampaignDraftLocal() {
@@ -3719,12 +4216,12 @@ function renderSocialPreview(payload) {
   const mediaHtml = isVideo
     ? `<div class="social-preview-media video">
         ${media.thumbnail_url ? `<img src="${esc(media.thumbnail_url)}" alt="" />` : `<video src="${esc(media.url || '')}" preload="metadata"></video>`}
-        <span class="play-badge">▶</span>
+        <span class="play-badge">?</span>
         ${media.duration_s ? `<span class="duration-badge">${esc(String(Math.round(media.duration_s)))}s</span>` : ''}
       </div>`
     : `<div class="social-preview-media image">${media.url ? `<img src="${esc(media.url)}" alt="" />` : '<div class="media-missing">Нет изображения</div>'}</div>`;
   const actions = platform === 'youtube'
-    ? '<div class="social-actions"><span>👍 Нравится</span><span>💬 Комментарии</span><span>🔔 Подписка</span></div>'
+    ? '<div class="social-actions"><span>?? Нравится</span><span>?? Комментарии</span><span>?? Подписка</span></div>'
     : '<div class="social-actions"><span>Нравится</span><span>Комментарий</span><span>Поделиться</span></div>';
   const titleLine = platform === 'youtube'
     ? `<p class="small"><strong>${esc(p.meta?.title || 'Заголовок видео')}</strong></p>`
@@ -3744,6 +4241,7 @@ function renderSocialPreview(payload) {
 
 function pageCreateDirector() {
   const d = state.createDirector || {};
+  const generationMode = String(d.generationMode || 'manual').trim() === 'plan' ? 'plan' : 'manual';
   if (!d._contentTypeBootstrapped) {
     let localType = '';
     let queryType = '';
@@ -3764,17 +4262,28 @@ function pageCreateDirector() {
   }
   const platformOrder = isVideo ? ['facebook', 'instagram', 'youtube'] : ['facebook', 'instagram'];
   const selectedPlatforms = platformOrder.filter((k) => !!platforms[k]);
-  const topics = (d.suggestions?.topics || []).slice(0, 10);
-  const localTopics = directorLocalTopicIdeas(d, 10, d.refreshCount || 0);
+  const topics = (d.suggestions?.topics || []).slice(0, DIRECTOR_TOPIC_IDEA_COUNT);
+  const localTopics = directorLocalTopicIdeas(d, DIRECTOR_TOPIC_IDEA_COUNT, d.refreshCount || 0);
   const topicsAll = Array.isArray(d.topicPool) && d.topicPool.length
-    ? d.topicPool.slice(0, 10)
+    ? d.topicPool.slice(0, DIRECTOR_TOPIC_IDEA_COUNT)
     : (localTopics.length ? localTopics : topics);
+  const topicHeadlineItems = directorHeadlineItems(topicsAll, d.selectedAngle);
   const baseTopic = directorBaseTopic(d, d.topic);
   const effectiveSelectedTopic = directorEffectiveTopic(d);
   const nicheMeta = directorCurrentNicheMeta(d);
   const quickActionResult = String(d.quickActionType || '').trim() && String(d.quickActionNicheId || '').trim()
     ? buildQuickActionResult(d.quickActionType, d.quickActionNicheId, state.billing, Number(d.quickActionSeed || 0))
     : null;
+  const quickActionType = String(quickActionResult?.actionType || '').trim();
+  const isWeeklyPlanFlow = quickActionType === 'weekly_plan';
+  const isMonthlyPlanFlow = quickActionType === 'monthly_plan';
+  const isPlanFlow = isWeeklyPlanFlow || isMonthlyPlanFlow;
+  const prioritizeDirectorCard = isPlanFlow;
+  const planFlowGenerated = isPlanFlow && d.planFlowState === 'generated';
+  const planFlowLoading = isPlanFlow && d.planFlowState === 'loading';
+  const planFlowError = isPlanFlow ? String(d.planFlowError || '').trim() : '';
+  const planFlowDays = isMonthlyPlanFlow ? 30 : 7;
+  const planFlowGoalLabel = planGoalLabel(d.goal || 'engagement');
   const angles = ((d.suggestions?.angles || []).slice(0, 3).length ? (d.suggestions?.angles || []).slice(0, 3) : directorLocalAngles(d).slice(0, 3));
   const ctaOptions = (d.suggestions?.cta_options || []).slice(0, 3);
   const hashtagSets = Array.isArray(d.suggestions?.hashtag_sets)
@@ -3798,28 +4307,31 @@ function pageCreateDirector() {
   const videoPreviewTextState = isVideo ? getVideoPreviewTextState(d, activePlatform) : null;
   const previewText = isVideo
     ? (videoPreviewTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
-    : (draftMatchesSelection
-      ? (String(activeDraft?.post_text || '').trim() || 'Сгенерируйте контент, чтобы увидеть результат.')
-      : (d.loadingDrafts
-        ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
-        : (hasSelection
-          ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
-          : 'Сгенерируйте контент, чтобы увидеть результат.')));
-  const selectedTagSet = Array.isArray(d.selectedHashtags) ? normalizeHashtagSet(d.selectedHashtags, []) : [];
+    : resolveDirectorPostPreviewText({
+      draft: activeDraft,
+      draftMatchesSelection,
+      loadingDrafts: d.loadingDrafts,
+      selectedThemePreviewText,
+      hasSelection,
+    });
+  const selectedTagSet = Array.isArray(d.selectedHashtags) ? directorPreferNicheHashtags(d, d.selectedHashtags, 8) : [];
   const hasVideoStructure = !!d.videoStructure;
   const previewTags = isVideo
     ? selectedTagSet
     : (selectedTagSet.length
       ? selectedTagSet
-      : normalizeHashtagSet(Array.isArray(activeDraft?.hashtags) ? activeDraft.hashtags : []));
+      : directorPreferNicheHashtags(d, Array.isArray(activeDraft?.hashtags) ? activeDraft.hashtags : [], 8));
   const activeTagsValue = isVideo
     ? selectedTagSet.join(' ')
     : (selectedTagSet.length
       ? selectedTagSet.join(' ')
-      : normalizeHashtagSet(activeDraft?.hashtags || []).join(' '));
+      : directorPreferNicheHashtags(d, activeDraft?.hashtags || [], 8).join(' '));
   const videoPreviewUrl = String(d.videoPreviewUrl || '').trim();
   const videoFinalUrl = String(d.videoFinalUrl || '').trim();
   const videoPlayableUrl = videoFinalUrl || videoPreviewUrl;
+  const videoSrtUrl = String(d.videoSrtUrl || '').trim();
+  const videoDebug = (d.videoDebug && typeof d.videoDebug === 'object') ? d.videoDebug : {};
+  const uniqueClipsUsed = Array.isArray(videoDebug.unique_clips_used) ? videoDebug.unique_clips_used : [];
   const videoOrientation = String(d.videoOrientation || 'vertical').toLowerCase() === 'horizontal' ? 'horizontal' : 'vertical';
   const videoFrameClass = videoOrientation === 'horizontal' ? 'is-horizontal' : 'is-vertical';
   const videoProgress = Math.max(0, Math.min(100, Number(d.videoProgress || 0)));
@@ -3874,28 +4386,57 @@ function pageCreateDirector() {
     ? bestSlots.next_slots.slice(0, 4).map((iso) => `<button type="button" class="btn btn-ghost" data-cd-slot="${esc(iso)}">${esc(new Date(iso).toLocaleString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))}</button>`).join('')
     : '';
   const miniPlanRows = planItems.slice(0, 6).map((x) => `<div class="small" style="display:flex;justify-content:space-between;gap:8px;"><span>${esc(new Date(x.scheduled_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }))}</span><span class="truncate">${esc(x.topic || '—')}</span></div>`).join('');
+  const quickPlanItems = isPlanFlow
+    ? ((Array.isArray(d.planFlowItems) && d.planFlowItems.length)
+      ? d.planFlowItems
+      : (Array.isArray(quickActionResult?.items) ? quickActionResult.items : []))
+    : [];
+  const selectedPlanDay = isPlanFlow
+    ? (quickPlanItems.find((item) => Number(item.day || 0) === Number(d.planFlowSelectedDay || 1)) || quickPlanItems[0] || null)
+    : null;
   const isHorizontalVideo = String(d.videoOrientation || 'vertical') === 'horizontal';
   const durationOptions = (isHorizontalVideo ? ['120', '180', '240', '300', '360', '420', '480'] : ['20', '30', '40', '60']).map((v) => ({ value: v, label: `${v} сек` }));
-  const step3Label = isVideo ? 'Шаг 3 — Структура' : 'Шаг 3 — Генерация';
-  const generationHintText = isVideo
-    ? '1. Сначала выберите тему<br>2. Затем сгенерируйте структуру<br>3. После этого можно собрать видео'
-    : '1. Сначала выберите тему<br>2. Затем выберите подход<br>3. После этого можно сгенерировать пост';
-  const previewStateText = !effectiveSelectedTopic
-    ? 'Выберите тему чтобы начать'
-    : (isVideo
-      ? (d.videoStructure ? 'Можно собрать видео' : 'Нажмите «Сгенерировать структуру»')
-      : 'Выберите подход и нажмите «Сгенерировать пост»');
+  const previewStateText = [
+    String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
+    String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
+  ].filter(Boolean).join(' · ') || (isVideo ? 'Соберите структуру, чтобы увидеть preview.' : 'Выберите тему и угол подачи, чтобы увидеть preview.');
+  const planTitle = String(state.billing?.plan_title || planBadge(state.billing?.plan || state.user?.plan || 'free').replace(/<[^>]+>/g, '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
+  const planPostsRemaining = Math.max(0, Number(state.billing?.remaining?.posts_generated ?? ((state.billing?.limits?.posts_per_month || 0) - (state.billing?.usage?.posts_per_month || 0))));
+  const planVideosRemaining = Math.max(0, Number(state.billing?.remaining?.videos_generated ?? ((state.billing?.limits?.videos_per_month || 0) - (state.billing?.usage?.videos_per_month || 0))));
+  const planChannelsRemaining = Number(state.billing?.limits?.accounts_connected || 0) >= 999999
+    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
+    : String(Math.max(0, Number(state.billing?.remaining?.accounts_connected ?? ((state.billing?.limits?.accounts_connected || 0) - (state.billing?.usage?.accounts_connected || 0)))));
+  const planAwareBlock = `
+      <article class="card" style="margin-top:10px;padding:12px;">
+        <div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;">
+          <button id="cdGenerationModeManual" type="button" class="btn ${generationMode === 'manual' ? 'btn-primary' : 'btn-ghost'}">\u041d\u0430\u0441\u0442\u0440\u043e\u0438\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443\u044e</button>
+          <button id="cdGenerationModePlan" type="button" class="btn ${generationMode === 'plan' ? 'btn-primary' : 'btn-ghost'}">\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c \u043b\u0438\u043c\u0438\u0442\u044b \u043c\u043e\u0435\u0433\u043e \u043f\u043b\u0430\u043d\u0430</button>
+        </div>
+        ${generationMode === 'plan'
+          ? `<div style="margin-top:10px;">
+               <p class="small" style="margin:0 0 10px 0;">\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u0431\u0443\u0434\u0435\u0442 \u0443\u0447\u0438\u0442\u044b\u0432\u0430\u0442\u044c \u0432\u0430\u0448 \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444, \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0435 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u0438 \u0438 \u0432\u0438\u0434\u0435\u043e \u0432 \u044d\u0442\u043e\u043c \u043f\u0435\u0440\u0438\u043e\u0434\u0435.</p>
+               <div class="small"><strong>\u0412\u0430\u0448 \u0442\u0430\u0440\u0438\u0444:</strong> ${esc(planTitle)}</div>
+               <div class="small" style="margin-top:8px;"><strong>\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0441\u0435\u0439\u0447\u0430\u0441:</strong></div>
+               <ul class="small" style="margin:8px 0 0 18px;padding:0;">
+                 <li>${esc(String(planPostsRemaining))} \u043f\u043e\u0441\u0442\u043e\u0432</li>
+                 <li>${esc(String(planVideosRemaining))} \u0432\u0438\u0434\u0435\u043e</li>
+                 <li>${esc(String(planChannelsRemaining))} \u043a\u0430\u043d\u0430\u043b\u043e\u0432</li>
+               </ul>
+              </div>`
+          : '<p class="small" style="margin:10px 0 0 0;">\u0412\u044b \u0441\u0430\u043c\u0438 \u0443\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0435 \u043e\u0431\u044a\u0451\u043c\u043e\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438, \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u0430\u043c\u0438 \u0438 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f\u043c\u0438 \u0431\u0435\u0437 \u043f\u043e\u0434\u0441\u043a\u0430\u0437\u043a\u0438 \u043f\u043e \u043b\u0438\u043c\u0438\u0442\u0430\u043c \u0442\u0430\u0440\u0438\u0444\u0430.</p>'}
+      </article>`;
 
   const topicChooserHtml = `
       <div class="create-topic-picker">
         <div class="row create-topic-toolbar" style="margin-bottom:10px;">
-          <button id="cdGenerateIdeas" class="btn btn-secondary" type="button" ${loading ? 'disabled' : ''}>
-            ${loading ? 'Подбираем темы…' : 'Подобрать 10 тем'}
+          <button id="cdGenerateIdeas" class="btn btn-secondary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
+            ${directorIdeasButtonLabel(d, loading)}
           </button>
           <span class="small">Кнопка работает от текущей ниши или вашей темы.</span>
         </div>
-        ${topicsAll.length ? `<div class="create-assist-list create-topic-list" style="margin-bottom:10px;">
-          ${topicsAll.map((t) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === t && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(t)}" title="Использовать эту тему">${esc(t)}</button>`).join('')}
+        ${topicHeadlineItems.length ? `<div class="create-assist-list create-topic-list" style="margin-bottom:10px;">
+          ${topicHeadlineItems.map((item) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === item.title && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(item.title)}" title="Использовать эту тему">${esc(item.title)}</button>`).join('')}
         </div>
         ` : ''}
         <div class="create-topic-manual">
@@ -3963,18 +4504,21 @@ function pageCreateDirector() {
           </div>
         </div>
       </div>
-      <div class="create-step-label">Шаг 1 — Ниша</div>
       <p class="small" style="margin:0 0 8px 0;">Выберите сферу бизнеса, чтобы AI предложил релевантные идеи, формулировки и шаблоны именно под вашу нишу.</p>
       ${selectField('cdTopicPreset', 'Ниша *', d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
-      <label class="create-toggle" style="margin-top:8px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> Своя ниша/тема</label>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
       ${d.customTopicMode ? field('cdTopic', 'Своя ниша/тема', 'text', d.customBaseTopicInput || '', 'Например: контент-маркетинг для стоматологии') : ''}
       <p class="small create-selected-topic">Выбранная тема: <strong>${esc(effectiveSelectedTopic || '—')}</strong></p>
-      ${topicChooserHtml}
       <div class="grid-2">
         ${selectField('cdGoal', 'Цель *', d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
         ${field('cdOffer', 'Оффер (опционально)', 'text', d.offer || '', 'Например: бесплатный аудит за 15 минут')}
       </div>
       ${selectField('cdLang', 'Язык', d.language || 'ru', CONTENT_LANG_OPTIONS)}
+      ${!isVideo ? `<div class="row" style="gap:10px;flex-wrap:wrap;margin:8px 0 0 0;">
+        <label class="create-toggle"><input id="cdImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''}/> С картинкой</label>
+        <span class="small">Если не отмечено, пост генерируется без картинки.</span>
+      </div>` : ''}
+      ${planAwareBlock}
 
       <details class="create-pro-accordion">
         <summary>Расширенные настройки</summary>
@@ -4004,12 +4548,11 @@ function pageCreateDirector() {
               ${field('cdRules', 'Запреты/бренд-правила', 'textarea', d.brandRules || '', 'Например: без черного юмора, без сравнения с конкурентами')}
             </article>`}
       </details>
-      <div class="create-step-label" style="margin-top:12px;">${step3Label}</div>
-      <div class="cta-row" style="margin-top:8px;">
-        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || (!effectiveSelectedTopic) || !String(d.selectedAngle || '').trim()) ? 'disabled' : ''}>${loading ? (isVideo ? 'Генерируем структуру…' : 'Генерируем пост…') : (isVideo ? 'Сгенерировать структуру' : 'Сгенерировать пост')}</button>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>${directorIdeasButtonLabel(d, loading)}</button>
         ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${d.videoRenderLoading ? 'Собираем видео…' : 'Собрать видео'}</button>` : ''}
       </div>
-      <p class="small create-flow-hint">${generationHintText}</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
       ${isVideo ? `<div class="create-step-label">Шаг 4 — Видео</div>` : ''}
       ${isVideo ? `<p id="cdVideoStatusText" class="small">${esc(d.videoJobStatus ? `Статус видео: ${d.videoJobStatus}` : 'Статус видео: ожидание')}</p>` : ''}
       ${d.status === 'loading' ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
@@ -4020,77 +4563,82 @@ function pageCreateDirector() {
   let resultCard = `
     <article class="card glass-card create-director-card">
       <h3 style="margin-top:0;">Результат</h3>
-      <p class="small">2 клика: выберите тему и подход, затем берите готовые варианты.</p>
+      <p class="small">Сначала получите заголовки, затем выберите тему. Дальше AI сразу соберёт результат в превью.</p>
+      <article class="card" style="margin:8px 0 12px 0;padding:10px;">
+        <label style="margin:0;font-weight:700;">Заголовки</label>
+        <p class="small" style="margin:6px 0 8px 0;">Подберите темы под выбранную нишу и используйте нужный вариант для генерации.</p>
+        ${topicChooserHtml}
+      </article>
       ${isVideo ? `<article class="card" style="margin:8px 0 12px 0;padding:10px;">
         <h4 style="margin:0 0 8px 0;">Структура видео</h4>
         ${d.videoStructureLoading ? '<p class="small">AI формирует структуру...</p>' : ''}
         ${d.videoStructure ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
           <p class="small">Озвучка: мужской голос Eddy · Субтитры: включены · Фоновая музыка: тихая</p>
-          <div style="display:grid;gap:6px;margin-top:8px;">
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
             ${(Array.isArray(d.videoStructure.scenes) ? d.videoStructure.scenes : []).map((s) => `<div class="small"><strong>${Number(s.index || 0) + 1}.</strong> ${esc(s.text || '')} <span style="opacity:.75;">(~${Number(s.duration_s || 0).toFixed(1)} c)</span></div>`).join('')}
           </div>` : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить план сцен под выбранную длительность.</p>'}
       </article>` : ''}
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-        <label style="margin:0;">Подходы</label>
-        <button id="cdRefreshApproaches" type="button" class="btn btn-ghost" ${(loading || d.refreshingApproaches || (Number(d.approachesRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-          ${d.refreshingApproaches ? 'Обновляю…' : `Обновить подходы (${Math.min(Number(d.approachesRefreshCount || 0), 5)}/5)`}
-        </button>
-      </div>
-      <div class="create-assist-list">
-        ${angles.length ? angles.map((a) => `<button type="button" class="btn ${d.selectedAngle === a ? 'btn-primary' : 'btn-ghost'}" data-cd-angle="${encodeURIComponent(a)}">${esc(a)}</button>`).join('') : '<span class="small">Пока пусто</span>'}
-      </div>
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-        <label style="margin:0;">Призыв к действию</label>
-        <button id="cdRefreshCta" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-          ${d.refreshingCta ? 'Обновляю…' : `Обновить призыв (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
-        </button>
-      </div>
-      <div class="create-assist-list">
-        ${ctaOptions.length
-          ? ctaOptions.map((c) => `<button type="button" class="btn ${(String(d.selectedCta || '').trim() === String(c || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-cta="${encodeURIComponent(c)}">${esc(c)}</button>`).join('')
-          : '<span class="small">Пока пусто</span>'}
-      </div>
+      <article class="card" style="margin-top:10px;padding:10px;">
+        <label style="margin:0;font-weight:700;">Подходы</label>
+        <p class="small" style="margin:6px 0 8px 0;">Выберите угол подачи, который лучше всего подходит для этого поста или видео.</p>
+        <div class="row create-result-toolbar">
+          <button id="cdRefreshApproaches" type="button" class="btn btn-secondary" ${(loading || d.refreshingApproaches || (Number(d.approachesRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
+            ${d.refreshingApproaches ? 'Обновляю…' : `Обновить подходы (${Math.min(Number(d.approachesRefreshCount || 0), 5)}/5)`}
+          </button>
+        </div>
+        <div class="create-assist-list">
+          ${angles.length ? angles.map((a) => `<button type="button" class="btn ${d.selectedAngle === a ? 'btn-primary' : 'btn-ghost'}" data-cd-angle="${encodeURIComponent(a)}">${esc(a)}</button>`).join('') : '<span class="small">Пока пусто</span>'}
+        </div>
+      </article>
+      <article class="card" style="margin-top:10px;padding:10px;">
+        <div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
+        <p class="small" style="margin:6px 0 8px 0;">Подберите CTA под текущую тему, формат и цель публикации.</p>
+        <div class="row create-result-toolbar">
+          <button id="cdRefreshCta" type="button" class="btn btn-secondary" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
+            ${d.refreshingCta ? 'Обновляю…' : `Обновить призыв (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
+          </button>
+        </div>
+        <div class="create-assist-list">
+          ${ctaOptions.length
+            ? ctaOptions.map((c) => `<button type="button" class="btn ${(String(d.selectedCta || '').trim() === String(c || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-cta="${encodeURIComponent(c)}">${esc(c)}</button>`).join('')
+            : '<span class="small">Пока пусто</span>'}
+        </div>
+      </article>
       <article class="card" style="margin-top:10px;padding:10px;">
         ${isVideo
-          ? `<label style="margin:0;font-weight:700;">Обложка видео (AI)</label>
+          ? `<div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
              <p class="small" style="margin:6px 0 8px 0;">GPT генерирует обложку без текста под тему ролика.</p>
              <div class="row" style="gap:8px;flex-wrap:wrap;">
                <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? 'Генерируем обложку…' : 'Сгенерировать обложку'}</button>
                <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>Обновить обложку (${Math.min(Number(d.imageRefreshCount || 0), 3)}/3)</button>
              </div>`
-          : `<label class="create-toggle"><input id="cdImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''}/> Картинка</label>
-             <p class="small" style="margin:6px 0 8px 0;">Картинка без текста, передаёт тему и смысл поста.</p>
-             <div class="row" style="gap:8px;flex-wrap:wrap;">
-               <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || !d.imageEnabled || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? 'Генерируем картинку…' : 'Сгенерировать картинку'}</button>
-               <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || !d.imageEnabled || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>Обновить картинку (${Math.min(Number(d.imageRefreshCount || 0), 3)}/3)</button>
-             </div>`
+          : `<div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
+              <p class="small" style="margin:6px 0 8px 0;">Управляется в расширенных настройках. Здесь можно только сгенерировать или обновить картинку.</p>
+              <div class="row" style="gap:8px;flex-wrap:wrap;">
+                <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || !d.imageEnabled || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? 'Генерируем картинку…' : 'Сгенерировать картинку'}</button>
+                <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || !d.imageEnabled || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>Обновить картинку (${Math.min(Number(d.imageRefreshCount || 0), 3)}/3)</button>
+              </div>`
         }
       </article>
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-        <label style="margin:0;">Хештеги</label>
-        <button id="cdRefreshTags" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-          ${d.refreshingHashtags ? 'Обновляю…' : `Обновить хештеги (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
-        </button>
-      </div>
-      <div class="create-assist-list">
-        ${hashtagSets.length
-          ? hashtagSets.map((set) => {
-              const arr = Array.isArray(set) ? set.filter(Boolean) : [];
-              const key = arr.join(' ');
-              const selected = (selectedTagSet.join(' ') === key) || (!selectedTagSet.length && key === ((hashtagSets[0] || []).join(' ')));
-              return `<button type="button" class="btn ${selected ? 'btn-primary' : 'btn-ghost'}" data-cd-hset="${encodeURIComponent(key)}">${esc(key)}</button>`;
-            }).join('')
-          : '<span class="small">Пока пусто</span>'}
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${variantTabs.length ? variantTabs.map((v) => `<button type="button" class="btn ${activeVariant === v ? 'btn-secondary' : 'btn-ghost'}" data-cd-variant="${v}">Вариант ${v}</button>`).join('') : '<span class="small">Варианты появятся после генерации</span>'}
-      </div>
-      ${activeDraft ? `<div style="margin-top:12px;">
-        <p class="small"><strong>Hook:</strong> ${esc(String(activeDraft.post_text || '').split('\n')[0] || '—')}</p>
-        ${field('cdBody', 'Текст', 'textarea', activeDraft.post_text || '', 'Редактируйте текст прямо здесь')}
-        ${field('cdCta', 'Призыв к действию', 'text', String(d.selectedCta || '').trim() || activeDraft.cta || '', 'Что сделать после прочтения')}
-        ${field('cdTags', 'Хештеги', 'text', activeTagsValue, '#маркетинг #контент')}
-      </div>` : ''}
+      <article class="card" style="margin-top:10px;padding:10px;">
+        <label style="margin:0;font-weight:700;">Хештеги</label>
+        <p class="small" style="margin:6px 0 8px 0;">Подберите набор хештегов под текущую нишу и выбранную тему.</p>
+        <div class="row create-result-toolbar">
+          <button id="cdRefreshTags" type="button" class="btn btn-secondary" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
+            ${d.refreshingHashtags ? 'Обновляю…' : `Обновить хештеги (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
+          </button>
+        </div>
+        <div class="create-assist-list">
+          ${hashtagSets.length
+            ? hashtagSets.map((set) => {
+                const arr = Array.isArray(set) ? set.filter(Boolean) : [];
+                const key = arr.join(' ');
+                const selected = (selectedTagSet.join(' ') === key) || (!selectedTagSet.length && key === ((hashtagSets[0] || []).join(' ')));
+                return `<button type="button" class="btn ${selected ? 'btn-primary' : 'btn-ghost'}" data-cd-hset="${encodeURIComponent(key)}">${esc(key)}</button>`;
+              }).join('')
+            : '<span class="small">Пока пусто</span>'}
+        </div>
+      </article>
       <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px;">
         <label class="create-toggle"><input id="cdFb" type="checkbox" ${platforms.facebook ? 'checked' : ''}/> Facebook</label>
         <label class="create-toggle"><input id="cdIg" type="checkbox" ${platforms.instagram ? 'checked' : ''}/> Instagram</label>
@@ -4110,16 +4658,13 @@ function pageCreateDirector() {
           <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Формирую…' : 'Сформировать план'}</button>
           <button id="cdBestTimes" type="button" class="btn btn-ghost">Лучшие дни/часы</button>
         </div>
-        ${(bestDaysText || bestHoursText) ? `<p class="small" style="margin-top:8px;">Рекомендуем: <strong>${esc(bestDaysText || '—')}</strong> · <strong>${esc(bestHoursText || '—')}</strong></p>` : ''}
-        ${nextSlotPills ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">${nextSlotPills}</div>` : ''}
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
         ${planRows}
       </article>
     </article>
   `;
   const shouldShowPostResult = isVideo || d.status !== 'idle' || d.loadingSuggest || d.loadingDrafts;
-  if (!isVideo && !shouldShowPostResult) {
-    resultCard = '';
-  }
   if (isVideo && !d.videoStructure) {
     resultCard = '';
   }
@@ -4161,8 +4706,8 @@ function pageCreateDirector() {
                    <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
                      <span><strong>${scenePos + 1}.</strong> <span style="opacity:.75;">~${Number(s.duration_s || 0).toFixed(1)} c</span></span>
                      <div class="row" style="gap:8px;align-items:center;">
-                       <span class="small" style="opacity:.65;">перетяните</span>
-                       <button type="button" class="btn btn-ghost" data-cd-scene-delete="${scenePos}" title="Удалить сцену">Удалить</button>
+
+
                      </div>
                    </div>
                    <textarea
@@ -4172,10 +4717,10 @@ function pageCreateDirector() {
                    >${esc(s.text || '')}</textarea>
                  </div>
                `).join('')}
-             </div>
-             ${structureCanToggle && !structureExpanded
-               ? `<p class="small" style="margin-top:8px;">Показано ${visibleScenes.length} из ${scenes.length} сцен.</p>`
-               : ''}`
+              </div>
+              ${structureCanToggle && !structureExpanded
+                ? '<p class="small muted" style="margin-top:8px;">Показаны первые сцены. Нажмите «Открыть больше», чтобы увидеть всю структуру.</p>'
+                : ''}`
           : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить структуру, хештеги и призыв.</p>'}
         ${showVideoStructure ? `<div class="row" style="margin-top:10px;justify-content:flex-end;gap:8px;">
           <button id="cdSceneAdd" type="button" class="btn btn-ghost">Добавить сцену</button>
@@ -4208,7 +4753,8 @@ function pageCreateDirector() {
           <label class="create-toggle"><input id="cdYt" type="checkbox" ${platforms.youtube ? 'checked' : ''}/> YouTube</label>
         </div>
         <div class="cta-row" style="margin-top:12px;">
-          <button type="button" class="btn btn-ghost" data-link="/create/video-week">План 7 дней</button>
+          <button type="button" class="btn btn-ghost" data-link="${plannerUrl('video', 7)}">План 7 дней</button>
+          <button type="button" class="btn btn-ghost" data-link="${plannerUrl('video', 30)}">План 30 дней</button>
           <button id="cdDownloadVideo" type="button" class="btn btn-secondary" ${(!String(d.videoFinalUrl || d.videoPreviewUrl || '').trim()) ? 'disabled' : ''}>Скачать видео</button>
           <button id="cdPublishVideo" type="button" class="btn btn-primary" ${(!String(d.videoJobStatus || '').toLowerCase().startsWith('success') || !d.videoJobId) ? 'disabled' : ''}>Опубликовать видео</button>
         </div>
@@ -4216,20 +4762,229 @@ function pageCreateDirector() {
     ` : '';
   }
 
+  if (isPlanFlow) {
+    const summaryFormat = isWeeklyPlanFlow ? 'Посты на неделю' : 'Посты на месяц';
+    const planHeroTitle = isWeeklyPlanFlow ? 'Контент-план на 7 дней' : 'Контент-план на 30 дней';
+    const planHeroSubtitle = isWeeklyPlanFlow
+      ? 'AI подготовит 7 готовых идей для вашей ниши: темы, формат, угол подачи, CTA, хештеги и основу для публикации.'
+      : 'AI подготовит месячный контент-план с идеями, структурой публикаций и готовыми заготовками под вашу нишу.';
+    const selectedPlanItemFormat = planFormatLabel(selectedPlanDay?.contentFormat || selectedPlanDay?.objective || 'post');
+    const progressSteps = ['Анализируем нишу', 'Подбираем темы', 'Формируем структуру публикаций', 'Готовим CTA и хештеги', 'Собираем итоговый план'];
+    const currentProgressIdx = Math.max(0, Math.min(progressSteps.length, Number(d.planFlowProgressStep || 0)));
+    const planSettingsCard = `
+      <article class="card glass-card create-director-card plan-flow-settings-card">
+        <div class="create-step-label">Настройки плана</div>
+        <div class="grid-2">
+          ${selectField('cdTopicPreset', 'Ниша', d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+          ${selectField('cdGoal', 'Цель', d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
+          ${selectField('cdLang', 'Язык', d.language || 'ru', CONTENT_LANG_OPTIONS)}
+          ${field('cdOffer', 'Оффер (опционально)', 'text', d.offer || '', 'Например: бесплатная консультация или диагностика')}
+        </div>
+        <label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> Своя ниша/тема</label>
+        ${d.customTopicMode ? field('cdTopic', 'Своя ниша/тема', 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : ''}
+        <p class="small create-plan-settings-note">AI использует эти данные, чтобы подобрать релевантные темы и структуру публикаций.</p>
+        <div class="cta-row plan-flow-primary-cta">
+          <button id="cdGeneratePlanFlow" class="btn btn-primary" type="button" ${planFlowLoading ? 'disabled' : ''}>${planFlowLoading ? 'Готовим план…' : `Сгенерировать план на ${planFlowDays} дней`}</button>
+          ${planFlowGenerated ? '<button id="cdQuickActionRefresh" class="btn btn-ghost" type="button">Перегенерировать план</button>' : ''}
+        </div>
+      </article>
+    `;
+    const planProgressCard = planFlowLoading ? `
+      <article class="card glass-card create-director-card plan-flow-progress-card">
+        <h3 style="margin-top:0;">AI готовит ваш контент-план</h3>
+        <div class="plan-flow-progress-list">
+          ${progressSteps.map((label, idx) => {
+            const stateCls = idx < currentProgressIdx ? 'done' : (idx === currentProgressIdx ? 'active' : '');
+            return `<div class="plan-flow-progress-item ${stateCls}"><span class="plan-flow-progress-dot"></span><span>${esc(label)}</span></div>`;
+          }).join('')}
+        </div>
+      </article>
+    ` : '';
+    const planEmptyCard = (!planFlowGenerated && !planFlowLoading && !planFlowError) ? `
+      <article class="card glass-card create-director-card plan-flow-empty-card">
+        <h3 style="margin-top:0;">Выберите нишу и запустите генерацию</h3>
+        <p class="small">Выберите нишу и нажмите «Сгенерировать план», чтобы получить готовые идеи публикаций.</p>
+      </article>
+    ` : '';
+    const planErrorCard = planFlowError ? `
+      <article class="card glass-card create-director-card plan-flow-error-card">
+        <h3 style="margin-top:0;">Не удалось создать план</h3>
+        <p class="small">${esc(planFlowError)}</p>
+        <p class="small">Если ошибка повторяется, обновите страницу или измените параметры.</p>
+      </article>
+    ` : '';
+    const planResultsBody = (() => {
+      if (!planFlowGenerated) return '';
+      if (isMonthlyPlanFlow) {
+        const weeks = groupPlanItemsByWeek(quickPlanItems);
+        return weeks.map((week) => `
+          <section class="plan-flow-week-group">
+            <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
+              <h4 style="margin:0;">Неделя ${week.index}</h4>
+              <span class="small">${week.items.length} публикаций</span>
+            </div>
+            <div class="plan-flow-grid">
+              ${week.items.map((item) => `
+                <article class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}">
+                  <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div>
+
+                      <strong>${esc(item.topic || '—')}</strong>
+                    </div>
+                    <span class="pill">${esc(planFormatLabel(item.contentFormat || item.objective || 'post'))}</span>
+                  </div>
+                  <p class="small"><strong>Угол подачи:</strong> ${esc(item.angle || '—')}</p>
+                  <p class="small">${esc(planDayPreview(item))}</p>
+                  <p class="small"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
+                  <div class="create-preview-tags">${String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 6).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('')}</div>
+                  <div class="cta-row plan-flow-day-actions">
+
+
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+          </section>
+        `).join('');
+      }
+      return `<div class="plan-flow-grid">
+        ${quickPlanItems.map((item) => `
+          <article class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}">
+            <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
+              <div>
+                <div class="small">День ${Number(item.day || 0)}</div>
+                <strong>${esc(item.topic || '—')}</strong>
+              </div>
+              <span class="pill">${esc(planFormatLabel(item.contentFormat || item.objective || 'post'))}</span>
+            </div>
+            <p class="small"><strong>Угол подачи:</strong> ${esc(item.angle || '—')}</p>
+            <p class="small">${esc(planDayPreview(item))}</p>
+            <p class="small"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
+            <div class="create-preview-tags">${String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 6).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('')}</div>
+            <div class="cta-row plan-flow-day-actions">
+              <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(item.day || 0)}">Использовать</button>
+              <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(item.day || 0)}">Запланировать</button>
+              <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(item.day || 0)}">Редактировать</button>
+            </div>
+          </article>
+        `).join('')}
+      </div>`;
+    })();
+    const planResultsCard = planFlowGenerated ? `
+      <article class="card glass-card create-director-card plan-flow-results-card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="create-step-label">Результат</div>
+            <h3 style="margin:0 0 8px 0;">${esc(planHeroTitle)} готов</h3>
+            <p class="small" style="margin:0;">${esc(isWeeklyPlanFlow ? '7 карточек с готовыми темами и CTA для вашей ниши.' : 'Месячный план сгруппирован по неделям, чтобы его было проще просмотреть и использовать.')}</p>
+          </div>
+          <div class="cta-row">
+            <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Сохраняем…' : 'Сохранить план'}</button>
+            <button type="button" class="btn btn-ghost" data-link="/calendar">Открыть календарь</button>
+          </div>
+        </div>
+        ${quickActionResult?.access?.isPreview ? '<p class="small" style="margin-top:10px;"><strong>Preview:</strong> полный объём плана доступен после апгрейда тарифа.</p>' : ''}
+        ${planResultsBody}
+      </article>
+    ` : '';
+    const planSidebar = `
+      <aside class="create-preview-col create-preview-col-static plan-flow-sidebar">
+        <article class="create-info-card glass-card">
+          <div class="create-step-label">${esc(isPlanFlow ? 'Быстрый старт' : '')}</div>
+          <h3 style="margin-top:0;">Вы создаёте: ${esc(planHeroTitle)}</h3>
+          <div class="wizard-summary">
+            <span class="pill">Ниша: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
+            <span class="pill">Формат: ${esc(summaryFormat)}</span>
+            <span class="pill">Язык: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
+            <span class="pill">Цель: ${esc(planFlowGoalLabel)}</span>
+          </div>
+          ${!planFlowGenerated
+            ? `<p class="small">Здесь появится preview выбранного дня после генерации плана.</p>`
+            : ''}
+        </article>
+        ${!planFlowGenerated ? `
+          <article class="create-info-card glass-card">
+            <h3 style="margin-top:0;">Что вы получите</h3>
+            <ul class="check-list">
+              <li class="done">Готовые темы</li>
+              <li class="done">Идеи публикаций</li>
+              <li class="done">CTA для каждого дня</li>
+              <li class="done">Хештеги и основу для плана</li>
+            </ul>
+          </article>
+        ` : `
+          <article class="create-preview-card glass-card">
+            <div class="create-step-label">Preview дня</div>
+            <h3 style="margin-top:0;">${esc(selectedPlanDay?.topic || 'Выберите день')}</h3>
+            <p class="small create-preview-state">${esc(selectedPlanDay ? selectedPlanItemFormat : 'Здесь появится preview выбранного дня после генерации плана.')}</p>
+            ${selectedPlanDay ? `
+              <p class="create-preview-text" style="min-height:auto;">${esc(planDayPreview(selectedPlanDay))}</p>
+              <div class="create-preview-meta-block">
+                <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> ${esc(selectedPlanDay.cta || '—')}</p>
+                <div class="create-preview-tags">${String(selectedPlanDay.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 8).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || '<span class="small">Хештеги появятся здесь</span>'}</div>
+              </div>
+              <div class="cta-row" style="margin-top:12px;">
+                <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(selectedPlanDay.day || 0)}">Использовать</button>
+                <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">Запланировать</button>
+                <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(selectedPlanDay.day || 0)}">Редактировать</button>
+              </div>
+            ` : ''}
+          </article>
+          <article class="create-info-card glass-card">
+            <h3 style="margin-top:0;">Быстрые действия</h3>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+              <button id="cdPlanGenerateSidebar" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Сохраняем…' : 'Сохранить план'}</button>
+              ${selectedPlanDay ? `<button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">Запланировать день</button>` : '<button type="button" class="btn btn-ghost" data-link="/calendar">Открыть календарь</button>'}
+            </div>
+          </article>
+        `}
+      </aside>
+    `;
+    return appLayout('/create', 'Создать', `
+      <section class="create-wizard-shell create-director-shell plan-flow-shell">
+        <div class="create-wizard-grid plan-flow-layout">
+          <article class="create-main-col">
+            <article class="card glass-card create-director-card plan-flow-hero-card">
+              <div class="create-step-label">Из панели управления</div>
+              <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                <div style="max-width:760px;">
+                  <h1 class="plan-flow-hero-title">${esc(planHeroTitle)}</h1>
+                  <p class="plan-flow-hero-subtitle">${esc(planHeroSubtitle)}</p>
+                </div>
+                <div class="wizard-summary plan-flow-summary">
+                  <span class="pill">Ниша: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
+                  <span class="pill">Формат: ${esc(summaryFormat)}</span>
+                  <span class="pill">Язык: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
+                  <span class="pill">Цель: ${esc(planFlowGoalLabel)}</span>
+                </div>
+              </div>
+            </article>
+            ${planSettingsCard}
+            ${planProgressCard}
+            ${planErrorCard}
+            ${planEmptyCard}
+            ${planResultsCard}
+          </article>
+          ${planSidebar}
+        </div>
+      </section>
+    `);
+  }
+
   const previewCard = `
     <article class="create-preview-card glass-card">
       <div class="row" style="justify-content:space-between;align-items:center;">
         <span class="small">Платформа</span>
-        <span class="small">${d.loadingDrafts ? 'AI: генерируем текст…' : 'AI preview'}</span>
+
       </div>
-      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-top:8px;">
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
         <span class="small">Preview</span>
         <div class="create-segmented-control" role="tablist" aria-label="Preview type">
           <button id="cdPreviewTypePost" class="btn segment-btn ${!isVideo ? 'btn-primary' : 'btn-ghost'}" type="button">Пост</button>
           <button id="cdPreviewTypeVideo" class="btn segment-btn ${isVideo ? 'btn-primary' : 'btn-ghost'}" type="button">Видео</button>
         </div>
       </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
         ${platformOrder.map((p) => {
           const enabled = !!(d.platforms && d.platforms[p]);
           const label = p === 'youtube' ? 'YouTube' : (p === 'instagram' ? 'Instagram' : 'Facebook');
@@ -4237,34 +4992,41 @@ function pageCreateDirector() {
           return `<button type="button" class="${cls}" data-cd-preview-platform="${p}" ${enabled ? '' : 'disabled'} title="${enabled ? '' : 'Включите платформу слева'}" aria-pressed="${activePlatform === p ? 'true' : 'false'}">${label}</button>`;
         }).join('')}
       </div>
-      <h3 id="cdPreviewTitle">${esc(effectiveSelectedTopic || baseTopic || 'Тема')}</h3>
+      <h3 id="cdPreviewTitle">${esc(d.videoStructure?.title || effectiveSelectedTopic || baseTopic || 'Тема')}</h3>
       <p class="small create-preview-state">${esc(previewStateText)}</p>
       ${isVideo
         ? `<div class="create-video-preview-block">
             ${videoPlayableUrl
-              ? `<video class="create-video-player ${videoFrameClass}" controls preload="metadata" ${String(d.imageUrl || '').trim() ? `poster="${esc(String(d.imageUrl || '').trim())}"` : ''}>
-                   <source src="${esc(videoPlayableUrl)}" type="video/mp4" />
+              ? `<video class="create-video-player ${videoFrameClass}" controls preload="metadata" ${String(d.videoCoverUrl || '').trim() ? `poster="${esc(String(d.videoCoverUrl || '').trim())}"` : ''}>
+
                  </video>
-                 <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap;">
-                   <button id="cdOpenVideo" class="btn btn-ghost" type="button">Открыть в новой вкладке</button>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+
                    <span id="cdVideoRatioTextReady" class="small">Готово: ${esc(String(d.videoDurationPreset || '30'))} сек · ${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')}</span>
                  </div>`
               : `<div class="create-video-placeholder ${videoFrameClass}">
-                   ${String(d.imageUrl || '').trim() ? `<img src="${esc(d.imageUrl)}" alt="Video cover" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />` : ''}
-                   <div class="play-icon">▶</div>
+                   ${String(d.videoCoverUrl || '').trim() ? `<img src="${esc(d.videoCoverUrl)}" alt="Video cover" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />` : ''}
+                   <div class="play-icon">?</div>
                    <span id="cdVideoRatioText">${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')} · ${esc(String(d.videoDurationPreset || '30'))} сек</span>
                  </div>
                  <div style="margin-top:10px;">
                    <div id="cdVideoStepText" class="small"><strong>${esc(videoStepLabel)}</strong> · <span id="cdVideoProgressNum">${videoProgress}</span>%</div>
                    <div class="create-progress"><span id="cdVideoProgressFill" style="width:${videoProgress}%"></span></div>
-                   <div id="cdVideoStepPills" class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;">${videoStepPills}</div>
-                   <p id="cdVideoProgressMessage" class="small" style="margin-top:8px;">${esc(String(d.videoMessage || d.videoJobStatus || 'Ожидаем запуск сборки видео.'))}</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
                  </div>`}
+            ${uniqueClipsUsed.length
+              ? `<div class="create-preview-meta-block">
+                   <p class="small" style="margin:0 0 6px 0;"><strong>Уникальные футажи:</strong> ${uniqueClipsUsed.length}</p>
+                   <div class="create-preview-tags">${uniqueClipsUsed.map((clip, idx) => `<span class="pill" title="${esc(String(clip.query_used || ''))}">${esc(String(clip.query_bucket || clip.query_used || `Клип ${idx + 1}`))}</span>`).join('')}</div>
+                 </div>`
+              : ''}
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
             <p class="small" style="margin-top:10px;"><strong>Текст публикации:</strong></p>
             <p id="cdPreviewText" class="create-preview-text">${esc(previewText)}</p>
             ${videoPreviewTextState?.canExpand
               ? `<div class="row" style="margin-top:6px;">
-                   <button id="cdPreviewToggleText" class="btn btn-ghost" type="button">${videoPreviewTextState.expanded ? 'Свернуть' : 'Открыть больше'}</button>
+
                  </div>`
               : ''}
             <div class="create-preview-meta-block">
@@ -4311,19 +5073,20 @@ function pageCreateDirector() {
         <button id="cdMiniMonth" type="button" class="btn ${d.planHorizon === 'month' ? 'btn-secondary' : 'btn-ghost'}">30 дней</button>
         <button id="cdMiniBest" type="button" class="btn btn-ghost">AI время</button>
       </div>
-      ${(bestDaysText || bestHoursText) ? `<p class="small" style="margin-top:8px;">${esc(bestDaysText || '—')} · ${esc(bestHoursText || '—')}</p>` : '<p class="small">Нажмите AI время</p>'}
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
       ${nextSlotPills ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px;">${nextSlotPills}</div>` : ''}
-      <div style="display:grid;gap:6px;margin-top:8px;">${miniPlanRows || '<p class="small">План пуст.</p>'}</div>
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
     </article>
   `;
+  const mainColCards = prioritizeDirectorCard
+    ? `${quickCard}${quickActionPanel}${resultCard}`
+    : `${quickActionPanel}${quickCard}${resultCard}`;
 
   return appLayout('/create', 'Создать', `
     <section class="create-wizard-shell create-director-shell">
       <div class="create-wizard-grid">
         <article class="create-main-col">
-          ${quickActionPanel}
-          ${quickCard}
-          ${resultCard}
+          ${mainColCards}
         </article>
         <aside class="create-preview-col create-preview-col-static">
           ${previewCard}
@@ -4336,8 +5099,16 @@ function pageCreateDirector() {
 }
 
 function pageCreateVideoWeek() {
-  const d = state.createDirector;
-  const items = Array.isArray(d.videoWeekItems) ? d.videoWeekItems : [];
+  return pageCreatePlanner(getCreatePlannerRoute(location.pathname.replace(/\/$/, '') || '/'));
+}
+
+function pageCreatePlanner(route = getCreatePlannerRoute()) {
+  const planner = route || { kind: 'post', days: 7 };
+  const cfg = getPlannerStateConfig(planner.kind, planner.days);
+  const d = state.createDirector || {};
+  if (!d.platforms) d.platforms = { facebook: true, instagram: true, youtube: false };
+  const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
+  const plannerConfig = getPlannerRenderConfig(cfg.kind, d);
   const bestSlots = d.bestSlots || null;
   const bestDaysText = Array.isArray(bestSlots?.best_days) ? bestSlots.best_days.map((x) => x.label).join(', ') : '';
   const bestHoursText = Array.isArray(bestSlots?.best_hours) ? bestSlots.best_hours.map((h) => `${h}:00`).join(', ') : '';
@@ -4357,114 +5128,86 @@ function pageCreateVideoWeek() {
         .filter(Boolean)
         .join(' · ')
     : '';
-  const selectedTopic = directorEffectiveTopic(d, d.topic || '');
-  const selectedCta = String(d.selectedCta || '').trim() || 'Сохраните и напишите «ПЛАН».';
-  const selectedTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).join(' ') || '#контент #маркетинг #smm';
-  const preview = items[0] || null;
-  const orientation = String(d.videoOrientation || 'vertical');
-  const durationOptions = orientation === 'horizontal'
-    ? [{ value: '120', label: '120 сек' }, { value: '180', label: '180 сек' }, { value: '240', label: '240 сек' }, { value: '300', label: '300 сек' }, { value: '360', label: '360 сек' }, { value: '420', label: '420 сек' }, { value: '480', label: '480 сек' }]
-    : [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }];
-  const rows = items.length
-    ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Дата/время</th><th>Тема</th><th>Текст</th><th>Видео</th></tr></thead><tbody>${items.map((x) => `<tr><td>${esc(new Date(x.scheduled_at).toLocaleString('ru-RU'))}</td><td>${esc(x.topic || '—')}</td><td>${esc(x.caption || '—')}</td><td>${x.video_included ? '✓' : '—'}</td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="small">План пока не сформирован.</p>';
-  const dayMap = {};
-  items.forEach((x) => {
-    const iso = String(x?.scheduled_at || '').trim();
-    if (!iso) return;
-    const day = iso.slice(0, 10);
-    if (!dayMap[day]) dayMap[day] = [];
-    dayMap[day].push(x);
-  });
-  const dayKeys = Object.keys(dayMap).sort();
-  const selectedDay = String(d.videoWeekSelectedDate || dayKeys[0] || '').trim();
-  const selectedDayItems = selectedDay ? (dayMap[selectedDay] || []) : [];
-  const selectedPreviewItem = selectedDayItems[0] || preview || null;
-  const dayButtons = dayKeys.length
-    ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${dayKeys.map((day) => {
-          const dt = new Date(`${day}T00:00:00`);
-          const label = Number.isFinite(dt.getTime())
-            ? dt.toLocaleDateString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit' })
-            : day;
-          return `<button type="button" class="btn ${selectedDay === day ? 'btn-primary' : 'btn-ghost'}" data-vw-day="${esc(day)}">${esc(label)}</button>`;
-        }).join('')}
-      </div>`
-    : '';
-  const selectedDayTimes = selectedDayItems.length
-    ? `<div style="display:grid;gap:6px;margin-top:8px;">
-        ${selectedDayItems
-          .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-          .map((x) => {
-            const t = new Date(x.scheduled_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            const tags = String(x.hashtags || '').trim();
-            const cta = String(x.cta || '').trim();
-            return `<article class="card" style="padding:10px;border:1px solid rgba(99,102,241,.18);">
-              <p class="small" style="margin:0 0 4px 0;"><strong>${esc(t)}</strong></p>
-              <p class="small" style="margin:0 0 6px 0;">${esc(x.caption || x.topic || '—')}</p>
-              <p class="small" style="margin:0 0 4px 0;"><strong>Хештеги:</strong> ${esc(tags || '—')}</p>
-              <p class="small" style="margin:0;"><strong>Призыв:</strong> ${esc(cta || '—')}</p>
-            </article>`;
-          }).join('')}
-      </div>`
-    : '<p class="small" style="margin-top:8px;">Выберите день, чтобы увидеть часы публикаций.</p>';
-  const daysSummary = dayKeys.length
-    ? `<p class="small" style="margin-top:8px;">Дней в плане: <strong>${dayKeys.length}</strong>. Нажмите день выше, чтобы увидеть его публикации.</p>`
-    : '<p class="small">После генерации здесь появится календарь публикаций с текстами.</p>';
-  return appLayout('/create', 'План 7 дней', `
+  const selectedTopic = cfg.kind === 'video'
+    ? directorEffectiveTopic(d, d.topic || '')
+    : (String(d.topic || directorBaseTopic(d, d.topic) || '').trim() || directorCurrentNicheMeta(d)?.label || '');
+  const plannerData = {
+    cfg,
+    d,
+    items,
+    selectedTopic,
+    ...getPlannerDayState(items, d[cfg.selectedDateKey]),
+  };
+  const plannerView = renderPlanner(plannerData, plannerConfig);
+  const postsPerDayValue = String((d[cfg.postsPerDayKey] || 1));
+  const timeModeValue = String(d[cfg.timeModeKey] || 'ai');
+  const manualTimeValue = String(d[cfg.manualTimeKey] || '12:00');
+  const loading = !!d[cfg.loadingKey];
+  const applying = !!d[cfg.applyingKey];
+  const scheduling = !!d[cfg.schedulingKey];
+  return appLayout('/create', cfg.title, `
     <section class="create-wizard-shell create-director-shell">
       <div class="create-wizard-grid">
         <article class="create-main-col">
           <article class="card glass-card create-director-card">
-            <div class="row" style="justify-content:space-between;align-items:center;">
-              <h2 style="margin:0;">План 7 дней (Видео)</h2>
-              <button class="btn btn-ghost" type="button" data-link="/create?type=video">Назад в AI Контент-директор</button>
+            <div class="row" style="justify-content:space-between;align-items:center;gap:12px;">
+              <div>
+                <h2 style="margin:0;">${esc(cfg.title)}</h2>
+                <p class="small" style="margin:6px 0 0 0;">${esc(cfg.subtitle)}</p>
+              </div>
+              <button class="btn btn-ghost" type="button" data-link="${esc(cfg.backUrl)}">Назад в AI Контент-директор</button>
             </div>
-            <p class="small">Отдельная страница недельного видеоплана: сколько видео в день, длительность и время публикации.</p>
-            <div class="grid-2">
-              ${field('vwTopic', 'Ниша/тема', 'text', selectedTopic, 'Например: автоматизация SMM')}
-              ${selectField('vwPostsPerDay', 'Видео в день', String(d.videoWeekPostsPerDay || 1), [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }, { value: '6', label: '6' }])}
-              ${selectField('vwOrientation', 'Формат видео', orientation, [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное (16:9)' }])}
-              ${selectField('vwDuration', 'Длительность', String(d.videoWeekDurationPreset || d.videoDurationPreset || '30'), durationOptions)}
+            <div class="grid-2" style="margin-top:12px;">
+              ${selectField('plannerNiche', 'Ниша', normalizeNicheIdSafe(String(d.topicPreset || DEFAULT_DIRECTOR_NICHE).trim()) || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+              ${field('plannerTopic', 'Своя тема/фокус', 'text', String(d.topic || '').trim(), plannerConfig.fieldConfig.topicPlaceholder)}
+              ${selectField('plannerPostsPerDay', plannerConfig.fieldConfig.postsPerDayLabel, postsPerDayValue, [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }, { value: '6', label: '6' }])}
+              ${selectField('plannerLanguage', 'Язык', d.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+              ${selectField('plannerTone', 'Стиль', d.tone || 'friendly', [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }])}
+              ${plannerConfig.fieldConfig.secondaryField}
+              ${plannerConfig.fieldConfig.tertiaryField}
             </div>
-            <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+              <span class="small">Платформы:</span>
+              ${plannerConfig.fieldConfig.platformsMarkup}
+            </div>
+            <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
               <span class="small">Время публикации:</span>
-              <button id="vwTimeAi" type="button" class="btn ${d.videoWeekTimeMode === 'ai' ? 'btn-primary' : 'btn-ghost'}">AI время</button>
-              <button id="vwTimeManual" type="button" class="btn ${d.videoWeekTimeMode === 'manual' ? 'btn-primary' : 'btn-ghost'}">Вручную</button>
-              ${d.videoWeekTimeMode === 'manual' ? field('vwManualTime', 'Часы', 'time', d.videoWeekManualTime || '12:00') : ''}
-              <label class="create-toggle"><input id="vwVideoIncluded" type="checkbox" checked disabled /> Видео добавлено</label>
+              <button id="plannerTimeAi" type="button" class="btn ${timeModeValue === 'ai' ? 'btn-primary' : 'btn-ghost'}">AI время</button>
+              <button id="plannerTimeManual" type="button" class="btn ${timeModeValue === 'manual' ? 'btn-primary' : 'btn-ghost'}">Вручную</button>
+              ${timeModeValue === 'manual' ? field('plannerManualTime', 'Часы', 'time', manualTimeValue) : ''}
             </div>
             ${weeklyRecoText
-              ? `<p class="small" style="margin-top:8px;">Рекомендации AI на неделю: <strong>${esc(weeklyRecoText)}</strong></p>`
+              ? `<p class="small muted" style="margin-top:8px;">Рекомендованный недельный план: ${esc(weeklyRecoText)}</p>`
               : ((bestDaysText || bestHoursText)
-                ? `<p class="small" style="margin-top:8px;">Рекомендации AI: <strong>${esc(bestDaysText || '—')}</strong> · <strong>${esc(bestHoursText || '—')}</strong></p>`
-                : '<p class="small" style="margin-top:8px;">Нажмите AI время, чтобы получить недельные слоты.</p>')}
-            <p class="small" style="margin-top:6px;">Лимиты текста: Instagram до 2200 символов, Facebook до 5000, YouTube описание до 5000.</p>
-            <div class="cta-row" style="margin-top:10px;">
-              <button id="vwGenerate" class="btn btn-primary" type="button" ${d.videoWeekLoading ? 'disabled' : ''}>${d.videoWeekLoading ? 'Формирую…' : 'Сформировать план 7 дней'}</button>
-              <button id="vwApplyToDirector" class="btn btn-secondary" type="button" ${d.videoWeekApplying ? 'disabled' : ''}>${d.videoWeekApplying ? 'Применяю…' : 'Открыть в AI Контент-директор'}</button>
+                ? `<p class="small muted" style="margin-top:8px;">${[
+                    bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
+                    bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
+                  ].filter(Boolean).join(' · ')}</p>`
+                : '')}
+            <div class="cta-row" style="margin-top:12px;">
+              <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? 'Формирую…' : `Сформировать план ${cfg.days} дней`}</button>
+              ${cfg.kind === 'post'
+                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? 'Планирую…' : 'Запланировать публикации'}</button>`
+                : ''}
+              <button id="plannerApplyToDirector" class="btn btn-secondary" type="button" ${applying ? 'disabled' : ''}>${applying ? 'Применяю…' : 'Открыть в AI Контент-директор'}</button>
             </div>
           </article>
           <article class="card glass-card create-director-card">
-            <h3 style="margin-top:0;">Готовый план</h3>
-            ${rows}
+            <h3 style="margin-top:0;">План по дням</h3>
+            ${plannerView.sections}
           </article>
         </article>
         <aside class="create-preview-col">
           <article class="create-preview-card glass-card">
             <div class="row" style="justify-content:space-between;align-items:center;">
-              <span class="small">Preview</span>
-              <span class="small">Календарь публикаций</span>
+              <span class="small">${plannerConfig.panelLabel}</span>
+              <span class="small">${cfg.days} дней</span>
             </div>
-            <h3>${esc(selectedTopic || 'План на неделю')}</h3>
-            <p class="small">GPT сразу формирует тексты, чтобы было видно, что именно выйдет в публикацию.</p>
-            ${dayButtons}
-            ${selectedDay ? `<p class="small" style="margin-top:8px;"><strong>Слоты на ${esc(new Date(`${selectedDay}T00:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: '2-digit', month: '2-digit' }))}:</strong></p>` : ''}
-            ${selectedDayTimes}
-            ${daysSummary}
-            <div class="create-preview-tags" style="margin-top:10px;">${String(selectedPreviewItem?.hashtags || selectedTags).split(/\s+/).filter(Boolean).slice(0, 12).map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
-            <button class="btn btn-secondary create-preview-cta" type="button">${esc(selectedPreviewItem?.cta || selectedCta)}</button>
-            <p class="small" style="margin-top:8px;">Видео в каждом слоте: <strong>добавлено ✓</strong></p>
+            <h3>${esc(plannerView.previewTitle)}</h3>
+            ${plannerConfig.previewType === 'video'
+              ? `<p class="small">${esc(plannerData.selectedPreviewItem ? planDayPreview(plannerData.selectedPreviewItem) : 'После генерации здесь появится подробное превью выбранного дня.')}</p>`
+              : ''}
+            ${plannerView.preview}
           </article>
         </aside>
       </div>
@@ -4473,130 +5216,7 @@ function pageCreateVideoWeek() {
 }
 
 function pageCreatePostWeek() {
-  const d = state.createDirector;
-  const items = Array.isArray(d.postWeekItems) ? d.postWeekItems : [];
-  const bestSlots = d.bestSlots || null;
-  const bestDaysText = Array.isArray(bestSlots?.best_days) ? bestSlots.best_days.map((x) => x.label).join(', ') : '';
-  const bestHoursText = Array.isArray(bestSlots?.best_hours) ? bestSlots.best_hours.map((h) => `${h}:00`).join(', ') : '';
-  const weeklyRecoText = Array.isArray(bestSlots?.weekly_plan)
-    ? bestSlots.weekly_plan
-        .map((dItem) => {
-          const times = Array.isArray(dItem?.slots)
-            ? dItem.slots
-                .map((iso) => {
-                  try { return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
-                })
-                .filter(Boolean)
-                .join(', ')
-            : '';
-          return times ? `${String(dItem?.weekday || '').trim()}: ${times}` : '';
-        })
-        .filter(Boolean)
-        .join(' · ')
-    : '';
-  const selectedTopic = directorEffectiveTopic(d, d.topic || '');
-  const selectedCta = String(d.selectedCta || '').trim() || 'Сохраните и напишите «ПЛАН».';
-  const selectedTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).join(' ') || '#контент #маркетинг #smm';
-  const preview = items[0] || null;
-  const rows = items.length
-    ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Дата/время</th><th>Тема</th><th>Текст</th><th>Пост</th></tr></thead><tbody>${items.map((x) => `<tr><td>${esc(new Date(x.scheduled_at).toLocaleString('ru-RU'))}</td><td>${esc(x.topic || '—')}</td><td>${esc(x.caption || '—')}</td><td>${x.post_included ? '✓' : '—'}</td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="small">План пока не сформирован.</p>';
-  const dayMap = {};
-  items.forEach((x) => {
-    const iso = String(x?.scheduled_at || '').trim();
-    if (!iso) return;
-    const day = iso.slice(0, 10);
-    if (!dayMap[day]) dayMap[day] = [];
-    dayMap[day].push(x);
-  });
-  const dayKeys = Object.keys(dayMap).sort();
-  const selectedDay = String(d.postWeekSelectedDate || dayKeys[0] || '').trim();
-  const selectedDayItems = selectedDay ? (dayMap[selectedDay] || []) : [];
-  const selectedPreviewItem = selectedDayItems[0] || preview || null;
-  const dayButtons = dayKeys.length
-    ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${dayKeys.map((day) => {
-          const dt = new Date(`${day}T00:00:00`);
-          const label = Number.isFinite(dt.getTime())
-            ? dt.toLocaleDateString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit' })
-            : day;
-          return `<button type="button" class="btn ${selectedDay === day ? 'btn-primary' : 'btn-ghost'}" data-pw-day="${esc(day)}">${esc(label)}</button>`;
-        }).join('')}
-      </div>`
-    : '';
-  const selectedDayTimes = selectedDayItems.length
-    ? `<div style="display:grid;gap:6px;margin-top:8px;">
-        ${selectedDayItems
-          .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-          .map((x) => {
-            const t = new Date(x.scheduled_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            const tags = String(x.hashtags || '').trim();
-            const cta = String(x.cta || '').trim();
-            return `<article class="card" style="padding:10px;border:1px solid rgba(99,102,241,.18);">
-              <p class="small" style="margin:0 0 4px 0;"><strong>${esc(t)}</strong></p>
-              <p class="small" style="margin:0 0 6px 0;">${esc(x.caption || x.topic || '—')}</p>
-              <p class="small" style="margin:0 0 4px 0;"><strong>Хештеги:</strong> ${esc(tags || '—')}</p>
-              <p class="small" style="margin:0;"><strong>Призыв:</strong> ${esc(cta || '—')}</p>
-            </article>`;
-          }).join('')}
-      </div>`
-    : '<p class="small" style="margin-top:8px;">Выберите день, чтобы увидеть часы публикаций.</p>';
-  return appLayout('/create', 'План 7 дней', `
-    <section class="create-wizard-shell create-director-shell">
-      <div class="create-wizard-grid">
-        <article class="create-main-col">
-          <article class="card glass-card create-director-card">
-            <div class="row" style="justify-content:space-between;align-items:center;">
-              <h2 style="margin:0;">План 7 дней (Пост)</h2>
-              <button class="btn btn-ghost" type="button" data-link="/create?type=post">Назад в AI Контент-директор</button>
-            </div>
-            <p class="small">Отдельная страница недельного плана постов: сколько постов в день и в какое время публиковать.</p>
-            <div class="grid-2">
-              ${field('pwTopic', 'Ниша/тема', 'text', selectedTopic, 'Например: автоматизация SMM')}
-              ${selectField('pwPostsPerDay', 'Постов в день', String(d.postWeekPostsPerDay || 1), [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }, { value: '6', label: '6' }])}
-            </div>
-            <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-              <span class="small">Время публикации:</span>
-              <button id="pwTimeAi" type="button" class="btn ${d.postWeekTimeMode === 'ai' ? 'btn-primary' : 'btn-ghost'}">AI время</button>
-              <button id="pwTimeManual" type="button" class="btn ${d.postWeekTimeMode === 'manual' ? 'btn-primary' : 'btn-ghost'}">Вручную</button>
-              ${d.postWeekTimeMode === 'manual' ? field('pwManualTime', 'Часы', 'time', d.postWeekManualTime || '12:00') : ''}
-              <label class="create-toggle"><input id="pwPostIncluded" type="checkbox" checked disabled /> Пост добавлен</label>
-            </div>
-            ${weeklyRecoText
-              ? `<p class="small" style="margin-top:8px;">Рекомендации AI на неделю: <strong>${esc(weeklyRecoText)}</strong></p>`
-              : ((bestDaysText || bestHoursText)
-                ? `<p class="small" style="margin-top:8px;">Рекомендации AI: <strong>${esc(bestDaysText || '—')}</strong> · <strong>${esc(bestHoursText || '—')}</strong></p>`
-                : '<p class="small" style="margin-top:8px;">Нажмите AI время, чтобы получить недельные слоты.</p>')}
-            <p class="small" style="margin-top:6px;">Лимиты текста: Instagram до 2200 символов, Facebook до 5000. Хештеги: Instagram 5–20, Facebook до 8.</p>
-            <div class="cta-row" style="margin-top:10px;">
-              <button id="pwGenerate" class="btn btn-primary" type="button" ${d.postWeekLoading ? 'disabled' : ''}>${d.postWeekLoading ? 'Формирую…' : 'Сформировать план 7 дней'}</button>
-              <button id="pwApplyToDirector" class="btn btn-secondary" type="button" ${d.postWeekApplying ? 'disabled' : ''}>${d.postWeekApplying ? 'Применяю…' : 'Открыть в AI Контент-директор'}</button>
-            </div>
-          </article>
-          <article class="card glass-card create-director-card">
-            <h3 style="margin-top:0;">Готовый план</h3>
-            ${rows}
-          </article>
-        </article>
-        <aside class="create-preview-col">
-          <article class="create-preview-card glass-card">
-            <div class="row" style="justify-content:space-between;align-items:center;">
-              <span class="small">Preview</span>
-              <span class="small">Пост</span>
-            </div>
-            <h3>${esc(selectedPreviewItem?.topic || selectedTopic || 'Тема')}</h3>
-            ${dayButtons}
-            ${selectedDay ? `<p class="small" style="margin-top:8px;"><strong>Слоты на ${esc(new Date(`${selectedDay}T00:00:00`).toLocaleDateString('ru-RU', { weekday: 'long', day: '2-digit', month: '2-digit' }))}:</strong></p>` : ''}
-            ${selectedDayTimes}
-            <p class="create-preview-text">${esc(selectedPreviewItem?.caption || 'После генерации здесь будет текст поста.')}</p>
-            <div class="create-preview-tags">${String(selectedPreviewItem?.hashtags || selectedTags).split(/\s+/).filter(Boolean).slice(0, 12).map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
-            <button class="btn btn-secondary create-preview-cta" type="button">${esc(selectedPreviewItem?.cta || selectedCta)}</button>
-            <p class="small" style="margin-top:8px;">Пост: <strong>добавлен ✓</strong></p>
-          </article>
-        </aside>
-      </div>
-    </section>
-  `);
+  return pageCreatePlanner(getCreatePlannerRoute('/create/post-week'));
 }
 
 function pageCreateV2() {
@@ -4779,7 +5399,7 @@ function pageCreateV2() {
               </div>
               ${(d.title || '').trim() ? `<p class="small"><strong>Title:</strong> ${esc(d.title)}</p>` : ''}
               <div class="small" style="white-space:pre-wrap;">${esc(d.post_text || d.description || '')}</div>
-              ${(Array.isArray(d.hashtags) && d.hashtags.length) ? `<p class="small" style="margin-top:8px;">${esc(d.hashtags.join(' '))}</p>` : ''}
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
               <div class="cta-row" style="margin-top:10px;">
                 <button type="button" class="btn btn-ghost" data-cw-copy-draft="${encodeURIComponent(String(d.post_text || d.description || ''))}">Копировать</button>
                 <button type="button" class="btn btn-secondary" data-cw-save-draft="${Number(d.id || 0)}">Сохранить</button>
@@ -4863,7 +5483,7 @@ function pageCreateV2() {
         <button id="cwSaveTemplateBtn" class="btn btn-ghost" type="button">Сохранить как шаблон</button>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;">
-        ${(c.templates || []).map((t) => `<button type="button" class="btn btn-ghost" data-cw-apply-template="${Number(t.id)}">${esc(t.name)}</button><button type="button" class="btn btn-ghost" data-cw-del-template="${Number(t.id)}">×</button>`).join('') || '<span class="small">Мои шаблоны пока пусты.</span>'}
+        ${(c.templates || []).map((t) => `<button type="button" class="btn btn-ghost" data-cw-apply-template="${Number(t.id)}">${esc(t.name)}</button><button type="button" class="btn btn-ghost" data-cw-del-template="${Number(t.id)}">?</button>`).join('') || '<span class="small">Мои шаблоны пока пусты.</span>'}
       </div>
     </article>
     ${strategyCard}
@@ -4925,7 +5545,7 @@ function pageCreateV2() {
   const previewCard = `
     <article class="create-preview-card">
       <div class="row" style="justify-content:space-between;align-items:center;"><span class="pill">${esc(previewPlatformLabel)}</span><span class="small">${esc(projectName)}</span></div>
-      <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
         <button type="button" class="btn ${previewPlatform === 'facebook' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="facebook">Facebook</button>
         <button type="button" class="btn ${previewPlatform === 'instagram' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="instagram">Instagram</button>
         <button type="button" class="btn ${previewPlatform === 'youtube' ? 'btn-primary' : 'btn-ghost'}" data-cw-preview="youtube">YouTube</button>
@@ -5001,8 +5621,10 @@ function pageAdmin() {
 }
 
 function page(path) {
+  const planner = getCreatePlannerRoute(path);
+  if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateDirector, '/create/video-week': pageCreateVideoWeek, '/create/post-week': pageCreatePostWeek, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateDirector, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -5501,7 +6123,7 @@ async function bindCreateWizardV2(path) {
   });
   ['cwGoConnectionsFb', 'cwGoConnectionsIg', 'cwGoConnectionsYt'].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.onclick = () => nav('/connections');
+
   });
 
   document.querySelectorAll('input[name="cwGoal"]').forEach((el) => {
@@ -5514,7 +6136,7 @@ async function bindCreateWizardV2(path) {
         if (!String(state.createCampaign.topic || '').trim()) throw new Error('Введите тему перед генерацией текста');
         state.createCampaign.generation = { ...state.createCampaign.generation, running: true, statusText: 'AI готовит пост…' };
         render();
-        const text = await api('/api/generate-preview', {
+        const text = await api('/api/generate', {
           method: 'POST',
           body: JSON.stringify({
             project_id: Number(state.createCampaign.projectId || state.projects?.[0]?.id || 0) || null,
@@ -6040,6 +6662,9 @@ async function bindCreateDirector(path) {
       d.quickActionType = '';
       d.quickActionNicheId = '';
       d.quickActionPreviewOnly = false;
+      d.planFlowState = 'idle';
+      d.planFlowItems = [];
+      d.planFlowError = '';
       return;
     }
     const normalizedNicheId = normalizeNicheIdSafe(queryNiche || d.quickActionNicheId || '');
@@ -6047,11 +6672,24 @@ async function bindCreateDirector(path) {
       d.quickActionType = '';
       d.quickActionNicheId = '';
       d.quickActionPreviewOnly = false;
+      d.planFlowState = 'idle';
+      d.planFlowItems = [];
+      d.planFlowError = '';
       return;
     }
+    const prevKey = `${String(d.quickActionType || '').trim()}:${String(d.quickActionNicheId || '').trim()}`;
+    const nextKey = `${queryAction}:${normalizedNicheId}`;
     d.quickActionType = queryAction;
     d.quickActionNicheId = normalizedNicheId;
     d.quickActionPreviewOnly = getQuickActionAccess(queryAction, state.billing).isPreview;
+    d.planHorizon = queryAction === 'monthly_plan' ? 'month' : 'week';
+    if (prevKey !== nextKey) {
+      d.planFlowState = 'idle';
+      d.planFlowItems = [];
+      d.planFlowError = '';
+      d.planFlowSelectedDay = 1;
+      d.planFlowProgressStep = 0;
+    }
     if (!d.customTopicMode) d.topicPreset = normalizedNicheId;
   };
   const ensureVideoDefaults = () => {
@@ -6200,12 +6838,13 @@ async function bindCreateDirector(path) {
     const videoTextState = isVideoType ? getVideoPreviewTextState(d, String(d.activePlatform || 'facebook')) : null;
     const nextText = isVideoType
       ? String(videoTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
-      : (draftMatchesSelection
-        ? (String(draft?.post_text || '').trim() || 'Сгенерируйте контент, чтобы увидеть результат.')
-        : (d.loadingDrafts
-          ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
-          : (hasSelection ? (selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...')
-            : 'Сгенерируйте контент, чтобы увидеть результат.')));
+      : resolveDirectorPostPreviewText({
+        draft,
+        draftMatchesSelection,
+        loadingDrafts: d.loadingDrafts,
+        selectedThemePreviewText,
+        hasSelection,
+      });
     const selectedTagSet = Array.isArray(d.selectedHashtags) ? normalizeHashtagSet(d.selectedHashtags) : [];
     const tags = selectedTagSet.length ? selectedTagSet : normalizeHashtagSet(Array.isArray(draft?.hashtags) ? draft.hashtags : []);
     const cta = String(d.selectedCta || '').trim() || String(draft?.cta || '').trim() || 'Призыв';
@@ -6285,13 +6924,14 @@ async function bindCreateDirector(path) {
     d.lastDraftTopic = '';
     d.lastDraftAngle = '';
     d.imageUrl = '';
+    d.videoCoverUrl = '';
     state.notice = null;
     if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
       resetVideoGenerationState({ clearStructure: true });
     }
   };
   const buildDirectorTopicPool = (seed = 0, incoming = []) => {
-    const localPool = directorLocalTopicIdeas(d, 10, seed);
+    const localPool = directorLocalTopicIdeas(d, DIRECTOR_TOPIC_IDEA_COUNT, seed);
     const scopedIncoming = (Array.isArray(incoming) ? incoming : []).filter((topic) => directorTopicBelongsToNiche(topic, d));
     if (localPool.length) return mergeTopicPool(localPool, scopedIncoming);
     return mergeTopicPool([], scopedIncoming);
@@ -6553,6 +7193,8 @@ async function bindCreateDirector(path) {
     const cta = String(d.selectedCta || '').trim();
     if (cta) draft.cta = cta;
   };
+  const isPlanQuickAction = () => ['weekly_plan', 'monthly_plan'].includes(String(d.quickActionType || '').trim());
+  const isMonthlyPlanQuickAction = () => String(d.quickActionType || '').trim() === 'monthly_plan';
   const resetVideoGenerationState = ({ clearStructure = true } = {}) => {
     if (clearStructure) {
       d.videoStructure = null;
@@ -6567,11 +7209,14 @@ async function bindCreateDirector(path) {
     d.videoMessage = '';
     d.videoPreviewUrl = '';
     d.videoFinalUrl = '';
+    d.videoSrtUrl = '';
+    d.videoDebug = null;
     d.videoRenderedVoiceGender = '';
     d.videoRenderedVoiceTone = '';
     d.videoRenderRequestedVoiceGender = '';
     d.videoRenderRequestedVoiceTone = '';
     d.videoRenderLoading = false;
+    d.videoCoverUrl = '';
     if (Object.prototype.hasOwnProperty.call(d, 'videoError')) d.videoError = '';
   };
   const getEffectiveSelectedTopic = (fallback = '') => directorEffectiveTopic(d, fallback);
@@ -6580,7 +7225,8 @@ async function bindCreateDirector(path) {
     d.appliedManualTopic = '';
     d.activeVariant = 1;
     state.notice = null;
-    if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') d.imageUrl = '';
+    if (d.imageEnabled) d.imageUrl = '';
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') d.videoCoverUrl = '';
     if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
       resetVideoGenerationState({ clearStructure: true });
     }
@@ -6590,7 +7236,8 @@ async function bindCreateDirector(path) {
     d.selectedSuggestedTopic = '';
     d.activeVariant = 1;
     state.notice = null;
-    if (d.imageEnabled || normalizeDirectorContentType(d.contentType || 'post') === 'video') d.imageUrl = '';
+    if (d.imageEnabled) d.imageUrl = '';
+    if (normalizeDirectorContentType(d.contentType || 'post') === 'video') d.videoCoverUrl = '';
     if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
       resetVideoGenerationState({ clearStructure: true });
     }
@@ -6608,7 +7255,80 @@ async function bindCreateDirector(path) {
     };
     (Array.isArray(existing) ? existing : []).forEach(push);
     (Array.isArray(incoming) ? incoming : []).forEach(push);
-    return out.slice(0, 10);
+    return out.slice(0, DIRECTOR_TOPIC_IDEA_COUNT);
+  };
+  const mergeUniquePlanStrings = (existing, incoming, limit = 64) => {
+    const out = [];
+    const seen = new Set();
+    const push = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return;
+      const key = text.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(text);
+    };
+    (Array.isArray(existing) ? existing : []).forEach(push);
+    (Array.isArray(incoming) ? incoming : []).forEach(push);
+    return out.slice(0, limit);
+  };
+  const buildPlanFlowItemsFromAi = ({ count, topics, angles, ctaOptions, hashtagSets, slots }) => {
+    const total = Math.max(1, Number(count || 0) || 0);
+    const topicList = mergeUniquePlanStrings([], topics || [], Math.max(total, 8));
+    if (!topicList.length) throw new Error('AI не вернул темы для плана.');
+    const angleList = mergeUniquePlanStrings([], angles || [], 24);
+    const ctaList = mergeUniquePlanStrings([], ctaOptions || [], 24);
+    const tagSets = (Array.isArray(hashtagSets) ? hashtagSets : []).map((set) => normalizeHashtagSet(set)).filter((set) => Array.isArray(set) && set.length);
+    const formatPool = ['expert_post', 'checklist_post', 'story_post', 'carousel', 'sales_post', 'tutorial_post', 'comparison_post'];
+    return Array.from({ length: total }, (_, idx) => {
+      const topic = topicList[idx % topicList.length];
+      const angle = angleList[idx % Math.max(1, angleList.length)] || '';
+      const cta = ctaList[idx % Math.max(1, ctaList.length)] || '';
+      const hashtags = directorPreferNicheHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], 8).join(' ');
+      return {
+        day: idx + 1,
+        topic,
+        angle,
+        cta,
+        hashtags,
+        scheduled_at: String((Array.isArray(slots) ? slots[idx] : '') || '').trim(),
+        contentFormat: formatPool[idx % formatPool.length],
+        objective: d.goal || 'engagement',
+        contentType: 'post',
+      };
+    });
+  };
+  const fetchPlanAiSuggestions = async (requiredCount) => {
+    const base = collectPayloadBase();
+    if (!String(base.topic || '').trim()) throw new Error('Выберите нишу или укажите свою тему.');
+    if (!base.platforms.length) throw new Error('Выберите хотя бы одну платформу.');
+    const topics = [];
+    const angles = [];
+    const ctaOptions = [];
+    const hashtagSets = [];
+    const batchCount = Math.max(1, Math.ceil(Number(requiredCount || 1) / Math.max(1, DIRECTOR_TOPIC_IDEA_COUNT)));
+    for (let idx = 0; idx < batchCount; idx += 1) {
+      const out = await api('/api/ai/director/suggest', {
+        method: 'POST',
+        body: JSON.stringify({ ...base, variation_seed: Number(d.quickActionSeed || 0) + idx }),
+        timeoutMs: 120000,
+      });
+      const data = out?.data || {};
+      topics.push(...(Array.isArray(data.topics) ? data.topics : []));
+      angles.push(...(Array.isArray(data.angles) ? data.angles : []));
+      ctaOptions.push(...(Array.isArray(data.cta_options) ? data.cta_options : []));
+      hashtagSets.push(...(Array.isArray(data.hashtag_sets) ? data.hashtag_sets : []));
+      d.warnings = Array.isArray(out?.warnings) ? out.warnings : [];
+      d.debugCode = out?.debug_code || '';
+    }
+    const mergedTopics = mergeUniquePlanStrings([], topics, Math.max(requiredCount, 8));
+    if (!mergedTopics.length) throw new Error('AI не смог подобрать темы для плана.');
+    return {
+      topics: mergedTopics,
+      angles: mergeUniquePlanStrings([], angles, 24),
+      ctaOptions: mergeUniquePlanStrings([], ctaOptions, 24),
+      hashtagSets,
+    };
   };
 
   let suggestSeq = 0;
@@ -6653,7 +7373,7 @@ async function bindCreateDirector(path) {
         const localAngles = directorLocalAngles(d);
         d.selectedAngle = String((suggestData.angles || [])[0] || localAngles[0] || 'Практический подход: шаги и сроки').trim();
       }
-      d.selectedHashtags = normalizeHashtagSet(suggestData.hashtag_sets?.[0]);
+      d.selectedHashtags = directorPreferNicheHashtags(d, suggestData.hashtag_sets?.[0], 8);
       d.selectedCta = String((suggestData.cta_options || [])[0] || '').trim();
       d.warnings = out?.warnings || [];
       d.debugCode = out?.debug_code || '';
@@ -6662,7 +7382,7 @@ async function bindCreateDirector(path) {
       const preferredPlatform = Array.isArray(base.platforms) && base.platforms.length ? base.platforms[0] : 'facebook';
       if (!base.platforms.includes(String(d.activePlatform || '').toLowerCase())) d.activePlatform = preferredPlatform;
       if (notify) {
-        state.notice = { type: 'ok', text: freshTopics.length ? 'AI подобрал 10 тем. Выберите нужную.' : 'Темы обновлены.' };
+        state.notice = { type: 'ok', text: freshTopics.length ? `AI подобрал ${DIRECTOR_TOPIC_IDEA_COUNT} тем. Выберите нужную.` : 'Темы обновлены.' };
       }
       return suggestData;
     } catch (e) {
@@ -6688,9 +7408,7 @@ async function bindCreateDirector(path) {
       return;
     }
     if (!String(d.selectedAngle || '').trim()) {
-      state.notice = { type: 'error', text: 'Сначала выберите подход для видео.' };
-      render();
-      return;
+      d.selectedAngle = String((Array.isArray(d.suggestions?.angles) ? d.suggestions.angles[0] : '') || directorLocalAngles(d)[0] || 'Практический подход: шаги и сроки').trim();
     }
     resetVideoGenerationState({ clearStructure: true });
     d.selectedHashtags = [];
@@ -6705,6 +7423,7 @@ async function bindCreateDirector(path) {
         method: 'POST',
         body: JSON.stringify({
           topic: selectedTopic,
+          niche_visual_profile: directorCurrentNicheId(d),
           offer: base.offer,
           language: base.language || 'ru',
           style: base.tone || 'friendly',
@@ -6751,6 +7470,7 @@ async function bindCreateDirector(path) {
     d.selectedHashtags = [];
     d.selectedCta = '';
     d.imageUrl = '';
+    d.videoCoverUrl = '';
     d.manualTopicInput = '';
     if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
       resetVideoGenerationState({ clearStructure: true });
@@ -6762,6 +7482,90 @@ async function bindCreateDirector(path) {
       state.notice = { type: 'error', text: e.message || 'Не удалось получить AI рекомендации.' };
       render();
     }
+  };
+
+  const runPlanFlow = async () => {
+    const base = collectPayloadBase();
+    if (!String(base.topic || '').trim()) {
+      d.planFlowError = 'Выберите нишу или укажите свою тему.';
+      d.planFlowState = 'error';
+      render();
+      return;
+    }
+    d.planFlowState = 'loading';
+    d.planFlowError = '';
+    d.planFlowItems = [];
+    d.planFlowProgressStep = 0;
+    state.notice = null;
+    render();
+    const advanceStep = async (idx, wait = 180) => {
+      d.planFlowProgressStep = idx;
+      render();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    };
+    try {
+      const planCount = isMonthlyPlanQuickAction() ? 30 : 7;
+      await advanceStep(0, 120);
+      const bestOut = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(String(base.platforms[0] || 'instagram').toLowerCase())}&horizon_days=${planCount}&posts_per_day=1`);
+      d.bestSlots = bestOut || null;
+      await advanceStep(1, 120);
+      const suggestData = await fetchPlanAiSuggestions(planCount);
+      d.topicPool = suggestData.topics.slice(0, DIRECTOR_TOPIC_IDEA_COUNT);
+      d.suggestions = {
+        ...(d.suggestions || {}),
+        topics: suggestData.topics.slice(0, DIRECTOR_TOPIC_IDEA_COUNT),
+        angles: suggestData.angles.slice(0, 3),
+        cta_options: suggestData.ctaOptions.slice(0, 3),
+        hashtag_sets: suggestData.hashtagSets.slice(0, 6),
+      };
+      if (!String(d.selectedSuggestedTopic || '').trim() && !String(d.appliedManualTopic || '').trim()) {
+        const firstTopic = String(suggestData.topics[0] || '').trim();
+        if (firstTopic) d.selectedSuggestedTopic = firstTopic;
+      }
+      if (!String(d.selectedAngle || '').trim()) {
+        d.selectedAngle = String(suggestData.angles[0] || '').trim();
+      }
+      d.selectedHashtags = directorPreferNicheHashtags(d, suggestData.hashtagSets[0], 8);
+      d.selectedCta = String(suggestData.ctaOptions[0] || '').trim();
+      await advanceStep(2, 120);
+      d.planFlowItems = buildPlanFlowItemsFromAi({
+        count: planCount,
+        topics: suggestData.topics,
+        angles: suggestData.angles,
+        ctaOptions: suggestData.ctaOptions,
+        hashtagSets: suggestData.hashtagSets,
+        slots: Array.isArray(bestOut?.next_slots) ? bestOut.next_slots.slice(0, planCount) : [],
+      });
+      await advanceStep(3, 120);
+      await advanceStep(4, 0);
+      d.planFlowState = 'generated';
+      d.planFlowSelectedDay = Number(d.planFlowItems[0]?.day || d.planFlowSelectedDay || 1) || 1;
+      state.notice = { type: 'ok', text: `AI подготовил ${isMonthlyPlanQuickAction() ? 'контент-план на 30 дней' : 'контент-план на 7 дней'}.` };
+    } catch (e) {
+      d.planFlowState = 'error';
+      d.planFlowItems = [];
+      d.planFlowError = e.message || 'Не удалось создать план. Попробуйте ещё раз.';
+      state.notice = null;
+    } finally {
+      d.planFlowProgressStep = 0;
+      render();
+    }
+  };
+  const getPlanFlowItemByDay = (day) => {
+    const dayNum = Number(day || 0) || 0;
+    const list = Array.isArray(d.planFlowItems) ? d.planFlowItems : [];
+    return list.find((item) => Number(item.day || 0) === dayNum) || null;
+  };
+  const applyPlanItemToDirector = (item) => {
+    if (!item) return;
+    const topic = String(item.topic || '').trim();
+    const angle = String(item.angle || '').trim();
+    const cta = String(item.cta || '').trim();
+    applySuggestedTopicSelection(topic);
+    d.selectedAngle = angle || String(directorLocalAngles(d)[0] || '').trim();
+    d.selectedCta = cta || d.selectedCta || '';
+    d.selectedHashtags = parseCampaignHashtags(String(item.hashtags || '').trim()).slice(0, 20);
+    d.planFlowSelectedDay = Number(item.day || 1) || 1;
   };
 
   const refreshTopics = async () => {
@@ -6849,11 +7653,11 @@ async function bindCreateDirector(path) {
       });
       const suggestData = out?.data || {};
       const sets = Array.isArray(suggestData.hashtag_sets)
-        ? suggestData.hashtag_sets.map((set) => normalizeHashtagSet(set))
+        ? suggestData.hashtag_sets.map((set) => directorPreferNicheHashtags(d, set, 8))
         : [];
       if (sets.length) {
         d.suggestions = { ...(d.suggestions || {}), hashtag_sets: sets };
-        d.selectedHashtags = normalizeHashtagSet(sets[0]);
+        d.selectedHashtags = directorPreferNicheHashtags(d, sets[0], 8);
         applySelectedTagsToActiveDraft();
         applySelectedCtaToActiveDraft();
         syncQuality();
@@ -6910,10 +7714,11 @@ async function bindCreateDirector(path) {
     }
   };
 
-  const generatePreviewImage = async ({ refresh = false } = {}) => {
+  const generatePreviewImage = async ({ refresh = false, announce = true } = {}) => {
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
     if (!isVideoType && !d.imageEnabled) return;
     const base = collectPayloadBase();
+    const draft = activeDraft();
     const topicForImage = getEffectiveSelectedTopic(base.topic || d.topic || '');
     if (!topicForImage) {
       state.notice = { type: 'error', text: 'Сначала выберите или введите тему.' };
@@ -6926,12 +7731,18 @@ async function bindCreateDirector(path) {
       return;
     }
     d.imageLoading = true;
+    if (isVideoType) d.videoCoverUrl = '';
+    else d.imageUrl = '';
     render();
     try {
       const out = await api('/api/ai/director/generate-image', {
         method: 'POST',
         body: JSON.stringify({
           topic: topicForImage,
+          caption: String(draft?.post_text || d.caption || '').trim(),
+          asset_ideas: Array.isArray(draft?.asset_ideas) ? draft.asset_ideas : [],
+          niche_label: directorCurrentNicheMeta(d)?.label || '',
+          niche_context: directorNicheAiContext(d),
           language: base.language || d.language || 'ru',
           tone: base.tone || d.tone || 'friendly',
           style: isVideoType ? 'cinematic' : 'реалистично',
@@ -6941,16 +7752,23 @@ async function bindCreateDirector(path) {
         timeoutMs: 120000,
       });
       const imageUrl = String(out?.data?.image_url || '').trim();
-      if (imageUrl) d.imageUrl = imageUrl;
+      if (!imageUrl) throw new Error(isVideoType ? 'Сервер не вернул обложку для видео.' : 'Сервер не вернул картинку для поста.');
+      if (isVideoType) d.videoCoverUrl = imageUrl;
+      else d.imageUrl = imageUrl;
       if (refresh) d.imageRefreshCount = Number(d.imageRefreshCount || 0) + 1;
-      state.notice = {
-        type: 'ok',
-        text: isVideoType
-          ? (refresh ? `Обложка обновлена (${d.imageRefreshCount}/3).` : 'Обложка видео сгенерирована.')
-          : (refresh ? `Картинка обновлена (${d.imageRefreshCount}/3).` : 'Картинка сгенерирована.'),
-      };
+      if (announce) {
+        state.notice = {
+          type: 'ok',
+          text: isVideoType
+            ? (refresh ? `Обложка обновлена (${d.imageRefreshCount}/3).` : 'Обложка видео сгенерирована.')
+            : (refresh ? `Картинка обновлена (${d.imageRefreshCount}/3).` : 'Картинка сгенерирована.'),
+        };
+      }
     } catch (e) {
-      state.notice = { type: 'error', text: e.message || (isVideoType ? 'Не удалось сгенерировать обложку.' : 'Не удалось сгенерировать картинку.') };
+      if (announce) {
+        state.notice = { type: 'error', text: e.message || (isVideoType ? 'Не удалось сгенерировать обложку.' : 'Не удалось сгенерировать картинку.') };
+      }
+      throw e;
     } finally {
       d.imageLoading = false;
       render();
@@ -7073,15 +7891,43 @@ async function bindCreateDirector(path) {
     }
     generateDirector();
   };
-  const genSelectedBtn = document.getElementById('cdGenerateSelected');
-  if (genSelectedBtn) genSelectedBtn.onclick = async () => {
+  const generateContentFromCurrentSelection = async () => {
+    const shouldGenerateImage = normalizeDirectorContentType(d.contentType || 'post') !== 'video' && !!d.imageEnabled;
     if (normalizeDirectorContentType(d.contentType) === 'video') {
       await generateVideoStructureFromSelection();
       return;
     }
+    const base = collectPayloadBase();
+    if (!String(getEffectiveSelectedTopic(base.topic) || '').trim()) {
+      applySuggestedTopicSelection(String(base.topic || '').trim());
+    }
+    if (!String(d.selectedAngle || '').trim()) {
+      d.selectedAngle = String((Array.isArray(d.suggestions?.angles) ? d.suggestions.angles[0] : '') || directorLocalAngles(d)[0] || 'Практический подход: шаги и сроки').trim();
+    }
     await regenerateBySelection(1);
+    if (shouldGenerateImage) {
+      try {
+        await generatePreviewImage({ refresh: false, announce: false });
+      } catch {
+        state.notice = { type: 'error', text: 'Пост сгенерирован, но картинку создать не удалось.' };
+        render();
+        return;
+      }
+    }
     state.notice = { type: 'ok', text: 'Пост сгенерирован по выбранной теме.' };
     render();
+  };
+  const genSelectedBtn = document.getElementById('cdGenerateSelected');
+  if (genSelectedBtn) genSelectedBtn.onclick = () => {
+    if (Array.isArray(d.topicPool) && d.topicPool.length) {
+      refreshTopics();
+      return;
+    }
+    generateDirector();
+  };
+  const generatePlanFlowBtn = document.getElementById('cdGeneratePlanFlow');
+  if (generatePlanFlowBtn) generatePlanFlowBtn.onclick = async () => {
+    await runPlanFlow();
   };
   const renderVideoBtn = document.getElementById('cdRenderVideo');
   if (renderVideoBtn) renderVideoBtn.onclick = async () => {
@@ -7101,6 +7947,8 @@ async function bindCreateDirector(path) {
     d.videoMessage = 'Задача поставлена в очередь';
     d.videoPreviewUrl = '';
     d.videoFinalUrl = '';
+    d.videoSrtUrl = '';
+    d.videoDebug = null;
     d.videoRenderRequestedVoiceGender = String(video.voice_gender || d.videoVoiceGender || 'male').toLowerCase();
     d.videoRenderRequestedVoiceTone = String(video.voice_tone || d.videoVoiceTone || 'neutral').toLowerCase();
     render();
@@ -7120,9 +7968,20 @@ async function bindCreateDirector(path) {
           format,
           target_seconds: targetSeconds,
           orientation: video.orientation || 'vertical',
+          voice_gender: String(video.voice_gender || d.videoVoiceGender || 'male').toLowerCase(),
+          voice_tone: String(video.voice_tone || d.videoVoiceTone || 'neutral').toLowerCase(),
           scene_seconds: Number(video.shot_seconds || 0) || 0,
           minimize_repeats: !!video.minimize_repeats,
           realistic_only: !!video.realistic_only,
+          avoid_duplicate_footage: true,
+          niche_visual_profile: directorCurrentNicheId(d),
+          diversity_mode: format === 'short' ? 'high' : 'balanced',
+          allow_emergency_reuse: format === 'short' ? false : true,
+          subtitle_mode: 'auto',
+          platform_target: String(d.activePlatform || 'facebook').toLowerCase(),
+          subtitle_style: 'social_default',
+          min_unique_clips_short: 8,
+          fallback_related_keywords: true,
           custom_title: String(d.videoStructure?.title || resolvedTopic).trim(),
           custom_description: String(d.videoStructure?.description || '').trim(),
           custom_hashtags: Array.isArray(d.videoStructure?.hashtags) ? d.videoStructure.hashtags : (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []),
@@ -7151,6 +8010,8 @@ async function bindCreateDirector(path) {
         d.videoStep = String(st?.step || d.videoStep || 'queued').toLowerCase();
         d.videoMessage = String(st?.message || '').trim();
         d.videoJobStatus = `${status || 'running'} ${progress}%`;
+        d.videoDebug = (st?.debug && typeof st.debug === 'object') ? st.debug : ((st?.result?.debug && typeof st.result.debug === 'object') ? st.result.debug : null);
+        d.videoSrtUrl = String(st?.subtitlesSrtUrl || st?.result?.subtitles_srt_url || '').trim();
         if (String(st?.previewUrl || '').trim()) {
           const raw = String(st.previewUrl).trim();
           d.videoPreviewUrl = `${raw}${raw.includes('?') ? '&' : '?'}v=${Date.now()}`;
@@ -7232,19 +8093,35 @@ async function bindCreateDirector(path) {
   const planWeekBtn = document.getElementById('cdPlanWeek');
   if (planWeekBtn) planWeekBtn.onclick = async () => {
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
-    nav(isVideoType ? '/create/video-week' : '/create/post-week');
+    nav(plannerUrl(isVideoType ? 'video' : 'post', 7), { keepNotice: true });
   };
   const planMonthBtn = document.getElementById('cdPlanMonth');
-  if (planMonthBtn) planMonthBtn.onclick = async () => { d.planHorizon = 'month'; try { await loadPlanItems(); } catch {} render(); };
+  if (planMonthBtn) planMonthBtn.onclick = async () => {
+    const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
+    nav(plannerUrl(isVideoType ? 'video' : 'post', 30), { keepNotice: true });
+  };
   const miniWeekBtn = document.getElementById('cdMiniWeek');
   if (miniWeekBtn) miniWeekBtn.onclick = async () => {
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
-    nav(isVideoType ? '/create/video-week' : '/create/post-week');
+    nav(plannerUrl(isVideoType ? 'video' : 'post', 7), { keepNotice: true });
   };
   const miniMonthBtn = document.getElementById('cdMiniMonth');
-  if (miniMonthBtn) miniMonthBtn.onclick = async () => { d.planHorizon = 'month'; try { await loadPlanItems(); } catch {} render(); };
+  if (miniMonthBtn) miniMonthBtn.onclick = async () => {
+    const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
+    nav(plannerUrl(isVideoType ? 'video' : 'post', 30), { keepNotice: true });
+  };
   const planGenerateBtn = document.getElementById('cdPlanGenerate');
   if (planGenerateBtn) planGenerateBtn.onclick = async () => {
+    try {
+      await buildContentPlan();
+    } catch (e) {
+      d.planLoading = false;
+      state.notice = { type: 'error', text: e.message || 'Не удалось сформировать контент-план.' };
+      render();
+    }
+  };
+  const planGenerateSidebarBtn = document.getElementById('cdPlanGenerateSidebar');
+  if (planGenerateSidebarBtn) planGenerateSidebarBtn.onclick = async () => {
     try {
       await buildContentPlan();
     } catch (e) {
@@ -7277,6 +8154,10 @@ async function bindCreateDirector(path) {
   if (typePostBtn) typePostBtn.onclick = () => { persistContentType('post'); ensureContentTypePlatforms(); render(); };
   const typeVideoBtn = document.getElementById('cdTypeVideo');
   if (typeVideoBtn) typeVideoBtn.onclick = () => { persistContentType('video'); ensureVideoDefaults(); ensureContentTypePlatforms(); render(); };
+  const generationModeManualBtn = document.getElementById('cdGenerationModeManual');
+  if (generationModeManualBtn) generationModeManualBtn.onclick = () => { d.generationMode = 'manual'; render(); };
+  const generationModePlanBtn = document.getElementById('cdGenerationModePlan');
+  if (generationModePlanBtn) generationModePlanBtn.onclick = () => { d.generationMode = 'plan'; render(); };
   const previewTypePostBtn = document.getElementById('cdPreviewTypePost');
   if (previewTypePostBtn) previewTypePostBtn.onclick = () => { persistContentType('post'); ensureContentTypePlatforms(); render(); };
   const previewTypeVideoBtn = document.getElementById('cdPreviewTypeVideo');
@@ -7313,12 +8194,76 @@ async function bindCreateDirector(path) {
   const refreshImageBtn = document.getElementById('cdRefreshImage');
   if (refreshImageBtn) refreshImageBtn.onclick = () => generatePreviewImage({ refresh: true });
   const genDraftsBtn = document.getElementById('cdGenerateDrafts');
-  if (genDraftsBtn) genDraftsBtn.onclick = () => regenerateBySelection(3);
+  if (genDraftsBtn) genDraftsBtn.onclick = async () => {
+    if (normalizeDirectorContentType(d.contentType) === 'video') {
+      await generateVideoStructureFromSelection();
+      return;
+    }
+    await regenerateBySelection(3);
+  };
   const quickActionRefreshBtn = document.getElementById('cdQuickActionRefresh');
-  if (quickActionRefreshBtn) quickActionRefreshBtn.onclick = () => {
+  if (quickActionRefreshBtn) quickActionRefreshBtn.onclick = async () => {
     d.quickActionSeed = Number(d.quickActionSeed || 0) + 1;
+    if (isPlanQuickAction()) {
+      d.planFlowSelectedDay = 1;
+      await runPlanFlow();
+      return;
+    }
     render();
   };
+  document.querySelectorAll('[data-cd-plan-select-day]').forEach((btn) => {
+    btn.onclick = () => {
+      const day = Number(btn.getAttribute('data-cd-plan-select-day') || 0) || 0;
+      const item = getPlanFlowItemByDay(day);
+      if (!item) return;
+      applyPlanItemToDirector(item);
+      state.notice = { type: 'ok', text: `День ${day} перенесён в директор. Можно использовать идею дальше.` };
+      render();
+    };
+  });
+  const openPlanDayForCreate = async (item, { schedule = false } = {}) => {
+    if (!item) return;
+    applyPlanItemToDirector(item);
+    if (schedule && String(item.scheduled_at || '').trim()) {
+      d.scheduleAt = toLocalInputValue(String(item.scheduled_at || '').trim());
+    }
+    d.quickActionType = '';
+    d.quickActionNicheId = '';
+    d.quickActionPreviewOnly = false;
+    d.planFlowState = 'idle';
+    d.planFlowItems = [];
+    d.planFlowError = '';
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('quickAction');
+      url.searchParams.delete('niche');
+      history.replaceState({}, '', `${url.pathname}${url.search}`);
+    } catch {}
+    render();
+    await generateContentFromCurrentSelection();
+    if (schedule) {
+      state.notice = { type: 'ok', text: `День ${Number(item.day || 0)} подготовлен. Дата и время уже подставлены, можно нажать «Запланировать».` };
+      render();
+    }
+  };
+  document.querySelectorAll('[data-cd-plan-schedule-day]').forEach((btn) => {
+    btn.onclick = async () => {
+      const day = Number(btn.getAttribute('data-cd-plan-schedule-day') || 0) || 0;
+      const item = getPlanFlowItemByDay(day);
+      if (!item) return;
+      await openPlanDayForCreate(item, { schedule: true });
+    };
+  });
+  document.querySelectorAll('[data-cd-plan-edit]').forEach((btn) => {
+    btn.onclick = async () => {
+      const day = Number(btn.getAttribute('data-cd-plan-edit') || 0) || 0;
+      const item = getPlanFlowItemByDay(day);
+      if (!item) return;
+      await openPlanDayForCreate(item, { schedule: false });
+      state.notice = { type: 'ok', text: `День ${day} открыт для ручной доработки в Create.` };
+      render();
+    };
+  });
   document.querySelectorAll('[data-cd-quick-topic]').forEach((btn) => {
     btn.onclick = () => {
       const topic = decodeURIComponent(String(btn.getAttribute('data-cd-quick-topic') || ''));
@@ -7331,6 +8276,7 @@ async function bindCreateDirector(path) {
       d.selectedAngle = String(angle || directorLocalAngles(d)[0] || '').trim();
       d.selectedCta = String(cta || d.selectedCta || '').trim();
       d.quickActionType = '';
+      d.planFlowItems = [];
       state.notice = { type: 'ok', text: 'Тема перенесена в AI Контент-директор. Теперь можно продолжить генерацию.' };
       render();
     };
@@ -7343,6 +8289,7 @@ async function bindCreateDirector(path) {
       applyManualTopicSelection(hook);
       d.selectedAngle = String(directorLocalAngles(d)[0] || '').trim();
       d.quickActionType = '';
+      d.planFlowItems = [];
       state.notice = { type: 'ok', text: 'Hook выбран как стартовая тема. Теперь можно сгенерировать результат.' };
       render();
     };
@@ -7366,15 +8313,10 @@ async function bindCreateDirector(path) {
         if (id === 'cdScheduleAt') d.scheduleAt = el.value;
         if (id === 'cdTopicPreset') {
           d.topicPreset = String(el.value || DEFAULT_DIRECTOR_NICHE).trim() || DEFAULT_DIRECTOR_NICHE;
-          if (!d.customTopicMode) resetDirectorTopicSelection({ keepManualInput: false });
+          resetDirectorTopicSelection({ keepManualInput: false });
           d.topic = directorBaseTopic(d, d.topic);
-          if (!d.customTopicMode) {
-            d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), []);
-            requestTopicSuggestions({ seed: Number(d.refreshCount || 0), notify: true }).catch((e) => {
-              state.notice = { type: 'error', text: e.message || 'Не удалось обновить идеи для выбранной ниши.' };
-              render();
-            });
-          }
+          render();
+          return;
         }
         if (id === 'cdTopic') {
           d.customBaseTopicInput = el.value;
@@ -7426,14 +8368,6 @@ async function bindCreateDirector(path) {
       d.customTopicMode = !!customTopicModeEl.checked;
       resetDirectorTopicSelection({ keepManualInput: false });
       d.topic = directorBaseTopic(d, d.topic);
-      if (!d.customTopicMode) {
-        d.topicPool = buildDirectorTopicPool(0, []);
-        requestTopicSuggestions({ seed: 0, notify: true }).catch((e) => {
-          state.notice = { type: 'error', text: e.message || 'Не удалось обновить идеи для выбранной ниши.' };
-          render();
-        });
-        return;
-      }
       render();
     };
   }
@@ -7468,16 +8402,16 @@ async function bindCreateDirector(path) {
     const el = document.getElementById(id);
     if (el) {
       el.onchange = () => {
-        if (id === 'cdFb') d.platforms.facebook = !!el.checked;
-        if (id === 'cdIg') d.platforms.instagram = !!el.checked;
-        if (id === 'cdYt') d.platforms.youtube = !!el.checked;
+
+
+
         ensureContentTypePlatforms();
       };
     }
   });
   const imageEnabledEl = document.getElementById('cdImageEnabled');
   if (imageEnabledEl) {
-    imageEnabledEl.onchange = async () => {
+    imageEnabledEl.onchange = () => {
       d.imageEnabled = !!imageEnabledEl.checked;
       if (!d.imageEnabled) {
         d.imageUrl = '';
@@ -7485,35 +8419,49 @@ async function bindCreateDirector(path) {
         render();
         return;
       }
-      if (!String(d.imageUrl || '').trim()) {
-        await generatePreviewImage({ refresh: false });
-        return;
-      }
       render();
     };
   }
 
   document.querySelectorAll('[data-cd-topic]').forEach((btn) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       applySuggestedTopicSelection(decodeURIComponent(btn.getAttribute('data-cd-topic') || ''));
       render();
+      await generateContentFromCurrentSelection();
     };
   });
   const applyManualTopicBtn = document.getElementById('cdApplyManualTopic');
   if (applyManualTopicBtn) {
-    applyManualTopicBtn.onclick = () => {
+    applyManualTopicBtn.onclick = async () => {
       const manual = String(document.getElementById('cdManualTopic')?.value || d.manualTopicInput || '').trim();
       if (!manual) return;
       applyManualTopicSelection(manual);
       render();
+      await generateContentFromCurrentSelection();
     };
   }
   document.querySelectorAll('[data-cd-angle]').forEach((btn) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       d.selectedAngle = decodeURIComponent(btn.getAttribute('data-cd-angle') || '');
       state.notice = null;
       d.activeVariant = 1;
+      d.drafts = [];
+      d.lastDraftTopic = '';
+      d.lastDraftAngle = '';
+      if (!String(d.appliedManualTopic || '').trim()) {
+        const nextTopics = Array.isArray(d.topicPool) && d.topicPool.length
+          ? d.topicPool.slice(0, DIRECTOR_TOPIC_IDEA_COUNT)
+          : directorLocalTopicIdeas(d, DIRECTOR_TOPIC_IDEA_COUNT, d.refreshCount || 0);
+        const nextHeadline = directorHeadlineItems(nextTopics, d.selectedAngle)[0]?.title || '';
+        d.selectedSuggestedTopic = String(nextHeadline || '').trim();
+      }
+      if (d.imageEnabled) d.imageUrl = '';
+      if (normalizeDirectorContentType(d.contentType || 'post') === 'video') d.videoCoverUrl = '';
+      if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
+        resetVideoGenerationState({ clearStructure: true });
+      }
       render();
+      await generateContentFromCurrentSelection();
     };
   });
   document.querySelectorAll('[data-cd-hset]').forEach((btn) => {
@@ -7725,109 +8673,142 @@ async function bindCreateDirector(path) {
     videoCtaInlineEl.onchange = videoCtaInlineEl.oninput;
   }
 
-  if (!Array.isArray(d.topicPool) || !d.topicPool.length) {
-    d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), d.suggestions?.topics || []);
-  }
-  if (!d._nicheIdeasBootstrapped && !d.customTopicMode) {
-    d._nicheIdeasBootstrapped = true;
-    d.topicPool = buildDirectorTopicPool(Number(d.refreshCount || 0), d.suggestions?.topics || []);
-    requestTopicSuggestions({ seed: Number(d.refreshCount || 0), notify: false }).catch(() => {
-      render();
-    });
-  }
   syncQuality();
   refreshQualityDom();
   return true;
 }
 
-async function bindCreateVideoWeek(path) {
-  if (path !== '/create/video-week') return false;
+async function bindCreatePlanner(path) {
+  const planner = getCreatePlannerRoute(path);
+  if (!planner) return false;
+
   const d = state.createDirector;
-  if (!d.topic && getEffectiveSelectedTopic('')) d.topic = getEffectiveSelectedTopic('');
-  if (!Number.isFinite(Number(d.videoWeekPostsPerDay)) || Number(d.videoWeekPostsPerDay) < 1) d.videoWeekPostsPerDay = 1;
-  if (!['ai', 'manual'].includes(String(d.videoWeekTimeMode || ''))) d.videoWeekTimeMode = 'ai';
-  if (!String(d.videoWeekManualTime || '').trim()) d.videoWeekManualTime = '12:00';
+  const cfg = getPlannerStateConfig(planner.kind, planner.days);
+  const getPlanValue = (suffix, fallback = null) => {
+    const key = `${cfg.baseKey}${suffix}`;
+    const value = d[key];
+    return value == null ? fallback : value;
+  };
+  const setPlanValue = (suffix, value) => {
+    d[`${cfg.baseKey}${suffix}`] = value;
+  };
+  if (!d.platforms) d.platforms = { facebook: true, instagram: true, youtube: false };
+  if (!Number.isFinite(Number(getPlanValue('PostsPerDay', 1))) || Number(getPlanValue('PostsPerDay', 1)) < 1) setPlanValue('PostsPerDay', 1);
+  if (!['ai', 'manual'].includes(String(getPlanValue('TimeMode', 'ai') || ''))) setPlanValue('TimeMode', 'ai');
+  if (!String(getPlanValue('ManualTime', '12:00') || '').trim()) setPlanValue('ManualTime', '12:00');
+  if (!String(d.language || '').trim()) d.language = 'ru';
+  if (!String(d.tone || '').trim()) d.tone = 'friendly';
+  if (!String(d.videoDurationPreset || '').trim()) d.videoDurationPreset = '30';
   if (!['vertical', 'horizontal'].includes(String(d.videoOrientation || ''))) d.videoOrientation = 'vertical';
-  if (!String(d.videoWeekDurationPreset || '').trim()) d.videoWeekDurationPreset = String(d.videoDurationPreset || '30');
 
-  const selectedProjectId = () => Number(state.projects?.[0]?.id || 0) || null;
-  const getBestTimes = async () => {
-    const out = await api(`/api/ai/best-posting-times?days=90&platform=youtube&horizon_days=7&posts_per_day=${Math.max(1, Math.min(6, Number(d.videoWeekPostsPerDay || 1)))}`);
-    d.bestSlots = out || null;
-    return out || null;
+  const selectedProjectId = () => Number(state.activeProjectId || state.currentProjectId || state.projectId || state.projects?.[0]?.id || 0) || null;
+  const selectedPlannerPlatforms = () => {
+    const out = [
+      d.platforms?.facebook ? 'facebook' : null,
+      d.platforms?.instagram ? 'instagram' : null,
+      cfg.kind === 'video' && d.platforms?.youtube ? 'youtube' : null,
+    ].filter(Boolean);
+    return out.length ? out : (cfg.kind === 'video' ? ['youtube'] : ['facebook']);
   };
-  const buildManualSlots = (count) => {
-    const slots = [];
-    const raw = String(d.videoWeekManualTime || '12:00');
-    const hh = Math.max(0, Math.min(23, Number(raw.split(':')[0] || 12)));
-    const mm = Math.max(0, Math.min(59, Number(raw.split(':')[1] || 0)));
-    const perDay = Math.max(1, Math.min(6, Number(d.videoWeekPostsPerDay || 1)));
-    const now = new Date();
-    for (let day = 0; day < 7; day += 1) {
-      for (let i = 0; i < perDay; i += 1) {
-        const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, hh, mm, 0, 0);
-        dt.setHours(Math.min(23, hh + (i * 2)));
-        slots.push(dt.toISOString());
-      }
-    }
-    return slots.slice(0, count);
-  };
-  const buildVideoWeekPlan = async () => {
-    const topic = String(document.getElementById('vwTopic')?.value || d.manualTopicInput || d.appliedManualTopic || d.selectedSuggestedTopic || d.topic || '').trim();
-    if (!topic) throw new Error('Укажите тему.');
-    d.topic = topic;
-    d.videoWeekLoading = true;
-    render();
-    try {
-      const postsPerDay = Math.max(1, Math.min(6, Number(document.getElementById('vwPostsPerDay')?.value || d.videoWeekPostsPerDay || 1)));
-      d.videoWeekPostsPerDay = postsPerDay;
-      d.videoOrientation = String(document.getElementById('vwOrientation')?.value || d.videoOrientation || 'vertical');
-      d.videoWeekDurationPreset = String(document.getElementById('vwDuration')?.value || d.videoWeekDurationPreset || d.videoDurationPreset || '30');
-      d.videoDurationPreset = d.videoWeekDurationPreset;
-      const total = 7 * postsPerDay;
+  const buildSlots = async () => {
+    const postsPerDay = Math.max(1, Math.min(6, Number(getPlanValue('PostsPerDay', 1) || 1)));
+    const total = cfg.days * postsPerDay;
+    const nextSlots = [];
+    let aiHours = [];
+    if (String(getPlanValue('TimeMode', 'ai') || 'ai') === 'ai') {
+      try {
+        const preferredPlatform = cfg.kind === 'video'
+          ? (d.platforms?.youtube ? 'youtube' : (d.platforms?.instagram ? 'instagram' : 'facebook'))
+          : (d.platforms?.instagram && !d.platforms?.facebook ? 'instagram' : 'facebook');
 
-      let nextSlots = [];
-      if (String(d.videoWeekTimeMode || 'ai') === 'ai') {
-        const best = d.bestSlots || await getBestTimes();
-        const aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
+        d.bestSlots = best || null;
+        aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
           .map((h) => Math.max(0, Math.min(23, Number(h))))
           .filter((h) => Number.isFinite(h));
-        const seedHours = aiHours.length ? aiHours : [12, 19];
-        const hhmm = String(d.videoWeekManualTime || '12:00');
-        const manualHour = Math.max(0, Math.min(23, Number(hhmm.split(':')[0] || 12)));
-        const now = new Date();
-        for (let day = 0; day < 7; day += 1) {
-          const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
-          for (let i = 0; i < postsPerDay; i += 1) {
-            const hour = seedHours[i] ?? Math.min(23, manualHour + (i * 2));
-            const dt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour, 0, 0, 0);
-            nextSlots.push(dt.toISOString());
-          }
-        }
-        nextSlots = nextSlots.slice(0, total);
+      } catch {}
+    }
+    const raw = String(getPlanValue('ManualTime', '12:00') || '12:00');
+    const hh = Math.max(0, Math.min(23, Number(raw.split(':')[0] || 12)));
+    const mm = Math.max(0, Math.min(59, Number(raw.split(':')[1] || 0)));
+    const seedHours = aiHours.length ? aiHours : [hh, Math.min(23, hh + 4), Math.min(23, hh + 8)];
+    const now = new Date();
+    for (let day = 0; day < cfg.days; day += 1) {
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
+      for (let i = 0; i < postsPerDay; i += 1) {
+        const hour = seedHours[i] ?? Math.min(23, hh + (i * 2));
+        nextSlots.push(new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, mm, 0, 0).toISOString());
       }
-      if (nextSlots.length < total) {
-        const fallback = buildManualSlots(total);
-        nextSlots = [...nextSlots, ...fallback].slice(0, total);
+    }
+    return nextSlots.slice(0, total);
+  };
+  const plannerTopicSeed = () => String(document.getElementById('plannerTopic')?.value || d.topic || d.manualTopicInput || d.appliedManualTopic || d.selectedSuggestedTopic || directorBaseTopic(d, d.topic) || '').trim();
+  const buildPostPlanner = async () => {
+    const topic = plannerTopicSeed();
+    if (!topic) throw new Error('Укажите тему.');
+    d.topic = topic;
+    setPlanValue('Loading', true);
+    render();
+    try {
+      const slots = await buildSlots();
+      const total = slots.length;
+      const nicheId = normalizeNicheIdSafe(String(document.getElementById('plannerNiche')?.value || d.topicPreset || DEFAULT_DIRECTOR_NICHE).trim()) || DEFAULT_DIRECTOR_NICHE;
+      d.topicPreset = nicheId;
+      const planEntries = (typeof DIRECTOR_NICHE_ENGINE.getContentPlan === 'function'
+        ? DIRECTOR_NICHE_ENGINE.getContentPlan(nicheId, total, 'post')
+        : []) || [];
+      const fallbackTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).slice(0, 5);
+      const builtItems = slots.map((iso, idx) => {
+        const entry = planEntries[idx] || {};
+        const entryTopic = String(entry.topic || '').trim() || `${topic}: ???? ${idx + 1}`;
+        const angle = String(entry.angle || '').trim() || '????? ???????????? ???';
+        const cta = String(entry.cta || d.selectedCta || '????????? ? ???????? ??????.').trim();
+        const postDraft = String(entry.captionText || entry.postText || entry.caption || '').trim()
+          || `${entryTopic}. ???? ??????: ${angle}. ????? ???? ?????????? ???, ?????? ? ????? ??? ?????????.`;
+        const hashTokens = (Array.isArray(entry.keywords) ? entry.keywords : fallbackTags)
+          .map((x) => String(x || '').trim())
+          .filter(Boolean)
+          .slice(0, 6)
+          .map((x) => x.startsWith('#') ? x : `#${x.replace(/\s+/g, '')}`);
+        return {
+          index: idx + 1,
+          scheduled_at: iso,
+          topic: entryTopic,
+          angle,
+          format_hint: String(entry.contentFormat || entry.format || '').trim() || '????',
+          content_shape: String(entry.contentShape || '').trim() || 'educational',
+          caption_text: postDraft,
+          post_text: postDraft,
+          caption: postDraft,
+          cta,
+          hashtags: hashTokens.join(' ') || '#??????? #????????? #smm',
+          post_included: true,
+        };
+      });
+      setPlanValue('Items', builtItems);
+      setPlanValue('SelectedDate', builtItems[0] ? String(builtItems[0].scheduled_at || '').slice(0, 10) : '');
+      if (builtItems[0]) {
+        d.selectedCta = builtItems[0].cta;
+        d.selectedHashtags = parseCampaignHashtags(builtItems[0].hashtags).slice(0, 20);
       }
-
-      const normalizeKey = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
-      const pushUnique = (arr, val) => {
-        const text = String(val || '').trim();
-        if (!text) return;
-        const k = normalizeKey(text);
-        if (!k) return;
-        if (arr.__seen?.has(k)) return;
-        if (!arr.__seen) arr.__seen = new Set();
-        arr.__seen.add(k);
-        arr.push(text);
-      };
+      state.notice = { type: 'ok', text: cfg.days === 30 ? 'Контент-план постов на 30 дней сформирован.' : 'Контент-план постов на 7 дней сформирован.' };
+    } finally {
+      setPlanValue('Loading', false);
+      render();
+    }
+  };
+  const buildVideoPlanner = async () => {
+    const topic = plannerTopicSeed();
+    if (!topic) throw new Error('Укажите тему.');
+    d.topic = topic;
+    setPlanValue('Loading', true);
+    render();
+    try {
+      const slots = await buildSlots();
+      const total = slots.length;
       const topicsPool = [];
       const anglesPool = [];
       const ctaPool = [];
-      const hashtagSetsPool = [];
-      const seeds = [0, 101, 202, 303, 404];
-      for (const seed of seeds) {
+      for (const seed of [0, 101, 202]) {
         try {
           const out = await api('/api/ai/director/suggest', {
             method: 'POST',
@@ -7836,624 +8817,166 @@ async function bindCreateVideoWeek(path) {
               niche_id: directorCurrentNicheId(d),
               niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
               niche_context: directorNicheAiContext(d),
-              offer: String(d.offer || '').trim() || null,
               goal: d.goal || 'engagement',
               language: d.language || 'ru',
               tone: d.tone || 'friendly',
               platforms: ['facebook', 'instagram', 'youtube'],
               content_type: 'video',
               orientation: d.videoOrientation || 'vertical',
-              duration_preset: d.videoWeekDurationPreset,
+              duration_preset: String(d.videoDurationPreset || '30'),
               variation_seed: seed,
             }),
             timeoutMs: 120000,
           });
           const s = out?.data || {};
-          (Array.isArray(s.topics) ? s.topics : []).forEach((x) => pushUnique(topicsPool, x));
-          (Array.isArray(s.angles) ? s.angles : []).forEach((x) => pushUnique(anglesPool, x));
-          (Array.isArray(s.cta_options) ? s.cta_options : []).forEach((x) => pushUnique(ctaPool, x));
-          if (Array.isArray(s.hashtag_sets)) {
-            s.hashtag_sets.forEach((set) => {
-              const hs = (Array.isArray(set) ? set : []).map((x) => String(x || '').trim()).filter(Boolean).join(' ');
-              if (hs) pushUnique(hashtagSetsPool, hs);
-            });
-          }
+          (Array.isArray(s.topics) ? s.topics : []).forEach((x) => { if (x) topicsPool.push(String(x).trim()); });
+          (Array.isArray(s.angles) ? s.angles : []).forEach((x) => { if (x) anglesPool.push(String(x).trim()); });
+          (Array.isArray(s.cta_options) ? s.cta_options : []).forEach((x) => { if (x) ctaPool.push(String(x).trim()); });
         } catch {}
       }
-      const makeSeries = (pool, count, fallbacks) => {
-        const src = (Array.isArray(pool) ? pool : []).map((x) => String(x || '').trim()).filter(Boolean);
-        const out = [];
-        const local = new Set();
-        const add = (value) => {
-          const text = String(value || '').trim();
-          const key = normalizeKey(text);
-          if (!text || !key || local.has(key)) return false;
-          local.add(key);
-          out.push(text);
-          return true;
-        };
-        src.forEach((x) => add(x));
-        let idx = 0;
-        while (out.length < count) {
-          const suffix = String((Array.isArray(fallbacks) ? fallbacks : [])[idx % Math.max(1, (fallbacks || []).length)] || `разбор ${idx + 1}`);
-          const base = src.length ? src[idx % src.length] : topic;
-          add(`${base}: ${suffix}`);
-          idx += 1;
-          if (idx > count * 5) break;
-        }
-        return out.slice(0, count);
-      };
-      const topicFallbacks = [
-        'практика за 7 дней',
-        'разбор частых ошибок',
-        'сценарий для роста охвата',
-        'как внедрить без лишних затрат',
-        'шаблон действий на каждый день',
-        'кейс с измеримым результатом',
-        'антикризисный план публикаций',
-        'как усилить вовлечение',
-        'план на месяц с контрольными точками',
-        'быстрый старт для команды',
-        'что изменить уже сегодня',
-        'путь от хаоса к системе',
-      ];
-      const angleFallbacks = [
-        'через практические шаги и дедлайны',
-        'через ошибку, решение и результат',
-        'через мини-кейс из практики',
-        'через чек-лист внедрения',
-        'через план на неделю с метриками',
-      ];
-      const topics = makeSeries(topicsPool.length ? topicsPool : [topic], total, topicFallbacks);
-      const angles = makeSeries(anglesPool.length ? anglesPool : ['Практические шаги и результат'], total, angleFallbacks);
-      const ctaFallbacks = [
-        'Сохраните и напишите «ПЛАН», пришлю шаблон.',
-        'Напишите «ЧЕК-ЛИСТ» в комментариях — отправлю структуру.',
-        'Сохраните пост и внедрите один шаг уже сегодня.',
-        'Ответьте «ХОЧУ ПЛАН» — соберу дорожную карту под вашу нишу.',
-        'Поделитесь с коллегой и начните внедрение по пунктам.',
-      ];
-      const ctaSeries = makeSeries(ctaPool.length ? ctaPool : [d.selectedCta || ctaFallbacks[0]], total, ctaFallbacks);
-      const hashtagsPool = hashtagSetsPool.length
-        ? hashtagSetsPool.map((s) => String(s || '').trim()).filter(Boolean)
-        : [
-          '#контент #маркетинг #smm #автопостинг #стратегия',
-          '#соцсети #smmпродвижение #контентплан #рост #аудитория',
-          '#маркетингвсоцсетях #бренд #digital #вовлечение #лиды',
-          '#контентмаркетинг #smmсоветы #автоматизация #продвижение #результат',
-        ];
-      const hashtagSeries = makeSeries(hashtagsPool, total, hashtagsPool);
-      const selectedPlatforms = Object.entries(d.platforms || {})
-        .filter(([, on]) => !!on)
-        .map(([name]) => String(name || '').toLowerCase());
-      const effectivePlatforms = selectedPlatforms.length ? selectedPlatforms : ['facebook', 'instagram', 'youtube'];
-      const platformCaptionLimit = (() => {
-        const limits = { instagram: 2200, facebook: 5000, youtube: 5000 };
-        let minLimit = Number.POSITIVE_INFINITY;
-        effectivePlatforms.forEach((p) => {
-          const value = Number(limits[p] || 5000);
-          if (value < minLimit) minLimit = value;
-        });
-        return Number.isFinite(minLimit) ? minLimit : 2200;
-      })();
-      const durationSec = Number(d.videoWeekDurationPreset || 30) || 30;
-      const capByPlatformLimit = (text) => {
-        const src = String(text || '').trim();
-        if (!src || src.length <= platformCaptionLimit) return src;
-        const trimmed = src.slice(0, platformCaptionLimit - 1);
-        const safe = trimmed.replace(/\s+\S*$/, '').trim();
-        return `${safe || trimmed}…`;
-      };
-      const ensureLengthForDuration = (baseText, idx) => {
-        let text = String(baseText || '').trim();
-        if (!text) text = `Разбор по теме ${topic}.`;
-        const minWords = Math.max(18, Math.round(durationSec * 0.55));
-        const additions = [
-          'Сначала обозначьте проблему и почему она тормозит результат.',
-          'Дальше дайте понятный шаг, который можно сделать сразу.',
-          'Покажите мини-пример из практики без сложной теории.',
-          'В конце подведите итог и сформулируйте следующий шаг.',
-          'Закрепите мысль коротким действием для аудитории.',
-        ];
-        let words = text.split(/\s+/).filter(Boolean);
-        let cursor = idx % additions.length;
-        while (words.length < minWords) {
-          text = `${text} ${additions[cursor]}`.trim();
-          cursor = (cursor + 1) % additions.length;
-          words = text.split(/\s+/).filter(Boolean);
-          if (words.length > minWords + 14) break;
-        }
-        return capByPlatformLimit(text);
-      };
-      const usedKeys = new Set();
-      const videoFrameHints = [
-        'быстрый разбор',
-        'пошаговый алгоритм',
-        'типичная ошибка и исправление',
-        'кейс из практики',
-        'чек-лист действий',
-        'сценарий на 7 дней',
-        'как сделать без лишних затрат',
-        'сравнение двух стратегий',
-        'антикризисный план на день',
-        'разбор ошибок конкурентов',
-        'как ускорить результат в 2 раза',
-        'формула стабильного роста',
-      ];
-      const videoToneHints = [
-        'с фокусом на результат',
-        'с конкретными цифрами',
-        'на языке простых шагов',
-        'без воды и сложных терминов',
-        'с понятным примером',
-        'с мини-историей из практики',
-        'с опорой на частые вопросы клиентов',
-        'через до/после и выводы',
-      ];
-      const videoEndings = [
-        'Показать 3 шага и короткий чек-лист в финале.',
-        'Добавьте мини-кейс и измеримый результат по итогу.',
-        'Сделайте акцент на ошибке, решении и конкретном действии.',
-        'Покажите, что делать сегодня и какой эффект ждать завтра.',
-        'Дайте структуру: хук, пример, вывод, CTA.',
-      ];
-      const captionPatterns = [
-        ({ t, a, tone, ending }) => `${t}. ${a}. ${tone}. ${ending}`,
-        ({ t, a, tone, ending }) => `Тема: ${t}. Формат: ${a}. ${tone}. ${ending}`,
-        ({ t, a, tone, ending }) => `${t} — ${a}. ${tone}. ${ending}`,
-        ({ t, a, tone, ending }) => `Разберите тему «${t}»: ${a}. ${tone}. ${ending}`,
-        ({ t, a, tone, ending }) => `${t}. Начните с хука, затем ${a}. ${tone}. ${ending}`,
-      ];
-      d.videoWeekItems = nextSlots.map((iso, idx) => {
-        const tBase = String(topics[idx % topics.length] || topic).trim();
-        const a = String(angles[idx % angles.length] || '').trim();
-        let t = `${tBase}: ${videoFrameHints[idx % videoFrameHints.length]}`;
-        const pattern = captionPatterns[idx % captionPatterns.length];
-        let caption = pattern({
-          t,
-          a,
-          tone: videoToneHints[idx % videoToneHints.length],
-          ending: videoEndings[idx % videoEndings.length],
-        });
-        let guard = 0;
-        while (usedKeys.has(`${t.toLowerCase()}|${caption.toLowerCase()}`) && guard < 6) {
-          guard += 1;
-          const extra = videoFrameHints[(idx + guard) % videoFrameHints.length];
-          const tone = videoToneHints[(idx + guard) % videoToneHints.length];
-          t = `${tBase}: ${extra}`;
-          caption = captionPatterns[(idx + guard) % captionPatterns.length]({
-            t,
-            a,
-            tone,
-            ending: videoEndings[(idx + guard) % videoEndings.length],
-          });
-        }
-        caption = ensureLengthForDuration(caption, idx);
-        usedKeys.add(`${t.toLowerCase()}|${caption.toLowerCase()}`);
+      const builtItems = slots.map((iso, idx) => {
+        const title = String(topicsPool[idx % Math.max(1, topicsPool.length)] || `${topic}: короткий разбор ${idx + 1}`).trim();
+        const angle = String(anglesPool[idx % Math.max(1, anglesPool.length)] || 'через короткий практический сценарий').trim();
+        const hook = title;
+        const script = `${title}. Короткий ход через ${angle} с 3 шагами и понятным выводом для зрителя.`;
         return {
           index: idx + 1,
           scheduled_at: iso,
-          topic: t,
-          caption,
-          cta: String(ctaSeries[idx % ctaSeries.length] || ctaFallbacks[0]).trim(),
-          hashtags: String(hashtagSeries[idx % hashtagSeries.length] || hashtagsPool[0]).trim(),
-          duration_sec: durationSec,
+          topic: title,
+          hook,
+          format: d.videoOrientation || 'vertical',
+          script,
+          caption: script,
+          cta: String(ctaPool[idx % Math.max(1, ctaPool.length)] || d.selectedCta || 'Сохраните и напишите «ПЛАН».').trim(),
+
+          duration_sec: Number(d.videoDurationPreset || 30) || 30,
           orientation: d.videoOrientation || 'vertical',
           video_included: true,
         };
       });
-      if (d.videoWeekItems[0]) {
-        d.videoWeekSelectedDate = String(d.videoWeekItems[0].scheduled_at || '').slice(0, 10);
-        d.selectedSuggestedTopic = d.videoWeekItems[0].topic;
-        d.appliedManualTopic = '';
-        d.selectedCta = d.videoWeekItems[0].cta;
-        d.selectedHashtags = parseCampaignHashtags(d.videoWeekItems[0].hashtags).slice(0, 20);
+      setPlanValue('Items', builtItems);
+      setPlanValue('SelectedDate', builtItems[0] ? String(builtItems[0].scheduled_at || '').slice(0, 10) : '');
+      if (builtItems[0]) {
+        d.selectedCta = builtItems[0].cta;
+        d.selectedHashtags = parseCampaignHashtags(builtItems[0].hashtags).slice(0, 20);
       }
-      state.notice = { type: 'ok', text: 'План 7 дней по видео сформирован.' };
+      state.notice = { type: 'ok', text: cfg.days === 30 ? 'Видео-посты на 30 дней сформированы.' : 'Видео-посты на 7 дней сформированы.' };
     } finally {
-      d.videoWeekLoading = false;
+      setPlanValue('Loading', false);
       render();
     }
   };
 
-  const vwTopic = document.getElementById('vwTopic');
-  if (vwTopic) vwTopic.oninput = () => { d.topic = String(vwTopic.value || '').trim(); };
-  const vwPosts = document.getElementById('vwPostsPerDay');
-  if (vwPosts) vwPosts.onchange = () => { d.videoWeekPostsPerDay = Math.max(1, Math.min(6, Number(vwPosts.value || 1))); };
-  const vwOrientation = document.getElementById('vwOrientation');
-  if (vwOrientation) vwOrientation.onchange = () => {
-    d.videoOrientation = String(vwOrientation.value || 'vertical');
-    const allowed = d.videoOrientation === 'horizontal'
-      ? ['120', '180', '240', '300', '360', '420', '480']
-      : ['20', '30', '40', '60'];
-    if (!allowed.includes(String(d.videoWeekDurationPreset || ''))) d.videoWeekDurationPreset = allowed[0];
+  const bindRerender = (id, handler) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.onchange = () => { handler(el); render(); };
+  };
+  bindRerender('plannerNiche', (el) => {
+    d.topicPreset = normalizeNicheIdSafe(String(el.value || DEFAULT_DIRECTOR_NICHE).trim()) || DEFAULT_DIRECTOR_NICHE;
+    setPlanValue('Items', []);
+    setPlanValue('SelectedDate', '');
+  });
+  bindRerender('plannerTopic', (el) => { d.topic = String(el.value || '').trim(); });
+  bindRerender('plannerPostsPerDay', (el) => { setPlanValue('PostsPerDay', Math.max(1, Math.min(6, Number(el.value || 1)))); });
+  bindRerender('plannerLanguage', (el) => { d.language = String(el.value || 'ru').trim() || 'ru'; });
+  bindRerender('plannerTone', (el) => { d.tone = String(el.value || 'friendly').trim() || 'friendly'; });
+  bindRerender('plannerManualTime', (el) => { setPlanValue('ManualTime', String(el.value || '12:00')); });
+  bindRerender('plannerImageEnabled', (el) => { d.imageEnabled = !!el.checked; });
+  bindRerender('plannerOrientation', (el) => { d.videoOrientation = String(el.value || 'vertical'); });
+  bindRerender('plannerDuration', (el) => { d.videoDurationPreset = String(el.value || '30'); });
+  bindRerender('plannerPlatformFacebook', (el) => { d.platforms.facebook = !!el.checked; });
+  bindRerender('plannerPlatformInstagram', (el) => { d.platforms.instagram = !!el.checked; });
+  bindRerender('plannerPlatformYouTube', (el) => { d.platforms.youtube = !!el.checked; });
+
+  const plannerTimeAi = document.getElementById('plannerTimeAi');
+  if (plannerTimeAi) plannerTimeAi.onclick = async () => {
+    setPlanValue('TimeMode', 'ai');
     render();
   };
-  const vwDuration = document.getElementById('vwDuration');
-  if (vwDuration) vwDuration.onchange = () => { d.videoWeekDurationPreset = String(vwDuration.value || '30'); };
-  const vwManualTime = document.getElementById('vwManualTime');
-  if (vwManualTime) vwManualTime.onchange = () => { d.videoWeekManualTime = String(vwManualTime.value || '12:00'); };
-
-  const vwTimeAi = document.getElementById('vwTimeAi');
-  if (vwTimeAi) vwTimeAi.onclick = async () => {
-    d.videoWeekTimeMode = 'ai';
-    try {
-      await getBestTimes();
-      state.notice = { type: 'ok', text: 'AI подобрал лучшее время публикации.' };
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось получить AI-время.' };
-    }
+  const plannerTimeManual = document.getElementById('plannerTimeManual');
+  if (plannerTimeManual) plannerTimeManual.onclick = () => {
+    setPlanValue('TimeMode', 'manual');
     render();
   };
-  const vwTimeManual = document.getElementById('vwTimeManual');
-  if (vwTimeManual) vwTimeManual.onclick = () => { d.videoWeekTimeMode = 'manual'; render(); };
-
-  const vwGenerate = document.getElementById('vwGenerate');
-  if (vwGenerate) vwGenerate.onclick = async () => {
+  const plannerGenerate = document.getElementById('plannerGenerate');
+  if (plannerGenerate) plannerGenerate.onclick = async () => {
     try {
-      await buildVideoWeekPlan();
+      if (cfg.kind === 'video') await buildVideoPlanner();
+      else await buildPostPlanner();
     } catch (e) {
-      d.videoWeekLoading = false;
+      setPlanValue('Loading', false);
       state.notice = { type: 'error', text: e.message || 'Не удалось сформировать план.' };
       render();
     }
   };
-
-  const vwApplyToDirector = document.getElementById('vwApplyToDirector');
-  if (vwApplyToDirector) vwApplyToDirector.onclick = async () => {
-    d.videoWeekApplying = true;
+  const plannerScheduleAll = document.getElementById('plannerScheduleAll');
+  if (plannerScheduleAll) plannerScheduleAll.onclick = async () => {
     try {
-      d.contentType = 'video';
-      try { localStorage.setItem(CREATE_DIRECTOR_TYPE_KEY, 'video'); } catch {}
-      history.pushState({}, '', '/create?type=video');
-      await render();
+      const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey].filter((x) => x && x.scheduled_at && x.topic) : [];
+      if (!items.length) throw new Error('Сначала сформируйте план.');
+      setPlanValue('Scheduling', true);
+      render();
+      const out = await api('/api/posts/bulk-schedule', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            topic: String(item.topic || '').trim(),
+            generated_text: [String(item.post_text || '').trim() || String(item.caption || '').trim()].filter(Boolean).join('\\n\\n').trim(),
+            schedule_at: String(item.scheduled_at || '').trim(),
+          })),
+          category: directorBaseTopic(d, d.topic) || directorCurrentNicheMeta(d)?.label || null,
+          platforms: selectedPlannerPlatforms().filter((p) => ['facebook', 'instagram'].includes(p)),
+          language: d.language || 'ru',
+          tone: d.tone || 'friendly',
+          image_enabled: !!d.imageEnabled,
+          project_id: selectedProjectId() || undefined,
+        }),
+        timeoutMs: 120000,
+      });
+      const created = Number(out?.created || 0);
+      const reused = Number(out?.reused || 0);
+      state.notice = { type: 'ok', text: reused ? `Запланировано: ${created}. Уже существовало: ${reused}.` : `Запланировано публикаций: ${created}.` };
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Не удалось запланировать публикации.' };
     } finally {
-      d.videoWeekApplying = false;
+      setPlanValue('Scheduling', false);
+      render();
     }
   };
-  document.querySelectorAll('[data-vw-day]').forEach((btn) => {
+  const plannerApplyToDirector = document.getElementById('plannerApplyToDirector');
+  if (plannerApplyToDirector) plannerApplyToDirector.onclick = async () => {
+    setPlanValue('Applying', true);
+    try {
+      d.contentType = cfg.kind;
+      try { localStorage.setItem(CREATE_DIRECTOR_TYPE_KEY, cfg.kind); } catch {}
+      history.pushState({}, '', `/create?type=${cfg.kind}`);
+      await render();
+    } finally {
+      setPlanValue('Applying', false);
+    }
+  };
+  document.querySelectorAll('[data-planner-day]').forEach((btn) => {
     btn.onclick = () => {
-      d.videoWeekSelectedDate = String(btn.getAttribute('data-vw-day') || '').trim();
+      setPlanValue('SelectedDate', String(btn.getAttribute('data-planner-day') || '').trim());
       render();
     };
   });
-
   return true;
 }
 
+async function bindCreateVideoWeek(path) {
+  return ['/create/video-week', '/create/video-month'].includes(path) ? bindCreatePlanner(path) : false;
+}
+
 async function bindCreatePostWeek(path) {
-  if (path !== '/create/post-week') return false;
-  const d = state.createDirector;
-  if (!d.topic && getEffectiveSelectedTopic('')) d.topic = getEffectiveSelectedTopic('');
-  if (!Number.isFinite(Number(d.postWeekPostsPerDay)) || Number(d.postWeekPostsPerDay) < 1) d.postWeekPostsPerDay = 1;
-  if (!['ai', 'manual'].includes(String(d.postWeekTimeMode || ''))) d.postWeekTimeMode = 'ai';
-  if (!String(d.postWeekManualTime || '').trim()) d.postWeekManualTime = '12:00';
-
-  const getBestTimes = async () => {
-    const platform = String(d.activePlatform || 'instagram').toLowerCase();
-    const out = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(platform)}&horizon_days=7&posts_per_day=${Math.max(1, Math.min(6, Number(d.postWeekPostsPerDay || 1)))}`);
-    d.bestSlots = out || null;
-    return out || null;
-  };
-  const buildManualSlots = (count) => {
-    const slots = [];
-    const raw = String(d.postWeekManualTime || '12:00');
-    const hh = Math.max(0, Math.min(23, Number(raw.split(':')[0] || 12)));
-    const mm = Math.max(0, Math.min(59, Number(raw.split(':')[1] || 0)));
-    const perDay = Math.max(1, Math.min(6, Number(d.postWeekPostsPerDay || 1)));
-    const now = new Date();
-    for (let day = 0; day < 7; day += 1) {
-      for (let i = 0; i < perDay; i += 1) {
-        const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, hh, mm, 0, 0);
-        dt.setHours(Math.min(23, hh + (i * 2)));
-        slots.push(dt.toISOString());
-      }
-    }
-    return slots.slice(0, count);
-  };
-  const buildPostWeekPlan = async () => {
-    const topic = String(document.getElementById('pwTopic')?.value || d.manualTopicInput || d.appliedManualTopic || d.selectedSuggestedTopic || d.topic || '').trim();
-    if (!topic) throw new Error('Укажите тему.');
-    d.topic = topic;
-    d.postWeekLoading = true;
-    render();
-    try {
-      const postsPerDay = Math.max(1, Math.min(6, Number(document.getElementById('pwPostsPerDay')?.value || d.postWeekPostsPerDay || 1)));
-      d.postWeekPostsPerDay = postsPerDay;
-      const total = 7 * postsPerDay;
-
-      let nextSlots = [];
-      if (String(d.postWeekTimeMode || 'ai') === 'ai') {
-        const best = d.bestSlots || await getBestTimes();
-        const aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
-          .map((h) => Math.max(0, Math.min(23, Number(h))))
-          .filter((h) => Number.isFinite(h));
-        const seedHours = aiHours.length ? aiHours : [12, 19];
-        const hhmm = String(d.postWeekManualTime || '12:00');
-        const manualHour = Math.max(0, Math.min(23, Number(hhmm.split(':')[0] || 12)));
-        const now = new Date();
-        for (let day = 0; day < 7; day += 1) {
-          const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
-          for (let i = 0; i < postsPerDay; i += 1) {
-            const hour = seedHours[i] ?? Math.min(23, manualHour + (i * 2));
-            const dt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour, 0, 0, 0);
-            nextSlots.push(dt.toISOString());
-          }
-        }
-        nextSlots = nextSlots.slice(0, total);
-      }
-      if (nextSlots.length < total) {
-        const fallback = buildManualSlots(total);
-        nextSlots = [...nextSlots, ...fallback].slice(0, total);
-      }
-
-      const normalizeKey = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
-      const pushUnique = (arr, val) => {
-        const text = String(val || '').trim();
-        const key = normalizeKey(text);
-        if (!text || !key) return;
-        if (!arr.__seen) arr.__seen = new Set();
-        if (arr.__seen.has(key)) return;
-        arr.__seen.add(key);
-        arr.push(text);
-      };
-      const topicsPool = [];
-      const anglesPool = [];
-      const ctaPool = [];
-      const hashtagSetsPool = [];
-      for (const seed of [0, 101, 202, 303, 404]) {
-        try {
-          const out = await api('/api/ai/director/suggest', {
-            method: 'POST',
-            body: JSON.stringify({
-              topic,
-              niche_id: directorCurrentNicheId(d),
-              niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
-              niche_context: directorNicheAiContext(d),
-              offer: String(d.offer || '').trim() || null,
-              goal: d.goal || 'engagement',
-              language: d.language || 'ru',
-              tone: d.tone || 'friendly',
-              platforms: ['facebook', 'instagram'],
-              content_type: 'post',
-              variation_seed: seed,
-            }),
-            timeoutMs: 120000,
-          });
-          const s = out?.data || {};
-          (Array.isArray(s.topics) ? s.topics : []).forEach((x) => pushUnique(topicsPool, x));
-          (Array.isArray(s.angles) ? s.angles : []).forEach((x) => pushUnique(anglesPool, x));
-          (Array.isArray(s.cta_options) ? s.cta_options : []).forEach((x) => pushUnique(ctaPool, x));
-          if (Array.isArray(s.hashtag_sets)) {
-            s.hashtag_sets.forEach((set) => {
-              const hs = (Array.isArray(set) ? set : []).map((x) => String(x || '').trim()).filter(Boolean).join(' ');
-              if (hs) pushUnique(hashtagSetsPool, hs);
-            });
-          }
-        } catch {}
-      }
-      const makeSeries = (pool, count, fallbacks) => {
-        const src = (Array.isArray(pool) ? pool : []).map((x) => String(x || '').trim()).filter(Boolean);
-        const out = [];
-        const local = new Set();
-        const add = (value) => {
-          const text = String(value || '').trim();
-          const key = normalizeKey(text);
-          if (!text || !key || local.has(key)) return false;
-          local.add(key);
-          out.push(text);
-          return true;
-        };
-        src.forEach((x) => add(x));
-        let idx = 0;
-        while (out.length < count) {
-          const base = src.length ? src[idx % src.length] : topic;
-          const suffix = String((Array.isArray(fallbacks) ? fallbacks : [])[idx % Math.max(1, (fallbacks || []).length)] || `план ${idx + 1}`);
-          add(`${base}: ${suffix}`);
-          idx += 1;
-          if (idx > count * 5) break;
-        }
-        return out.slice(0, count);
-      };
-      const topicFallbacks = [
-        'контент-план на неделю',
-        'ошибка и как исправить',
-        'кейс с результатом',
-        'чек-лист запуска',
-        'пошаговый алгоритм',
-        'как увеличить охват',
-        'что публиковать каждый день',
-        'как усилить отклик аудитории',
-        'как сократить время на SMM',
-        'план на месяц вперед',
-      ];
-      const angleFallbacks = [
-        'через конкретные шаги',
-        'через разбор частых ошибок',
-        'через пример из практики',
-        'через план и контрольные точки',
-      ];
-      const topics = makeSeries(topicsPool.length ? topicsPool : [topic], total, topicFallbacks);
-      const angles = makeSeries(anglesPool.length ? anglesPool : ['Практические шаги и результат'], total, angleFallbacks);
-      const ctaFallbacks = [
-        'Сохраните и напишите «ПЛАН», пришлю шаблон.',
-        'Напишите «ЧЕК-ЛИСТ» в комментариях — отправлю структуру.',
-        'Сохраните пост и внедрите один шаг уже сегодня.',
-        'Ответьте «ХОЧУ ПЛАН» — соберу дорожную карту под вашу нишу.',
-        'Поделитесь с коллегой и начните внедрение по пунктам.',
-      ];
-      const ctaSeries = makeSeries(ctaPool.length ? ctaPool : [d.selectedCta || ctaFallbacks[0]], total, ctaFallbacks);
-      const hashtagsPool = hashtagSetsPool.length
-        ? hashtagSetsPool.map((s) => String(s || '').trim()).filter(Boolean)
-        : [
-          '#контент #маркетинг #smm #автопостинг #стратегия',
-          '#соцсети #smmпродвижение #контентплан #рост #аудитория',
-          '#маркетингвсоцсетях #бренд #digital #вовлечение #лиды',
-          '#контентмаркетинг #smmсоветы #автоматизация #продвижение #результат',
-        ];
-      const hashtagSeries = makeSeries(hashtagsPool, total, hashtagsPool);
-      const selectedPlatforms = Object.entries(d.platforms || {})
-        .filter(([, on]) => !!on)
-        .map(([name]) => String(name || '').toLowerCase())
-        .filter((x) => ['facebook', 'instagram', 'youtube'].includes(x));
-      const effectivePlatforms = selectedPlatforms.length ? selectedPlatforms : ['facebook', 'instagram'];
-      const platformCaptionLimit = (() => {
-        const limits = { instagram: 2200, facebook: 5000, youtube: 5000 };
-        let minLimit = Number.POSITIVE_INFINITY;
-        effectivePlatforms.forEach((p) => {
-          const value = Number(limits[p] || 5000);
-          if (value < minLimit) minLimit = value;
-        });
-        return Number.isFinite(minLimit) ? minLimit : 2200;
-      })();
-      const capByPlatformLimit = (text) => {
-        const src = String(text || '').trim();
-        if (!src || src.length <= platformCaptionLimit) return src;
-        const trimmed = src.slice(0, platformCaptionLimit - 1);
-        const safe = trimmed.replace(/\s+\S*$/, '').trim();
-        return `${safe || trimmed}…`;
-      };
-      const usedKeys = new Set();
-      const postFrameHints = [
-        'что сделать сегодня',
-        'разбор ошибки',
-        'мини-кейс',
-        'чек-лист',
-        'вопрос аудитории',
-        'инструкция по шагам',
-        'практика без бюджета',
-      ];
-      const postFocusHints = [
-        'с акцентом на вовлечение',
-        'с акцентом на пользу',
-        'с акцентом на лиды',
-        'с акцентом на продажи',
-        'с акцентом на узнаваемость',
-      ];
-      const postEndings = [
-        'Добавьте конкретный шаг и короткий вывод.',
-        'Покажите мини-кейс и финальный результат.',
-        'Завершите пост вопросом, чтобы усилить диалог.',
-        'Сделайте акцент на пользе и следующем действии.',
-        'Дайте чек-лист из 3 пунктов в конце.',
-      ];
-      const postPatterns = [
-        ({ t, a, focus, day, ending }) => `${t}. ${a}. ${focus} на ${day}. ${ending}`,
-        ({ t, a, focus, day, ending }) => `Разберите тему «${t}»: ${a}. ${focus}. Публикация на ${day}. ${ending}`,
-        ({ t, a, focus, day, ending }) => `${t} — формат поста на ${day}. ${a}. ${focus}. ${ending}`,
-        ({ t, a, focus, day, ending }) => `${t}. Начните с проблемы, далее ${a}. ${focus} на ${day}. ${ending}`,
-      ];
-      d.postWeekItems = nextSlots.map((iso, idx) => {
-        const dt = new Date(iso);
-        const dayLabel = Number.isFinite(dt.getTime()) ? dt.toLocaleDateString('ru-RU', { weekday: 'long' }) : 'день';
-        const tBase = String(topics[idx % topics.length] || topic).trim();
-        const a = String(angles[idx % angles.length] || '').trim();
-        let t = `${tBase}: ${postFrameHints[idx % postFrameHints.length]}`;
-        let caption = postPatterns[idx % postPatterns.length]({
-          t,
-          a,
-          focus: postFocusHints[idx % postFocusHints.length],
-          day: dayLabel,
-          ending: postEndings[idx % postEndings.length],
-        });
-        let guard = 0;
-        while (usedKeys.has(`${t.toLowerCase()}|${caption.toLowerCase()}`) && guard < 6) {
-          guard += 1;
-          t = `${tBase}: ${postFrameHints[(idx + guard) % postFrameHints.length]}`;
-          caption = postPatterns[(idx + guard) % postPatterns.length]({
-            t,
-            a,
-            focus: postFocusHints[(idx + guard) % postFocusHints.length],
-            day: dayLabel,
-            ending: postEndings[(idx + guard) % postEndings.length],
-          });
-        }
-        caption = capByPlatformLimit(caption);
-        usedKeys.add(`${t.toLowerCase()}|${caption.toLowerCase()}`);
-        return {
-          index: idx + 1,
-          scheduled_at: iso,
-          topic: t,
-          caption,
-          cta: String(ctaSeries[idx % ctaSeries.length] || ctaFallbacks[0]).trim(),
-          hashtags: String(hashtagSeries[idx % hashtagSeries.length] || hashtagsPool[0]).trim(),
-          post_included: true,
-        };
-      });
-      if (d.postWeekItems[0]) {
-        d.postWeekSelectedDate = String(d.postWeekItems[0].scheduled_at || '').slice(0, 10);
-        d.selectedSuggestedTopic = d.postWeekItems[0].topic;
-        d.appliedManualTopic = '';
-        d.selectedCta = d.postWeekItems[0].cta;
-        d.selectedHashtags = parseCampaignHashtags(d.postWeekItems[0].hashtags).slice(0, 20);
-      }
-      state.notice = { type: 'ok', text: 'План 7 дней по постам сформирован.' };
-    } finally {
-      d.postWeekLoading = false;
-      render();
-    }
-  };
-
-  const pwTopic = document.getElementById('pwTopic');
-  if (pwTopic) pwTopic.oninput = () => { d.topic = String(pwTopic.value || '').trim(); };
-  const pwPosts = document.getElementById('pwPostsPerDay');
-  if (pwPosts) pwPosts.onchange = () => { d.postWeekPostsPerDay = Math.max(1, Math.min(6, Number(pwPosts.value || 1))); };
-  const pwManualTime = document.getElementById('pwManualTime');
-  if (pwManualTime) pwManualTime.onchange = () => { d.postWeekManualTime = String(pwManualTime.value || '12:00'); };
-
-  const pwTimeAi = document.getElementById('pwTimeAi');
-  if (pwTimeAi) pwTimeAi.onclick = async () => {
-    d.postWeekTimeMode = 'ai';
-    try {
-      await getBestTimes();
-      state.notice = { type: 'ok', text: 'AI подобрал лучшее время публикации.' };
-    } catch (e) {
-      state.notice = { type: 'error', text: e.message || 'Не удалось получить AI-время.' };
-    }
-    render();
-  };
-  const pwTimeManual = document.getElementById('pwTimeManual');
-  if (pwTimeManual) pwTimeManual.onclick = () => { d.postWeekTimeMode = 'manual'; render(); };
-
-  const pwGenerate = document.getElementById('pwGenerate');
-  if (pwGenerate) pwGenerate.onclick = async () => {
-    try {
-      await buildPostWeekPlan();
-    } catch (e) {
-      d.postWeekLoading = false;
-      state.notice = { type: 'error', text: e.message || 'Не удалось сформировать план.' };
-      render();
-    }
-  };
-
-  const pwApplyToDirector = document.getElementById('pwApplyToDirector');
-  if (pwApplyToDirector) pwApplyToDirector.onclick = async () => {
-    d.postWeekApplying = true;
-    try {
-      d.contentType = 'post';
-      try { localStorage.setItem(CREATE_DIRECTOR_TYPE_KEY, 'post'); } catch {}
-      history.pushState({}, '', '/create?type=post');
-      await render();
-    } finally {
-      d.postWeekApplying = false;
-    }
-  };
-  document.querySelectorAll('[data-pw-day]').forEach((btn) => {
-    btn.onclick = () => {
-      d.postWeekSelectedDate = String(btn.getAttribute('data-pw-day') || '').trim();
-      render();
-    };
-  });
-
-  return true;
+  return path === '/create/post-week' ? bindCreatePlanner(path) : false;
 }
 
 async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   bindCommon();
-  const weekVideoBound = await bindCreateVideoWeek(path);
-  const weekPostBound = weekVideoBound ? false : await bindCreatePostWeek(path);
-  const weekBound = weekVideoBound || weekPostBound;
-  const directorBound = weekBound ? true : await bindCreateDirector(path);
+  const plannerBound = await bindCreatePlanner(path);
+  const directorBound = plannerBound ? true : await bindCreateDirector(path);
   if (!directorBound) await bindCreateWizardV2(path);
   const blogBackBtn = document.getElementById('blogBackBtn');
   if (blogBackBtn) {
@@ -8595,7 +9118,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       render();
     } catch (e) {
       const raw = String(e.message || 'Ошибка авторизации');
-      let text = 'Не удалось выполнить вход. Проверьте email и пароль.';
+
       if (raw.toLowerCase().includes('существует') || raw.toLowerCase().includes('already')) {
         text = 'Этот email уже зарегистрирован. Войдите в аккаунт.';
       } else if (raw.toLowerCase().includes('не короче') || raw.toLowerCase().includes('short')) {
@@ -8745,6 +9268,28 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       scheduleAnalyzeRender();
     };
   });
+  const wizardPlatformFacebook = document.getElementById('wizardPlatformFacebook');
+  if (wizardPlatformFacebook) wizardPlatformFacebook.onchange = () => {
+    ensureAiWizardState();
+    const next = {
+      ...(state.aiWizard.platforms || defaultAiWizardState().platforms),
+      facebook: !!wizardPlatformFacebook.checked,
+    };
+    if (!next.facebook && !next.instagram) next.instagram = true;
+    updateWizard({ platforms: next }, 'typing');
+    render();
+  };
+  const wizardPlatformInstagram = document.getElementById('wizardPlatformInstagram');
+  if (wizardPlatformInstagram) wizardPlatformInstagram.onchange = () => {
+    ensureAiWizardState();
+    const next = {
+      ...(state.aiWizard.platforms || defaultAiWizardState().platforms),
+      instagram: !!wizardPlatformInstagram.checked,
+    };
+    if (!next.facebook && !next.instagram) next.facebook = true;
+    updateWizard({ platforms: next }, 'typing');
+    render();
+  };
   document.querySelectorAll('[data-wizard-output]').forEach((el) => {
     el.onchange = () => {
       const key = String(el.getAttribute('data-wizard-output') || '').trim();
@@ -8809,7 +9354,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       const materializeLimit = state.aiWizard.outputs?.posts10 ? 10 : 5;
       const warmup = await api('/api/content-plan/materialize', {
         method: 'POST',
-        body: JSON.stringify({ project_id: payload.project_id, days: materializeDays, limit: materializeLimit }),
+        body: JSON.stringify({ project_id: payload.project_id, days: materializeDays, limit: materializeLimit, platforms: payload.platforms }),
       });
       const created = Number(r?.result?.created_plan_items || 0);
       const existing = Number(r?.result?.existing_future_items || 0);
@@ -8843,7 +9388,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
       const warmup = await api('/api/content-plan/materialize', {
         method: 'POST',
-        body: JSON.stringify({ project_id: payload.project_id, days: 1, limit: 3 }),
+        body: JSON.stringify({ project_id: payload.project_id, days: 1, limit: 3, platforms: payload.platforms }),
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
       state.notice = { type: 'ok', text: queued > 0 ? `Поставлено в очередь на сегодня: ${queued} пост(ов).` : 'На сегодня уже есть готовые публикации. Откройте «Календарь».' };
@@ -8864,7 +9409,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       await api('/api/ai-smm-manager/start', { method: 'POST', body: JSON.stringify(payload) });
       const warmup = await api('/api/content-plan/materialize', {
         method: 'POST',
-        body: JSON.stringify({ project_id: payload.project_id, days: 7, limit: 20 }),
+        body: JSON.stringify({ project_id: payload.project_id, days: 7, limit: 20, platforms: payload.platforms }),
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
       state.notice = { type: 'ok', text: queued > 0 ? `План на неделю готов: в очередь добавлено ${queued} пост(ов).` : 'На ближайшую неделю контент уже подготовлен.' };
@@ -8910,8 +9455,8 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     state.notice = {
       type: 'ok',
       text: mode === 'video'
-        ? 'Шаг 1: выберите тему или нажмите «Подобрать 10 тем», затем сгенерируйте структуру видео.'
-        : 'Шаг 1: выберите тему или нажмите «Подобрать 10 тем», затем сгенерируйте первый пост.',
+        ? `Шаг 1: выберите тему или нажмите «Подобрать ${DIRECTOR_TOPIC_IDEA_COUNT} тем», затем сгенерируйте структуру видео.`
+        : `Шаг 1: выберите тему или нажмите «Подобрать ${DIRECTOR_TOPIC_IDEA_COUNT} тем», затем сгенерируйте первый пост.`,
     };
     nav('/create', { keepNotice: true });
   };
@@ -8945,6 +9490,52 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       nicheId,
       actionType,
     };
+    if (actionType === 'weekly_plan' || actionType === 'monthly_plan') {
+      const isMonthPlan = actionType === 'monthly_plan';
+      state.createDirector = {
+        ...state.createDirector,
+        contentType: 'post',
+        quickActionType: '',
+        quickActionNicheId: '',
+        quickActionSeed: 0,
+        quickActionPreviewOnly: false,
+        topicPreset: nicheId,
+        customTopicMode: false,
+        topic: '',
+        manualTopicInput: '',
+        appliedManualTopic: '',
+        selectedSuggestedTopic: '',
+        ...(isMonthPlan
+          ? { postMonthItems: [], postMonthSelectedDate: '' }
+          : { postWeekItems: [], postWeekSelectedDate: '' }),
+      };
+      state.notice = { type: 'ok', text: isMonthPlan ? 'Открыт контент-план постов на 30 дней по выбранной нише.' : 'Открыт контент-план постов на 7 дней по выбранной нише.' };
+      nav(plannerUrl('post', isMonthPlan ? 30 : 7), { keepNotice: true });
+      return;
+    }
+    if (actionType === 'video_week_plan' || actionType === 'video_month_plan') {
+      const isMonthPlan = actionType === 'video_month_plan';
+      state.createDirector = {
+        ...state.createDirector,
+        contentType: 'video',
+        quickActionType: '',
+        quickActionNicheId: '',
+        quickActionSeed: 0,
+        quickActionPreviewOnly: false,
+        topicPreset: nicheId,
+        customTopicMode: false,
+        topic: '',
+        manualTopicInput: '',
+        appliedManualTopic: '',
+        selectedSuggestedTopic: '',
+        ...(isMonthPlan
+          ? { videoMonthItems: [], videoMonthSelectedDate: '' }
+          : { videoWeekItems: [], videoWeekSelectedDate: '' }),
+      };
+      state.notice = { type: 'ok', text: isMonthPlan ? 'Открыт видеоплан на 30 дней по выбранной нише.' : 'Открыт видеоплан на 7 дней по выбранной нише.' };
+      nav(plannerUrl('video', isMonthPlan ? 30 : 7), { keepNotice: true });
+      return;
+    }
     state.createDirector = {
       ...state.createDirector,
       contentType: nextType,
@@ -9697,7 +10288,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       if (action === 'test') {
         const r = await api(`/api/connections/${id}/test-publish`, { method: 'POST', body: '{}' });
         state.connections = await api('/api/connections');
-        const mode = (r && r.mode) ? String(r.mode) : '';
+
         const postId = (r && r.post_id) ? String(r.post_id) : '';
         const text = postId
           ? `Тестовая публикация отправлена (${mode || 'real'}). Post ID: ${postId}`
@@ -9828,7 +10419,19 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     render();
     try {
       const post = await api(`/api/posts/${id}`);
-      state.postEditor = { open: true, saving: false, post, error: '', loading: false };
+      const relatedPosts = (Array.isArray(state.posts) ? state.posts : []).filter((row) => {
+        if (!row || Number(row.id) === Number(post.id)) return false;
+        if (String(row.topic || '').trim() !== String(post.topic || '').trim()) return false;
+        if (String(row.schedule_at || '').trim() !== String(post.schedule_at || '').trim()) return false;
+        const status = String(row.status || '').toLowerCase();
+        if (status === 'deleted') return false;
+        return ['facebook', 'instagram'].includes(String(row.platform || '').toLowerCase());
+      });
+      const platforms = {
+        facebook: String(post.platform || '').toLowerCase() === 'facebook' || relatedPosts.some((row) => String(row.platform || '').toLowerCase() === 'facebook'),
+        instagram: String(post.platform || '').toLowerCase() === 'instagram' || relatedPosts.some((row) => String(row.platform || '').toLowerCase() === 'instagram'),
+      };
+      state.postEditor = { open: true, saving: false, post, error: '', loading: false, platforms, relatedPostIds: relatedPosts.map((row) => Number(row.id)).filter(Boolean) };
       render();
     } catch (e) {
       state.postEditor = { open: true, saving: false, post: null, error: e.message || 'Не удалось загрузить пост.', loading: false };
@@ -9861,10 +10464,20 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       render();
       return;
     }
+    const selectedPlatforms = [
+      document.getElementById('editPlatformFacebook')?.checked ? 'facebook' : null,
+      document.getElementById('editPlatformInstagram')?.checked ? 'instagram' : null,
+    ].filter(Boolean);
+    if (!selectedPlatforms.length) {
+      state.postEditor = { ...state.postEditor, error: 'Выберите хотя бы одну платформу.' };
+      render();
+      return;
+    }
     const payload = {
       topic,
       generated_text: (document.getElementById('editText')?.value || '').trim(),
-      platform: (document.getElementById('editPlatform')?.value || 'instagram').trim(),
+      platforms: selectedPlatforms,
+      related_post_ids: Array.isArray(state.postEditor?.relatedPostIds) ? state.postEditor.relatedPostIds : [],
       media_url: (document.getElementById('editMedia')?.value || '').trim(),
       schedule_at: null,
     };
@@ -10208,6 +10821,17 @@ async function render() {
   const currentRender = ++renderVersion;
   let path = location.pathname.replace(/\/$/, '') || '/';
   const query = new URLSearchParams(location.search);
+  const clearResolvedLoadNotice = () => {
+    const text = String(state.notice?.text || '').trim();
+    if (!text) return;
+    if (
+      text.includes('Ошибка сервера (500). Повторите позже.') ||
+      text.includes('Не удалось загрузить данные страницы. Попробуйте еще раз.') ||
+      text.includes('Ошибка доступа к данным страницы. Обновите страницу.')
+    ) {
+      state.notice = null;
+    }
+  };
   if (path === '/') { history.replaceState({}, '', state.token ? '/dashboard' : '/login'); path = location.pathname.replace(/\/$/, '') || '/'; }
   if (path === '/login') {
     if (!state.authProviders) await loadAuthProviders();
@@ -10314,6 +10938,7 @@ async function render() {
     if (isAuthRoute(path)) {
       await loadBase();
       await preload(path);
+      clearResolvedLoadNotice();
     } else if (path === '/blog') {
       await preload(path);
     }
@@ -10360,6 +10985,10 @@ document.addEventListener('click', (e) => {
 });
 loadAiWizardDraft();
 render();
+
+
+
+
 
 
 
