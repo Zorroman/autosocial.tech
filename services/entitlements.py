@@ -352,7 +352,7 @@ def authorizeAction(user: AppUser, action: str, context: dict[str, Any] | None =
         }
 
     if action in {ACTION_SCHEDULE_CREATE, ACTION_POST_PUBLISH, ACTION_VIDEO_PUBLISH} and not limits.get("autopost_enabled", False):
-        required = PLAN_STARTER
+        required = PLAN_GROWTH
         return {
             "allowed": False,
             "http_status": 403,
@@ -362,7 +362,7 @@ def authorizeAction(user: AppUser, action: str, context: dict[str, Any] | None =
                 required_plan=required,
                 current_plan=current_plan,
                 period_end=period_end,
-                message="Автопостинг доступен на платных тарифах.",
+                message="Автопостинг доступен на тарифе Growth (€79) и выше.",
             ),
         }
 

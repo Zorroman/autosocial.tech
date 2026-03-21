@@ -1094,11 +1094,11 @@ function getQuickActionAccess(actionType, billing) {
   const plan = normalizePublicPlan(billing?.plan || 'free');
   const freeModes = {
     weekly_plan: { mode: 'full', limit: 7 },
-    monthly_plan: { mode: 'preview', limit: 7 },
-    video_week_plan: { mode: 'full', limit: 7 },
-    video_month_plan: { mode: 'preview', limit: 7 },
+    monthly_plan: { mode: 'locked', limit: 0 },
+    video_week_plan: { mode: 'locked', limit: 0 },
+    video_month_plan: { mode: 'locked', limit: 0 },
     post_series: { mode: 'preview', limit: 5 },
-    video_series: { mode: 'preview', limit: 3 },
+    video_series: { mode: 'locked', limit: 0 },
     hooks_pack: { mode: 'full', limit: 8 },
     cta_pack: { mode: 'full', limit: 6 },
   };
@@ -1131,6 +1131,28 @@ function getQuickActionAccess(actionType, billing) {
     plan,
     isPreview: access.mode === 'preview',
     isLocked: access.mode === 'locked',
+  };
+}
+function currentPlannerBillingPlan() {
+  return normalizePublicPlan(state.billing?.plan || state.user?.plan || 'free');
+}
+function showPaywall(message) {
+  state.notice = { type: 'error', text: String(message || '').trim() || '\u0424\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u043f\u043b\u0430\u0442\u043d\u043e\u043c \u0442\u0430\u0440\u0438\u0444\u0435.' };
+  nav('/billing', { keepNotice: true });
+}
+function getPlannerMonetizationAccess(kind, days, plan = currentPlannerBillingPlan()) {
+  const normalizedPlan = normalizePublicPlan(plan || 'free');
+  const canAutopublish = ['growth', 'agency', 'admin'].includes(normalizedPlan);
+  return {
+    plan: normalizedPlan,
+    canGenerate: !(normalizedPlan === 'free' && (Number(days) === 30 || String(kind || 'post') === 'video')),
+    canAutopublish,
+    generateMessage: Number(days) === 30 && normalizedPlan === 'free'
+      ? '30 \u0434\u043d\u0435\u0439 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043e\u0442 \u20ac29'
+      : (String(kind || 'post') === 'video' && normalizedPlan === 'free'
+        ? '\u0412\u0438\u0434\u0435\u043e \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 Starter'
+        : ''),
+    autopublishMessage: '\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043d\u0430 Growth (\u20ac79)',
   };
 }
 function buildQuickActionResult(actionType, nicheId, billing, seed = 0) {
@@ -5187,7 +5209,7 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
             <div class="cta-row" style="margin-top:12px;">
               <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? 'Формирую…' : `Сформировать план ${cfg.days} дней`}</button>
               ${cfg.kind === 'post'
-                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? 'Планирую…' : 'Запланировать публикации'}</button>`
+                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? '🚀 Планирую…' : '🚀 Опубликовать весь план автоматически'}</button>`
                 : ''}
               <button id="plannerApplyToDirector" class="btn btn-secondary" type="button" ${applying ? 'disabled' : ''}>${applying ? 'Применяю…' : 'Открыть в AI Контент-директор'}</button>
             </div>
@@ -8902,6 +8924,11 @@ async function bindCreatePlanner(path) {
   const plannerGenerate = document.getElementById('plannerGenerate');
   if (plannerGenerate) plannerGenerate.onclick = async () => {
     try {
+      const access = getPlannerMonetizationAccess(cfg.kind, cfg.days);
+      if (!access.canGenerate) {
+        showPaywall(access.generateMessage);
+        return;
+      }
       if (cfg.kind === 'video') await buildVideoPlanner();
       else await buildPostPlanner();
     } catch (e) {
@@ -8913,6 +8940,11 @@ async function bindCreatePlanner(path) {
   const plannerScheduleAll = document.getElementById('plannerScheduleAll');
   if (plannerScheduleAll) plannerScheduleAll.onclick = async () => {
     try {
+      const access = getPlannerMonetizationAccess(cfg.kind, cfg.days);
+      if (!access.canAutopublish) {
+        showPaywall(access.autopublishMessage);
+        return;
+      }
       const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey].filter((x) => x && x.scheduled_at && x.topic) : [];
       if (!items.length) throw new Error('Сначала сформируйте план.');
       setPlanValue('Scheduling', true);
@@ -10985,9 +11017,6 @@ document.addEventListener('click', (e) => {
 });
 loadAiWizardDraft();
 render();
-
-
-
 
 
 
