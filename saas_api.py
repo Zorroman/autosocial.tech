@@ -91,6 +91,7 @@ from saas_models import (
     TopicSuggestion,
 )
 from services.entitlements import (
+    ACTION_ANALYTICS_ADVANCED,
     ACTION_ACCOUNT_CONNECT,
     ACTION_POST_GENERATE,
     ACTION_POST_PUBLISH,
@@ -6165,6 +6166,9 @@ def dashboard_metrics_summary():
 @require_auth
 def dashboard_metrics_ai_score():
     days = int((request.args.get("days") or "30").strip() or 30)
+    pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ANALYTICS_ADVANCED, {"endpoint": "/api/dashboard/ai-score"}))
+    if pw:
+        return pw
     db = SessionLocal()
     try:
         payload = dashboard_ai_score(db, g.current_user.id, days, persist=True)
@@ -6203,6 +6207,9 @@ def dashboard_metrics_timeseries():
 @require_auth
 def dashboard_metrics_insights():
     days = int((request.args.get("days") or "30").strip() or 30)
+    pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ANALYTICS_ADVANCED, {"endpoint": "/api/dashboard/insights"}))
+    if pw:
+        return pw
     db = SessionLocal()
     try:
         return jsonify(dashboard_insights(db, g.current_user.id, days))
@@ -6252,6 +6259,9 @@ def _next_slot_datetimes(best_days: list[int], best_hours: list[int], take: int 
 @saas_api.route("/ai/best-posting-times", methods=["GET"])
 @require_auth
 def ai_best_posting_times():
+    pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ANALYTICS_ADVANCED, {"endpoint": "/api/ai/best-posting-times"}))
+    if pw:
+        return pw
     days = int((request.args.get("days") or "90").strip() or 90)
     days = max(14, min(days, 365))
     platform = str(request.args.get("platform") or "instagram").strip().lower()
@@ -7533,7 +7543,6 @@ def admin_niche_hooks():
         return jsonify([{"id": r.id, "niche": r.niche, "hook": r.hook} for r in rows])
     finally:
         db.close()
-
 
 
 

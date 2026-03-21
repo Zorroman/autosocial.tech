@@ -17,6 +17,7 @@ ACTION_VIDEO_PUBLISH = "VIDEO_PUBLISH"
 ACTION_PROJECT_CREATE = "PROJECT_CREATE"
 ACTION_ACCOUNT_CONNECT = "ACCOUNT_CONNECT"
 ACTION_SCHEDULE_CREATE = "SCHEDULE_CREATE"
+ACTION_ANALYTICS_ADVANCED = "ANALYTICS_ADVANCED"
 
 PAYWALL_LIMIT = "PAYWALL_LIMIT"
 PAYWALL_FEATURE = "PAYWALL_FEATURE"
@@ -363,6 +364,21 @@ def authorizeAction(user: AppUser, action: str, context: dict[str, Any] | None =
                 current_plan=current_plan,
                 period_end=period_end,
                 message="Автопостинг доступен на тарифе Growth (€79) и выше.",
+            ),
+        }
+
+    if action == ACTION_ANALYTICS_ADVANCED and current_plan not in {PLAN_GROWTH, PLAN_AGENCY}:
+        required = PLAN_GROWTH
+        return {
+            "allowed": False,
+            "http_status": 403,
+            "error_payload": _paywall_payload(
+                code=PAYWALL_FEATURE,
+                action=action,
+                required_plan=required,
+                current_plan=current_plan,
+                period_end=period_end,
+                message="Расширенная аналитика доступна на тарифе Growth (€79) и выше.",
             ),
         }
 

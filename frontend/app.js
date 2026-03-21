@@ -1155,6 +1155,13 @@ function getPlannerMonetizationAccess(kind, days, plan = currentPlannerBillingPl
     autopublishMessage: '\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043d\u0430 Growth (\u20ac79)',
   };
 }
+function hasAdvancedAnalyticsAccess(plan = currentPlannerBillingPlan()) {
+  const normalizedPlan = normalizePublicPlan(plan || 'free');
+  return ['growth', 'agency', 'admin'].includes(normalizedPlan);
+}
+function advancedAnalyticsLockText() {
+  return '\uD83D\uDD12 \u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043d\u0430 Growth (\u20ac79)';
+}
 function buildQuickActionResult(actionType, nicheId, billing, seed = 0) {
   const nicheMeta = dashboardQuickNicheMeta(nicheId);
   const access = getQuickActionAccess(actionType, billing);
@@ -2227,7 +2234,12 @@ function pageDashboard() {
   const aiPoints = Array.isArray(aiScore.timeseries) ? aiScore.timeseries : [];
   const insights = Array.isArray(stats.insights) ? stats.insights : [];
   const recent = Array.isArray(stats.recent) ? stats.recent : [];
-  const chartMetric = stats.chartMetric || 'reach';
+  const canAdvancedAnalytics = hasAdvancedAnalyticsAccess(billing.plan || state.user?.plan || 'free');
+  const advancedAnalyticsLocked = !!stats.advancedLocked || !canAdvancedAnalytics;
+  const advancedAnalyticsPlaceholder = advancedAnalyticsLockText();
+  const chartMetric = advancedAnalyticsLocked && (stats.chartMetric || 'reach') === 'ai_score'
+    ? 'reach'
+    : (stats.chartMetric || 'reach');
   const recentSort = stats.recentSort || 'engagement';
   const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
   const pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
@@ -2505,7 +2517,9 @@ function pageDashboard() {
   const analyticsBadge = shouldShowAnalyticsEmptyState ? 'Пока нет данных для графиков - сначала создайте и опубликуйте контент' : 'данные: Facebook + Instagram + YouTube / период: 30 дней';
   const analyticsHeroButton = shouldShowAnalyticsEmptyState
     ? '<button id="dashOpenCreateBtn" class="btn btn-primary" type="button">Начать с контента</button>'
-    : '<button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>';
+    : (advancedAnalyticsLocked
+      ? `<button class="btn btn-ghost" type="button" data-link="/billing">${advancedAnalyticsPlaceholder}</button>`
+      : '<button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>');
   const analyticsHeroKpis = shouldShowAnalyticsEmptyState
     ? `<article class="dash-kpi-card glass-card"><p>Следующий шаг</p><strong>Создать</strong><small>${esc(nextBestStep)}</small></article>
        <article class="dash-kpi-card glass-card"><p>Каналы</p><strong>${hasConnectedChannels ? 'Есть' : 'Пока нет'}</strong><small>${hasConnectedChannels ? 'Можно публиковать и синхронизировать.' : 'Сначала можно работать без подключений.'}</small></article>
@@ -2532,11 +2546,16 @@ function pageDashboard() {
                    <span>Лучший следующий шаг</span>
 
                  </div>`
-              : `<div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
-                 <div class="dash-hero-score-meta">
-                   <span>AI-Score / 100</span>
+              : (advancedAnalyticsLocked
+                ? `<div class="dash-hero-score">🔒</div>
+                   <div class="dash-hero-score-meta">
+                     <span>${advancedAnalyticsPlaceholder}</span>
+                   </div>`
+                : `<div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
+                   <div class="dash-hero-score-meta">
+                     <span>AI-Score / 100</span>
 
-                 </div>`}
+                   </div>`)}
           </div>
           <div class="dash-hero-badge">${analyticsBadge}</div>
           ${analyticsHeroButton}
@@ -2615,7 +2634,7 @@ function pageDashboard() {
               <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">Охват аудитории</button>
               <button type="button" data-dash-metric="views" class="${chartMetric === 'views' ? 'active' : ''}">Просмотры</button>
               <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">Вовлечённость</button>
-              <button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>
+              ${advancedAnalyticsLocked ? '' : `<button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>`}
             </div>
           </div>
           ${mainChartHtml}
@@ -2641,19 +2660,29 @@ function pageDashboard() {
             <div><strong>+30% частоты</strong><p class="small">${Number(forecast?.scenarios?.plus30?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.plus30?.reach || 0)}</p></div>
           </div>
         </section>`}
-        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card dash-ai-card glass-card">
-          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div>
-              <h3>AI-инсайты</h3>
-              <p class="small">Лучшие точки роста на основе фактических метрик.</p>
-            </div>
-            <div class="cta-row">
-              <button id="dashApplyRecommendationsBtn" class="btn btn-secondary">Применить рекомендации</button>
-              <button id="dashOpenCalendarBtn" class="btn btn-ghost">Открыть календарь</button>
-            </div>
-          </div>
-          <div class="dash-insights-grid">${stats.loading ? skeletonCards : insightCards}</div>
-        </section>`}
+        ${shouldShowAnalyticsEmptyState ? '' : (advancedAnalyticsLocked
+          ? `<section class="dash-card dash-ai-card glass-card">
+              <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <h3>AI-инсайты</h3>
+                  <p class="small">${advancedAnalyticsPlaceholder}</p>
+                </div>
+                <button class="btn btn-ghost" type="button" data-link="/billing">Открыть Growth</button>
+              </div>
+            </section>`
+          : `<section class="dash-card dash-ai-card glass-card">
+              <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <h3>AI-инсайты</h3>
+                  <p class="small">Лучшие точки роста на основе фактических метрик.</p>
+                </div>
+                <div class="cta-row">
+                  <button id="dashApplyRecommendationsBtn" class="btn btn-secondary">Применить рекомендации</button>
+                  <button id="dashOpenCalendarBtn" class="btn btn-ghost">Открыть календарь</button>
+                </div>
+              </div>
+              <div class="dash-insights-grid">${stats.loading ? skeletonCards : insightCards}</div>
+            </section>`)}
         ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <h3>Опубликованные посты</h3>
@@ -2680,7 +2709,7 @@ function pageDashboard() {
           </div>
         </section>`}
       </main>
-      ${stats.aiBreakdownOpen ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
+      ${(stats.aiBreakdownOpen && !advancedAnalyticsLocked) ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
         <div class="dash-modal glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;">
             <h3 style="margin:0;">Из чего складывается AI-Score</h3>
@@ -4402,6 +4431,7 @@ function pageCreateDirector() {
     </tbody></table></div>`
     : '<p class="small">План пока не сформирован.</p>';
   const bestSlots = d.bestSlots || null;
+  const bestTimesLocked = !!bestSlots?.locked || !hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free');
   const bestDaysText = Array.isArray(bestSlots?.best_days) ? bestSlots.best_days.map((x) => x.label).join(', ') : '';
   const bestHoursText = Array.isArray(bestSlots?.best_hours) ? bestSlots.best_hours.map((h) => `${h}:00`).join(', ') : '';
   const nextSlotPills = Array.isArray(bestSlots?.next_slots)
@@ -4680,8 +4710,14 @@ function pageCreateDirector() {
           <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Формирую…' : 'Сформировать план'}</button>
           <button id="cdBestTimes" type="button" class="btn btn-ghost">Лучшие дни/часы</button>
         </div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+        ${bestTimesLocked
+          ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
+          : ((bestDaysText || bestHoursText)
+            ? `<p class="small muted" style="margin-top:8px;">${[
+                bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
+                bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
+              ].filter(Boolean).join(' · ')}</p>`
+            : '')}
         ${planRows}
       </article>
     </article>
@@ -5095,9 +5131,15 @@ function pageCreateDirector() {
         <button id="cdMiniMonth" type="button" class="btn ${d.planHorizon === 'month' ? 'btn-secondary' : 'btn-ghost'}">30 дней</button>
         <button id="cdMiniBest" type="button" class="btn btn-ghost">AI время</button>
       </div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+      ${bestTimesLocked
+        ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
+        : ((bestDaysText || bestHoursText)
+          ? `<p class="small muted" style="margin-top:8px;">${[
+              bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
+              bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
+            ].filter(Boolean).join(' · ')}</p>`
+          : '')}
       ${nextSlotPills ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px;">${nextSlotPills}</div>` : ''}
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
     </article>
   `;
   const mainColCards = prioritizeDirectorCard
@@ -5132,6 +5174,7 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
   const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
   const plannerConfig = getPlannerRenderConfig(cfg.kind, d);
   const bestSlots = d.bestSlots || null;
+  const bestTimesLocked = !!bestSlots?.locked || !hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free');
   const bestDaysText = Array.isArray(bestSlots?.best_days) ? bestSlots.best_days.map((x) => x.label).join(', ') : '';
   const bestHoursText = Array.isArray(bestSlots?.best_hours) ? bestSlots.best_hours.map((h) => `${h}:00`).join(', ') : '';
   const weeklyRecoText = Array.isArray(bestSlots?.weekly_plan)
@@ -5198,14 +5241,16 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
               <button id="plannerTimeManual" type="button" class="btn ${timeModeValue === 'manual' ? 'btn-primary' : 'btn-ghost'}">Вручную</button>
               ${timeModeValue === 'manual' ? field('plannerManualTime', 'Часы', 'time', manualTimeValue) : ''}
             </div>
-            ${weeklyRecoText
+            ${bestTimesLocked
+              ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
+              : (weeklyRecoText
               ? `<p class="small muted" style="margin-top:8px;">Рекомендованный недельный план: ${esc(weeklyRecoText)}</p>`
               : ((bestDaysText || bestHoursText)
                 ? `<p class="small muted" style="margin-top:8px;">${[
                     bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
                     bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
                   ].filter(Boolean).join(' · ')}</p>`
-                : '')}
+                : ''))}
             <div class="cta-row" style="margin-top:12px;">
               <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? 'Формирую…' : `Сформировать план ${cfg.days} дней`}</button>
               ${cfg.kind === 'post'
@@ -5659,12 +5704,17 @@ async function loadDashboardMetrics(days = 30) {
       return fallback;
     }
   };
+  const canAdvancedAnalytics = hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free');
   const forecastHorizon = Number(state.dashboardMetrics?.forecastHorizon || 7) >= 30 ? 30 : 7;
   const [summary, timeseries, aiScore, insights, recent] = await Promise.all([
     safe(`/api/dashboard/summary?days=${Number(days) || 30}`, null),
     safe(`/api/dashboard/timeseries?days=${Number(days) || 30}`, { points: [] }),
-    safe(`/api/dashboard/ai-score?days=${Number(days) || 30}`, { current: 0, delta_7d: 0, breakdown: null, timeseries: [] }),
-    safe(`/api/dashboard/insights?days=${Number(days) || 30}`, { insights: [] }),
+    canAdvancedAnalytics
+      ? safe(`/api/dashboard/ai-score?days=${Number(days) || 30}`, { current: 0, delta_7d: 0, breakdown: null, timeseries: [] })
+      : Promise.resolve({ current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [], locked: true }),
+    canAdvancedAnalytics
+      ? safe(`/api/dashboard/insights?days=${Number(days) || 30}`, { insights: [] })
+      : Promise.resolve({ insights: [], locked: true }),
     safe('/api/dashboard/recent?limit=20', { items: [] }),
   ]);
   const forecast = await safe(`/api/dashboard/forecast?horizon=${forecastHorizon}&days=90`, { horizon_days: forecastHorizon, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } });
@@ -5672,9 +5722,10 @@ async function loadDashboardMetrics(days = 30) {
     ...(state.dashboardMetrics || {}),
     summary: summary || null,
     timeseries: timeseries || { points: [] },
-    aiScore: aiScore || { current: 0, delta_7d: 0, breakdown: null, timeseries: [] },
+    aiScore: aiScore || { current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [] },
     forecast: forecast || { horizon_days: forecastHorizon, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, points: [], scenarios: { current: {}, plus30: {} } },
     insights: (insights && insights.insights) || [],
+    advancedLocked: !canAdvancedAnalytics,
     recent: (recent && recent.items) || [],
     chartMetric: state.dashboardMetrics?.chartMetric || 'reach',
     recentSort: state.dashboardMetrics?.recentSort || 'engagement',
@@ -7126,11 +7177,17 @@ async function bindCreateDirector(path) {
     }
   };
   const loadBestTimes = async () => {
+    if (!hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free')) {
+      d.bestSlots = { locked: true };
+      showPaywall(advancedAnalyticsLockText());
+      return null;
+    }
     const platform = String(d.activePlatform || 'instagram').toLowerCase();
     const out = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(platform)}`);
     d.bestSlots = out || null;
     const first = Array.isArray(out?.next_slots) ? out.next_slots[0] : null;
     if (first) d.scheduleAt = toLocalInputValue(first);
+    return out;
   };
   const buildLocalDraftFallback = (topic, angle, platforms) => {
     const list = Array.isArray(platforms) && platforms.length ? platforms : ['facebook'];
@@ -7528,8 +7585,12 @@ async function bindCreateDirector(path) {
     try {
       const planCount = isMonthlyPlanQuickAction() ? 30 : 7;
       await advanceStep(0, 120);
-      const bestOut = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(String(base.platforms[0] || 'instagram').toLowerCase())}&horizon_days=${planCount}&posts_per_day=1`);
-      d.bestSlots = bestOut || null;
+      if (hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free')) {
+        const bestOut = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(String(base.platforms[0] || 'instagram').toLowerCase())}&horizon_days=${planCount}&posts_per_day=1`);
+        d.bestSlots = bestOut || null;
+      } else {
+        d.bestSlots = { locked: true };
+      }
       await advanceStep(1, 120);
       const suggestData = await fetchPlanAiSuggestions(planCount);
       d.topicPool = suggestData.topics.slice(0, DIRECTOR_TOPIC_IDEA_COUNT);
@@ -8742,11 +8803,15 @@ async function bindCreatePlanner(path) {
         const preferredPlatform = cfg.kind === 'video'
           ? (d.platforms?.youtube ? 'youtube' : (d.platforms?.instagram ? 'instagram' : 'facebook'))
           : (d.platforms?.instagram && !d.platforms?.facebook ? 'instagram' : 'facebook');
-
-        d.bestSlots = best || null;
-        aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
-          .map((h) => Math.max(0, Math.min(23, Number(h))))
-          .filter((h) => Number.isFinite(h));
+        if (hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free')) {
+          const best = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(String(preferredPlatform || 'instagram').toLowerCase())}&horizon_days=${cfg.days}&posts_per_day=${postsPerDay}`);
+          d.bestSlots = best || null;
+          aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
+            .map((h) => Math.max(0, Math.min(23, Number(h))))
+            .filter((h) => Number.isFinite(h));
+        } else {
+          d.bestSlots = { locked: true };
+        }
       } catch {}
     }
     const raw = String(getPlanValue('ManualTime', '12:00') || '12:00');
