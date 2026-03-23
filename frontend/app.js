@@ -1,4 +1,4 @@
-
+﻿
 // API base:
 // - local override: localStorage.apiBase
 // - localhost dev:  http://127.0.0.1:5000
@@ -407,6 +407,2366 @@ function loginText(key) {
   if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
   return LOGIN_I18N.en[key] || key;
 }
+const APP_SHELL_I18N = {
+  ru: {
+    language_label: 'Язык',
+    nav_admin: 'Админ', nav_dashboard: 'Панель', nav_create: 'Создать', nav_calendar: 'Календарь', nav_connections: 'Подключения', nav_history: 'История', nav_settings: 'Настройки бренда', nav_billing: 'Биллинг', nav_support: 'Поддержка', nav_logout: 'Выйти',
+    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.', footer_right: 'Stripe защищенные платежи · SSL защищено · GDPR совместимо',
+    theme_light: 'Светлая тема', theme_dark: 'Тёмная тема',
+    plan_free: 'Бесплатный trial 7 дней', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Админ без лимитов',
+    create_hub_label: 'Центр создания',
+    create_hub_title: 'Что создаём сегодня?',
+    create_hub_lead: 'Разделили создание постов, видео и планов на отдельные студии, чтобы экран оставался лёгким, понятным и профессиональным.',
+    create_hub_plan_prefix: 'Тариф',
+    create_hub_youtube_hint: 'Студия YouTube остаётся отдельным быстрым режимом для Shorts и длинных видео.',
+    create_hub_post_title: 'Студия постов',
+    create_hub_post_subtitle: 'Один пост, серия постов или быстрый рабочий черновик для соцсетей.',
+    create_hub_post_cta: 'Открыть студию постов',
+    create_hub_video_title: 'Студия видео',
+    create_hub_video_subtitle: 'Универсальный короткий или длинный видеоконтент для Meta и YouTube.',
+    create_hub_video_cta: 'Открыть студию видео',
+    create_hub_weekly_title: 'План на 7 дней',
+    create_hub_weekly_subtitle: 'Недельный контент-план с темами, CTA и готовыми слотами.',
+    create_hub_weekly_cta: 'Создать план на 7 дней',
+    create_hub_monthly_title: 'План на 30 дней',
+    create_hub_monthly_subtitle: 'Месячная система публикаций для регулярного контент-потока.',
+    create_hub_monthly_cta: 'Создать план на 30 дней',
+    create_hub_youtube_title: 'Студия YouTube',
+    create_hub_youtube_subtitle: 'Отдельный фокусный режим для Shorts, длинных видео и YouTube-публикации.',
+    create_hub_youtube_cta: 'Открыть студию YouTube',
+    create_hub_planner_title: 'Планировщик',
+    create_hub_planner_subtitle: 'Отдельная рабочая зона для постов, видео и системного контент-планирования.',
+    create_hub_planner_cta: 'Открыть планировщик',
+    create_planner_page_title: 'Планировщик контента',
+    create_planner_label: 'Планировщик контента',
+    create_planner_title: 'Соберите систему, а не один черновик',
+    create_planner_lead: 'Планировщик — отдельная рабочая зона для 7- и 30-дневных систем. Здесь вы планируете, материализуете и отправляете контент в календарь.',
+    create_planner_open: 'Открыть',
+    create_planner_post7: 'Посты на 7 дней',
+    create_planner_post7_subtitle: 'Быстрый недельный план с готовыми темами и CTA.',
+    create_planner_post30: 'Посты на 30 дней',
+    create_planner_post30_subtitle: 'Месячный контент-план с группировкой по неделям.',
+    create_planner_video7: 'Видео на 7 дней',
+    create_planner_video7_subtitle: 'Недельный видеоплан для короткого регулярного контента.',
+    create_planner_video30: 'Видео на 30 дней',
+    create_planner_video30_subtitle: 'Месячный видеоплан для стабильной серии роликов.',
+    create_post_studio_button: 'Студия постов',
+    create_video_studio_button: 'Студия видео',
+    create_planner_button: 'Планировщик',
+    create_youtube_studio_button: 'Студия YouTube',
+    studio_post_title: 'Студия постов',
+    studio_video_title: 'Студия видео',
+    studio_post_subtitle: 'Отдельная студия для текста и публикации: тема, тон, CTA, визуал, превью и безопасное расписание в одном понятном потоке.',
+    studio_video_subtitle: 'Отдельная студия для универсального видео: тема, длительность, голос, субтитры, footage и готовый рендер без лишнего шума.',
+    youtube_studio_title: 'Студия YouTube',
+    page_dashboard: 'Панель управления',
+    page_connections: 'Подключения',
+    page_history: 'История',
+    page_calendar: 'Календарь',
+    page_billing: 'Биллинг',
+    page_support: 'Поддержка',
+    archive_title: 'Архив публикаций',
+    status_draft: 'Черновик',
+    status_done: 'Готово',
+    status_published: 'Опубликовано',
+    status_connected: 'Подключено',
+    status_connected_ready: 'Готово',
+    status_connected_need_page: 'Нужен выбор страницы',
+    status_not_connected: 'Не подключено',
+    status_token_expired: 'Требует переподключения',
+    status_permissions_missing: 'Нужны права',
+    status_disconnected: 'Отключено',
+    status_error: 'Ошибка',
+    status_running: 'В работе',
+    status_failed: 'Ошибка',
+    status_queued: 'В очереди',
+    status_scheduled: 'Запланировано',
+    status_hidden: 'Скрыт',
+    status_unknown: 'Неизвестно',
+    support_title: 'Поддержка',
+    support_lead: 'Поможем с подключением Meta, YouTube и настройкой публикаций.',
+    support_hours_label: 'Часы поддержки',
+    support_hours_value: 'Пн-Пт 09:00-18:00 UTC',
+    support_security_title: 'Безопасность',
+    support_security_payments: 'Безопасные платежи Stripe',
+    support_security_ssl: 'SSL-шифрование',
+    support_security_gdpr: 'Соответствие GDPR',
+    support_security_nohidden: 'Без скрытых платежей',
+    billing_title: 'Тарифы и биллинг',
+    billing_current_plan: 'Текущий план',
+    billing_usage_title: 'Использование',
+    billing_manage_subscription: 'Управление подпиской',
+    billing_checkout_disabled: 'Оплата временно недоступна',
+    billing_checkout_disabled_admin: 'Для администратора checkout не нужен: активен внутренний безлимитный тариф.',
+    billing_checkout_disabled_generic: 'Тарифы Starter, Growth и Agency уже участвуют в логике продукта, но их checkout пока выключен.',
+    billing_workspace_hint: 'Рабочее пространство — обычно один бренд или один клиент.',
+    billing_portal_admin_hint: 'Для admin-плана управление подпиской не требуется',
+    billing_portal_wait_hint: 'Портал подписки станет доступен после включения оплаты',
+    billing_compare_title: 'Сравнение тарифов',
+    billing_growth_note: 'Growth — основной тариф для регулярного контента, видео и автопостинга.',
+    billing_unlimited: 'без лимита',
+    billing_analytics_none: 'Нет',
+    billing_analytics_basic: 'Базовая',
+    billing_analytics_advanced: 'Расширенная',
+    connections_title: 'Подключенные аккаунты',
+    connections_lead: 'Подключите Meta и YouTube. В карточке показывается реальное лого подключённой страницы или канала.',
+    connections_connect_meta: 'Подключить Meta',
+    connections_connect_youtube: 'Подключить YouTube',
+    connections_youtube_connected: 'YouTube подключён',
+    connections_meta_subtitle: 'Подключённый бренд-аккаунт для публикации в Facebook и Instagram.',
+    connections_youtube_subtitle: 'Подключённый канал для роликов, Shorts и постов сообщества.',
+    connections_facebook_page: 'Facebook Page',
+    connections_instagram_business: 'Instagram Business',
+    connections_publication_state: 'Состояние публикации',
+    connections_sync_status: 'Статус синхронизации',
+    connections_add_page: 'Добавить страницу',
+    connections_refresh_token: 'Обновить токен',
+    connections_disconnect: 'Отключить',
+    connections_test_publication: 'Тест публикации',
+    connections_choose_page: 'Выбрать страницу',
+    connections_reconnect: 'Переподключить',
+    connections_retry: 'Повторить',
+    connections_need_action: 'Нужно действие',
+    connections_limited: 'Ограничено',
+    connections_content_pipeline: 'Контент-пайплайн',
+    connections_multiformat: 'Мультиформат',
+    connections_open_studio: 'Открыть студию',
+    connections_youtube_hint: 'Откройте YouTube Studio и выберите тему, формат и длительность.',
+    create_director_title: 'AI Контент-директор',
+    create_director_intro: 'Выберите сферу бизнеса, чтобы AI предложил релевантные идеи, формулировки и шаблоны именно под вашу нишу.',
+    create_director_content_type: 'Тип контента',
+    create_director_post: 'Пост',
+    create_director_video: 'Видео',
+    create_director_niche_required: 'Ниша *',
+    create_director_custom_niche: 'Своя ниша/тема',
+    create_director_custom_niche_placeholder: 'Например: контент-маркетинг для стоматологии',
+    create_director_selected_topic: 'Выбранная тема',
+    create_director_selected_topic_empty: '—',
+    create_director_goal: 'Цель *',
+    create_director_offer: 'Оффер (опционально)',
+    create_director_offer_placeholder: 'Например: бесплатный аудит за 15 минут',
+    create_director_language: 'Язык',
+    create_director_with_image: 'С картинкой',
+    create_director_with_image_hint: 'Если не отмечено, пост генерируется без картинки.',
+    create_director_advanced: 'Расширенные настройки',
+    create_director_generate: 'Сгенерировать контент',
+    create_director_render_video: 'Собрать видео',
+    create_director_rendering_video: 'Собираем видео…',
+    create_director_result: 'Результат',
+    create_director_result_lead: 'Сначала получите заголовки, затем выберите тему. Дальше AI сразу соберёт результат в превью.',
+    create_director_headlines: 'Заголовки',
+    create_director_headlines_lead: 'Подберите темы под выбранную нишу и используйте нужный вариант для генерации.',
+    create_director_headlines_loading: 'Подбираем заголовки…',
+    create_director_headlines_refresh: 'Обновить {count} заголовков',
+    create_director_headlines_generate: 'Сгенерировать темы',
+    create_director_use_topic: 'Использовать эту тему',
+    create_director_topic_not_selected: 'Тема пока не выбрана',
+    create_director_structure: 'Структура видео',
+    create_director_structure_loading: 'AI формирует структуру...',
+    create_director_structure_empty: 'Нажмите «Сгенерировать структуру», чтобы получить план сцен под выбранную длительность.',
+    create_director_approaches: 'Подходы',
+    create_director_approaches_lead: 'Выберите угол подачи, который лучше всего подходит для этого поста или видео.',
+    create_director_preview_wait_post: 'Сгенерируйте контент, чтобы увидеть результат.',
+    create_director_preview_wait_video: 'Сначала сгенерируйте структуру, затем соберите видео.',
+    create_plan_weekly_title: 'Контент-план на 7 дней',
+    create_plan_monthly_title: 'Контент-план на 30 дней',
+    create_plan_weekly_subtitle: 'AI подготовит 7 готовых идей для вашей ниши: темы, формат, угол подачи, CTA, хештеги и основу для публикации.',
+    create_plan_monthly_subtitle: 'AI подготовит месячный контент-план с идеями, структурой публикаций и готовыми заготовками под вашу нишу.',
+    create_plan_settings: 'Настройки плана',
+    create_plan_note: 'AI использует эти данные, чтобы подобрать релевантные темы и структуру публикаций.',
+    create_plan_generate: 'Сгенерировать план на {days} дней',
+    create_plan_generating: 'Готовим план…',
+    create_plan_regenerate: 'Перегенерировать план',
+    create_plan_progress_title: 'AI готовит ваш контент-план',
+    create_plan_progress_1: 'Анализируем нишу',
+    create_plan_progress_2: 'Подбираем темы',
+    create_plan_progress_3: 'Формируем структуру публикаций',
+    create_plan_progress_4: 'Готовим CTA и хештеги',
+    create_plan_progress_5: 'Собираем итоговый план',
+    create_plan_empty_title: 'Выберите нишу и запустите генерацию',
+    create_plan_empty_text: 'Выберите нишу и нажмите «Сгенерировать план», чтобы получить готовые идеи публикаций.',
+    create_plan_error_title: 'Не удалось создать план',
+    create_plan_error_text: 'Если ошибка повторяется, обновите страницу или измените параметры.',
+    create_plan_result: 'Результат',
+    create_plan_ready_weekly: '7 карточек с готовыми темами и CTA для вашей ниши.',
+    create_plan_ready_monthly: 'Месячный план сгруппирован по неделям, чтобы его было проще просмотреть и использовать.',
+    create_plan_save: 'Сохранить план',
+    create_plan_open_calendar: 'Открыть календарь',
+    create_plan_quick_start: 'Быстрый старт',
+    create_plan_creating: 'Вы создаёте',
+    create_plan_preview_day: 'Preview дня',
+    create_plan_quick_actions: 'Быстрые действия',
+    planner_back_to_director: 'Назад в AI Контент-директор',
+    planner_niche: 'Ниша',
+    planner_topic_focus: 'Своя тема/фокус',
+    planner_language: 'Язык',
+    planner_style: 'Стиль',
+    planner_platforms: 'Платформы',
+    planner_time: 'Время публикации',
+    planner_time_ai: 'AI время',
+    planner_time_manual: 'Вручную',
+    planner_best_days: 'Лучшие дни',
+    planner_best_hours: 'Лучшие часы',
+    planner_recommended_week: 'Рекомендованный недельный план',
+    planner_generate: 'Сформировать план {days} дней',
+    planner_generating: 'Формирую…',
+    planner_schedule_all: 'Опубликовать весь план автоматически',
+    planner_scheduling: 'Планирую…',
+    planner_open_in_director: 'Открыть в AI Контент-директор',
+    planner_applying: 'Применяю…',
+    planner_days_title: 'План по дням',
+    common_saving: 'Сохраняем…',
+    create_plan_preview_placeholder: 'Здесь появится preview выбранного дня после генерации плана.',
+    create_plan_schedule_day: 'Запланировать день',
+    dashboard_quick_start: 'Быстрый старт',
+    dashboard_what_create: 'Что хотите создать?',
+    dashboard_choose_niche_first: 'Сначала выберите нишу',
+    dashboard_choose_niche_button: 'Выбрать нишу',
+    dashboard_welcome: 'Добро пожаловать в AutoSocial',
+    dashboard_welcome_title: 'Начните с первого результата, а не с пустой аналитики',
+    dashboard_first_data: 'Первые данные появятся после публикаций',
+    dashboard_growth_30: 'Ваш рост за 30 дней',
+    dashboard_ai_insights: 'AI-инсайты',
+    dashboard_open_growth: 'Открыть Growth',
+    dashboard_published_posts: 'Опубликованные посты',
+    dashboard_sort_reach: 'Сортировка по охвату',
+    dashboard_sort_views: 'Сортировка по просмотрам',
+    dashboard_sort_engagement: 'Сортировка по вовлеченности',
+    dashboard_engagement_level: 'Уровень вовлеченности',
+    dashboard_breakdown_title: 'Из чего складывается AI-Score',
+    dashboard_no_data_sync: 'Нет данных. Нажмите «Синхронизировать».',
+    dashboard_no_insights: 'Недостаточно данных для инсайтов.',
+  },
+  en: {
+    language_label: 'Language',
+    nav_admin: 'Admin', nav_dashboard: 'Dashboard', nav_create: 'Create', nav_calendar: 'Calendar', nav_connections: 'Connections', nav_history: 'History', nav_settings: 'Brand settings', nav_billing: 'Billing', nav_support: 'Support', nav_logout: 'Log out',
+    sidebar_subtitle: 'AI SMM manager', footer_left: 'No hidden fees. Clear pricing. Limits are counted in posts.', footer_right: 'Stripe secure payments · SSL protected · GDPR compliant',
+    theme_light: 'Light theme', theme_dark: 'Dark theme',
+    plan_free: 'Free Trial 7 days', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin Unlimited',
+    create_hub_label: 'Creation Hub',
+    create_hub_title: 'What are we creating today?',
+    create_hub_lead: 'We separated posts, videos, and planning into dedicated studios so the experience stays light, clear, and professional.',
+    create_hub_plan_prefix: 'Plan',
+    create_hub_youtube_hint: 'YouTube Studio remains a separate fast flow for Shorts and long-form.',
+    create_hub_post_title: 'Post Studio',
+    create_hub_post_subtitle: 'A single post, a post series, or a fast working draft for social media.',
+    create_hub_post_cta: 'Open Post Studio',
+    create_hub_video_title: 'Video Studio',
+    create_hub_video_subtitle: 'Universal short- and long-form video content for Meta and YouTube.',
+    create_hub_video_cta: 'Open Video Studio',
+    create_hub_weekly_title: '7-Day Plan',
+    create_hub_weekly_subtitle: 'A weekly content plan with topics, CTA, and ready slots.',
+    create_hub_weekly_cta: 'Create 7-Day Plan',
+    create_hub_monthly_title: '30-Day Plan',
+    create_hub_monthly_subtitle: 'A monthly publishing system for a steady content flow.',
+    create_hub_monthly_cta: 'Create 30-Day Plan',
+    create_hub_youtube_title: 'YouTube Studio',
+    create_hub_youtube_subtitle: 'A dedicated mode for Shorts, long-form, and YouTube publishing.',
+    create_hub_youtube_cta: 'Open YouTube Studio',
+    create_hub_planner_title: 'Planner Workspace',
+    create_hub_planner_subtitle: 'A dedicated workspace for posts, video, and systematic content planning.',
+    create_hub_planner_cta: 'Open Planner',
+    create_planner_page_title: 'Content Planner',
+    create_planner_label: 'Content Planner',
+    create_planner_title: 'Build a system, not a single draft',
+    create_planner_lead: 'Planner is a dedicated workspace for 7- and 30-day systems. Here you plan, materialize, and send content into the calendar.',
+    create_planner_open: 'Open',
+    create_planner_post7: 'Posts for 7 days',
+    create_planner_post7_subtitle: 'A fast weekly plan with ready topics and CTA.',
+    create_planner_post30: 'Posts for 30 days',
+    create_planner_post30_subtitle: 'A monthly content plan grouped by weeks.',
+    create_planner_video7: 'Videos for 7 days',
+    create_planner_video7_subtitle: 'A weekly video plan for short-form recurring content.',
+    create_planner_video30: 'Videos for 30 days',
+    create_planner_video30_subtitle: 'A monthly video plan for a steady content series.',
+    create_post_studio_button: 'Post Studio',
+    create_video_studio_button: 'Video Studio',
+    create_planner_button: 'Planner',
+    create_youtube_studio_button: 'YouTube Studio',
+    studio_post_title: 'Post Studio',
+    studio_video_title: 'Video Studio',
+    studio_post_subtitle: 'A dedicated studio for text and publishing: topic, tone, CTA, visuals, preview, and safe scheduling in one clear flow.',
+    studio_video_subtitle: 'A dedicated studio for universal video: topic, duration, voice, captions, footage, and final render without extra noise.',
+    youtube_studio_title: 'YouTube Studio',
+    page_dashboard: 'Dashboard',
+    page_connections: 'Connections',
+    page_history: 'History',
+    page_calendar: 'Calendar',
+    page_billing: 'Billing',
+    page_support: 'Support',
+    archive_title: 'Publishing archive',
+    status_draft: 'Draft',
+    status_done: 'Ready',
+    status_published: 'Published',
+    status_connected: 'Connected',
+    status_connected_ready: 'Ready',
+    status_connected_need_page: 'Page selection required',
+    status_not_connected: 'Not connected',
+    status_token_expired: 'Reconnect required',
+    status_permissions_missing: 'Permissions required',
+    status_disconnected: 'Disconnected',
+    status_error: 'Error',
+    status_running: 'In progress',
+    status_failed: 'Error',
+    status_queued: 'Queued',
+    status_scheduled: 'Scheduled',
+    status_hidden: 'Hidden',
+    status_unknown: 'Unknown',
+    support_title: 'Support',
+    support_lead: 'We can help with Meta, YouTube, and publishing setup.',
+    support_hours_label: 'Support hours',
+    support_hours_value: 'Mon-Fri 09:00-18:00 UTC',
+    support_security_title: 'Security',
+    support_security_payments: 'Secure Stripe payments',
+    support_security_ssl: 'SSL encryption',
+    support_security_gdpr: 'GDPR compliance',
+    support_security_nohidden: 'No hidden charges',
+    billing_title: 'Plans and billing',
+    billing_current_plan: 'Current plan',
+    billing_usage_title: 'Usage',
+    billing_manage_subscription: 'Manage subscription',
+    billing_checkout_disabled: 'Payments are temporarily unavailable',
+    billing_checkout_disabled_admin: 'The admin account does not need checkout: the internal unlimited plan is active.',
+    billing_checkout_disabled_generic: 'Starter, Growth, and Agency are already part of the product logic, but checkout is still disabled.',
+    billing_workspace_hint: 'A workspace usually means one brand or one client.',
+    billing_portal_admin_hint: 'The admin plan does not require subscription management',
+    billing_portal_wait_hint: 'The subscription portal will become available once payments are enabled',
+    billing_compare_title: 'Plan comparison',
+    billing_growth_note: 'Growth is the core plan for recurring content, video, and autoposting.',
+    billing_unlimited: 'unlimited',
+    billing_analytics_none: 'None',
+    billing_analytics_basic: 'Basic',
+    billing_analytics_advanced: 'Advanced',
+    connections_title: 'Connected accounts',
+    connections_lead: 'Connect Meta and YouTube. Each card shows the actual logo of the connected page or channel.',
+    connections_connect_meta: 'Connect Meta',
+    connections_connect_youtube: 'Connect YouTube',
+    connections_youtube_connected: 'YouTube connected',
+    connections_meta_subtitle: 'Connected brand account for publishing to Facebook and Instagram.',
+    connections_youtube_subtitle: 'Connected channel for videos, Shorts, and community posts.',
+    connections_facebook_page: 'Facebook Page',
+    connections_instagram_business: 'Instagram Business',
+    connections_publication_state: 'Publishing state',
+    connections_sync_status: 'Sync status',
+    connections_add_page: 'Add page',
+    connections_refresh_token: 'Refresh token',
+    connections_disconnect: 'Disconnect',
+    connections_test_publication: 'Test publish',
+    connections_choose_page: 'Choose page',
+    connections_reconnect: 'Reconnect',
+    connections_retry: 'Retry',
+    connections_need_action: 'Action needed',
+    connections_limited: 'Limited',
+    connections_content_pipeline: 'Content pipeline',
+    connections_multiformat: 'Multi-format',
+    connections_open_studio: 'Open studio',
+    connections_youtube_hint: 'Open YouTube Studio and choose the topic, format, and duration.',
+    create_director_title: 'AI Content Director',
+    create_director_intro: 'Choose a business area so AI can suggest ideas, copy, and templates tailored to your niche.',
+    create_director_content_type: 'Content type',
+    create_director_post: 'Post',
+    create_director_video: 'Video',
+    create_director_niche_required: 'Niche *',
+    create_director_custom_niche: 'Custom niche/topic',
+    create_director_custom_niche_placeholder: 'For example: content marketing for a dental clinic',
+    create_director_selected_topic: 'Selected topic',
+    create_director_selected_topic_empty: '—',
+    create_director_goal: 'Goal *',
+    create_director_offer: 'Offer (optional)',
+    create_director_offer_placeholder: 'For example: free 15-minute audit',
+    create_director_language: 'Language',
+    create_director_with_image: 'Include image',
+    create_director_with_image_hint: 'If unchecked, the post will be generated without an image.',
+    create_director_advanced: 'Advanced settings',
+    create_director_generate: 'Generate content',
+    create_director_render_video: 'Render video',
+    create_director_rendering_video: 'Rendering video…',
+    create_director_result: 'Result',
+    create_director_result_lead: 'First get headlines, then choose a topic. After that AI will assemble the result directly in the preview.',
+    create_director_headlines: 'Headlines',
+    create_director_headlines_lead: 'Pick topics for the selected niche and use the right option for generation.',
+    create_director_headlines_loading: 'Preparing headlines…',
+    create_director_headlines_refresh: 'Refresh {count} headlines',
+    create_director_headlines_generate: 'Generate topics',
+    create_director_use_topic: 'Use this topic',
+    create_director_topic_not_selected: 'No topic selected yet',
+    create_director_structure: 'Video structure',
+    create_director_structure_loading: 'AI is building the structure...',
+    create_director_structure_empty: 'Click “Generate structure” to get a scene plan for the selected duration.',
+    create_director_approaches: 'Angles',
+    create_director_approaches_lead: 'Choose the angle that fits this post or video best.',
+    create_director_preview_wait_post: 'Generate content to see the result.',
+    create_director_preview_wait_video: 'Generate the structure first, then render the video.',
+    create_plan_weekly_title: '7-Day Content Plan',
+    create_plan_monthly_title: '30-Day Content Plan',
+    create_plan_weekly_subtitle: 'AI will prepare 7 ready ideas for your niche: topics, format, angle, CTA, hashtags, and the base for publishing.',
+    create_plan_monthly_subtitle: 'AI will prepare a monthly content plan with ideas, publishing structure, and ready-made drafts for your niche.',
+    create_plan_settings: 'Plan settings',
+    create_plan_note: 'AI uses this information to choose relevant topics and the publishing structure.',
+    create_plan_generate: 'Generate a {days}-day plan',
+    create_plan_generating: 'Preparing the plan…',
+    create_plan_regenerate: 'Regenerate plan',
+    create_plan_progress_title: 'AI is preparing your content plan',
+    create_plan_progress_1: 'Analyzing the niche',
+    create_plan_progress_2: 'Selecting topics',
+    create_plan_progress_3: 'Building the publishing structure',
+    create_plan_progress_4: 'Preparing CTA and hashtags',
+    create_plan_progress_5: 'Assembling the final plan',
+    create_plan_empty_title: 'Choose a niche and start generation',
+    create_plan_empty_text: 'Choose a niche and click “Generate plan” to get ready publication ideas.',
+    create_plan_error_title: 'Could not create the plan',
+    create_plan_error_text: 'If the problem repeats, refresh the page or change the parameters.',
+    create_plan_result: 'Result',
+    create_plan_ready_weekly: '7 cards with ready topics and CTA for your niche.',
+    create_plan_ready_monthly: 'The monthly plan is grouped by weeks so it is easier to review and use.',
+    create_plan_save: 'Save plan',
+    create_plan_open_calendar: 'Open calendar',
+    create_plan_quick_start: 'Quick start',
+    create_plan_creating: 'You are creating',
+    create_plan_preview_day: 'Day preview',
+    create_plan_quick_actions: 'Quick actions',
+    planner_back_to_director: 'Back to AI Content Director',
+    planner_niche: 'Niche',
+    planner_topic_focus: 'Custom topic/focus',
+    planner_language: 'Language',
+    planner_style: 'Style',
+    planner_platforms: 'Platforms',
+    planner_time: 'Publish time',
+    planner_time_ai: 'AI timing',
+    planner_time_manual: 'Manual',
+    planner_best_days: 'Best days',
+    planner_best_hours: 'Best hours',
+    planner_recommended_week: 'Recommended weekly plan',
+    planner_generate: 'Build a {days}-day plan',
+    planner_generating: 'Building…',
+    planner_schedule_all: 'Publish the whole plan automatically',
+    planner_scheduling: 'Scheduling…',
+    planner_open_in_director: 'Open in AI Content Director',
+    planner_applying: 'Applying…',
+    planner_days_title: 'Plan by day',
+    common_saving: 'Saving…',
+    create_plan_preview_placeholder: 'A preview of the selected day will appear here after plan generation.',
+    create_plan_schedule_day: 'Schedule day',
+    dashboard_quick_start: 'Quick start',
+    dashboard_what_create: 'What do you want to create?',
+    dashboard_choose_niche_first: 'Choose a niche first',
+    dashboard_choose_niche_button: 'Choose niche',
+    dashboard_welcome: 'Welcome to AutoSocial',
+    dashboard_welcome_title: 'Start with the first result, not with empty analytics',
+    dashboard_first_data: 'First data will appear after publishing',
+    dashboard_growth_30: 'Your growth over 30 days',
+    dashboard_ai_insights: 'AI insights',
+    dashboard_open_growth: 'Open Growth',
+    dashboard_published_posts: 'Published posts',
+    dashboard_sort_reach: 'Sort by reach',
+    dashboard_sort_views: 'Sort by views',
+    dashboard_sort_engagement: 'Sort by engagement',
+    dashboard_engagement_level: 'Engagement level',
+    dashboard_breakdown_title: 'How AI Score is built',
+    dashboard_no_data_sync: 'No data yet. Click “Sync”.',
+    dashboard_no_insights: 'Not enough data for insights.',
+  },
+  de: {
+    nav_admin: 'Admin', nav_dashboard: 'Übersicht', nav_create: 'Erstellen', nav_calendar: 'Kalender', nav_connections: 'Verbindungen', nav_history: 'Verlauf', nav_settings: 'Markeneinstellungen', nav_billing: 'Abrechnung', nav_support: 'Hilfe', nav_logout: 'Abmelden',
+    sidebar_subtitle: 'AI SMM Manager', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezählt.', footer_right: 'Stripe sichere Zahlungen · SSL geschützt · GDPR konform',
+    theme_light: 'Helles Design', theme_dark: 'Dunkles Design',
+    plan_free: 'Kostenlose Testphase 7 Tage', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin ohne Limit',
+    create_hub_label: 'Erstellungszentrale',
+    create_hub_title: 'Was erstellen wir heute?',
+    create_hub_lead: 'Posts, Videos und Planung sind in eigene Studios aufgeteilt, damit die Oberfläche klar, leicht und professionell bleibt.',
+    create_hub_plan_prefix: 'Tarif',
+    create_hub_youtube_hint: 'Das YouTube-Studio bleibt ein eigener Schnellmodus für Shorts und längere Videos.',
+    create_hub_post_title: 'Post-Studio',
+    create_hub_post_subtitle: 'Ein einzelner Post, eine Post-Serie oder ein schneller Arbeitsentwurf für soziale Netzwerke.',
+    create_hub_post_cta: 'Post-Studio öffnen',
+    create_hub_video_title: 'Video-Studio',
+    create_hub_video_subtitle: 'Universeller Kurz- und Langvideo-Content für Meta und YouTube.',
+    create_hub_video_cta: 'Video-Studio öffnen',
+    create_hub_weekly_title: '7-Tage-Plan',
+    create_hub_weekly_subtitle: 'Ein Wochenplan mit Themen, CTA und sofort nutzbaren Slots.',
+    create_hub_weekly_cta: '7-Tage-Plan erstellen',
+    create_hub_monthly_title: '30-Tage-Plan',
+    create_hub_monthly_subtitle: 'Ein monatliches Veröffentlichungssystem für einen stabilen Content-Flow.',
+    create_hub_monthly_cta: '30-Tage-Plan erstellen',
+    create_hub_youtube_title: 'YouTube-Studio',
+    create_hub_youtube_subtitle: 'Ein fokussierter Modus für Shorts, längere Videos und YouTube-Veröffentlichungen.',
+    create_hub_youtube_cta: 'YouTube-Studio öffnen',
+    create_hub_planner_title: 'Planungsbereich',
+    create_hub_planner_subtitle: 'Ein eigener Arbeitsbereich für Posts, Video und systematische Content-Planung.',
+    create_hub_planner_cta: 'Planer öffnen',
+    create_planner_page_title: 'Content-Planer',
+    create_planner_label: 'Content-Planer',
+    create_planner_title: 'Bauen Sie ein System, nicht nur einen Entwurf',
+    create_planner_lead: 'Der Planer ist ein eigener Arbeitsbereich für 7- und 30-Tage-Systeme. Hier planen Sie Content, materialisieren ihn und senden ihn in den Kalender.',
+    create_planner_open: 'Öffnen',
+    create_planner_post7: 'Posts für 7 Tage',
+    create_planner_post7_subtitle: 'Ein schneller Wochenplan mit fertigen Themen und CTA.',
+    create_planner_post30: 'Posts für 30 Tage',
+    create_planner_post30_subtitle: 'Ein monatlicher Content-Plan, nach Wochen gruppiert.',
+    create_planner_video7: 'Videos für 7 Tage',
+    create_planner_video7_subtitle: 'Ein wöchentlicher Video-Plan für wiederkehrenden Kurzvideo-Content.',
+    create_planner_video30: 'Videos für 30 Tage',
+    create_planner_video30_subtitle: 'Ein monatlicher Video-Plan für eine stabile Content-Serie.',
+    create_post_studio_button: 'Post-Studio',
+    create_video_studio_button: 'Video-Studio',
+    create_planner_button: 'Planer',
+    create_youtube_studio_button: 'YouTube-Studio',
+    studio_post_title: 'Post-Studio',
+    studio_video_title: 'Video-Studio',
+    studio_post_subtitle: 'Ein separates Studio für Text und Veröffentlichung: Thema, Tonalität, CTA, Visuals, Vorschau und sicheres Scheduling in einem klaren Flow.',
+    studio_video_subtitle: 'Ein separates Studio für universelles Video: Thema, Dauer, Stimme, Untertitel, Footage und finaler Render ohne unnötigen Ballast.',
+    youtube_studio_title: 'YouTube-Studio',
+    page_dashboard: 'Übersicht',
+    page_connections: 'Verbindungen',
+    page_history: 'Verlauf',
+    page_calendar: 'Kalender',
+    page_billing: 'Abrechnung',
+    page_support: 'Hilfe',
+    archive_title: 'Veröffentlichungsarchiv',
+    status_draft: 'Entwurf',
+    status_done: 'Bereit',
+    status_published: 'Veröffentlicht',
+    status_connected: 'Verbunden',
+    status_connected_ready: 'Bereit',
+    status_connected_need_page: 'Seitenauswahl erforderlich',
+    status_not_connected: 'Nicht verbunden',
+    status_token_expired: 'Neu verbinden',
+    status_permissions_missing: 'Berechtigungen erforderlich',
+    status_disconnected: 'Getrennt',
+    status_error: 'Fehler',
+    status_running: 'In Bearbeitung',
+    status_failed: 'Fehler',
+    status_queued: 'In Warteschlange',
+    status_scheduled: 'Geplant',
+    status_hidden: 'Ausgeblendet',
+    status_unknown: 'Unbekannt',
+    create_director_headlines_loading: 'Überschriften werden vorbereitet…',
+    create_director_headlines_refresh: '{count} Überschriften aktualisieren',
+    create_director_headlines_generate: 'Themen generieren',
+    billing_current_plan_button: 'Aktueller Tarif',
+    dashboard_start_content: 'Mit Content beginnen',
+    dashboard_current_plan_title: 'Aktueller Tarif',
+    dashboard_plan_label: 'Tarif',
+    dashboard_upgrade: 'Upgrade',
+    dashboard_posts_label: 'Posts',
+    dashboard_videos_label: 'Videos',
+    dashboard_workspaces_label: 'Workspaces',
+    dashboard_channels_label: 'Kanäle',
+    dashboard_locked_label: 'Gesperrt / nicht verfügbar',
+    dashboard_available_now: 'Jetzt verfügbar',
+    dashboard_niche_templates: 'Nischenvorlagen',
+    dashboard_next_step_text: 'Nächster Schritt: Öffnen Sie Erstellen, wählen Sie ein Thema und erhalten Sie in wenigen Minuten Ihren ersten Post oder Ihre erste Videostruktur.',
+    create_director_available_now: 'Jetzt verfügbar',
+    common_saving: 'Speichern…',
+    create_plan_preview_placeholder: 'Hier erscheint nach der Generierung eine Vorschau des ausgewählten Tages.',
+    create_plan_schedule_day: 'Tag planen',
+  },
+  es: {
+    nav_admin: 'Admin', nav_dashboard: 'Panel', nav_create: 'Crear', nav_calendar: 'Calendario', nav_connections: 'Conexiones', nav_history: 'Historial', nav_settings: 'Configuracion de marca', nav_billing: 'Facturacion', nav_support: 'Soporte', nav_logout: 'Salir',
+    sidebar_subtitle: 'Gestor SMM con IA', footer_left: 'Sin pagos ocultos. Tarifas transparentes. Los limites se cuentan en publicaciones.', footer_right: 'Pagos seguros con Stripe · SSL protegido · Compatible con GDPR',
+    theme_light: 'Tema claro', theme_dark: 'Tema oscuro',
+    archive_title: 'Archivo de publicaciones',
+    plan_free: 'Prueba gratis 7 dias', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin sin limites',
+    create_hub_label: 'Centro de creacion',
+    create_hub_title: '¿Que creamos hoy?',
+    create_hub_lead: 'Separamos posts, videos y planificacion en estudios dedicados para que la experiencia siga siendo clara y profesional.',
+    create_hub_plan_prefix: 'Plan',
+    create_hub_youtube_hint: 'El estudio de YouTube sigue siendo un flujo rápido separado para Shorts y videos largos.',
+    create_hub_post_title: 'Estudio de posts',
+    create_hub_post_subtitle: 'Un solo post, una serie de posts o un borrador rapido para redes sociales.',
+    create_hub_post_cta: 'Abrir estudio de posts',
+    create_hub_video_title: 'Estudio de video',
+    create_hub_video_subtitle: 'Contenido de video corto y largo para Meta y YouTube.',
+    create_hub_video_cta: 'Abrir estudio de video',
+    create_hub_weekly_title: 'Plan de 7 dias',
+    create_hub_weekly_subtitle: 'Plan semanal con temas, CTA y espacios listos.',
+    create_hub_weekly_cta: 'Crear plan de 7 dias',
+    create_hub_monthly_title: 'Plan de 30 dias',
+    create_hub_monthly_subtitle: 'Sistema mensual de publicaciones para un flujo estable de contenido.',
+    create_hub_monthly_cta: 'Crear plan de 30 dias',
+    create_hub_youtube_title: 'Estudio de YouTube',
+    create_hub_youtube_subtitle: 'Modo dedicado para Shorts, videos largos y publicacion en YouTube.',
+    create_hub_youtube_cta: 'Abrir estudio de YouTube',
+    create_hub_planner_title: 'Planificador',
+    create_hub_planner_subtitle: 'Espacio de trabajo separado para posts, video y planificacion sistematica.',
+    create_hub_planner_cta: 'Abrir planificador',
+    create_planner_page_title: 'Planificador de contenido',
+    create_planner_label: 'Planificador de contenido',
+    create_planner_title: 'Construye un sistema, no un solo borrador',
+    create_planner_lead: 'El planificador es un espacio dedicado para sistemas de 7 y 30 dias. Aqui planificas, materializas y envias contenido al calendario.',
+    create_planner_open: 'Abrir',
+    create_planner_post7: 'Posts para 7 dias',
+    create_planner_post7_subtitle: 'Plan semanal rapido con temas y CTA listos.',
+    create_planner_post30: 'Posts para 30 dias',
+    create_planner_post30_subtitle: 'Plan mensual agrupado por semanas.',
+    create_planner_video7: 'Videos para 7 dias',
+    create_planner_video7_subtitle: 'Plan semanal de video para contenido corto recurrente.',
+    create_planner_video30: 'Videos para 30 dias',
+    create_planner_video30_subtitle: 'Plan mensual de video para una serie estable.',
+    create_post_studio_button: 'Estudio de posts',
+    create_video_studio_button: 'Estudio de video',
+    create_planner_button: 'Planificador',
+    create_youtube_studio_button: 'Estudio de YouTube',
+    studio_post_title: 'Estudio de posts',
+    studio_video_title: 'Estudio de video',
+    studio_post_subtitle: 'Un estudio dedicado para texto y publicacion: tema, tono, CTA, visuales, vista previa y programacion segura en un flujo claro.',
+    studio_video_subtitle: 'Un estudio dedicado para video universal: tema, duracion, voz, subtitulos, footage y render final sin ruido extra.',
+    youtube_studio_title: 'Estudio de YouTube',
+    create_director_headlines_loading: 'Preparando titulares…',
+    create_director_headlines_refresh: 'Actualizar {count} titulares',
+    create_director_headlines_generate: 'Generar temas',
+    billing_current_plan_button: 'Plan actual',
+    dashboard_start_content: 'Empezar con contenido',
+    dashboard_current_plan_title: 'Plan actual',
+    dashboard_plan_label: 'Plan',
+    dashboard_upgrade: 'Mejorar',
+    dashboard_posts_label: 'Publicaciones',
+    dashboard_videos_label: 'Videos',
+    dashboard_workspaces_label: 'Espacios de trabajo',
+    dashboard_channels_label: 'Canales',
+    dashboard_locked_label: 'Bloqueado / no disponible',
+    dashboard_available_now: 'Disponible ahora',
+    dashboard_niche_templates: 'Plantillas por nicho',
+    dashboard_next_step_text: 'Siguiente paso: abre Crear, elige un tema y obtén tu primera publicación o estructura de video en pocos minutos.',
+    create_director_available_now: 'Disponible ahora',
+    common_saving: 'Guardando…',
+    create_plan_preview_placeholder: 'Aqui aparecera la vista previa del dia seleccionado despues de generar el plan.',
+    create_plan_schedule_day: 'Programar dia',
+  },
+  fr: {
+    nav_admin: 'Admin', nav_dashboard: 'Tableau de bord', nav_create: 'Creer', nav_calendar: 'Calendrier', nav_connections: 'Connexions', nav_history: 'Historique', nav_settings: 'Parametres de marque', nav_billing: 'Facturation', nav_support: 'Assistance', nav_logout: 'Se deconnecter',
+    sidebar_subtitle: 'Gestionnaire SMM IA', footer_left: 'Aucun frais cache. Tarifs transparents. Les limites sont comptees en publications.', footer_right: 'Paiements Stripe securises · SSL protege · Conforme au GDPR',
+    theme_light: 'Theme clair', theme_dark: 'Theme sombre',
+    archive_title: 'Archive des publications',
+    plan_free: 'Essai gratuit 7 jours', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin illimite',
+    create_hub_label: 'Centre de creation',
+    create_hub_title: 'Que creons-nous aujourd’hui ?',
+    create_hub_lead: 'Nous avons separe les posts, les videos et la planification en studios dedies pour garder l’interface legere, claire et professionnelle.',
+    create_hub_plan_prefix: 'Forfait',
+    create_hub_youtube_hint: 'Le studio YouTube reste un flux rapide distinct pour les Shorts et les videos longues.',
+    create_hub_post_title: 'Studio post',
+    create_hub_post_subtitle: 'Un post unique, une serie de posts ou un brouillon rapide pour les reseaux sociaux.',
+    create_hub_post_cta: 'Ouvrir le studio post',
+    create_hub_video_title: 'Studio video',
+    create_hub_video_subtitle: 'Contenu video court et long pour Meta et YouTube.',
+    create_hub_video_cta: 'Ouvrir le studio video',
+    create_hub_weekly_title: 'Plan 7 jours',
+    create_hub_weekly_subtitle: 'Plan hebdomadaire avec sujets, CTA et slots prets.',
+    create_hub_weekly_cta: 'Creer un plan 7 jours',
+    create_hub_monthly_title: 'Plan 30 jours',
+    create_hub_monthly_subtitle: 'Systeme mensuel de publication pour un flux de contenu regulier.',
+    create_hub_monthly_cta: 'Creer un plan 30 jours',
+    create_hub_youtube_title: 'Studio YouTube',
+    create_hub_youtube_subtitle: 'Mode dedie pour les Shorts, les videos longues et la publication YouTube.',
+    create_hub_youtube_cta: 'Ouvrir le studio YouTube',
+    create_hub_planner_title: 'Planificateur',
+    create_hub_planner_subtitle: 'Espace de travail dedie pour les posts, la video et la planification systematique.',
+    create_hub_planner_cta: 'Ouvrir le planificateur',
+    create_planner_page_title: 'Planificateur de contenu',
+    create_planner_label: 'Planificateur de contenu',
+    create_planner_title: 'Construire un systeme, pas un seul brouillon',
+    create_planner_lead: 'Le planificateur est un espace dedie aux systemes sur 7 et 30 jours. Ici, vous planifiez, materialisez et envoyez le contenu vers le calendrier.',
+    create_planner_open: 'Ouvrir',
+    create_planner_post7: 'Posts pour 7 jours',
+    create_planner_post7_subtitle: 'Plan hebdomadaire rapide avec sujets et CTA prets.',
+    create_planner_post30: 'Posts pour 30 jours',
+    create_planner_post30_subtitle: 'Plan mensuel groupe par semaines.',
+    create_planner_video7: 'Videos pour 7 jours',
+    create_planner_video7_subtitle: 'Plan video hebdomadaire pour du contenu court recurrent.',
+    create_planner_video30: 'Videos pour 30 jours',
+    create_planner_video30_subtitle: 'Plan video mensuel pour une serie reguliere.',
+    create_post_studio_button: 'Studio post',
+    create_video_studio_button: 'Studio video',
+    create_planner_button: 'Planificateur',
+    create_youtube_studio_button: 'Studio YouTube',
+    studio_post_title: 'Studio post',
+    studio_video_title: 'Studio video',
+    studio_post_subtitle: 'Un studio dedie au texte et a la publication: sujet, ton, CTA, visuels, apercu et planification securisee dans un flux clair.',
+    studio_video_subtitle: 'Un studio dedie a la video universelle: sujet, duree, voix, sous-titres, footage et rendu final sans bruit supplementaire.',
+    youtube_studio_title: 'Studio YouTube',
+    create_director_headlines_loading: 'Préparation des titres…',
+    create_director_headlines_refresh: 'Actualiser {count} titres',
+    create_director_headlines_generate: 'Générer des thèmes',
+    billing_current_plan_button: 'Forfait actuel',
+    dashboard_start_content: 'Commencer par le contenu',
+    dashboard_current_plan_title: 'Forfait actuel',
+    dashboard_plan_label: 'Forfait',
+    dashboard_upgrade: 'Mettre à niveau',
+    dashboard_posts_label: 'Publications',
+    dashboard_videos_label: 'Vidéos',
+    dashboard_workspaces_label: 'Espaces de travail',
+    dashboard_channels_label: 'Canaux',
+    dashboard_locked_label: 'Bloqué / indisponible',
+    dashboard_available_now: 'Disponible maintenant',
+    dashboard_niche_templates: 'Modèles par niche',
+    dashboard_next_step_text: 'Étape suivante : ouvrez Créer, choisissez un sujet et obtenez votre premier post ou votre première structure vidéo en quelques minutes.',
+    create_director_available_now: 'Disponible maintenant',
+    common_saving: 'Enregistrement…',
+    create_plan_preview_placeholder: 'L’aperçu du jour sélectionné apparaîtra ici après la génération du plan.',
+    create_plan_schedule_day: 'Planifier la journée',
+  },
+  uk: {
+    nav_admin: 'Адмін', nav_dashboard: 'Панель', nav_create: 'Створити', nav_calendar: 'Календар', nav_connections: 'Підключення', nav_history: 'Історія', nav_settings: 'Налаштування бренду', nav_billing: 'Білінг', nav_support: 'Підтримка', nav_logout: 'Вийти',
+    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються в постах.', footer_right: 'Stripe захищені платежі · SSL захищено · GDPR сумісно',
+    theme_light: 'Світла тема', theme_dark: 'Темна тема',
+    archive_title: 'Архів публікацій',
+    plan_free: 'Безкоштовний trial 7 днів', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Адмін без лімітів',
+    create_hub_label: 'Центр створення',
+    create_hub_title: 'Що створюємо сьогодні?',
+    create_hub_lead: 'Ми розділили пости, відео та планування на окремі студії, щоб інтерфейс залишався легким, зрозумілим і професійним.',
+    create_hub_plan_prefix: 'Тариф',
+    create_hub_youtube_hint: 'Студія YouTube залишається окремим швидким режимом для Shorts і довгих відео.',
+    create_hub_post_title: 'Студія постів',
+    create_hub_post_subtitle: 'Один пост, серія постів або швидкий робочий чернетковий варіант для соцмереж.',
+    create_hub_post_cta: 'Відкрити студію постів',
+    create_hub_video_title: 'Студія відео',
+    create_hub_video_subtitle: 'Універсальний короткий і довгий відеоконтент для Meta та YouTube.',
+    create_hub_video_cta: 'Відкрити студію відео',
+    create_hub_weekly_title: 'План на 7 днів',
+    create_hub_weekly_subtitle: 'Тижневий контент-план з темами, CTA і готовими слотами.',
+    create_hub_weekly_cta: 'Створити план на 7 днів',
+    create_hub_monthly_title: 'План на 30 днів',
+    create_hub_monthly_subtitle: 'Місячна система публікацій для стабільного потоку контенту.',
+    create_hub_monthly_cta: 'Створити план на 30 днів',
+    create_hub_youtube_title: 'Студія YouTube',
+    create_hub_youtube_subtitle: 'Окремий фокусний режим для Shorts, довгих відео та публікації в YouTube.',
+    create_hub_youtube_cta: 'Відкрити студію YouTube',
+    create_hub_planner_title: 'Планувальник',
+    create_hub_planner_subtitle: 'Окрема робоча зона для постів, відео та системного контент-планування.',
+    create_hub_planner_cta: 'Відкрити планувальник',
+    create_planner_page_title: 'Планувальник контенту',
+    create_planner_label: 'Планувальник контенту',
+    create_planner_title: 'Створюйте систему, а не один чернетковий варіант',
+    create_planner_lead: 'Планувальник — окрема робоча зона для 7- та 30-денних систем. Тут ви плануєте, матеріалізуєте та відправляєте контент у календар.',
+    create_planner_open: 'Відкрити',
+    create_planner_post7: 'Пости на 7 днів',
+    create_planner_post7_subtitle: 'Швидкий тижневий план з готовими темами та CTA.',
+    create_planner_post30: 'Пости на 30 днів',
+    create_planner_post30_subtitle: 'Місячний контент-план із групуванням за тижнями.',
+    create_planner_video7: 'Відео на 7 днів',
+    create_planner_video7_subtitle: 'Тижневий відеоплан для короткого регулярного контенту.',
+    create_planner_video30: 'Відео на 30 днів',
+    create_planner_video30_subtitle: 'Місячний відеоплан для стабільної серії роликів.',
+    create_post_studio_button: 'Студія постів',
+    create_video_studio_button: 'Студія відео',
+    create_planner_button: 'Планувальник',
+    create_youtube_studio_button: 'Студія YouTube',
+    studio_post_title: 'Студія постів',
+    studio_video_title: 'Студія відео',
+    studio_post_subtitle: 'Окрема студія для тексту та публікації: тема, тон, CTA, візуал, прев’ю та безпечний розклад в одному зрозумілому потоці.',
+    studio_video_subtitle: 'Окрема студія для універсального відео: тема, тривалість, голос, субтитри, footage і готовий рендер без зайвого шуму.',
+    youtube_studio_title: 'Студія YouTube',
+    create_director_headlines_loading: 'Підбираємо заголовки…',
+    create_director_headlines_refresh: 'Оновити {count} заголовків',
+    create_director_headlines_generate: 'Згенерувати теми',
+    billing_current_plan_button: 'Поточний тариф',
+    dashboard_start_content: 'Почати з контенту',
+    dashboard_current_plan_title: 'Поточний тариф',
+    dashboard_plan_label: 'Тариф',
+    dashboard_upgrade: 'Оновити',
+    dashboard_posts_label: 'Пости',
+    dashboard_videos_label: 'Відео',
+    dashboard_workspaces_label: 'Робочі простори',
+    dashboard_channels_label: 'Канали',
+    dashboard_locked_label: 'Заблоковано / недоступно',
+    dashboard_available_now: 'Доступно зараз',
+    dashboard_niche_templates: 'Шаблони ніш',
+    dashboard_next_step_text: 'Наступний крок: відкрийте Створити, оберіть тему та отримайте свій перший пост або структуру відео за кілька хвилин.',
+    create_director_available_now: 'Доступно зараз',
+    common_saving: 'Зберігаємо…',
+    create_plan_preview_placeholder: 'Тут з’явиться preview вибраного дня після генерації плану.',
+    create_plan_schedule_day: 'Запланувати день',
+  },
+};
+Object.assign(APP_SHELL_I18N.de, {
+  footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Beiträgen gezählt.',
+  common_language: 'Sprache',
+  common_generate: 'Generieren',
+  common_schedule: 'Planen',
+  common_status: 'Status',
+  common_posts_month: 'Beiträge / Monat',
+  common_videos_month: 'Videos / Monat',
+  common_workspaces: 'Arbeitsbereiche',
+  common_connected_channels: 'Verbundene Kanäle',
+  common_price_month: 'Preis / Monat',
+  common_today: 'Heute',
+  common_publish: 'Veröffentlichen',
+  common_delete: 'Löschen',
+  common_edit: 'Bearbeiten',
+  common_open: 'Öffnen',
+  common_retry: 'Erneut versuchen',
+  billing_title: 'Tarife und Abrechnung',
+  billing_current_plan: 'Aktueller Tarif',
+  billing_usage_title: 'Nutzung',
+  billing_manage_subscription: 'Abo verwalten',
+  billing_checkout_disabled: 'Zahlungen sind vorübergehend nicht verfügbar',
+  billing_checkout_disabled_admin: 'Für das Admin-Konto ist kein Checkout nötig: der interne unbegrenzte Tarif ist aktiv.',
+  billing_workspace_hint: 'Ein Arbeitsbereich entspricht meist einer Marke oder einem Kunden.',
+  billing_compare_title: 'Tarifvergleich',
+  billing_feature_title: 'Funktion',
+  billing_analytics_label: 'Analytik',
+  billing_available_on_signup: 'Bei der Registrierung verfügbar',
+  billing_coming_soon: 'Demnächst verfügbar',
+  billing_admin_internal: 'interner Tarif',
+  billing_plan_free_title: 'Kostenlose Testphase 7 Tage',
+  billing_plan_free_desc: 'Testen Sie den Ablauf ohne Karte und ohne unnötige Kosten.',
+  billing_plan_starter_desc: 'Für kleine Unternehmen und Solo-Spezialisten.',
+  billing_plan_growth_desc: 'Für regelmäßigen Content, Videos und Autoposting.',
+  billing_plan_agency_desc: 'Für Agenturen und mehrere Kundenprojekte.',
+  billing_trial_7_days: '7 Tage',
+  status_done: 'Fertig',
+  status_connected: 'Verbunden',
+  status_connected_ready: 'Bereit',
+  status_not_connected: 'Nicht verbunden',
+  status_published: 'Veröffentlicht',
+  connections_title: 'Verbundene Konten',
+  connections_lead: 'Verbinden Sie Meta und YouTube. Auf jeder Karte sehen Sie das echte Logo der verbundenen Seite oder des Kanals.',
+  connections_refresh_token: 'Token aktualisieren',
+  connections_disconnect: 'Trennen',
+  connections_disconnect_youtube: 'YouTube trennen',
+  connections_open_studio: 'Studio öffnen',
+  connections_test_publication: 'Testveröffentlichung',
+  connections_publication_state: 'Veröffentlichungsstatus',
+  connections_sync_status: 'Synchronisationsstatus',
+  connections_autoposting: 'Autoposting',
+  connections_youtube_caption: 'Video und Shorts',
+  connections_content_pipeline: 'Content-Pipeline',
+  connections_multiformat: 'Mehrformat',
+  connections_youtube_multiformat: 'Shorts und lange Videos',
+  connections_youtube_connected: 'YouTube verbunden',
+  connections_youtube_hint: 'Öffnen Sie das YouTube-Studio und wählen Sie Thema, Format und Dauer.',
+  history_posts_month: 'Beiträge in diesem Monat',
+  history_published_month: 'Veröffentlicht',
+  history_outside_month: 'Außerhalb des Monats / ohne Datum',
+  history_remove_site: 'Von der Website entfernen',
+  history_date: 'Datum',
+  history_platform: 'Plattform',
+  history_topic: 'Thema',
+  history_publication: 'Veröffentlichung',
+  history_actions: 'Aktionen',
+  history_published_prefix: 'Veröffentlicht',
+  history_published_label: 'Veröffentlicht',
+  create_director_title: 'AI-Content-Direktor',
+  create_director_intro: 'Wählen Sie den Geschäftsbereich, damit AI passende Ideen, Formulierungen und Vorlagen für Ihre Nische vorbereitet.',
+  create_director_goal: 'Ziel *',
+  create_director_offer: 'Angebot (optional)',
+  create_director_offer_placeholder: 'Zum Beispiel: kostenlose 15-Minuten-Analyse',
+  create_director_language: 'Sprache',
+  create_director_advanced: 'Erweiterte Einstellungen',
+  create_director_generate: 'Content generieren',
+  create_director_render_video: 'Video erstellen',
+  create_director_rendering_video: 'Video wird erstellt…',
+  create_director_result: 'Ergebnis',
+  create_director_result_lead: 'Holen Sie zuerst Themenvorschläge und lassen Sie AI danach direkt die Vorschau aufbauen.',
+  create_director_headlines: 'Themenideen',
+  create_director_headlines_lead: 'Wählen Sie passende Themen für Ihre Nische und nutzen Sie sie für die Generierung.',
+  create_director_structure: 'Videostruktur',
+  create_director_structure_loading: 'AI erstellt die Struktur…',
+  create_director_structure_empty: 'Klicken Sie auf „Struktur generieren“, um einen Szenenplan für die gewählte Dauer zu erhalten.',
+  create_director_approaches: 'Winkel',
+  create_director_approaches_lead: 'Wählen Sie den passenden Blickwinkel für diesen Post oder dieses Video.',
+  create_director_preview_wait_post: 'Generieren Sie Content, um das Ergebnis zu sehen.',
+  create_director_preview_wait_video: 'Generieren Sie zuerst die Struktur und erstellen Sie danach das Video.',
+  create_director_generate_cover: 'Cover generieren',
+  create_director_generate_image: 'Bild generieren',
+  create_director_content_plan_title: 'Content-Plan',
+  create_director_content_plan_lead: 'AI kann die besten Tage und Uhrzeiten für die Veröffentlichung auswählen.',
+  create_director_structure_hint: 'Klicken Sie auf „Struktur generieren“, um Struktur, Hashtags und CTA zu erhalten.',
+  planner_generate: 'Plan für {days} Tage erstellen',
+  planner_generating: 'Plan wird erstellt…',
+  create_planner_post7: 'Beiträge für 7 Tage',
+  create_planner_post30: 'Beiträge für 30 Tage',
+  create_planner_video7: 'Videoplan für 7 Tage',
+  create_planner_video30: 'Videoplan für 30 Tage',
+});
+Object.assign(APP_SHELL_I18N.es, {
+  footer_left: 'Sin costes ocultos. Precios transparentes. Los límites se cuentan en publicaciones.',
+  common_language: 'Idioma',
+  common_generate: 'Generar',
+  common_schedule: 'Programar',
+  common_status: 'Estado',
+  common_posts_month: 'Publicaciones / mes',
+  common_videos_month: 'Vídeos / mes',
+  common_workspaces: 'Espacios de trabajo',
+  common_connected_channels: 'Canales conectados',
+  common_price_month: 'Precio / mes',
+  common_today: 'Hoy',
+  common_publish: 'Publicar',
+  common_delete: 'Eliminar',
+  common_edit: 'Editar',
+  common_open: 'Abrir',
+  common_retry: 'Reintentar',
+  billing_title: 'Planes y facturación',
+  billing_current_plan: 'Plan actual',
+  billing_usage_title: 'Uso',
+  billing_manage_subscription: 'Gestionar suscripción',
+  billing_checkout_disabled: 'Los pagos no están disponibles temporalmente',
+  billing_checkout_disabled_admin: 'La cuenta admin no necesita checkout: el plan interno ilimitado ya está activo.',
+  billing_workspace_hint: 'Un espacio de trabajo suele ser una marca o un cliente.',
+  billing_compare_title: 'Comparación de planes',
+  billing_feature_title: 'Función',
+  billing_analytics_label: 'Analítica',
+  billing_available_on_signup: 'Disponible al registrarte',
+  billing_coming_soon: 'Próximamente',
+  billing_admin_internal: 'plan interno',
+  billing_plan_free_title: 'Prueba gratuita 7 días',
+  billing_plan_free_desc: 'Prueba el flujo sin tarjeta ni costes innecesarios.',
+  billing_plan_starter_desc: 'Para pequeños negocios y especialistas independientes.',
+  billing_plan_growth_desc: 'Para contenido constante, vídeo y autopublicación.',
+  billing_plan_agency_desc: 'Para agencias y varios clientes.',
+  billing_trial_7_days: '7 días',
+  status_done: 'Listo',
+  status_connected: 'Conectado',
+  status_connected_ready: 'Listo',
+  status_not_connected: 'No conectado',
+  status_published: 'Publicado',
+  connections_title: 'Cuentas conectadas',
+  connections_lead: 'Conecta Meta y YouTube. Cada tarjeta muestra el logo real de la página o canal conectado.',
+  connections_refresh_token: 'Actualizar token',
+  connections_disconnect: 'Desconectar',
+  connections_disconnect_youtube: 'Desconectar YouTube',
+  connections_open_studio: 'Abrir estudio',
+  connections_test_publication: 'Publicación de prueba',
+  connections_publication_state: 'Estado de publicación',
+  connections_sync_status: 'Estado de sincronización',
+  connections_autoposting: 'Autopublicación',
+  connections_youtube_caption: 'Vídeo y Shorts',
+  connections_content_pipeline: 'Flujo de contenido',
+  connections_multiformat: 'Multiformato',
+  connections_youtube_multiformat: 'Shorts y vídeo largo',
+  connections_youtube_connected: 'YouTube conectado',
+  connections_youtube_hint: 'Abre YouTube Studio y elige el tema, formato y duración.',
+  history_posts_month: 'Publicaciones este mes',
+  history_published_month: 'Publicadas',
+  history_outside_month: 'Fuera del mes / sin fecha',
+  history_remove_site: 'Quitar del sitio',
+  history_date: 'Fecha',
+  history_platform: 'Plataforma',
+  history_topic: 'Tema',
+  history_publication: 'Publicación',
+  history_actions: 'Acciones',
+  history_published_prefix: 'Publicado',
+  history_published_label: 'Publicado',
+  create_director_title: 'AI Director de contenido',
+  create_director_intro: 'Elige el tipo de negocio para que la IA prepare ideas, fórmulas y plantillas adaptadas a tu nicho.',
+  create_director_goal: 'Objetivo *',
+  create_director_offer: 'Oferta (opcional)',
+  create_director_offer_placeholder: 'Por ejemplo: auditoría gratuita de 15 minutos',
+  create_director_language: 'Idioma',
+  create_director_advanced: 'Ajustes avanzados',
+  create_director_generate: 'Generar contenido',
+  create_director_render_video: 'Renderizar vídeo',
+  create_director_rendering_video: 'Renderizando vídeo…',
+  create_director_result: 'Resultado',
+  create_director_result_lead: 'Primero obtén ideas de temas y luego deja que la IA construya el resultado en la vista previa.',
+  create_director_headlines: 'Ideas de temas',
+  create_director_headlines_lead: 'Selecciona los temas adecuados para tu nicho y úsalos en la generación.',
+  create_director_structure: 'Estructura del vídeo',
+  create_director_structure_loading: 'La IA está creando la estructura…',
+  create_director_structure_empty: 'Pulsa «Generar estructura» para obtener un plan de escenas para la duración elegida.',
+  create_director_approaches: 'Enfoques',
+  create_director_approaches_lead: 'Elige el enfoque que mejor encaja con este post o vídeo.',
+  create_director_preview_wait_post: 'Genera contenido para ver el resultado.',
+  create_director_preview_wait_video: 'Primero genera la estructura y después renderiza el vídeo.',
+  create_director_generate_cover: 'Generar portada',
+  create_director_generate_image: 'Generar imagen',
+  create_director_content_plan_title: 'Plan de contenido',
+  create_director_content_plan_lead: 'La IA puede elegir los mejores días y horas para publicar.',
+  create_director_structure_hint: 'Pulsa «Generar estructura» para obtener la estructura, hashtags y CTA.',
+  planner_generate: 'Crear plan de {days} días',
+  planner_generating: 'Creando plan…',
+  create_planner_post7: 'Publicaciones para 7 días',
+  create_planner_post30: 'Publicaciones para 30 días',
+  create_planner_video7: 'Vídeos para 7 días',
+  create_planner_video30: 'Vídeos para 30 días',
+});
+Object.assign(APP_SHELL_I18N.fr, {
+  footer_left: 'Aucun frais caché. Des tarifs transparents. Les limites sont comptées en publications.',
+  common_language: 'Langue',
+  common_generate: 'Générer',
+  common_schedule: 'Planifier',
+  common_status: 'Statut',
+  common_posts_month: 'Publications / mois',
+  common_videos_month: 'Vidéos / mois',
+  common_workspaces: 'Espaces de travail',
+  common_connected_channels: 'Canaux connectés',
+  common_price_month: 'Prix / mois',
+  common_today: 'Aujourd’hui',
+  common_publish: 'Publier',
+  common_delete: 'Supprimer',
+  common_edit: 'Modifier',
+  common_open: 'Ouvrir',
+  common_retry: 'Réessayer',
+  billing_title: 'Forfaits et facturation',
+  billing_current_plan: 'Forfait actuel',
+  billing_usage_title: 'Utilisation',
+  billing_manage_subscription: 'Gérer l’abonnement',
+  billing_checkout_disabled: 'Les paiements sont temporairement indisponibles',
+  billing_checkout_disabled_admin: 'Le compte admin n’a pas besoin de checkout : le forfait interne illimité est actif.',
+  billing_workspace_hint: 'Un espace de travail correspond généralement à une marque ou à un client.',
+  billing_compare_title: 'Comparaison des forfaits',
+  billing_feature_title: 'Fonction',
+  billing_analytics_label: 'Analytique',
+  billing_available_on_signup: 'Disponible à l’inscription',
+  billing_coming_soon: 'Bientôt disponible',
+  billing_admin_internal: 'forfait interne',
+  billing_plan_free_title: 'Essai gratuit 7 jours',
+  billing_plan_free_desc: 'Essayez le scénario sans carte et sans frais inutiles.',
+  billing_plan_starter_desc: 'Pour les petites entreprises et les indépendants.',
+  billing_plan_growth_desc: 'Pour un flux régulier de contenu, vidéo et autopublication.',
+  billing_plan_agency_desc: 'Pour les agences et plusieurs clients.',
+  billing_trial_7_days: '7 jours',
+  status_done: 'Prêt',
+  status_connected: 'Connecté',
+  status_connected_ready: 'Prêt',
+  status_not_connected: 'Non connecté',
+  status_published: 'Publié',
+  connections_title: 'Comptes connectés',
+  connections_lead: 'Connectez Meta et YouTube. Chaque carte affiche le vrai logo de la page ou de la chaîne connectée.',
+  connections_refresh_token: 'Actualiser le token',
+  connections_disconnect: 'Déconnecter',
+  connections_disconnect_youtube: 'Déconnecter YouTube',
+  connections_open_studio: 'Ouvrir le studio',
+  connections_test_publication: 'Publication de test',
+  connections_publication_state: 'État de publication',
+  connections_sync_status: 'État de synchronisation',
+  connections_autoposting: 'Autopublication',
+  connections_youtube_caption: 'Vidéo et Shorts',
+  connections_content_pipeline: 'Pipeline de contenu',
+  connections_multiformat: 'Multiformat',
+  connections_youtube_multiformat: 'Shorts et format long',
+  connections_youtube_connected: 'YouTube connecté',
+  connections_youtube_hint: 'Ouvrez YouTube Studio et choisissez le sujet, le format et la durée.',
+  history_posts_month: 'Publications ce mois-ci',
+  history_published_month: 'Publiées',
+  history_outside_month: 'Hors du mois / sans date',
+  history_remove_site: 'Retirer du site',
+  history_date: 'Date',
+  history_platform: 'Plateforme',
+  history_topic: 'Sujet',
+  history_publication: 'Publication',
+  history_actions: 'Actions',
+  history_published_prefix: 'Publié',
+  history_published_label: 'Publié',
+  create_director_title: 'AI Directeur de contenu',
+  create_director_intro: 'Choisissez votre secteur pour que l’IA prépare des idées, des formulations et des modèles adaptés à votre niche.',
+  create_director_goal: 'Objectif *',
+  create_director_offer: 'Offre (optionnelle)',
+  create_director_offer_placeholder: 'Par exemple : audit gratuit de 15 minutes',
+  create_director_language: 'Langue',
+  create_director_advanced: 'Réglages avancés',
+  create_director_generate: 'Générer le contenu',
+  create_director_render_video: 'Rendre la vidéo',
+  create_director_rendering_video: 'Rendu de la vidéo…',
+  create_director_result: 'Résultat',
+  create_director_result_lead: 'Obtenez d’abord des idées de sujets, puis laissez l’IA assembler le résultat dans l’aperçu.',
+  create_director_headlines: 'Idées de sujets',
+  create_director_headlines_lead: 'Choisissez des sujets adaptés à votre niche et utilisez-les pour la génération.',
+  create_director_structure: 'Structure de la vidéo',
+  create_director_structure_loading: 'L’IA prépare la structure…',
+  create_director_structure_empty: 'Cliquez sur « Générer la structure » pour obtenir un plan de scènes adapté à la durée choisie.',
+  create_director_approaches: 'Angles',
+  create_director_approaches_lead: 'Choisissez l’angle qui convient le mieux à ce post ou à cette vidéo.',
+  create_director_preview_wait_post: 'Générez le contenu pour voir le résultat.',
+  create_director_preview_wait_video: 'Générez d’abord la structure, puis lancez le rendu vidéo.',
+  create_director_generate_cover: 'Générer la couverture',
+  create_director_generate_image: 'Générer l’image',
+  create_director_content_plan_title: 'Plan de contenu',
+  create_director_content_plan_lead: 'L’IA peut choisir les meilleurs jours et heures pour publier.',
+  create_director_structure_hint: 'Cliquez sur « Générer la structure » pour obtenir la structure, les hashtags et le CTA.',
+  planner_generate: 'Créer un plan de {days} jours',
+  planner_generating: 'Création du plan…',
+  create_planner_post7: 'Publications pour 7 jours',
+  create_planner_post30: 'Publications pour 30 jours',
+  create_planner_video7: 'Vidéos pour 7 jours',
+  create_planner_video30: 'Vidéos pour 30 jours',
+});
+Object.assign(APP_SHELL_I18N.uk, {
+  footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються у публікаціях.',
+  common_language: 'Мова',
+  common_generate: 'Згенерувати',
+  common_schedule: 'Запланувати',
+  common_status: 'Статус',
+  common_posts_month: 'Публікацій / місяць',
+  common_videos_month: 'Відео / місяць',
+  common_workspaces: 'Робочі простори',
+  common_connected_channels: 'Підключені канали',
+  common_price_month: 'Ціна / місяць',
+  common_today: 'Сьогодні',
+  common_publish: 'Опублікувати',
+  common_delete: 'Видалити',
+  common_edit: 'Редагувати',
+  common_open: 'Відкрити',
+  common_retry: 'Повторити',
+  billing_title: 'Тарифи та білінг',
+  billing_current_plan: 'Поточний тариф',
+  billing_usage_title: 'Використання',
+  billing_manage_subscription: 'Керування підпискою',
+  billing_checkout_disabled: 'Оплата тимчасово недоступна',
+  billing_checkout_disabled_admin: 'Для admin-акаунта checkout не потрібен: активний внутрішній безлімітний тариф.',
+  billing_workspace_hint: 'Робочий простір зазвичай означає один бренд або одного клієнта.',
+  billing_compare_title: 'Порівняння тарифів',
+  billing_feature_title: 'Функція',
+  billing_analytics_label: 'Аналітика',
+  billing_available_on_signup: 'Доступно під час реєстрації',
+  billing_coming_soon: 'Скоро доступно',
+  billing_admin_internal: 'внутрішній тариф',
+  billing_plan_free_title: 'Безкоштовний тест 7 днів',
+  billing_plan_free_desc: 'Спробуйте сценарій роботи без картки та зайвих витрат.',
+  billing_plan_starter_desc: 'Для малого бізнесу та сольних спеціалістів.',
+  billing_plan_growth_desc: 'Для регулярного контенту, відео та автопостингу.',
+  billing_plan_agency_desc: 'Для агенцій і кількох клієнтів.',
+  billing_trial_7_days: '7 днів',
+  status_done: 'Готово',
+  status_connected: 'Підключено',
+  status_connected_ready: 'Готово',
+  status_not_connected: 'Не підключено',
+  status_published: 'Опубліковано',
+  connections_title: 'Підключені акаунти',
+  connections_lead: 'Підключіть Meta і YouTube. На картці показується реальне лого сторінки або каналу.',
+  connections_refresh_token: 'Оновити токен',
+  connections_disconnect: 'Відключити',
+  connections_disconnect_youtube: 'Відключити YouTube',
+  connections_open_studio: 'Відкрити студію',
+  connections_test_publication: 'Тест публікації',
+  connections_publication_state: 'Стан публікації',
+  connections_sync_status: 'Статус синхронізації',
+  connections_autoposting: 'Автопостинг',
+  connections_youtube_caption: 'Відео та Shorts',
+  connections_content_pipeline: 'Контент-пайплайн',
+  connections_multiformat: 'Мультиформат',
+  connections_youtube_multiformat: 'Shorts і довгі відео',
+  connections_youtube_connected: 'YouTube підключено',
+  connections_youtube_hint: 'Відкрийте YouTube Studio та виберіть тему, формат і тривалість.',
+  history_posts_month: 'Постів у цьому місяці',
+  history_published_month: 'Опубліковано',
+  history_outside_month: 'Поза місяцем / без дати',
+  history_remove_site: 'Прибрати з сайту',
+  history_date: 'Дата',
+  history_platform: 'Платформа',
+  history_topic: 'Тема',
+  history_publication: 'Публікація',
+  history_actions: 'Дії',
+  history_published_prefix: 'Опубліковано',
+  history_published_label: 'Опубліковано',
+  create_director_title: 'AI Контент-директор',
+  create_director_intro: 'Оберіть сферу бізнесу, щоб AI підготував ідеї, формулювання та шаблони саме під вашу нішу.',
+  create_director_goal: 'Ціль *',
+  create_director_offer: 'Офер (опціонально)',
+  create_director_offer_placeholder: 'Наприклад: безкоштовний аудит за 15 хвилин',
+  create_director_language: 'Мова',
+  create_director_advanced: 'Розширені налаштування',
+  create_director_generate: 'Згенерувати контент',
+  create_director_render_video: 'Зібрати відео',
+  create_director_rendering_video: 'Збираємо відео…',
+  create_director_result: 'Результат',
+  create_director_result_lead: 'Спочатку отримайте ідеї тем, а далі AI одразу збере результат у прев’ю.',
+  create_director_headlines: 'Ідеї тем',
+  create_director_headlines_lead: 'Оберіть теми для вашої ніші й використайте їх для генерації.',
+  create_director_structure: 'Структура відео',
+  create_director_structure_loading: 'AI формує структуру…',
+  create_director_structure_empty: 'Натисніть «Згенерувати структуру», щоб отримати план сцен для вибраної тривалості.',
+  create_director_approaches: 'Підходи',
+  create_director_approaches_lead: 'Оберіть підхід, який найкраще підходить для цього поста чи відео.',
+  create_director_preview_wait_post: 'Згенеруйте контент, щоб побачити результат.',
+  create_director_preview_wait_video: 'Спочатку згенеруйте структуру, а потім зберіть відео.',
+  create_director_generate_cover: 'Згенерувати обкладинку',
+  create_director_generate_image: 'Згенерувати зображення',
+  create_director_content_plan_title: 'Контент-план',
+  create_director_content_plan_lead: 'AI може сам обрати найкращі дні та години для публікації.',
+  create_director_structure_hint: 'Натисніть «Згенерувати структуру», щоб отримати структуру, хештеги та CTA.',
+  planner_generate: 'Сформувати план на {days} днів',
+  planner_generating: 'Формуємо план…',
+  create_planner_post7: 'Публікації на 7 днів',
+  create_planner_post30: 'Публікації на 30 днів',
+  create_planner_video7: 'Відео на 7 днів',
+  create_planner_video30: 'Відео на 30 днів',
+});
+Object.assign(APP_SHELL_I18N.ru, {
+  create_preview_post: 'Превью поста',
+  create_preview_video: 'Превью видео',
+  create_preview_topic_prefix: 'Тема',
+  create_preview_angle_prefix: 'Подход',
+  create_preview_text_label: 'Текст публикации',
+  create_preview_hashtags: 'Хештеги',
+  create_preview_cta: 'Призыв к действию',
+  create_preview_cta_placeholder: 'Призыв',
+  create_preview_open_more: 'Открыть больше',
+  create_preview_collapse: 'Свернуть',
+  create_quality_title: 'Проверка качества',
+  create_plan_week: 'Неделя',
+  create_plan_day: 'День',
+  create_plan_posts_count: 'публикаций',
+  create_plan_angle: 'Угол подачи',
+  create_plan_use: 'Использовать',
+  create_plan_edit: 'Редактировать',
+  create_plan_preview_upgrade: 'Полный объём плана доступен после апгрейда тарифа.',
+  create_plan_what_get: 'Что вы получите',
+  create_plan_what_get_topics: 'Готовые темы',
+  create_plan_what_get_ideas: 'Идеи публикаций',
+  create_plan_what_get_cta: 'CTA для каждого дня',
+  create_plan_what_get_hashtags: 'Хештеги и основу для плана',
+  create_plan_select_day: 'Выберите день',
+  create_empty: 'Пока пусто',
+  create_save: 'Сохранить',
+  create_plan_week_button: 'План на неделю',
+  create_plan_month_button: 'План на месяц',
+  create_best_times: 'Лучшие дни/часы',
+  create_show_more: 'Открыть больше',
+  create_show_less: 'Свернуть',
+  create_plan_not_formed: 'План пока не сформирован.',
+  create_table_date: 'Дата',
+  create_table_status: 'Статус',
+  create_video_step_structure: 'Структура',
+  create_video_step_footage: 'Футажи',
+  create_video_step_render: 'Рендер',
+  create_video_step_export: 'Экспорт',
+  create_video_step_upload: 'Загрузка',
+  create_video_step_queued: 'Очередь',
+  create_video_step_processing: 'Обработка',
+});
+Object.assign(APP_SHELL_I18N.en, {
+  create_preview_post: 'Post preview',
+  create_preview_video: 'Video preview',
+  create_preview_topic_prefix: 'Topic',
+  create_preview_angle_prefix: 'Angle',
+  create_preview_text_label: 'Post text',
+  create_preview_hashtags: 'Hashtags',
+  create_preview_cta: 'Call to action',
+  create_preview_cta_placeholder: 'CTA',
+  create_preview_open_more: 'Show more',
+  create_preview_collapse: 'Collapse',
+  create_quality_title: 'Quality check',
+  create_plan_week: 'Week',
+  create_plan_day: 'Day',
+  create_plan_posts_count: 'items',
+  create_plan_angle: 'Angle',
+  create_plan_use: 'Use',
+  create_plan_edit: 'Edit',
+  create_plan_preview_upgrade: 'The full plan is available after you upgrade your plan.',
+  create_plan_what_get: 'What you get',
+  create_plan_what_get_topics: 'Ready topics',
+  create_plan_what_get_ideas: 'Publishing ideas',
+  create_plan_what_get_cta: 'CTA for each day',
+  create_plan_what_get_hashtags: 'Hashtags and a plan-ready base',
+  create_plan_select_day: 'Select a day',
+  create_empty: 'Empty for now',
+  create_save: 'Save',
+  create_plan_week_button: 'Weekly plan',
+  create_plan_month_button: 'Monthly plan',
+  create_best_times: 'Best days / hours',
+  create_show_more: 'Show more',
+  create_show_less: 'Collapse',
+  create_plan_not_formed: 'The plan has not been created yet.',
+  create_table_date: 'Date',
+  create_table_status: 'Status',
+  create_video_step_structure: 'Structure',
+  create_video_step_footage: 'Footage',
+  create_video_step_render: 'Render',
+  create_video_step_export: 'Export',
+  create_video_step_upload: 'Upload',
+  create_video_step_queued: 'Queue',
+  create_video_step_processing: 'Processing',
+});
+Object.assign(APP_SHELL_I18N.de, {
+  language_label: 'Sprache',
+  planner_niche: 'Nische',
+  create_preview_post: 'Beitragsvorschau',
+  create_preview_video: 'Videovorschau',
+  create_quality_title: 'Qualitätsprüfung',
+  create_plan_use: 'Verwenden',
+  create_plan_edit: 'Bearbeiten',
+  create_plan_select_day: 'Tag auswählen',
+  nav_dashboard: 'Übersicht',
+  nav_support: 'Hilfe',
+  page_dashboard: 'Übersicht',
+  page_support: 'Hilfe',
+  page_create: 'Erstellen',
+  plan_admin: 'Admin ohne Limit',
+  create_hub_label: 'Erstellungszentrale',
+  create_hub_title: 'Was erstellen wir heute?',
+  create_hub_lead: 'Posts, Videos und Pläne sind in eigene Studios aufgeteilt, damit die Oberfläche klar und professionell bleibt.',
+  create_hub_post_title: 'Post-Studio',
+  create_hub_post_subtitle: 'Ein einzelner Post, eine Serie oder ein schneller Arbeitsentwurf für soziale Netzwerke.',
+  create_hub_post_cta: 'Post-Studio öffnen',
+  create_hub_video_title: 'Video-Studio',
+  create_hub_video_subtitle: 'Universelle Kurz- oder Langvideos für Meta und YouTube.',
+  create_hub_video_cta: 'Video-Studio öffnen',
+  create_hub_weekly_title: '7-Tage-Plan',
+  create_hub_weekly_subtitle: 'Ein Wochenplan mit Themen, CTA und fertigen Slots.',
+  create_hub_weekly_cta: '7-Tage-Plan erstellen',
+  create_hub_monthly_title: '30-Tage-Plan',
+  create_hub_monthly_subtitle: 'Ein Monatsplan für einen stabilen Content-Flow.',
+  create_hub_monthly_cta: '30-Tage-Plan erstellen',
+  create_hub_youtube_title: 'YouTube-Studio',
+  create_hub_youtube_subtitle: 'Ein eigener Modus für Shorts, lange Videos und YouTube-Veröffentlichungen.',
+  create_hub_youtube_cta: 'YouTube-Studio öffnen',
+  create_hub_youtube_hint: 'YouTube-Studio bleibt ein eigener Schnellmodus für Shorts und lange Videos.',
+  dashboard_quick_start: 'Schnellstart',
+  dashboard_what_create: 'Was möchten Sie erstellen?',
+  dashboard_value_lead: 'Wählen Sie eine Aktion und erhalten Sie in wenigen Klicks ein Ergebnis. Auf Basis der Nische {niche} bereitet AI Ideen, Struktur und fertige Entwürfe vor.',
+  dashboard_choose_niche_first: 'Wählen Sie zuerst eine Nische',
+  dashboard_choose_niche_button: 'Nische auswählen',
+  dashboard_first_data: 'Die ersten Ergebnisse statt leerer Analysen',
+  dashboard_welcome_title: 'Starten Sie mit dem ersten Ergebnis, nicht mit leeren Metriken',
+  dashboard_welcome: 'Willkommen bei AutoSocial',
+  dashboard_ai_insights: 'AI-Einblicke',
+  dashboard_growth_30: 'Ergebnisse der letzten 30 Tage',
+  dashboard_no_data_sync: 'Noch keine Daten. Veröffentlichen Sie Inhalte und synchronisieren Sie die Metriken.',
+  dashboard_no_insights: 'Noch nicht genug Daten für AI-Einblicke.',
+  dashboard_open_growth: 'Wachstum öffnen',
+  dashboard_published_posts: 'Veröffentlichte Posts',
+  dashboard_sort_engagement: 'Nach Engagement',
+  dashboard_sort_reach: 'Nach Reichweite',
+  dashboard_sort_views: 'Nach Views',
+  dashboard_breakdown_title: 'Woraus sich der Score zusammensetzt',
+  dashboard_select_niche_option: 'Nische auswählen',
+  niche_smm_marketing: 'SMM und Marketing',
+  niche_cosmetology: 'Kosmetologie',
+  niche_barbershop: 'Barbershop',
+  niche_autoservice: 'Autoservice',
+  niche_detailing: 'Auto-Detailing',
+  niche_apartment_renovation: 'Wohnungsrenovierung',
+  niche_psychology: 'Psychologie',
+  niche_consulting: 'Beratung',
+  niche_online_courses: 'Online-Kurse',
+  niche_fitness: 'Fitness',
+  niche_esoterica: 'Esoterik',
+  dashboard_selling_headline: 'Content mit AI schneller erstellen',
+  dashboard_selling_subtitle: 'Starten Sie Pläne, Beiträge und Videos von einem Bildschirm aus. AutoSocial bringt Sie in wenigen Minuten von der Idee zum veröffentlichungsreifen Inhalt.',
+  dashboard_recommendation_lead: 'Ein klarer AI-Hinweis, damit sofort klar ist, was als Nächstes zu tun ist.',
+  dashboard_connections_title: 'Verbindungen und Veröffentlichungsbereitschaft',
+  dashboard_connections_lead: 'Kanäle sollten die Erstellung nicht blockieren, aber für Veröffentlichung und Synchronisierung bereit bleiben.',
+  dashboard_breakdown_button: 'Woraus es besteht',
+  dashboard_forecast_title: 'Prognose',
+  dashboard_insight_safe_fallback: 'Die Insight-Daten werden aktualisiert. Synchronisieren Sie die Metriken oder öffnen Sie Erstellen, um den nächsten Inhalt vorzubereiten.',
+  dashboard_quick_action_weekly_title: 'Content-Plan für 7 Tage',
+  dashboard_quick_action_weekly_desc: 'Ein schneller Wochenplan für Ihre Nische.',
+  dashboard_quick_action_monthly_title: 'Content-Plan für 30 Tage',
+  dashboard_quick_action_monthly_desc: 'Ein kompletter Monatsplan mit Ideen und Struktur.',
+  dashboard_quick_action_video_week_title: 'Video-Posts für 7 Tage',
+  dashboard_quick_action_video_week_desc: 'Ein Wochen-Video-Plan mit Themen, Slots und CTA.',
+  dashboard_quick_action_video_month_title: 'Video-Posts für 30 Tage',
+  dashboard_quick_action_video_month_desc: 'Ein Monats-Video-Plan für regelmäßigen Short-Form-Content.',
+  dashboard_quick_action_post_series_title: 'Beitragsserie',
+  dashboard_quick_action_post_series_desc: 'Eine fertige Serie von Posts für Ihr Geschäft und Format.',
+  dashboard_quick_action_video_series_title: 'Videoserie',
+  dashboard_quick_action_video_series_desc: 'Ideen und Struktur für kurze Videos.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Starke Einstiege für Posts, Reels und Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Handlungsaufforderungen für Engagement und Leads.',
+  dashboard_quick_action_create_plan: 'Plan erstellen',
+  dashboard_quick_action_generate: 'Generieren',
+  dashboard_quick_action_hooks_cta: 'Hooks erstellen',
+  dashboard_quick_action_cta_cta: 'CTA erstellen',
+});
+Object.assign(APP_SHELL_I18N.es, {
+  language_label: 'Idioma',
+  planner_niche: 'Nicho',
+  create_preview_post: 'Vista previa del post',
+  create_preview_video: 'Vista previa del video',
+  create_quality_title: 'Revisión de calidad',
+  create_plan_use: 'Usar',
+  create_plan_edit: 'Editar',
+  create_plan_select_day: 'Selecciona un día',
+  page_dashboard: 'Panel',
+  page_create: 'Crear',
+  page_calendar: 'Calendario',
+  page_connections: 'Conexiones',
+  page_history: 'Historial',
+  page_billing: 'Facturación',
+  page_support: 'Soporte',
+  dashboard_quick_start: 'Inicio rápido',
+  dashboard_what_create: '¿Qué quieres crear?',
+  dashboard_value_lead: 'Elige una acción y obtén un resultado en pocos clics. Según el nicho {niche}, la IA preparará ideas, estructura y borradores listos.',
+  dashboard_choose_niche_first: 'Primero elige un nicho',
+  dashboard_choose_niche_button: 'Elegir nicho',
+  dashboard_first_data: 'Primeros resultados en lugar de analítica vacía',
+  dashboard_welcome_title: 'Empieza con el primer resultado, no con métricas vacías',
+  dashboard_welcome: 'Bienvenido a AutoSocial',
+  dashboard_ai_insights: 'Insights de IA',
+  dashboard_growth_30: 'Resultados de los últimos 30 días',
+  dashboard_no_data_sync: 'Aún no hay datos. Publica contenido y sincroniza las métricas.',
+  dashboard_no_insights: 'Aún no hay suficientes datos para insights de IA.',
+  dashboard_open_growth: 'Abrir crecimiento',
+  dashboard_published_posts: 'Publicaciones publicadas',
+  dashboard_sort_engagement: 'Por interacción',
+  dashboard_sort_reach: 'Por alcance',
+  dashboard_sort_views: 'Por vistas',
+  dashboard_breakdown_title: 'Qué compone la puntuación',
+  dashboard_select_niche_option: 'Elegir nicho',
+  niche_smm_marketing: 'SMM y marketing',
+  niche_cosmetology: 'Cosmetología',
+  niche_barbershop: 'Barbería',
+  niche_autoservice: 'Servicio de autos',
+  niche_detailing: 'Detailing de autos',
+  niche_apartment_renovation: 'Renovación de apartamentos',
+  niche_psychology: 'Psicología',
+  niche_consulting: 'Consultoría',
+  niche_online_courses: 'Cursos online',
+  niche_fitness: 'Fitness',
+  niche_esoterica: 'Esoterismo',
+  dashboard_selling_headline: 'Crea contenido más rápido con IA',
+  dashboard_selling_subtitle: 'Lanza planes, posts y vídeos desde una sola pantalla. AutoSocial te ayuda a pasar de la idea al contenido listo para publicar en minutos.',
+  dashboard_recommendation_lead: 'Una señal principal de IA para que sepas claramente qué hacer después.',
+  dashboard_connections_title: 'Conexiones y preparación para publicar',
+  dashboard_connections_lead: 'Los canales no deben bloquear la creación, pero sí deben estar listos para publicar y sincronizar.',
+  dashboard_breakdown_button: 'De qué se compone',
+  dashboard_forecast_title: 'Pronóstico',
+  dashboard_insight_safe_fallback: 'Los datos del insight se están actualizando. Sincroniza las métricas o abre Crear para preparar el siguiente contenido.',
+  dashboard_quick_action_weekly_title: 'Plan de contenido de 7 días',
+  dashboard_quick_action_weekly_desc: 'Un plan semanal rápido para tu nicho.',
+  dashboard_quick_action_monthly_title: 'Plan de contenido de 30 días',
+  dashboard_quick_action_monthly_desc: 'Un plan mensual completo con ideas y estructura.',
+  dashboard_quick_action_video_week_title: 'Vídeos para 7 días',
+  dashboard_quick_action_video_week_desc: 'Plan semanal de vídeo con temas, franjas y CTA.',
+  dashboard_quick_action_video_month_title: 'Vídeos para 30 días',
+  dashboard_quick_action_video_month_desc: 'Plan mensual de vídeo para short-form continuo.',
+  dashboard_quick_action_post_series_title: 'Serie de posts',
+  dashboard_quick_action_post_series_desc: 'Serie lista de publicaciones para tu negocio.',
+  dashboard_quick_action_video_series_title: 'Serie de vídeos',
+  dashboard_quick_action_video_series_desc: 'Ideas y estructura para vídeos cortos.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Inicios potentes para posts, Reels y Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Llamadas a la acción para interacción y leads.',
+  dashboard_quick_action_create_plan: 'Crear plan',
+  dashboard_quick_action_generate: 'Generar',
+  dashboard_quick_action_hooks_cta: 'Crear hooks',
+  dashboard_quick_action_cta_cta: 'Crear CTA',
+});
+Object.assign(APP_SHELL_I18N.fr, {
+  language_label: 'Langue',
+  planner_niche: 'Niche',
+  create_preview_post: 'Aperçu du post',
+  create_preview_video: 'Aperçu de la vidéo',
+  create_quality_title: 'Contrôle qualité',
+  create_plan_use: 'Utiliser',
+  create_plan_edit: 'Modifier',
+  create_plan_select_day: 'Choisissez un jour',
+  nav_support: 'Assistance',
+  page_dashboard: 'Tableau de bord',
+  page_create: 'Créer',
+  page_calendar: 'Calendrier',
+  page_connections: 'Connexions',
+  page_history: 'Historique',
+  page_billing: 'Facturation',
+  page_support: 'Assistance',
+  dashboard_quick_start: 'Démarrage rapide',
+  dashboard_what_create: 'Que voulez-vous créer ?',
+  dashboard_value_lead: 'Choisissez une action et obtenez un résultat en quelques clics. Selon la niche {niche}, l’IA préparera des idées, une structure et des brouillons prêts à l’emploi.',
+  dashboard_choose_niche_first: 'Choisissez d’abord une niche',
+  dashboard_choose_niche_button: 'Choisir une niche',
+  dashboard_first_data: 'Les premiers résultats plutôt qu’une analytique vide',
+  dashboard_welcome_title: 'Commencez par un premier résultat, pas par des métriques vides',
+  dashboard_welcome: 'Bienvenue dans AutoSocial',
+  dashboard_ai_insights: 'Insights IA',
+  dashboard_growth_30: 'Résultats sur 30 jours',
+  dashboard_no_data_sync: 'Pas encore de données. Publiez du contenu et synchronisez les métriques.',
+  dashboard_no_insights: 'Pas encore assez de données pour les insights IA.',
+  dashboard_open_growth: 'Ouvrir la croissance',
+  dashboard_published_posts: 'Posts publiés',
+  dashboard_sort_engagement: 'Par engagement',
+  dashboard_sort_reach: 'Par portée',
+  dashboard_sort_views: 'Par vues',
+  dashboard_breakdown_title: 'Ce qui compose le score',
+  dashboard_select_niche_option: 'Choisir une niche',
+  niche_smm_marketing: 'SMM et marketing',
+  niche_cosmetology: 'Cosmétologie',
+  niche_barbershop: 'Barbershop',
+  niche_autoservice: 'Service auto',
+  niche_detailing: 'Detailing auto',
+  niche_apartment_renovation: 'Rénovation d’appartement',
+  niche_psychology: 'Psychologie',
+  niche_consulting: 'Conseil',
+  niche_online_courses: 'Cours en ligne',
+  niche_fitness: 'Fitness',
+  niche_esoterica: 'Ésotérisme',
+  dashboard_selling_headline: 'Créez du contenu plus vite avec l’IA',
+  dashboard_selling_subtitle: 'Lancez des plans, des posts et des vidéos depuis un seul écran. AutoSocial vous aide à passer de l’idée au contenu prêt à publier en quelques minutes.',
+  dashboard_recommendation_lead: 'Un signal IA principal pour comprendre immédiatement quoi faire ensuite.',
+  dashboard_connections_title: 'Connexions et préparation à la publication',
+  dashboard_connections_lead: 'Les canaux ne doivent pas bloquer la création, mais ils doivent rester prêts pour la publication et la synchronisation.',
+  dashboard_breakdown_button: 'Ce qui le compose',
+  dashboard_forecast_title: 'Prévision',
+  dashboard_insight_safe_fallback: 'Les données de l’insight sont en cours de mise à jour. Synchronisez les métriques ou ouvrez Créer pour préparer le prochain contenu.',
+  dashboard_quick_action_weekly_title: 'Plan de contenu sur 7 jours',
+  dashboard_quick_action_weekly_desc: 'Un plan hebdomadaire rapide pour votre niche.',
+  dashboard_quick_action_monthly_title: 'Plan de contenu sur 30 jours',
+  dashboard_quick_action_monthly_desc: 'Un plan mensuel complet avec idées et structure.',
+  dashboard_quick_action_video_week_title: 'Vidéos sur 7 jours',
+  dashboard_quick_action_video_week_desc: 'Plan vidéo hebdomadaire avec thèmes, créneaux et CTA.',
+  dashboard_quick_action_video_month_title: 'Vidéos sur 30 jours',
+  dashboard_quick_action_video_month_desc: 'Plan vidéo mensuel pour un flux short-form régulier.',
+  dashboard_quick_action_post_series_title: 'Série de posts',
+  dashboard_quick_action_post_series_desc: 'Une série de posts prête pour votre activité.',
+  dashboard_quick_action_video_series_title: 'Série de vidéos',
+  dashboard_quick_action_video_series_desc: 'Idées et structure pour de courtes vidéos.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Accroches fortes pour posts, Reels et Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Appels à l’action pour engagement et leads.',
+  dashboard_quick_action_create_plan: 'Créer le plan',
+  dashboard_quick_action_generate: 'Générer',
+  dashboard_quick_action_hooks_cta: 'Créer des hooks',
+  dashboard_quick_action_cta_cta: 'Créer un CTA',
+});
+Object.assign(APP_SHELL_I18N.uk, {
+  language_label: 'Мова',
+  planner_niche: 'Ніша',
+  create_preview_post: 'Превʼю поста',
+  create_preview_video: 'Превʼю відео',
+  create_quality_title: 'Перевірка якості',
+  create_plan_use: 'Використати',
+  create_plan_edit: 'Редагувати',
+  create_plan_select_day: 'Виберіть день',
+  page_dashboard: 'Панель',
+  page_create: 'Створити',
+  page_calendar: 'Календар',
+  page_connections: 'Підключення',
+  page_history: 'Історія',
+  page_billing: 'Білінг',
+  page_support: 'Підтримка',
+  dashboard_quick_start: 'Швидкий старт',
+  dashboard_what_create: 'Що хочете створити?',
+  dashboard_value_lead: 'Оберіть дію й отримайте результат за кілька кліків. На основі ніші {niche} AI підготує ідеї, структуру та готові чернетки.',
+  dashboard_choose_niche_first: 'Спочатку виберіть нішу',
+  dashboard_choose_niche_button: 'Вибрати нішу',
+  dashboard_first_data: 'Перші результати замість порожньої аналітики',
+  dashboard_welcome_title: 'Почніть із першого результату, а не з порожніх метрик',
+  dashboard_welcome: 'Ласкаво просимо до AutoSocial',
+  dashboard_ai_insights: 'AI-інсайти',
+  dashboard_growth_30: 'Результати за 30 днів',
+  dashboard_no_data_sync: 'Даних ще немає. Опублікуйте контент і синхронізуйте метрики.',
+  dashboard_no_insights: 'Ще недостатньо даних для AI-інсайтів.',
+  dashboard_open_growth: 'Відкрити зростання',
+  dashboard_published_posts: 'Опубліковані пости',
+  dashboard_sort_engagement: 'За залученням',
+  dashboard_sort_reach: 'За охопленням',
+  dashboard_sort_views: 'За переглядами',
+  dashboard_breakdown_title: 'З чого складається score',
+  dashboard_select_niche_option: 'Оберіть нішу',
+  niche_smm_marketing: 'SMM і маркетинг',
+  niche_cosmetology: 'Косметологія',
+  niche_barbershop: 'Барбершоп',
+  niche_autoservice: 'Автосервіс',
+  niche_detailing: 'Детейлінг',
+  niche_apartment_renovation: 'Ремонт квартир',
+  niche_psychology: 'Психологія',
+  niche_consulting: 'Консалтинг',
+  niche_online_courses: 'Онлайн-курси',
+  niche_fitness: 'Фітнес',
+  niche_esoterica: 'Езотерика',
+  dashboard_selling_headline: 'Створюйте контент швидше з AI',
+  dashboard_selling_subtitle: 'Запускайте плани, пости й відео з одного екрана. AutoSocial допомагає перейти від ідеї до готового до публікації контенту за кілька хвилин.',
+  dashboard_recommendation_lead: 'Один головний AI-сигнал, щоб одразу було зрозуміло, що робити далі.',
+  dashboard_connections_title: 'Підключення та готовність до публікації',
+  dashboard_connections_lead: 'Канали не мають заважати створенню контенту, але мають бути готовими до публікації та синхронізації.',
+  dashboard_breakdown_button: 'З чого складається',
+  dashboard_forecast_title: 'Прогноз',
+  dashboard_insight_safe_fallback: 'Дані інсайту оновлюються. Синхронізуйте метрики або відкрийте Створити, щоб підготувати наступний контент.',
+  dashboard_quick_action_weekly_title: 'Контент-план на 7 днів',
+  dashboard_quick_action_weekly_desc: 'Швидкий тижневий план публікацій для вашої ніші.',
+  dashboard_quick_action_monthly_title: 'Контент-план на 30 днів',
+  dashboard_quick_action_monthly_desc: 'Повний місячний план з ідеями та структурою.',
+  dashboard_quick_action_video_week_title: 'Відео на 7 днів',
+  dashboard_quick_action_video_week_desc: 'Тижневий відеоплан з темами, слотами та CTA.',
+  dashboard_quick_action_video_month_title: 'Відео на 30 днів',
+  dashboard_quick_action_video_month_desc: 'Місячний відеоплан для регулярного short-form контенту.',
+  dashboard_quick_action_post_series_title: 'Серія постів',
+  dashboard_quick_action_post_series_desc: 'Готова серія постів для вашого бізнесу та формату.',
+  dashboard_quick_action_video_series_title: 'Серія відео',
+  dashboard_quick_action_video_series_desc: 'Ідеї та структура коротких відео.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Чіпкі початки для постів, Reels і Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Заклики до дії для залучення та заявок.',
+  dashboard_quick_action_create_plan: 'Створити план',
+  dashboard_quick_action_generate: 'Згенерувати',
+  dashboard_quick_action_hooks_cta: 'Створити hooks',
+  dashboard_quick_action_cta_cta: 'Створити CTA',
+});
+Object.assign(APP_SHELL_I18N.ru, {
+  dashboard_quick_action_weekly_title: 'Контент-план на 7 дней',
+  dashboard_quick_action_weekly_desc: 'Быстрый недельный план публикаций для вашей ниши.',
+  dashboard_quick_action_monthly_title: 'Контент-план на 30 дней',
+  dashboard_quick_action_monthly_desc: 'Полный месячный план с идеями и структурой публикаций.',
+  dashboard_quick_action_video_week_title: 'Видео на 7 дней',
+  dashboard_quick_action_video_week_desc: 'Недельный видеоплан с темами, слотами и CTA.',
+  dashboard_quick_action_video_month_title: 'Видео на 30 дней',
+  dashboard_quick_action_video_month_desc: 'Месячный видеоплан для регулярного short-form контента.',
+  dashboard_quick_action_post_series_title: 'Серия постов',
+  dashboard_quick_action_post_series_desc: 'Готовая серия постов для вашей ниши и формата.',
+  dashboard_quick_action_video_series_title: 'Серия видео',
+  dashboard_quick_action_video_series_desc: 'Идеи и структура для коротких видео.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Сильные заходы для постов, Reels и Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Призывы к действию для вовлечения и лидов.',
+  dashboard_quick_action_create_plan: 'Сгенерировать план',
+  dashboard_quick_action_generate: 'Сгенерировать',
+  dashboard_quick_action_hooks_cta: 'Сгенерировать hooks',
+  dashboard_quick_action_cta_cta: 'Сгенерировать CTA',
+  common_yes: 'Да',
+  common_no: 'Нет',
+  common_unlimited: 'Без ограничений',
+  common_use: 'Использовать',
+  common_close: 'Закрыть',
+  common_refresh_list: 'Обновить список',
+  common_add_separate: 'Добавить как отдельное',
+  common_all: 'Все',
+  common_loading_pages: 'Загружаю список страниц…',
+  common_connected: 'Подключено',
+  common_not_connected: 'Не подключено',
+  common_format: 'Формат',
+  common_status: 'Статус',
+  common_channel: 'Канал',
+  common_topic: 'Тема',
+  common_duration: 'Длительность',
+  common_cta: 'CTA',
+  common_hashtags: 'Хештеги',
+  common_description: 'Описание',
+  common_script: 'Сценарий',
+  common_hook: 'Хук',
+  common_focus: 'Фокус',
+  common_final: 'Финал',
+  common_project: 'Проект',
+  common_language: 'Язык',
+  common_tone: 'Тон',
+  common_style: 'Стиль',
+  common_time: 'Время',
+  common_posts_month: 'Постов / месяц',
+  common_videos_month: 'Видео / месяц',
+  common_workspaces: 'Рабочие пространства',
+  common_connected_channels: 'Подключённые каналы',
+  common_price_month: 'Цена / месяц',
+  common_trial_period: 'Пробный период',
+  common_today: 'Сегодня',
+  common_search_pages: 'Поиск: название / Page ID / @IG',
+  common_selected_day_preview: 'После генерации здесь появится подробное превью выбранного дня.',
+  common_no_materials_period: 'Нет материалов за период.',
+  billing_feature_title: 'Функция',
+  billing_analytics_label: 'Аналитика',
+  billing_daily_limit: 'Лимит в день',
+  billing_current_plan_button: 'Текущий план',
+  billing_switch_to: 'Перейти на {plan}',
+  billing_available_on_signup: 'Доступно при регистрации',
+  billing_coming_soon: 'Скоро доступно',
+  billing_admin_internal: 'служебный тариф',
+  billing_popular: 'Рекомендуем',
+  billing_workspace_singular: 'рабочее пространство',
+  billing_workspace_plural: 'рабочих пространств',
+  billing_channels_plural: 'подключённых каналов',
+  billing_internal_suffix: '/internal',
+  billing_month_suffix: '/мес',
+  connections_autoposting: 'Автопостинг',
+  connections_page_not_selected: 'Страница не выбрана',
+  connections_instagram_not_selected: 'Instagram Business не выбран',
+  connections_facebook_ok: 'Facebook OK',
+  connections_instagram_ok: 'Instagram OK',
+  connections_loading_pages: 'Загружаю список страниц…',
+  connections_ig_linked: 'IG привязан',
+  connections_without_ig: 'Без IG',
+  connections_no_unconnected_pages: 'Неподключенных страниц не найдено. Все доступные страницы уже добавлены.',
+  connections_pages_not_found: 'Страницы не найдены. Проверьте, что у аккаунта есть роль на Facebook Page и выданы permissions (pages_show_list).',
+  connections_picker_title: 'Выбор Facebook Page',
+  connections_picker_lead: 'Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.',
+  connections_filter_all: 'Все',
+  connections_filter_not_connected: 'Неподключенные',
+  connections_filter_with_ig: 'С IG',
+  connections_filter_without_ig: 'Без IG',
+  connections_youtube_caption: 'Видео и Shorts',
+  connections_youtube_multiformat: 'Shorts и длинные видео',
+  planner_video_panel: 'Видео-план',
+  planner_post_panel: 'План постов',
+  planner_video_format: 'Формат видео',
+  planner_posts_per_day: 'Постов в день',
+  planner_videos_per_day: 'Видео в день',
+  planner_with_image: 'С картинкой',
+  planner_manual_hours: 'Часы',
+  planner_topic_placeholder_post: 'Если нужно сузить тему внутри выбранной ниши',
+  planner_topic_placeholder_video: 'Например: короткие видео для салона красоты',
+  planner_preview_empty: 'Выберите день, чтобы увидеть детали.',
+  planner_days_empty: 'После генерации здесь появятся карточки по дням.',
+  planner_publications_none: 'Публикаций пока нет',
+  planner_publication_slots_single: '1 слот публикации',
+  planner_publication_slots_many: '{count} слота публикации',
+  planner_schedule_all_cta: 'Опубликовать весь план автоматически',
+  planner_generated_topic_fallback: 'Идея #{index}',
+  planner_generated_angle_fallback: 'Полезный подход для выбранной ниши',
+  planner_generated_cta_fallback: 'Напишите нам, чтобы получить детали.',
+  planner_generated_caption_fallback: '{topic}. Фокус: {angle}. Покажите пользу для клиента и добавьте один понятный следующий шаг.',
+  planner_generated_hashtags_fallback: '#контент #маркетинг #бизнес',
+  planner_panel_days: '{days} дней',
+  youtube_video_type: 'Тип',
+  youtube_title_options: 'Варианты заголовка',
+  youtube_community_post: 'Community post',
+  youtube_generate_video: 'Сгенерировать видео',
+  youtube_generating_video: 'Генерируем…',
+  youtube_generate_post: 'Сгенерировать YouTube пост',
+  youtube_generating_post: 'Генерируем…',
+  youtube_post_title: 'YouTube post',
+  youtube_post_created: 'Пост создан: #{id} ({status}). Откройте календарь.',
+  youtube_result_empty: 'Сгенерируйте пакет видео, чтобы увидеть структуру ролика, заголовки и описание.',
+  youtube_time: 'Время',
+  youtube_segment: 'Сегмент',
+  youtube_voiceover: 'Озвучка',
+  youtube_visual: 'Визуал',
+  dashboard_average: 'среднее',
+  dashboard_peak: 'пик',
+  dashboard_worst_day: 'худший день',
+  dashboard_insight_title: 'Инсайт',
+  dashboard_open_top_content: 'Открыть топ-контент',
+  dashboard_schedule_best_day: 'Запланировать на лучший день',
+  dashboard_create_in_format: 'Создать пост в этом формате',
+  dashboard_delete: 'Удалить',
+  dashboard_trial_line: 'Пробный период: {days} дн.',
+  dashboard_paid_line: 'Платный тариф активен. Лимиты синхронизированы с backend.',
+  dashboard_next_sync_or_publish: 'Синхронизируйте метрики или опубликуйте следующий материал.',
+  dashboard_connect_later_keep_generating: 'Подключите соцсети позже, а пока продолжайте генерировать контент.',
+  dashboard_start_first_topic: 'Начните с первой темы и получите пост или структуру видео меньше чем за минуту.',
+  dashboard_available: 'Доступно',
+  dashboard_preview: 'Preview на вашем тарифе',
+  dashboard_locked_current_plan: 'Недоступно на текущем тарифе',
+  dashboard_value_lead: 'Выберите действие и получите результат за пару кликов. На основе ниши {niche} AI подготовит идеи, структуру и готовые заготовки.',
+  dashboard_niche_help: 'Ниша нужна, чтобы контент-планы, серии постов, видео, hooks и CTA были релевантны именно вашему бизнесу.',
+  dashboard_select_niche_option: 'Выберите нишу',
+  niche_smm_marketing: 'SMM и маркетинг',
+  niche_cosmetology: 'Косметология',
+  niche_barbershop: 'Барбершоп',
+  niche_autoservice: 'Автосервис',
+  niche_detailing: 'Детейлинг',
+  niche_apartment_renovation: 'Ремонт квартир',
+  niche_psychology: 'Психология',
+  niche_consulting: 'Консалтинг',
+  niche_online_courses: 'Онлайн-курсы',
+  niche_fitness: 'Фитнес',
+  niche_esoterica: 'Эзотерика',
+  dashboard_create_first_post: 'Создать первый пост',
+  dashboard_create_first_video: 'Создать первое видео',
+  dashboard_connect_socials: 'Подключить соцсети',
+  dashboard_channels_ready: 'Каналы уже можно использовать для публикации и синхронизации.',
+  dashboard_generate_then_connect: 'Сначала можно сгенерировать контент, а подключить каналы позже для автопостинга и аналитики.',
+  dashboard_hide: 'Скрыть',
+  dashboard_step_2_title: 'Сгенерируйте пост или структуру видео',
+  dashboard_step_2_text: 'Получите первый черновик сразу и отредактируйте его при необходимости.',
+  dashboard_step_3_title: 'Опубликуйте сейчас или подключите каналы позже',
+  dashboard_step_3_text: 'Контент можно подготовить заранее, а автопостинг включить после подключения соцсетей.',
+  dashboard_analytics_after_first: 'Аналитика появится после первых публикаций',
+  dashboard_not_broken: 'Сейчас панель не пустая и не сломана: данные подтянутся после публикаций и синхронизации. Пока главный путь к value — создать первый пост или первое видео.',
+  dashboard_start_content: 'Начать с контента',
+  dashboard_understood: 'Понятно',
+  dashboard_badge_no_data: 'Пока нет данных для графиков — сначала создайте и опубликуйте контент',
+  dashboard_badge_data_period: 'данные: Facebook + Instagram + YouTube / период: 30 дней',
+  dashboard_best_next_step: 'Лучший следующий шаг',
+  dashboard_channels_card: 'Каналы',
+  dashboard_channels_yes: 'Есть',
+  dashboard_channels_none: 'Пока нет',
+  dashboard_publish_sync_ready: 'Можно публиковать и синхронизировать.',
+  dashboard_work_without_connections: 'Сначала можно работать без подключений.',
+  dashboard_trial_card: 'Trial',
+  dashboard_active: 'Активен',
+  dashboard_show_value: 'Покажите первую ценность до конца пробного периода.',
+  dashboard_limits_active: 'Лимиты и доступ уже активны.',
+  dashboard_limits_left: 'Осталось постов / видео в текущем периоде.',
+  dashboard_sync_later: 'Синхронизировать позже',
+  dashboard_sync_now: 'Синхронизировать',
+  dashboard_syncing: 'Синхронизирую...',
+  dashboard_current_plan_title: 'Текущий план',
+  dashboard_plan_label: 'План',
+  dashboard_upgrade: 'Апгрейд',
+  dashboard_posts_label: 'Посты',
+  dashboard_videos_label: 'Видео',
+  dashboard_workspaces_label: 'Рабочие пространства',
+  dashboard_channels_label: 'Каналы',
+  dashboard_locked_label: 'Locked / недоступно',
+  dashboard_workspace_hint: 'Рабочее пространство — обычно один бренд или один клиент.',
+  dashboard_available_now: 'Что доступно сейчас',
+  dashboard_niche_templates: 'Шаблоны по нишам',
+  dashboard_next_step_text: 'Следующий шаг: откройте «Создать», выберите тему и получите первый пост или структуру видео за несколько минут.',
+  dashboard_paywall_hint: 'Если лимит закончится или функция недоступна, paywall должен вести на страницу тарифа без ложных кнопок и пустых действий.',
+  dashboard_selling_headline: 'Создавайте контент быстрее с AI',
+  dashboard_selling_subtitle: 'Запускайте планы, посты и видео из одного экрана. AutoSocial помогает быстро перейти от идеи к готовому материалу и публикации.',
+  dashboard_recommendation_lead: 'Один главный AI-сигнал, чтобы было понятно, что делать дальше.',
+  dashboard_recent_lead: 'Последние материалы и публикации, чтобы быстро понять, что уже работает.',
+  dashboard_connections_title: 'Подключения и готовность',
+  dashboard_connections_lead: 'Каналы не должны мешать созданию контента, но должны быть готовы к публикации и синхронизации.',
+  dashboard_chart_desc_reach: 'Показывает, сколько людей увидели ваш контент по дням за последние 30 дней.',
+  dashboard_chart_desc_views: 'Показывает, сколько просмотров набирает контент по дням за последние 30 дней.',
+  dashboard_chart_desc_engagement: 'Показывает, как менялась вовлечённость: лайки, комментарии и репосты относительно охвата.',
+  dashboard_chart_desc_ai_score: 'Показывает, как менялся AI-Score на основе регулярности, вовлечённости и роста.',
+  dashboard_chart_desc_default: 'Показывает динамику результатов по дням за последние 30 дней.',
+  dashboard_delta_prev_30d: 'vs прошлым 30 дням: {value}',
+  dashboard_breakdown_period_label: 'Период',
+  dashboard_breakdown_weight_label: 'Вес',
+  dashboard_breakdown_expected_effect: 'Ожидаемый эффект',
+  dashboard_confidence_high: 'Высокая',
+  dashboard_confidence_medium: 'Средняя',
+  dashboard_confidence_low: 'Низкая',
+  common_autoposting: 'Автопостинг',
+  common_schedule: 'Запланировать',
+  common_publish: 'Опубликовать',
+  common_delete: 'Удалить',
+  common_edit: 'Редактировать',
+  common_open: 'Открыть',
+  common_retry: 'Повторить',
+  common_image: 'Изображение',
+  common_mode: 'Режим',
+  common_goal: 'Цель',
+  common_platforms: 'Платформы',
+  common_audience: 'Аудитория',
+  common_goal_awareness: 'Охват',
+  common_goal_engagement: 'Вовлечение',
+  common_goal_sales: 'Продажи',
+  common_preview: 'Превью',
+  common_date_time: 'Дата и время',
+  common_generate: 'Сгенерировать',
+  common_refresh: 'Обновить',
+  common_ready: 'Готово',
+  common_like: 'Нравится',
+  common_comment: 'Комментарий',
+  common_share: 'Поделиться',
+  common_subscribe: 'Подписка',
+  common_days_short: 'дн.',
+  common_voice: 'Голос',
+  common_voice_tone: 'Интонация',
+  common_voice_male: 'мужской',
+  common_voice_female: 'женский',
+  common_tone_calm: 'спокойная',
+  common_tone_neutral: 'нейтральная',
+  common_tone_live: 'живая',
+  common_subtitles_enabled: 'Субтитры: включены',
+  common_music_quiet: 'Фон: тихая музыка',
+  common_no_projects: 'Нет проектов',
+  dashboard_breakdown_button: 'Из чего складывается',
+  dashboard_insight_safe_fallback: 'Данные для инсайта обновляются. Синхронизируйте метрики или откройте «Создать», чтобы подготовить следующий материал.',
+  dashboard_reach_label: 'Охват',
+  dashboard_views_label: 'Просмотры',
+  dashboard_engagement_label: 'Уровень вовлечённости',
+  dashboard_posts_count_label: 'Количество постов',
+  dashboard_best_next_step_label: 'Лучший следующий шаг',
+  dashboard_ai_score_label: 'AI-Score / 100',
+  dashboard_content_items: 'Контент-единиц',
+  dashboard_step_1_title: 'Выберите тему или получите идеи',
+  dashboard_forecast_title: 'Прогноз',
+  dashboard_forecast_lead: 'На {days} дней · уверенность: {level} · {reasons}',
+  dashboard_forecast_days: '{days} дней',
+  dashboard_forecast_reach: 'Прогноз охвата',
+  dashboard_forecast_views: 'Прогноз просмотров',
+  dashboard_forecast_engagement: 'Прогноз вовлечённости',
+  dashboard_forecast_current: 'Текущий темп',
+  dashboard_forecast_plus30: '+30% частоты',
+  dashboard_posts_week_plural: '{count} постов/нед',
+  dashboard_insight_applied: 'Рекомендации применены. Параметры перенесены в Create.',
+  history_posts_month: 'Постов в месяце',
+  history_published_month: 'Опубликовано',
+  history_outside_month: 'Вне месяца/без даты',
+  history_no_posts_day: 'На этот день постов нет',
+  history_date: 'Дата',
+  history_platform: 'Платформа',
+  history_topic: 'Тема',
+  history_publication: 'Публикация',
+  history_actions: 'Действия',
+  history_published_label: 'Опубликован',
+  history_draft_label: 'Черновик',
+  history_published_prefix: 'Опубликовано',
+  history_planned_prefix: 'План',
+  history_no_date: 'Без даты',
+  history_remove_site: 'Убрать с сайта',
+  history_loading_post: 'Загружаю пост…',
+  history_text_not_ready: 'Текст ещё не готов. Если статус queued/running, подождите 10–30 секунд и откройте снова.',
+  history_select_post: 'Выберите пост в таблице.',
+  history_post_title: 'Пост',
+  history_close: 'Закрыть',
+  history_platforms: 'Платформы',
+  history_image_preview: 'Превью изображения',
+  history_image_unavailable: 'Изображение недоступно',
+  history_post_not_selected: 'Пост не выбран.',
+  history_edit_before_publish: 'Редактирование перед публикацией',
+  history_save: 'Сохранить',
+  history_saving: 'Сохраняю…',
+  history_clear_schedule: 'Снять с расписания',
+  history_empty_title: 'Календарь пуст',
+  history_empty_text: 'Создайте первый пост и опубликуйте его.',
+  history_create_post: 'Создать пост',
+  history_view_image: 'Изображение',
+  history_open_article: 'Открыть статью',
+  history_platform_prefix: 'Платформа',
+  history_status_prefix: 'Статус',
+  connections_youtube_channel: 'YouTube канал',
+  connections_check_details: 'Проверьте детали подключения.',
+  connections_disconnect_youtube: 'Отключить YouTube',
+  billing_admin_badge: 'Админ',
+  create_director_generation_mode_title: 'Режим генерации',
+  create_director_manual_mode: 'Настроить вручную',
+  create_director_plan_mode: 'Использовать лимиты моего плана',
+  create_director_plan_mode_lead: 'Генерация будет учитывать ваш текущий тариф, доступные публикации и видео в этом периоде.',
+  create_director_manual_mode_lead: 'Вы сами управляете объёмом генерации, платформами и сценариями без подсказки по лимитам тарифа.',
+  create_director_current_plan: 'Ваш тариф',
+  create_director_available_now: 'Доступно сейчас',
+  create_director_posts_left: 'постов',
+  create_director_videos_left: 'видео',
+  create_director_channels_left: 'каналов',
+  create_director_refresh_approaches: 'Обновить подходы ({count}/5)',
+  create_director_refresh_cta: 'Обновить призыв ({count}/5)',
+  create_director_refresh_hashtags: 'Обновить хештеги ({count}/5)',
+  create_director_refreshing: 'Обновляю…',
+  create_director_empty_list: 'Пока пусто',
+  create_director_image_section_title: 'Режим генерации',
+  create_director_image_video_lead: 'GPT генерирует обложку без текста под тему ролика.',
+  create_director_image_post_lead: 'Управляется в расширенных настройках. Здесь можно только сгенерировать или обновить картинку.',
+  create_director_generate_cover: 'Сгенерировать обложку',
+  create_director_refresh_cover: 'Обновить обложку ({count}/3)',
+  create_director_generate_image: 'Сгенерировать картинку',
+  create_director_refresh_image: 'Обновить картинку ({count}/3)',
+  create_director_schedule_at: 'Дата/время для планирования',
+  create_director_content_plan_title: 'Контент-план',
+  create_director_content_plan_lead: 'AI может сам выбрать лучшие дни и часы публикации.',
+  create_director_video_structure_title: 'Структура видео',
+  create_director_drag_scenes: 'Перетяните сцены, чтобы изменить порядок в итоговом видео.',
+  create_director_voice_line: 'Голос: {voice} · Интонация: {tone} · {subtitles} · {music}',
+  create_director_hashtags_title: 'Хештеги',
+  create_director_hashtags_lead: 'Подберите набор хештегов под текущую нишу и выбранную тему.',
+  create_director_cta_title: 'Призыв',
+  create_director_cta_lead: 'Подберите CTA под текущую тему, формат и цель публикации.',
+  create_director_video_status: 'Статус: {status}',
+  create_director_structure_hint: 'Нажмите «Сгенерировать структуру», чтобы получить структуру, хештеги и призыв.',
+  create_director_scene_text: 'Текст сцены',
+  create_director_add_scene: 'Добавить сцену',
+  create_director_prepare_text: 'Готовим текст под выбранную тему…',
+  create_director_video_prepare_hint: 'Сначала сгенерируйте структуру, затем соберите видео.',
+  create_director_day_ready_schedule: 'День {day} подготовлен. Дата и время уже подставлены, можно нажать «Запланировать».',
+  create_director_day_opened: 'День {day} открыт для ручной доработки в Create.',
+  create_director_youtube_channel: 'YouTube канал',
+  create_director_your_account: 'Ваш аккаунт',
+  create_director_video_title_fallback: 'Видео',
+  create_director_video_headline: 'Структура видео',
+  create_director_preview_topic_line: 'Тема: {topic}',
+  create_director_preview_angle_line: 'Подход: {angle}',
+  create_director_video_settings: 'Настройки видео',
+  create_director_video_format: 'Формат',
+  create_director_scene_duration: 'Длительность сцены',
+  create_director_server_limit: 'Лимит сервера: до 8 минут (480 сек) для обычного видео.',
+  create_director_fixed_scene_duration: 'Фиксированная длительность сцены',
+  create_director_minimize_repeats: 'Минимизировать повторы',
+  create_director_workspace_hint: 'Рабочее пространство — обычно один бренд или один клиент.',
+  create_plan_summary_niche: 'Ниша',
+  create_plan_summary_format: 'Формат',
+  create_plan_summary_language: 'Язык',
+  create_plan_summary_goal: 'Цель',
+  create_plan_selected_day_placeholder: 'Здесь появится preview выбранного дня после генерации плана.',
+  create_plan_hashtags_placeholder: 'Хештеги появятся здесь',
+  create_plan_ready_title: '{title} готов',
+  create_plan_preview_note: 'Preview',
+  create_plan_preview_note_text: 'полный объём доступен после апгрейда тарифа.',
+  youtube_wait_estimate: 'Ожидание',
+  youtube_timeline: 'Таймлайн',
+  youtube_audience: 'Целевая аудитория',
+  youtube_goal: 'Цель ролика',
+  youtube_goal_placeholder: 'engagement / leads / views',
+  page_create: 'Создать',
+});
+Object.assign(APP_SHELL_I18N.en, {
+  common_yes: 'Yes',
+  common_no: 'No',
+  common_unlimited: 'Unlimited',
+  common_use: 'Use',
+  common_close: 'Close',
+  common_refresh_list: 'Refresh list',
+  common_add_separate: 'Add separately',
+  common_all: 'All',
+  common_loading_pages: 'Loading pages…',
+  common_connected: 'Connected',
+  common_not_connected: 'Not connected',
+  common_format: 'Format',
+  common_status: 'Status',
+  common_channel: 'Channel',
+  common_topic: 'Topic',
+  common_duration: 'Duration',
+  common_cta: 'CTA',
+  common_hashtags: 'Hashtags',
+  common_description: 'Description',
+  common_script: 'Script',
+  common_hook: 'Hook',
+  common_focus: 'Focus',
+  common_final: 'Final',
+  common_project: 'Project',
+  common_language: 'Language',
+  common_tone: 'Tone',
+  common_style: 'Style',
+  common_time: 'Time',
+  common_posts_month: 'Posts / month',
+  common_videos_month: 'Videos / month',
+  common_workspaces: 'Workspaces',
+  common_connected_channels: 'Connected channels',
+  common_price_month: 'Price / month',
+  common_trial_period: 'Trial period',
+  common_today: 'Today',
+  common_search_pages: 'Search: title / Page ID / @IG',
+  common_selected_day_preview: 'A detailed preview of the selected day will appear here after generation.',
+  common_no_materials_period: 'No content for this period.',
+  billing_feature_title: 'Feature',
+  billing_analytics_label: 'Analytics',
+  billing_daily_limit: 'Daily limit',
+  billing_current_plan_button: 'Current plan',
+  billing_switch_to: 'Switch to {plan}',
+  billing_available_on_signup: 'Available on sign-up',
+  billing_coming_soon: 'Coming soon',
+  billing_admin_internal: 'internal plan',
+  billing_popular: 'Popular',
+  billing_workspace_singular: 'workspace',
+  billing_workspace_plural: 'workspaces',
+  billing_channels_plural: 'connected channels',
+  billing_internal_suffix: '/internal',
+  billing_month_suffix: '/mo',
+  connections_autoposting: 'Autoposting',
+  connections_page_not_selected: 'No page selected',
+  connections_instagram_not_selected: 'Instagram Business not selected',
+  connections_facebook_ok: 'Facebook OK',
+  connections_instagram_ok: 'Instagram OK',
+  connections_loading_pages: 'Loading pages…',
+  connections_ig_linked: 'IG linked',
+  connections_without_ig: 'No IG',
+  connections_no_unconnected_pages: 'No unconnected pages were found. All available pages are already added.',
+  connections_pages_not_found: 'No pages were found. Check that this account has a role on a Facebook Page and permissions (pages_show_list).',
+  connections_picker_title: 'Choose a Facebook Page',
+  connections_picker_lead: 'We will show all pages your token can access. Choose the page you want to publish to.',
+  connections_filter_all: 'All',
+  connections_filter_not_connected: 'Not connected',
+  connections_filter_with_ig: 'With IG',
+  connections_filter_without_ig: 'Without IG',
+  connections_youtube_caption: 'Videos and Shorts',
+  connections_youtube_multiformat: 'Shorts and long-form',
+  planner_video_panel: 'Video plan',
+  planner_post_panel: 'Post plan',
+  planner_video_format: 'Video format',
+  planner_posts_per_day: 'Posts per day',
+  planner_videos_per_day: 'Videos per day',
+  planner_with_image: 'With image',
+  planner_manual_hours: 'Hours',
+  planner_topic_placeholder_post: 'Use this if you need to narrow the topic inside the selected niche',
+  planner_topic_placeholder_video: 'For example: short videos for a beauty salon',
+  planner_preview_empty: 'Choose a day to see the details.',
+  planner_days_empty: 'Day cards will appear here after generation.',
+  planner_publications_none: 'No publications yet',
+  planner_publication_slots_single: '1 publishing slot',
+  planner_publication_slots_many: '{count} publishing slots',
+  planner_schedule_all_cta: 'Auto-publish the whole plan',
+  planner_panel_days: '{days} days',
+  youtube_video_type: 'Type',
+  youtube_title_options: 'Title options',
+  youtube_community_post: 'Community post',
+  youtube_generate_video: 'Generate video',
+  youtube_generating_video: 'Generating…',
+  youtube_generate_post: 'Generate YouTube post',
+  youtube_generating_post: 'Generating…',
+  youtube_post_title: 'YouTube post',
+  youtube_post_created: 'Post created: #{id} ({status}). Open Calendar.',
+  youtube_result_empty: 'Generate a video pack to see the structure, title options, and description.',
+  youtube_time: 'Time',
+  youtube_segment: 'Segment',
+  youtube_voiceover: 'Voiceover',
+  youtube_visual: 'Visual',
+  dashboard_average: 'average',
+  dashboard_peak: 'peak',
+  dashboard_worst_day: 'worst day',
+  dashboard_insight_title: 'Insight',
+  dashboard_open_top_content: 'Open top content',
+  dashboard_schedule_best_day: 'Schedule for the best day',
+  dashboard_create_in_format: 'Create a post in this format',
+  dashboard_delete: 'Delete',
+  dashboard_trial_line: 'Trial period: {days} days',
+  dashboard_paid_line: 'Paid plan is active. Limits are synced with the backend.',
+  dashboard_next_sync_or_publish: 'Sync metrics or publish the next item.',
+  dashboard_connect_later_keep_generating: 'Connect social channels later and keep generating content for now.',
+  dashboard_start_first_topic: 'Start with your first topic and get a post or a video structure in under a minute.',
+  dashboard_available: 'Available',
+  dashboard_preview: 'Preview on your current plan',
+  dashboard_locked_current_plan: 'Unavailable on your current plan',
+  dashboard_value_lead: 'Choose an action and get a result in a couple of clicks. Based on the niche {niche}, AI will prepare ideas, structure, and ready-made drafts.',
+  dashboard_niche_help: 'The niche helps keep plans, post series, video series, hooks, and CTA relevant to your business.',
+  dashboard_select_niche_option: 'Choose a niche',
+  niche_smm_marketing: 'SMM and marketing',
+  niche_cosmetology: 'Cosmetology',
+  niche_barbershop: 'Barbershop',
+  niche_autoservice: 'Auto service',
+  niche_detailing: 'Auto detailing',
+  niche_apartment_renovation: 'Apartment renovation',
+  niche_psychology: 'Psychology',
+  niche_consulting: 'Consulting',
+  niche_online_courses: 'Online courses',
+  niche_fitness: 'Fitness',
+  niche_esoterica: 'Esoterics',
+  dashboard_create_first_post: 'Create first post',
+  dashboard_create_first_video: 'Create first video',
+  dashboard_connect_socials: 'Connect social channels',
+  dashboard_channels_ready: 'Channels are already ready for publishing and syncing.',
+  dashboard_generate_then_connect: 'You can generate content first and connect channels later for autoposting and analytics.',
+  dashboard_hide: 'Hide',
+  dashboard_step_2_title: 'Generate a post or a video structure',
+  dashboard_step_2_text: 'Get the first draft right away and edit it if needed.',
+  dashboard_step_3_title: 'Publish now or connect channels later',
+  dashboard_step_3_text: 'You can prepare the content now and enable autoposting after connecting social channels.',
+  dashboard_analytics_after_first: 'Analytics will appear after the first publications',
+  dashboard_not_broken: 'The dashboard is not empty and not broken: data will appear after publishing and syncing. For now, the fastest path to value is to create the first post or video.',
+  dashboard_start_content: 'Start with content',
+  dashboard_understood: 'Got it',
+  dashboard_badge_no_data: 'No chart data yet — create and publish content first',
+  dashboard_badge_data_period: 'data: Facebook + Instagram + YouTube / period: 30 days',
+  dashboard_best_next_step: 'Best next step',
+  dashboard_channels_card: 'Channels',
+  dashboard_channels_yes: 'Available',
+  dashboard_channels_none: 'Not yet',
+  dashboard_publish_sync_ready: 'You can publish and sync now.',
+  dashboard_work_without_connections: 'You can work without connections first.',
+  dashboard_trial_card: 'Trial',
+  dashboard_active: 'Active',
+  dashboard_show_value: 'Show the first value before the trial ends.',
+  dashboard_limits_active: 'Limits and access are already active.',
+  dashboard_limits_left: 'Posts / videos left in the current period.',
+  dashboard_sync_later: 'Sync later',
+  dashboard_sync_now: 'Sync',
+  dashboard_syncing: 'Syncing…',
+  dashboard_current_plan_title: 'Current plan',
+  dashboard_plan_label: 'Plan',
+  dashboard_upgrade: 'Upgrade',
+  dashboard_posts_label: 'Posts',
+  dashboard_videos_label: 'Videos',
+  dashboard_workspaces_label: 'Workspaces',
+  dashboard_channels_label: 'Channels',
+  dashboard_locked_label: 'Locked / unavailable',
+  dashboard_workspace_hint: 'A workspace is usually one brand or one client.',
+  dashboard_available_now: 'Available now',
+  dashboard_niche_templates: 'Niche templates',
+  dashboard_next_step_text: 'Next step: open Create, choose a topic, and get your first post or video structure within minutes.',
+  dashboard_paywall_hint: 'If a limit is reached or a feature is unavailable, the paywall should lead to the pricing page without false buttons or empty actions.',
+  dashboard_selling_headline: 'Grow your content faster with AI',
+  dashboard_selling_subtitle: 'Launch plans, posts, and videos from one screen. AutoSocial helps you move from idea to ready-to-publish content in minutes.',
+  dashboard_recommendation_lead: 'One main AI signal so it is clear what to do next.',
+  dashboard_recent_lead: 'Your latest content and publications, so you can quickly see what is already working.',
+  dashboard_connections_title: 'Connections and publishing readiness',
+  dashboard_connections_lead: 'Channels should never block creation, but they should stay ready for publishing and syncing.',
+  dashboard_chart_desc_reach: 'Shows how many people saw your content each day over the last 30 days.',
+  dashboard_chart_desc_views: 'Shows how many views your content collected each day over the last 30 days.',
+  dashboard_chart_desc_engagement: 'Shows how engagement changed over time: likes, comments, and shares relative to reach.',
+  dashboard_chart_desc_ai_score: 'Shows how your AI score changed based on consistency, engagement, and growth.',
+  dashboard_chart_desc_default: 'Shows the daily performance trend over the last 30 days.',
+  dashboard_delta_prev_30d: 'vs previous 30 days: {value}',
+  dashboard_breakdown_period_label: 'Period',
+  dashboard_breakdown_weight_label: 'Weight',
+  dashboard_breakdown_expected_effect: 'Expected effect',
+  dashboard_confidence_high: 'High',
+  dashboard_confidence_medium: 'Medium',
+  dashboard_confidence_low: 'Low',
+  common_autoposting: 'Autoposting',
+  common_schedule: 'Schedule',
+  common_publish: 'Publish',
+  common_delete: 'Delete',
+  common_edit: 'Edit',
+  common_open: 'Open',
+  common_retry: 'Retry',
+  common_image: 'Image',
+  common_mode: 'Mode',
+  common_goal: 'Goal',
+  common_platforms: 'Platforms',
+  common_audience: 'Audience',
+  common_goal_awareness: 'Awareness',
+  common_goal_engagement: 'Engagement',
+  common_goal_sales: 'Sales',
+  common_preview: 'Preview',
+  common_date_time: 'Date and time',
+  common_generate: 'Generate',
+  common_refresh: 'Refresh',
+  common_ready: 'Ready',
+  common_like: 'Like',
+  common_comment: 'Comment',
+  common_share: 'Share',
+  common_subscribe: 'Subscribe',
+  common_days_short: 'days',
+  common_voice: 'Voice',
+  common_voice_tone: 'Tone',
+  common_voice_male: 'male',
+  common_voice_female: 'female',
+  common_tone_calm: 'calm',
+  common_tone_neutral: 'neutral',
+  common_tone_live: 'lively',
+  common_subtitles_enabled: 'Subtitles: on',
+  common_music_quiet: 'Background: quiet music',
+  common_no_projects: 'No projects',
+  dashboard_breakdown_button: 'What makes it up',
+  dashboard_insight_safe_fallback: 'Insight data is updating. Sync metrics or open Create to prepare the next piece of content.',
+  dashboard_reach_label: 'Reach',
+  dashboard_views_label: 'Views',
+  dashboard_engagement_label: 'Engagement rate',
+  dashboard_posts_count_label: 'Posts',
+  dashboard_best_next_step_label: 'Best next step',
+  dashboard_ai_score_label: 'AI score / 100',
+  dashboard_content_items: 'Content items',
+  dashboard_step_1_title: 'Choose a topic or get ideas',
+  dashboard_forecast_title: 'Forecast',
+  dashboard_forecast_lead: 'For {days} days · confidence: {level} · {reasons}',
+  dashboard_forecast_days: '{days} days',
+  dashboard_forecast_reach: 'Forecast reach',
+  dashboard_forecast_views: 'Forecast views',
+  dashboard_forecast_engagement: 'Forecast engagement',
+  dashboard_forecast_current: 'Current pace',
+  dashboard_forecast_plus30: '+30% frequency',
+  dashboard_posts_week_plural: '{count} posts/week',
+  dashboard_insight_applied: 'Recommendations applied. Parameters were moved to Create.',
+  history_posts_month: 'Posts this month',
+  history_published_month: 'Published',
+  history_outside_month: 'Outside month / no date',
+  history_no_posts_day: 'No posts for this day',
+  history_date: 'Date',
+  history_platform: 'Platform',
+  history_topic: 'Topic',
+  history_publication: 'Publication',
+  history_actions: 'Actions',
+  history_published_label: 'Published',
+  history_draft_label: 'Draft',
+  history_published_prefix: 'Published',
+  history_planned_prefix: 'Planned',
+  history_no_date: 'No date',
+  history_remove_site: 'Remove from site',
+  history_loading_post: 'Loading post…',
+  history_text_not_ready: 'The text is not ready yet. If the status is queued/running, wait 10–30 seconds and open it again.',
+  history_select_post: 'Choose a post in the table.',
+  history_post_title: 'Post',
+  history_close: 'Close',
+  history_platforms: 'Platforms',
+  history_image_preview: 'Image preview',
+  history_image_unavailable: 'Image unavailable',
+  history_post_not_selected: 'No post selected.',
+  history_edit_before_publish: 'Edit before publishing',
+  history_save: 'Save',
+  history_saving: 'Saving…',
+  history_clear_schedule: 'Clear schedule',
+  history_empty_title: 'Calendar is empty',
+  history_empty_text: 'Create your first post and publish it.',
+  history_create_post: 'Create post',
+  history_view_image: 'Image',
+  history_open_article: 'Open article',
+  history_platform_prefix: 'Platform',
+  history_status_prefix: 'Status',
+  connections_youtube_channel: 'YouTube channel',
+  connections_check_details: 'Check the connection details.',
+  connections_disconnect_youtube: 'Disconnect YouTube',
+  billing_admin_badge: 'Admin',
+  create_director_generation_mode_title: 'Generation mode',
+  create_director_manual_mode: 'Configure manually',
+  create_director_plan_mode: 'Use my plan limits',
+  create_director_plan_mode_lead: 'Generation will respect your current plan, available posts, and videos in this period.',
+  create_director_manual_mode_lead: 'You control the generation volume, platforms, and scenarios yourself without plan-limit hints.',
+  create_director_current_plan: 'Your plan',
+  create_director_available_now: 'Available now',
+  create_director_posts_left: 'posts',
+  create_director_videos_left: 'videos',
+  create_director_channels_left: 'channels',
+  create_director_refresh_approaches: 'Refresh angles ({count}/5)',
+  create_director_refresh_cta: 'Refresh CTA ({count}/5)',
+  create_director_refresh_hashtags: 'Refresh hashtags ({count}/5)',
+  create_director_refreshing: 'Refreshing…',
+  create_director_empty_list: 'Empty for now',
+  create_director_image_section_title: 'Generation mode',
+  create_director_image_video_lead: 'GPT generates a text-free cover for the video topic.',
+  create_director_image_post_lead: 'Managed in advanced settings. Here you can only generate or refresh the image.',
+  create_director_generate_cover: 'Generate cover',
+  create_director_refresh_cover: 'Refresh cover ({count}/3)',
+  create_director_generate_image: 'Generate image',
+  create_director_refresh_image: 'Refresh image ({count}/3)',
+  create_director_schedule_at: 'Date/time for scheduling',
+  create_director_content_plan_title: 'Content plan',
+  create_director_content_plan_lead: 'AI can choose the best days and hours for publishing.',
+  create_director_video_structure_title: 'Video structure',
+  create_director_drag_scenes: 'Drag scenes to change the order in the final video.',
+  create_director_voice_line: 'Voice: {voice} · Tone: {tone} · {subtitles} · {music}',
+  create_director_hashtags_title: 'Hashtags',
+  create_director_hashtags_lead: 'Choose a hashtag set for the current niche and selected topic.',
+  create_director_cta_title: 'Call to action',
+  create_director_cta_lead: 'Choose a CTA for the current topic, format, and publication goal.',
+  create_director_video_status: 'Status: {status}',
+  create_director_structure_hint: 'Click “Generate structure” to get the structure, hashtags, and CTA.',
+  create_director_scene_text: 'Scene text',
+  create_director_add_scene: 'Add scene',
+  create_director_prepare_text: 'Preparing text for the selected topic…',
+  create_director_video_prepare_hint: 'Generate the structure first, then render the video.',
+  create_director_day_ready_schedule: 'Day {day} is ready. Date and time are already filled in — you can click “Schedule”.',
+  create_director_day_opened: 'Day {day} is open for manual editing in Create.',
+  create_director_youtube_channel: 'YouTube channel',
+  create_director_your_account: 'Your account',
+  create_director_video_title_fallback: 'Video',
+  create_director_video_headline: 'Video structure',
+  create_director_preview_topic_line: 'Topic: {topic}',
+  create_director_preview_angle_line: 'Angle: {angle}',
+  create_director_video_settings: 'Video settings',
+  create_director_video_format: 'Format',
+  create_director_scene_duration: 'Scene duration',
+  create_director_server_limit: 'Server limit: up to 8 minutes (480 sec) for a regular video.',
+  create_director_fixed_scene_duration: 'Fixed scene duration',
+  create_director_minimize_repeats: 'Minimize repeats',
+  create_director_workspace_hint: 'A workspace is usually one brand or one client.',
+  create_plan_summary_niche: 'Niche',
+  create_plan_summary_format: 'Format',
+  create_plan_summary_language: 'Language',
+  create_plan_summary_goal: 'Goal',
+  dashboard_quick_action_weekly_title: '7-day content plan',
+  dashboard_quick_action_weekly_desc: 'A fast weekly content plan for your niche.',
+  dashboard_quick_action_monthly_title: '30-day content plan',
+  dashboard_quick_action_monthly_desc: 'A full monthly plan with ideas and structure.',
+  dashboard_quick_action_video_week_title: '7-day video plan',
+  dashboard_quick_action_video_week_desc: 'A weekly video plan with topics, slots, and CTA.',
+  dashboard_quick_action_video_month_title: '30-day video plan',
+  dashboard_quick_action_video_month_desc: 'A monthly video plan for consistent short-form content.',
+  dashboard_quick_action_post_series_title: 'Post series',
+  dashboard_quick_action_post_series_desc: 'A ready-made series of posts for your business and format.',
+  dashboard_quick_action_video_series_title: 'Video series',
+  dashboard_quick_action_video_series_desc: 'Ideas and structure for short videos.',
+  dashboard_quick_action_hooks_title: 'Hooks',
+  dashboard_quick_action_hooks_desc: 'Strong opening lines for posts, Reels, and Shorts.',
+  dashboard_quick_action_cta_title: 'CTA',
+  dashboard_quick_action_cta_desc: 'Calls to action for engagement and leads.',
+  dashboard_quick_action_create_plan: 'Generate plan',
+  dashboard_quick_action_generate: 'Generate',
+  dashboard_quick_action_hooks_cta: 'Generate hooks',
+  dashboard_quick_action_cta_cta: 'Generate CTA',
+  create_plan_selected_day_placeholder: 'The preview for the selected day will appear here after plan generation.',
+  create_plan_hashtags_placeholder: 'Hashtags will appear here',
+  create_plan_ready_title: '{title} is ready',
+  create_plan_preview_note: 'Preview',
+  create_plan_preview_note_text: 'the full plan is available after upgrading.',
+  planner_generated_topic_fallback: 'Topic idea #{index}',
+  planner_generated_angle_fallback: 'Helpful angle for the chosen niche',
+  planner_generated_cta_fallback: 'Write to us to get details.',
+  planner_generated_caption_fallback: '{topic}. Focus: {angle}. Show the value for the client, then add one clear next step.',
+  planner_generated_hashtags_fallback: '#content #marketing #business',
+  youtube_wait_estimate: 'Wait',
+  youtube_timeline: 'Timeline',
+  youtube_audience: 'Audience',
+  youtube_goal: 'Video goal',
+  youtube_goal_placeholder: 'engagement / leads / views',
+  page_create: 'Create',
+});
+for (const [lang, dict] of Object.entries(APP_SHELL_I18N)) {
+  if (lang === 'en') continue;
+  APP_SHELL_I18N[lang] = { ...APP_SHELL_I18N.en, ...dict };
+}
+function shellText(key) {
+  const lang = normalizeLang(state.lang) || 'en';
+  const dict = APP_SHELL_I18N[lang] || APP_SHELL_I18N.en;
+  if (Object.prototype.hasOwnProperty.call(dict, key)) return dict[key];
+  return APP_SHELL_I18N.en[key] || key;
+}
+function shellTextFmt(key, vars = {}) {
+  return String(shellText(key)).replace(/\{(\w+)\}/g, (_, token) => String(vars[token] ?? ''));
+}
+function shellLanguageLabel() {
+  const lang = normalizeLang(state.lang) || 'en';
+  return APP_SHELL_I18N[lang]?.language_label || APP_SHELL_I18N.en?.language_label || 'Language';
+}
+function shellYesNo(value) {
+  return shellText(value ? 'common_yes' : 'common_no');
+}
 function setLanguage(lang, opts = {}) {
   const { persist = true } = opts;
   const normalized = normalizeLang(lang) || 'en';
@@ -422,6 +2782,44 @@ function normalizeContentLanguage(value) {
   if (normalized === 'uk') return 'ua';
   if (normalized === 'ru' || normalized === 'ua' || normalized === 'en' || normalized === 'es' || normalized === 'de' || normalized === 'fr') return normalized;
   return 'ru';
+}
+function uiLocale(lang = state.lang) {
+  const normalized = normalizeLang(lang) || 'en';
+  const map = {
+    ru: 'ru-RU',
+    en: 'en-US',
+    es: 'es-ES',
+    de: 'de-DE',
+    fr: 'fr-FR',
+    uk: 'uk-UA',
+  };
+  return map[normalized] || 'en-US';
+}
+function localizedDashboardQuickAction(action) {
+  const a = action || {};
+  const key = String(a.key || '').trim();
+  const map = {
+    weekly_plan: ['dashboard_quick_action_weekly_title', 'dashboard_quick_action_weekly_desc', 'dashboard_quick_action_create_plan'],
+    monthly_plan: ['dashboard_quick_action_monthly_title', 'dashboard_quick_action_monthly_desc', 'dashboard_quick_action_create_plan'],
+    video_week_plan: ['dashboard_quick_action_video_week_title', 'dashboard_quick_action_video_week_desc', 'dashboard_quick_action_create_plan'],
+    video_month_plan: ['dashboard_quick_action_video_month_title', 'dashboard_quick_action_video_month_desc', 'dashboard_quick_action_create_plan'],
+    post_series: ['dashboard_quick_action_post_series_title', 'dashboard_quick_action_post_series_desc', 'dashboard_quick_action_generate'],
+    video_series: ['dashboard_quick_action_video_series_title', 'dashboard_quick_action_video_series_desc', 'dashboard_quick_action_generate'],
+    hooks_pack: ['dashboard_quick_action_hooks_title', 'dashboard_quick_action_hooks_desc', 'dashboard_quick_action_hooks_cta'],
+    cta_pack: ['dashboard_quick_action_cta_title', 'dashboard_quick_action_cta_desc', 'dashboard_quick_action_cta_cta'],
+  }[key] || [];
+  return {
+    ...a,
+    title: map[0] ? shellText(map[0]) : a.title,
+    description: map[1] ? shellText(map[1]) : a.description,
+    buttonLabel: map[2] ? shellText(map[2]) : a.buttonLabel,
+  };
+}
+function hasBrokenVisibleText(value) {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  const qm = (s.match(/\?/g) || []).length;
+  return s.includes('????') || (qm >= 4 && (qm / Math.max(s.length, 1)) > 0.08);
 }
 const state = {
   token: localStorage.getItem('token') || '',
@@ -909,11 +3307,11 @@ function icon(name) {
 function planBadge(plan) {
   const p = String(plan || 'free').toLowerCase();
   const labels = {
-    free: 'Free Trial 7 days',
-    starter: 'Starter',
-    growth: 'Growth',
-    agency: 'Agency',
-    admin: 'Admin Unlimited',
+    free: shellText('plan_free'),
+    starter: shellText('plan_starter'),
+    growth: shellText('plan_growth'),
+    agency: shellText('plan_agency'),
+    admin: shellText('plan_admin'),
   };
   const cls = p === 'admin'
     ? 'badge-agency'
@@ -926,28 +3324,41 @@ function planBadge(plan) {
           : 'badge-free';
   return `<span class="badge-plan ${cls}">${esc(labels[p] || p)}</span>`;
 }
+function localizedPlanTitle(plan, planTitle = '') {
+  const p = String(plan || 'free').toLowerCase().trim();
+  const normalizedTitle = String(planTitle || '').trim();
+  const normalizedTitleKey = normalizedTitle.toLowerCase();
+  if (['free', 'starter', 'growth', 'agency', 'admin'].includes(p)) {
+    return planBadge(p).replace(/<[^>]+>/g, '');
+  }
+  if (normalizedTitleKey === 'admin unlimited') {
+    return planBadge('admin').replace(/<[^>]+>/g, '');
+  }
+  if (normalizedTitle) return normalizedTitle;
+  return planBadge(p || 'free').replace(/<[^>]+>/g, '');
+}
 
 function statusBadge(status) {
   const key = String(status || '').toLowerCase();
   const map = {
-    draft: { cls: 'queued', label: 'Черновик' },
-    done: { cls: 'success', label: 'Готово' },
-    published: { cls: 'success', label: 'Опубликовано' },
-    connected: { cls: 'success', label: 'Подключено' },
-    connected_ready: { cls: 'success', label: 'Готово' },
-    connected_need_page: { cls: 'warning', label: 'Нужен выбор страницы' },
-    not_connected: { cls: 'warning', label: 'Не подключено' },
-    token_expired: { cls: 'warning', label: 'Требует переподключения' },
-    permissions_missing: { cls: 'warning', label: 'Нужны права' },
-    disconnected: { cls: 'error', label: 'Отключено' },
-    error: { cls: 'error', label: 'Ошибка' },
-    running: { cls: 'warning', label: 'В работе' },
-    failed: { cls: 'error', label: 'Ошибка' },
-    queued: { cls: 'queued', label: 'В очереди' },
-    scheduled: { cls: 'scheduled', label: 'Запланировано' },
-    hidden: { cls: 'warning', label: 'Скрыт' },
+    draft: { cls: 'queued', label: shellText('status_draft') },
+    done: { cls: 'success', label: shellText('status_done') },
+    published: { cls: 'success', label: shellText('status_published') },
+    connected: { cls: 'success', label: shellText('status_connected') },
+    connected_ready: { cls: 'success', label: shellText('status_connected_ready') },
+    connected_need_page: { cls: 'warning', label: shellText('status_connected_need_page') },
+    not_connected: { cls: 'warning', label: shellText('status_not_connected') },
+    token_expired: { cls: 'warning', label: shellText('status_token_expired') },
+    permissions_missing: { cls: 'warning', label: shellText('status_permissions_missing') },
+    disconnected: { cls: 'error', label: shellText('status_disconnected') },
+    error: { cls: 'error', label: shellText('status_error') },
+    running: { cls: 'warning', label: shellText('status_running') },
+    failed: { cls: 'error', label: shellText('status_failed') },
+    queued: { cls: 'queued', label: shellText('status_queued') },
+    scheduled: { cls: 'scheduled', label: shellText('status_scheduled') },
+    hidden: { cls: 'warning', label: shellText('status_hidden') },
   };
-  const item = map[key] || { cls: 'warning', label: status || 'неизвестно' };
+  const item = map[key] || { cls: 'warning', label: status || shellText('status_unknown') };
   return `<span class="status ${item.cls}">${esc(item.label)}</span>`;
 }
 
@@ -1064,6 +3475,25 @@ function normalizeNicheIdSafe(value) {
   }
   return String(value || '').trim();
 }
+function nicheLabelKey(nicheId) {
+  const normalized = normalizeNicheIdSafe(nicheId || '');
+  return normalized ? `niche_${normalized}` : '';
+}
+function localizedNicheLabel(nicheId, fallback = '') {
+  const key = nicheLabelKey(nicheId);
+  if (key) {
+    const translated = shellText(key);
+    if (translated !== key) return translated;
+  }
+  const cleanFallback = decodeMojibake(String(fallback || '')).trim();
+  return cleanFallback || shellText('dashboard_select_niche_option');
+}
+function localizedNicheOptions(options) {
+  return (Array.isArray(options) ? options : []).map((option) => ({
+    ...option,
+    label: localizedNicheLabel(option?.value, option?.label),
+  }));
+}
 function isExplicitDirectorNicheSelected() {
   const d = state.createDirector || {};
   if (d.customTopicMode) {
@@ -1086,7 +3516,8 @@ function resolveDashboardActiveNicheId() {
 }
 function dashboardQuickNicheMeta(nicheId) {
   if (typeof DIRECTOR_NICHE_ENGINE.getNicheTemplates === 'function') {
-    return DIRECTOR_NICHE_ENGINE.getNicheTemplates(nicheId || '');
+    const meta = DIRECTOR_NICHE_ENGINE.getNicheTemplates(nicheId || '');
+    return meta ? { ...meta, label: localizedNicheLabel(meta.id || nicheId, meta.label) } : meta;
   }
   return { id: '', label: '', audience: '', keywords: [] };
 }
@@ -1265,10 +3696,10 @@ function planFormatLabel(raw) {
 }
 function planGoalLabel(raw) {
   const key = String(raw || '').trim().toLowerCase();
-  if (['sales', 'lead', 'leads'].includes(key)) return 'Продажи';
-  if (key === 'awareness') return 'Охват';
-  if (key === 'engagement') return 'Вовлечение';
-  return 'Вовлечение';
+  if (['sales', 'lead', 'leads'].includes(key)) return shellText('common_goal_sales');
+  if (key === 'awareness') return shellText('common_goal_awareness');
+  if (key === 'engagement') return shellText('common_goal_engagement');
+  return shellText('common_goal_engagement');
 }
 function planDayPreview(item) {
   if (!item || typeof item !== 'object') return '';
@@ -1282,19 +3713,19 @@ function planDayPreview(item) {
   const scheduleLabel = (() => {
     if (!scheduledAt) return '';
     try {
-      return new Date(scheduledAt).toLocaleString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return new Date(scheduledAt).toLocaleString(uiLocale(), { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     } catch {
       return '';
     }
   })();
   const parts = [];
-  if (scheduleLabel) parts.push(`Публикация: ${scheduleLabel}`);
-  if (topic) parts.push(`Тема: ${topic}`);
-  if (formatHint) parts.push(`Формат: ${formatHint}`);
-  if (angle) parts.push(`Угол подачи: ${angle}`);
-  if (focusHint) parts.push(`Фокус: ${focusHint}`);
-  if (endingHint) parts.push(`Финал: ${endingHint}`);
-  if (cta) parts.push(`CTA: ${cta}`);
+  if (scheduleLabel) parts.push(`${shellText('history_publication')}: ${scheduleLabel}`);
+  if (topic) parts.push(`${shellText('common_topic')}: ${topic}`);
+  if (formatHint) parts.push(`${shellText('common_format')}: ${formatHint}`);
+  if (angle) parts.push(`${shellText('create_plan_angle')}: ${angle}`);
+  if (focusHint) parts.push(`${shellText('common_focus') || 'Focus'}: ${focusHint}`);
+  if (endingHint) parts.push(`${shellText('common_final') || 'Final'}: ${endingHint}`);
+  if (cta) parts.push(`${shellText('common_cta')}: ${cta}`);
   if (parts.length) return parts.join('. ');
   return topic ? `Идея на тему «${topic}» с акцентом на пользу для клиента.` : '';
 }
@@ -1315,26 +3746,47 @@ function normalizePlannerKind(value) {
 function normalizePlannerDays(value) {
   return String(value || '').trim() === '30' || Number(value) === 30 ? 30 : 7;
 }
+function normalizeCreatePath(path = location.pathname.replace(/\/$/, '') || '/') {
+  return String(path || '').trim().replace(/\/$/, '') || '/';
+}
+function getCreateStudioRoute(path = normalizeCreatePath()) {
+  const current = normalizeCreatePath(path);
+  if (current === '/create') return { mode: 'hub' };
+  if (current === '/create/post') return { mode: 'post' };
+  if (current === '/create/video') return { mode: 'video' };
+  if (current === '/create/plan') return { mode: 'plan' };
+  return null;
+}
+function createStudioUrl(kind = 'post', extras = {}) {
+  const base = normalizeDirectorContentType(kind) === 'video' ? '/create/video' : '/create/post';
+  const query = new URLSearchParams();
+  Object.entries(extras || {}).forEach(([key, value]) => {
+    if (value == null || value === '') return;
+    query.set(key, String(value));
+  });
+  return query.toString() ? `${base}?${query.toString()}` : base;
+}
 function plannerUrl(kind = 'post', days = 7, extras = {}) {
   const query = new URLSearchParams();
-  query.set('mode', 'plan');
   query.set('kind', normalizePlannerKind(kind));
   query.set('days', String(normalizePlannerDays(days)));
   Object.entries(extras || {}).forEach(([key, value]) => {
     if (value == null || value === '') return;
     query.set(key, String(value));
   });
-  return `/create?${query.toString()}`;
+  return `/create/plan?${query.toString()}`;
 }
 function getCreatePlannerRoute(path = location.pathname.replace(/\/$/, '') || '/') {
-  if (path === '/create') {
+  if (path === '/create' || path === '/create/plan') {
     try {
       const params = new URLSearchParams(location.search);
-      if (String(params.get('mode') || '').trim() !== 'plan') return null;
+      const legacyMode = String(params.get('mode') || '').trim();
+      if (path === '/create' && legacyMode !== 'plan') return null;
+      if (path === '/create/plan' && !String(params.get('kind') || '').trim() && !String(params.get('days') || '').trim()) return null;
       return {
         kind: normalizePlannerKind(params.get('kind') || 'post'),
         days: normalizePlannerDays(params.get('days') || 7),
-        legacy: false,
+        legacy: path === '/create',
       };
     } catch {
       return null;
@@ -1364,11 +3816,11 @@ function getPlannerStateConfig(kind, days) {
     applyingKey: `${baseKey}Applying`,
     schedulingKey: `${baseKey}Scheduling`,
     title: normalizedKind === 'video'
-      ? (normalizedDays === 30 ? 'Видео-посты на 30 дней' : 'Видео-посты на 7 дней')
-      : (normalizedDays === 30 ? 'Контент-план постов на 30 дней' : 'Контент-план постов на 7 дней'),
+      ? (normalizedDays === 30 ? shellText('create_planner_video30') : shellText('create_planner_video7'))
+      : (normalizedDays === 30 ? shellText('create_planner_post30') : shellText('create_planner_post7')),
     subtitle: normalizedKind === 'video'
-      ? 'Единый planner для short-form видео: темы, слоты публикации, CTA и превью по дням.'
-      : 'Единый planner для постов: темы, слоты публикации, платформы и подготовка к автопостингу.',
+      ? shellText('create_planner_video30_subtitle')
+      : shellText('create_planner_post30_subtitle'),
     backUrl: `/create?type=${normalizedKind}`,
   };
 }
@@ -1420,7 +3872,7 @@ function renderPostPlannerPreview(item, d) {
   return `<article class="card" style="padding:12px;border:1px solid rgba(148,163,184,.18);">
     <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
       <strong>${esc(timeLabel)}</strong>
-      <span class="small">Формат: ${esc(planFormatLabel(item.format_hint || 'post'))} · Изображение: ${d.imageEnabled ? 'AI-картинка' : 'Без картинки'}</span>
+      <span class="small">${esc(shellText('common_format'))}: ${esc(planFormatLabel(item.format_hint || 'post'))} · ${d.imageEnabled ? 'AI-картинка' : 'Без картинки'}</span>
     </div>
     <p class="small" style="margin:8px 0 8px 0;"><strong>${esc(item.topic || '—')}</strong></p>
     ${captionParagraphs.length
@@ -1435,12 +3887,12 @@ function renderVideoPlannerPreview(item, d) {
   return `<article class="card" style="padding:12px;border:1px solid rgba(148,163,184,.18);">
     <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
       <strong>${esc(timeLabel)}</strong>
-      <span class="small">Длительность: ${esc(String(item.duration_sec || d.videoDurationPreset || '30'))} сек · Формат: ${esc(String(item.format || item.orientation || d.videoOrientation || 'vertical'))}</span>
+      <span class="small">${esc(shellText('common_duration'))}: ${esc(String(item.duration_sec || d.videoDurationPreset || '30'))} сек · ${esc(shellText('common_format'))}: ${esc(String(item.format || item.orientation || d.videoOrientation || 'vertical'))}</span>
     </div>
-    <p class="small" style="margin:8px 0 4px 0;"><strong>Тема:</strong> ${esc(item.topic || '—')}</p>
-    <p class="small" style="margin:0 0 4px 0;"><strong>Hook:</strong> ${esc(item.hook || '—')}</p>
-    <p class="small" style="margin:0 0 4px 0;"><strong>Script:</strong> ${esc(item.script || '—')}</p>
-    <p class="small" style="margin:0;"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
+    <p class="small" style="margin:8px 0 4px 0;"><strong>${esc(shellText('common_topic'))}:</strong> ${esc(item.topic || '—')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>${esc(shellText('common_hook'))}:</strong> ${esc(item.hook || '—')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>${esc(shellText('common_script'))}:</strong> ${esc(item.script || '—')}</p>
+    <p class="small" style="margin:0;"><strong>${esc(shellText('common_cta'))}:</strong> ${esc(item.cta || '—')}</p>
   </article>`;
 }
 function renderPlannerPreview(data, config) {
@@ -1449,20 +3901,20 @@ function renderPlannerPreview(data, config) {
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
     .map((item) => config.previewType === 'video' ? renderVideoPlannerPreview(item, data.d) : renderPostPlannerPreview(item, data.d))
     .join('');
-  return rows || '<p class="small">Выберите день, чтобы увидеть детали.</p>';
+  return rows || `<p class="small">${esc(shellText('planner_preview_empty'))}</p>`;
 }
 function getPlannerRenderConfig(kind, d) {
   if (normalizePlannerKind(kind) === 'video') {
     return {
       previewType: 'video',
-      panelLabel: 'Видео-план',
+      panelLabel: shellText('planner_video_panel'),
       fieldConfig: {
-        secondaryField: selectField('plannerOrientation', 'Формат видео', String(d.videoOrientation || 'vertical'), [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное (16:9)' }]),
-        tertiaryField: selectField('plannerDuration', 'Длительность', String(d.videoDurationPreset || d.videoWeekDurationPreset || '30'), String(d.videoOrientation || 'vertical') === 'horizontal'
+        secondaryField: selectField('plannerOrientation', shellText('planner_video_format'), String(d.videoOrientation || 'vertical'), [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное (16:9)' }]),
+        tertiaryField: selectField('plannerDuration', shellText('common_duration'), String(d.videoDurationPreset || d.videoWeekDurationPreset || '30'), String(d.videoOrientation || 'vertical') === 'horizontal'
           ? [{ value: '120', label: '120 сек' }, { value: '180', label: '180 сек' }, { value: '240', label: '240 сек' }, { value: '300', label: '300 сек' }, { value: '360', label: '360 сек' }, { value: '420', label: '420 сек' }, { value: '480', label: '480 сек' }]
           : [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }]),
-        postsPerDayLabel: 'Видео в день',
-        topicPlaceholder: 'Например: короткие видео для салона красоты',
+        postsPerDayLabel: shellText('planner_videos_per_day'),
+        topicPlaceholder: shellText('planner_topic_placeholder_video'),
         platformsMarkup: `<label class="create-toggle"><input id="plannerPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
               <label class="create-toggle"><input id="plannerPlatformInstagram" type="checkbox" ${d.platforms?.instagram ? 'checked' : ''}/> Instagram</label>
               <label class="create-toggle"><input id="plannerPlatformYouTube" type="checkbox" ${d.platforms?.youtube ? 'checked' : ''}/> YouTube</label>`,
@@ -1471,12 +3923,12 @@ function getPlannerRenderConfig(kind, d) {
   }
   return {
     previewType: 'post',
-    panelLabel: 'План постов',
+    panelLabel: shellText('planner_post_panel'),
     fieldConfig: {
       secondaryField: '<div></div>',
-      tertiaryField: `<div class="field"><label>Медиа</label><label class="create-toggle"><input id="plannerImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''} /> С картинкой</label></div>`,
-      postsPerDayLabel: 'Постов в день',
-      topicPlaceholder: 'Если нужно сузить тему внутри выбранной ниши',
+      tertiaryField: `<div class="field"><label>Медиа</label><label class="create-toggle"><input id="plannerImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''} /> ${esc(shellText('planner_with_image'))}</label></div>`,
+      postsPerDayLabel: shellText('planner_posts_per_day'),
+      topicPlaceholder: shellText('planner_topic_placeholder_post'),
       platformsMarkup: `<label class="create-toggle"><input id="plannerPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
               <label class="create-toggle"><input id="plannerPlatformInstagram" type="checkbox" ${d.platforms?.instagram ? 'checked' : ''}/> Instagram</label>`,
     },
@@ -1491,8 +3943,8 @@ function renderPlanner(data, config) {
   };
   const cardSubtitle = (rows) => {
     const count = Array.isArray(rows) ? rows.length : 0;
-    if (!count) return 'Публикаций пока нет';
-    return count === 1 ? '1 слот публикации' : `${count} слота публикации`;
+    if (!count) return shellText('planner_publications_none');
+    return count === 1 ? shellText('planner_publication_slots_single') : shellTextFmt('planner_publication_slots_many', { count });
   };
   const renderDayCard = (day, rows) => {
     const previewItem = Array.isArray(rows) && rows.length ? rows[0] : null;
@@ -1505,11 +3957,11 @@ function renderPlanner(data, config) {
         </div>
         <span class="pill">${esc(String((Array.isArray(rows) ? rows.length : 0) || 0))}</span>
       </div>
-      <p class="small" style="margin:10px 0 0 0;">${esc(planDayPreview(previewItem) || 'Откройте день, чтобы увидеть детали.')}</p>
+      <p class="small" style="margin:10px 0 0 0;">${esc(planDayPreview(previewItem) || shellText('planner_preview_empty'))}</p>
     </button>`;
   };
   const sections = !data.dayKeys.length
-    ? '<p class="small">После генерации здесь появятся карточки по дням.</p>'
+    ? `<p class="small">${esc(shellText('planner_days_empty'))}</p>`
     : (data.cfg.days === 7
       ? `<div style="display:grid;gap:10px;">${data.dayKeys.map((day) => renderDayCard(day, data.dayMap[day] || [])).join('')}</div>`
       : `<div style="display:grid;gap:12px;">
@@ -1580,9 +4032,9 @@ function directorHeadlineItems(topics, angle) {
     .filter(Boolean);
 }
 function directorIdeasButtonLabel(directorState, loading = false) {
-  if (loading) return 'Подбираем заголовки…';
+  if (loading) return shellText('create_director_headlines_loading');
   const hasTopics = Array.isArray(directorState?.topicPool) && directorState.topicPool.length > 0;
-  return hasTopics ? `Обновить ${DIRECTOR_TOPIC_IDEA_COUNT} заголовков` : 'Сгенерировать темы';
+  return hasTopics ? shellTextFmt('create_director_headlines_refresh', { count: DIRECTOR_TOPIC_IDEA_COUNT }) : shellText('create_director_headlines_generate');
 }
 function progressBar(value, max) {
   const pct = max > 0 ? Math.max(2, Math.min(100, Math.round((value / max) * 100))) : 0;
@@ -2012,22 +4464,24 @@ function WizardContainer(params) {
 
 function appLayout(path, title, body) {
   const isAdminArea = path.startsWith('/admin');
+  const langOptionsHtml = SUPPORTED_LANGS.map((lang) => `<option value="${esc(lang)}">${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
+  const topbarLangHtml = `<div class="notranslate" translate="no" style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;padding:6px 10px;background:color-mix(in oklab, var(--surface) 88%, transparent);box-shadow:var(--shadow-sm);"><label for="appShellLangSelect" class="small" style="font-weight:600;">${esc(shellLanguageLabel())}</label><select id="appShellLangSelect" class="notranslate" translate="no" aria-label="${esc(shellLanguageLabel())}" style="border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:var(--font-body);font-size:13px;padding:4px 8px;">${langOptionsHtml}</select></div>`;
   const links = isAdminArea
-    ? [['/admin', 'Админ', 'admin']]
+    ? [['/admin', shellText('nav_admin'), 'admin']]
     : [
-        ['/dashboard', 'Панель', 'dashboard'],
-        ['/create', 'Создать', 'create'],
-        ['/calendar', 'Календарь', 'history'],
-        ['/connections', 'Подключения', 'connections'],
-        ['/history', 'История', 'history'],
-        ['/settings', 'Настройки бренда', 'settings'],
-        ['/billing', 'Биллинг', 'billing'],
-        ['/support', 'Поддержка', 'support'],
+        ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
+        ['/create', shellText('nav_create'), 'create'],
+        ['/calendar', shellText('nav_calendar'), 'history'],
+        ['/connections', shellText('nav_connections'), 'connections'],
+        ['/history', shellText('nav_history'), 'history'],
+        ['/settings', shellText('nav_settings'), 'settings'],
+        ['/billing', shellText('nav_billing'), 'billing'],
+        ['/support', shellText('nav_support'), 'support'],
       ];
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
-  const logoutNav = !isAdminArea ? `<button type="button" id="sidebarLogoutBtn" class="nav-link nav-link-logout">${icon('logout')}<span>Выйти</span></button>` : '';
-  const footer = `<div class="footer-note"><div class="small">Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.</div><div class="small">Stripe защищенные платежи · SSL защищено · GDPR совместимо</div></div>`;
-  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg?v=brand-mark-2026-03-06-01" alt="AutoSocial.tech"/><div><div class="brand-name">AutoSocial.tech</div><div class="small">AI SMM менеджер</div></div></div>${navHtml}${logoutNav}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} В· ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions"><button id="themeToggleBtn" class="btn btn-ghost">${state.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
+  const logoutNav = !isAdminArea ? `<button type="button" id="sidebarLogoutBtn" class="nav-link nav-link-logout">${icon('logout')}<span>${esc(shellText('nav_logout'))}</span></button>` : '';
+  const footer = `<div class="footer-note"><div class="small">${esc(shellText('footer_left'))}</div><div class="small">${esc(shellText('footer_right'))}</div></div>`;
+  return `<div class="layout page"><aside class="sidebar"><div class="brand-row"><img class="brand-logo" src="/assets/brand/logo-icon.svg?v=brand-mark-2026-03-06-01" alt="AutoSocial.tech"/><div><div class="brand-name">AutoSocial.tech</div><div class="small">${esc(shellText('sidebar_subtitle'))}</div></div></div>${navHtml}${logoutNav}<div class="trust-row" style="margin-top:16px;"><span class="trust-chip">Stripe</span><span class="trust-chip">SSL</span><span class="trust-chip">GDPR</span></div></aside><div><header class="topbar"><div><strong>${esc(title)}</strong><div class="small">${esc(state.user?.email || '')} · ${planBadge(state.user?.role === 'admin' ? 'admin' : (state.user?.plan || 'free'))}</div></div><div class="topbar-actions">${isAdminArea ? '' : topbarLangHtml}<button id="themeToggleBtn" class="btn btn-ghost">${esc(state.theme === 'dark' ? shellText('theme_light') : shellText('theme_dark'))}</button></div></header><main class="content">${state.notice ? `<div class="notice ${state.notice.type === 'error' ? 'error' : 'ok'}">${esc(state.notice.text)}</div>` : ''}${body}${footer}</main></div></div>`;
 }
 function pageLogin() {
   const t = loginText;
@@ -2078,7 +4532,7 @@ function pageLogin() {
 
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg" alt="AutoSocial.tech"/>
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
       <div class="landing-2026-top-actions">
         <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
         <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
@@ -2215,16 +4669,14 @@ function pageLogin() {
 }
 
 function pageDashboard() {
+  const locale = uiLocale();
   const billing = state.billing || { plan: 'free', usage: {}, limits: {}, remaining: {} };
   const stats = state.dashboardMetrics || {};
-  const dashboardUserId = String(state.user?.id || 'anon').trim() || 'anon';
-  const onboardingDismissKey = `dashboardOnboardingDismissed:${dashboardUserId}`;
   const summary = stats.summary || { reach: 0, views: 0, likes: 0, comments: 0, shares: 0, items: 0, by_platform: {} };
   const current = summary.current || summary;
-  const prev = summary.prev || { reach: 0, views: 0, clicks: 0, likes: 0, comments: 0, shares: 0, items: 0, engagement_rate: 0 };
   const delta = summary.delta || {};
   const aiScore = stats.aiScore || { current: 0, delta_7d: 0, delta_vs_prev_period: 0, breakdown: null, timeseries: [] };
-  const forecast = stats.forecast || { horizon_days: 7, confidence: { level: 'low', reasons: ['недостаточно данных'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, scenarios: { current: {}, plus30: {} }, points: [] };
+  const forecast = stats.forecast || { horizon_days: 7, confidence: { level: 'low', reasons: ['not enough data'] }, totals: { reach: 0, views: 0, engagement_rate_avg: 0 }, scenarios: { current: {}, plus30: {} }, points: [] };
   const byPlatform = summary.by_platform || current.by_platform || {
     facebook: { reach: 0, views: 0, items: 0 },
     instagram: { reach: 0, views: 0, items: 0 },
@@ -2241,16 +4693,16 @@ function pageDashboard() {
     ? 'reach'
     : (stats.chartMetric || 'reach');
   const recentSort = stats.recentSort || 'engagement';
-  const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
+  const fmt = (n) => Number(n || 0).toLocaleString(locale);
   const pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
-  const deltaFmt = (v) => `${Number(v || 0) >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}`;
   const deltaLabel = (obj) => {
     const abs = Number(obj?.abs || 0);
     const p = Number(obj?.pct || 0) * 100;
     return `${abs >= 0 ? '+' : ''}${abs.toFixed(1)} (${p >= 0 ? '+' : ''}${p.toFixed(1)}%)`;
   };
+  const deltaText = (obj) => shellTextFmt('dashboard_delta_prev_30d', { value: deltaLabel(obj) });
 
-  const statusLabel = (kind) => kind === 'connected' ? 'подключено' : (kind === 'expiring' ? 'токен скоро истечет' : 'требует внимания');
+  const statusLabel = (kind) => kind === 'connected' ? shellText('status_connected') : (kind === 'expiring' ? shellText('status_token_expired') : shellText('connections_need_action'));
   const statusClass = (kind) => kind === 'connected' ? 'is-ok' : (kind === 'expiring' ? 'is-warn' : 'is-bad');
   const tokenExpiring = (iso) => {
     if (!iso) return false;
@@ -2258,6 +4710,7 @@ function pageDashboard() {
     if (!Number.isFinite(t)) return false;
     return (t - Date.now()) <= 1000 * 60 * 60 * 24 * 3;
   };
+
   const metaReady = (state.connections || []).filter((c) => isConnectionReady(c));
   const fbStatus = !metaReady.length ? 'needs' : (metaReady.some((c) => tokenExpiring(c.token_expires_at)) ? 'expiring' : 'connected');
   const igReady = metaReady.filter((c) => String(c?.ig_user_id || '').trim());
@@ -2270,26 +4723,7 @@ function pageDashboard() {
     || recent.length > 0
     || points.some((p) => Number(p?.reach || 0) > 0 || Number(p?.views || 0) > 0 || Number(p?.engagement_rate || 0) > 0)
     || ['facebook', 'instagram', 'youtube'].some((key) => Number(byPlatform?.[key]?.items || 0) > 0 || Number(byPlatform?.[key]?.reach || 0) > 0 || Number(byPlatform?.[key]?.views || 0) > 0);
-  const onboardingDismissed = localStorage.getItem(onboardingDismissKey) === '1';
-  const shouldShowOnboardingHero = !stats.loading && !hasAnalyticsData && !onboardingDismissed;
   const shouldShowAnalyticsEmptyState = !stats.loading && !hasAnalyticsData;
-
-  const fbSeries = points.map((p) => Number(p.facebook_reach || 0) + Number(p.facebook_views || 0));
-  const igSeries = points.map((p) => Number(p.instagram_reach || 0) + Number(p.instagram_views || 0));
-  const ytSeries = points.map((p) => Number(p.youtube_reach || 0) + Number(p.youtube_views || 0));
-  const buildSpark = (vals, css) => {
-    if (!vals.length) return `<div class="dash-sparkline ${css}"></div>`;
-    const width = 220;
-    const height = 46;
-    const pad = 3;
-    const maxV = Math.max(1, ...vals);
-    const minV = Math.min(...vals, 0);
-    const spread = Math.max(1, maxV - minV);
-    const xAt = (i) => pad + (vals.length <= 1 ? 0 : (i * (width - pad * 2)) / (vals.length - 1));
-    const yAt = (v) => pad + (height - pad * 2) - ((v - minV) / spread) * (height - pad * 2);
-    const d = vals.map((v, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)}`).join(' ');
-    return `<svg viewBox="0 0 ${width} ${height}" class="dash-sparkline ${css}" role="img" aria-label="sparkline"><path d="${d}"></path></svg>`;
-  };
 
   const resolveSeries = () => {
     if (chartMetric === 'ai_score') {
@@ -2309,25 +4743,31 @@ function pageDashboard() {
     let peakDay = '';
     let worstDay = '';
     chartSeries.forEach((p) => {
-      sum += Number(p.value || 0);
-
-      if (p.value < worst) { worst = Number(p.value || 0); worstDay = p.day || ''; }
+      const value = Number(p.value || 0);
+      sum += value;
+      if (value > peak) { peak = value; peakDay = p.day || ''; }
+      if (value < worst) { worst = value; worstDay = p.day || ''; }
     });
     return { avg: sum / chartSeries.length, peak, worst, peakDay, worstDay };
   })();
   const chartUnit = chartMetric === 'engagement' ? 'percent' : (chartMetric === 'ai_score' ? 'score' : 'number');
   const chartValue = (v) => chartUnit === 'number' ? fmt(Math.round(v)) : `${Number(v || 0).toFixed(1)}${chartUnit === 'score' ? '' : '%'}`;
-  const chartTitle = { reach: 'Охват аудитории', views: 'Просмотры контента', engagement: 'Уровень вовлечённости', ai_score: 'AI-Score' }[chartMetric] || 'Охват аудитории';
+  const chartTitle = {
+    reach: shellText('dashboard_reach_label'),
+    views: shellText('dashboard_views_label'),
+    engagement: shellText('dashboard_engagement_label'),
+    ai_score: 'AI-Score',
+  }[chartMetric] || shellText('dashboard_reach_label');
   const chartDescription = {
-    reach: 'Показывает, сколько людей увидели ваш контент по дням за последние 30 дней.',
-    views: 'Показывает, сколько просмотров набрал контент по дням за последние 30 дней.',
-    engagement: 'Показывает, как менялась вовлечённость: лайки, комментарии и репосты относительно охвата.',
-    ai_score: 'Показывает, как менялся AI-Score аккаунта на основе регулярности, вовлечённости и роста.',
-  }[chartMetric] || 'Показывает динамику результатов по дням за последние 30 дней.';
+    reach: shellText('dashboard_chart_desc_reach'),
+    views: shellText('dashboard_chart_desc_views'),
+    engagement: shellText('dashboard_chart_desc_engagement'),
+    ai_score: shellText('dashboard_chart_desc_ai_score'),
+  }[chartMetric] || shellText('dashboard_chart_desc_default');
 
   const mainChartHtml = (() => {
     if (stats.loading) return '<div class="dash-skeleton dash-skeleton-chart"></div>';
-    if (!chartSeries.length) return '<p class="small">Нет данных. Нажмите «Синхронизировать».</p>';
+    if (!chartSeries.length) return `<p class="small">${esc(shellText('dashboard_no_data_sync'))}</p>`;
     const width = 980;
     const height = 280;
     const padX = 28;
@@ -2351,35 +4791,201 @@ function pageDashboard() {
         ${xLabels}
       </svg>
       <div class="dash-chart-stats">
-        <div><span>среднее</span><strong>${chartValue(chartStat.avg)}</strong></div>
-        <div><span>пик</span><strong>${chartValue(chartStat.peak)}</strong><small>${esc((chartStat.peakDay || '').slice(5))}</small></div>
-        <div><span>худший день</span><strong>${chartValue(chartStat.worst)}</strong><small>${esc((chartStat.worstDay || '').slice(5))}</small></div>
+        <div><span>${esc(shellText('dashboard_average'))}</span><strong>${chartValue(chartStat.avg)}</strong></div>
+        <div><span>${esc(shellText('dashboard_peak'))}</span><strong>${chartValue(chartStat.peak)}</strong><small>${esc((chartStat.peakDay || '').slice(5))}</small></div>
+        <div><span>${esc(shellText('dashboard_worst_day'))}</span><strong>${chartValue(chartStat.worst)}</strong><small>${esc((chartStat.worstDay || '').slice(5))}</small></div>
       </div>
     </div>`;
   })();
 
-  const insightCards = (insights.slice(0, 4).map((item, idx) => {
-    const title = String(item.title || '').toLowerCase();
-    let cta = 'Открыть топ-контент';
+  const skeletonCards = '<div class="dash-skeleton-grid"><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div></div>';
+  const accountLimitLabel = Number(billing?.limits?.accounts_connected || 0) >= 999999 ? shellText('common_unlimited') : String(billing?.limits?.accounts_connected || '—');
+  const postsRemaining = Math.max(0, Number(billing?.remaining?.posts_generated ?? ((billing?.limits?.posts_per_month || 0) - (billing?.usage?.posts_per_month || 0))));
+  const videosRemaining = Math.max(0, Number(billing?.remaining?.videos_generated ?? ((billing?.limits?.videos_per_month || 0) - (billing?.usage?.videos_per_month || 0))));
+  const projectsRemaining = Number(billing?.limits?.projects || 0) >= 999999
+    ? shellText('billing_unlimited')
+    : String(Math.max(0, Number(billing?.remaining?.projects ?? ((billing?.limits?.projects || 0) - (billing?.usage?.projects || 0)))));
+  const trialLine = billing.plan === 'free'
+    ? `${shellTextFmt('dashboard_trial_line', { days: Number(billing.trial_days_left || 0) })}${billing.trial_ends_at ? ` · ${new Date(billing.trial_ends_at).toLocaleDateString(locale)}` : ''}`
+    : shellText('dashboard_paid_line');
+  const nextBestStep = hasGeneratedContent
+    ? (hasConnectedChannels ? shellText('dashboard_next_sync_or_publish') : shellText('dashboard_connect_later_keep_generating'))
+    : shellText('dashboard_start_first_topic');
+
+  ensureDashboardQuickStartState();
+  const resolvedQuickNicheId = resolveDashboardActiveNicheId();
+  if (resolvedQuickNicheId && state.dashboardQuickStart.nicheId !== resolvedQuickNicheId) {
+    state.dashboardQuickStart.nicheId = resolvedQuickNicheId;
+  }
+  const dashboardNicheId = String(state.dashboardQuickStart.nicheId || '').trim();
+  const dashboardNicheMeta = dashboardNicheId ? dashboardQuickNicheMeta(dashboardNicheId) : null;
+  const dashboardNicheLabel = dashboardNicheMeta?.label || shellText('dashboard_select_niche_option');
+  const dashboardNicheOptions = [{ value: '', label: shellText('dashboard_select_niche_option') }].concat(localizedNicheOptions(DIRECTOR_NICHE_OPTIONS));
+
+  const weeklyAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'weekly_plan'));
+  const monthlyAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'monthly_plan'));
+  const weeklyAccess = getQuickActionAccess('weekly_plan', billing);
+  const monthlyAccess = getQuickActionAccess('monthly_plan', billing);
+  const actionStateText = (access, needsNiche = true) => {
+    if (needsNiche && !dashboardNicheId) return shellText('dashboard_choose_niche_first');
+    if (access?.isLocked) return shellText('dashboard_locked_current_plan');
+    if (access?.isPreview) return shellText('dashboard_preview');
+    return shellText('dashboard_available');
+  };
+  const primaryActions = [
+    {
+      kind: 'quick',
+      key: 'weekly_plan',
+      accent: weeklyAction.accent,
+      title: weeklyAction.title,
+      description: weeklyAction.description,
+      buttonLabel: weeklyAccess.isLocked ? shellText('dashboard_upgrade') : weeklyAction.buttonLabel,
+      access: weeklyAccess,
+      primary: true,
+    },
+    {
+      kind: 'studio',
+      studio: 'post',
+      accent: 'POST',
+      title: shellText('create_hub_post_title'),
+      description: shellText('create_hub_post_subtitle'),
+      buttonLabel: shellText('create_hub_post_cta'),
+      access: { isLocked: false, isPreview: false },
+    },
+    {
+      kind: 'studio',
+      studio: 'video',
+      accent: 'VIDEO',
+      title: shellText('create_hub_video_title'),
+      description: shellText('create_hub_video_subtitle'),
+      buttonLabel: shellText('create_hub_video_cta'),
+      access: { isLocked: false, isPreview: false },
+    },
+    {
+      kind: 'quick',
+      key: 'monthly_plan',
+      accent: monthlyAction.accent,
+      title: monthlyAction.title,
+      description: monthlyAction.description,
+      buttonLabel: monthlyAccess.isLocked ? shellText('dashboard_upgrade') : monthlyAction.buttonLabel,
+      access: monthlyAccess,
+    },
+  ];
+  const primaryActionsHtml = primaryActions.map((item) => {
+    const disabled = !dashboardNicheId;
+    const cardClass = item.access?.isLocked ? 'is-locked' : (item.access?.isPreview ? 'is-preview' : '');
+    const btnClass = item.primary ? 'btn-primary' : 'btn-secondary';
+    const buttonHtml = item.kind === 'quick'
+      ? `<button type="button" class="btn ${item.access?.isLocked ? 'btn-ghost' : btnClass}" data-dash-quick-action="${esc(item.key)}" ${disabled ? 'disabled' : ''}>${esc(item.buttonLabel)}</button>`
+      : `<button type="button" class="btn ${btnClass}" data-dash-open-create="${esc(item.studio)}" ${disabled ? 'disabled' : ''}>${esc(item.buttonLabel)}</button>`;
+    return `<article class="dash-quick-card glass-card dash-quick-card-small dash-dashboard-action ${cardClass}">
+      <div class="dash-quick-accent">${esc(item.accent)}</div>
+      <div class="dash-quick-topline">
+        <div class="dash-quick-meta">${esc(shellText('planner_niche'))}: <strong>${esc(dashboardNicheLabel)}</strong></div>
+        <span class="dash-quick-status">${esc(actionStateText(item.access))}</span>
+      </div>
+      <h3>${esc(item.title)}</h3>
+      <p>${esc(item.description)}</p>
+      ${buttonHtml}
+    </article>`;
+  }).join('');
+
+  const summaryCardsHtml = shouldShowAnalyticsEmptyState
+    ? `
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_best_next_step_label'))}</p><strong>${esc(shellText('nav_create'))}</strong><small>${esc(nextBestStep)}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_channels_card'))}</p><strong>${esc(hasConnectedChannels ? shellText('dashboard_channels_yes') : shellText('dashboard_channels_none'))}</strong><small>${esc(hasConnectedChannels ? shellText('dashboard_publish_sync_ready') : shellText('dashboard_work_without_connections'))}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('billing_current_plan'))}</p><strong>${esc(localizedPlanTitle(billing.plan || 'free', billing.plan_title || ''))}</strong><small>${esc(trialLine)}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('billing_title'))}</p><strong>${postsRemaining}/${videosRemaining}</strong><small>${esc(shellText('dashboard_limits_left'))}</small></article>
+      `
+    : (stats.loading ? skeletonCards : `
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_reach_label'))}</p><strong>${fmt(current.reach)}</strong><small class="${Number(delta?.reach?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">${esc(deltaText(delta.reach))}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_engagement_label'))}</p><strong>${pct(current.engagement_rate || 0)}</strong><small class="${Number(delta?.engagement_rate?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">${esc(deltaText(delta.engagement_rate))}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_posts_count_label'))}</p><strong>${fmt(current.items)}</strong><small class="${Number(delta?.items?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">${esc(deltaText(delta.items))}</small></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_views_label'))}</p><strong>${fmt(current.views)}</strong><small class="${Number(delta?.views?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">${esc(deltaText(delta.views))}</small></article>
+      `);
+
+  const buildInsightMeta = (item, idx = 0) => {
+    const rawTitle = String(item?.title || '').trim();
+    const rawText = String(item?.text || '').trim();
+    const safeTitle = hasBrokenVisibleText(rawTitle)
+      ? shellText('dashboard_insight_title')
+      : (rawTitle || shellText('dashboard_insight_title'));
+    const safeText = hasBrokenVisibleText(rawText)
+      ? shellText('dashboard_insight_safe_fallback')
+      : rawText;
+    const title = safeTitle.toLowerCase();
+    let cta = shellText('dashboard_open_top_content');
     let action = 'open-top-content';
-    if (title.includes('день')) {
-      cta = 'Запланировать на лучший день';
+    if (/(day|день)/i.test(title)) {
+      cta = shellText('dashboard_schedule_best_day');
       action = 'schedule-best-day';
-    } else if (title.includes('формат')) {
-      cta = 'Создать пост в этом формате';
+    } else if (/(format|формат)/i.test(title)) {
+      cta = shellText('dashboard_create_in_format');
       action = 'create-format-post';
-    } else if (title.includes('регуляр')) {
-      cta = 'Запланировать на лучший день';
+    } else if (/(regular|регуляр|ритм)/i.test(title)) {
+      cta = shellText('dashboard_schedule_best_day');
       action = 'schedule-best-day';
     }
-    const impact = String(item.impact || 'low').toLowerCase();
-    return `<article class="dash-insight-card glass-card">
-      <span class="dash-impact dash-impact-${esc(impact)}">${esc(impact.toUpperCase())}</span>
-      <h4>${esc(item.title || 'Инсайт')}</h4>
-      <p>${esc(item.text || '')}</p>
-      <button type="button" class="btn btn-ghost dash-insight-cta" data-dash-insight-action="${esc(action)}" data-dash-insight-index="${idx}">${esc(cta)}</button>
-    </article>`;
-  }).join('')) || '<p class="small">Недостаточно данных для инсайтов.</p>';
+    return {
+      idx,
+      impact: String(item?.impact || 'low').toLowerCase(),
+      title: safeTitle,
+      text: safeText,
+      cta,
+      action,
+    };
+  };
+  const featuredInsight = insights.length ? buildInsightMeta(insights[0], 0) : null
+;
+  const secondaryInsights = insights.slice(1, 3).map((item, idx) => buildInsightMeta(item, idx + 1));
+  const recommendationSection = advancedAnalyticsLocked
+    ? `<article class="dash-card dash-ai-card glass-card dash-recommend-main">
+        <div class="dash-section-head">
+          <div>
+            <h3>${esc(shellText('dashboard_ai_insights'))}</h3>
+            <p class="small">${esc(advancedAnalyticsPlaceholder)}</p>
+          </div>
+          <button class="btn btn-ghost" type="button" data-link="/billing">${esc(shellText('dashboard_open_growth'))}</button>
+        </div>
+      </article>`
+    : featuredInsight
+      ? `<article class="dash-card dash-ai-card glass-card dash-recommend-main">
+          <div class="dash-section-head">
+            <div>
+              <h3>${esc(shellText('dashboard_ai_insights'))}</h3>
+              <p class="small">${esc(shellText('dashboard_recommendation_lead'))}</p>
+            </div>
+            <button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">${esc(shellText('dashboard_breakdown_button'))}</button>
+          </div>
+          <span class="dash-impact dash-impact-${esc(featuredInsight.impact)}">${esc(featuredInsight.impact.toUpperCase())}</span>
+          <h4>${esc(featuredInsight.title)}</h4>
+          <p>${esc(featuredInsight.text || shellText('dashboard_no_insights'))}</p>
+          <div class="cta-row">
+            <button type="button" class="btn btn-primary" data-dash-insight-action="${esc(featuredInsight.action)}" data-dash-insight-index="${featuredInsight.idx}">${esc(featuredInsight.cta)}</button>
+            <button id="dashOpenCalendarBtn" class="btn btn-ghost" type="button">${esc(shellText('page_calendar'))}</button>
+          </div>
+          ${secondaryInsights.length ? `<div class="dash-insights-grid dash-insights-grid-secondary">${secondaryInsights.map((item) => `
+            <article class="dash-insight-card glass-card">
+              <span class="dash-impact dash-impact-${esc(item.impact)}">${esc(item.impact.toUpperCase())}</span>
+              <h4>${esc(item.title)}</h4>
+              <p>${esc(item.text || '')}</p>
+              <button type="button" class="btn btn-ghost dash-insight-cta" data-dash-insight-action="${esc(item.action)}" data-dash-insight-index="${item.idx}">${esc(item.cta)}</button>
+            </article>`).join('')}</div>` : ''}
+        </article>`
+      : `<article class="dash-card dash-ai-card glass-card dash-recommend-main">
+          <div class="dash-section-head">
+            <div>
+              <h3>${esc(shellText('dashboard_ai_insights'))}</h3>
+              <p class="small">${esc(shellText('dashboard_recommendation_lead'))}</p>
+            </div>
+          </div>
+          <h4>${esc(shellText('dashboard_best_next_step_label'))}</h4>
+          <p>${esc(shouldShowAnalyticsEmptyState ? shellText('dashboard_not_broken') : shellText('dashboard_no_insights'))}</p>
+          <div class="cta-row">
+            <button id="dashApplyRecommendationsBtn" class="btn btn-primary" type="button">${esc(shellText('dashboard_start_content'))}</button>
+            <button id="dashOpenCalendarBtn" class="btn btn-ghost" type="button">${esc(shellText('page_calendar'))}</button>
+          </div>
+        </article>`;
 
   const sortedRecent = [...recent].sort((a, b) => {
     const ma = a?.metrics || {};
@@ -2388,358 +4994,167 @@ function pageDashboard() {
     if (recentSort === 'views') return Number(mb.views || 0) - Number(ma.views || 0);
     return Number(b.engagement_rate || 0) - Number(a.engagement_rate || 0);
   });
-  const recentRows = stats.loading
-    ? '<tr><td colspan="6"><div class="dash-skeleton dash-skeleton-row"></div></td></tr>'
-    : (sortedRecent.length
-      ? sortedRecent.map((item) => {
-        const m = item.metrics || {};
-        const rate = Number(item.engagement_rate || 0) * 100;
-        const rateClass = rate >= 6 ? 'high' : (rate >= 3 ? 'medium' : 'low');
-        const published = item.published_at ? new Date(item.published_at).toLocaleDateString() : '—';
-        const title = item.title || 'Публикация';
-        const platform = (item.platform || '').toUpperCase();
-        return `<tr class="dash-row-link" data-dash-item-url="${esc(item.url || '')}">
-          <td><strong>${esc(title)}</strong><div class="small">${esc(platform)} · ${esc(item.content_type || 'post')}</div></td>
-          <td>${fmt(m.reach)}</td>
-          <td>${fmt(m.views)}</td>
-          <td><span class="dash-er-indicator ${rateClass}"></span>${rate.toFixed(2)}%</td>
-          <td>${esc(published)}</td>
-          <td><button type="button" class="btn btn-ghost dash-delete-btn" data-dash-recent-delete="${item.id}">Удалить</button></td>
-        </tr>`;
-      }).join('')
-      : '<tr><td colspan="6" class="small">Нет материалов за период.</td></tr>');
-
-  const skeletonCards = '<div class="dash-skeleton-grid"><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div><div class="dash-skeleton"></div></div>';
-  const projectLimitLabel = Number(billing?.limits?.projects || 0) >= 999999 ? 'Без ограничений' : String(billing?.limits?.projects || '—');
-  const accountLimitLabel = Number(billing?.limits?.accounts_connected || 0) >= 999999 ? '\u0411\u0435\u0437 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0439' : String(billing?.limits?.accounts_connected || '\u2014');
-  const postsRemaining = Math.max(0, Number(billing?.remaining?.posts_generated ?? ((billing?.limits?.posts_per_month || 0) - (billing?.usage?.posts_per_month || 0))));
-  const videosRemaining = Math.max(0, Number(billing?.remaining?.videos_generated ?? ((billing?.limits?.videos_per_month || 0) - (billing?.usage?.videos_per_month || 0))));
-  const projectsRemaining = Number(billing?.limits?.projects || 0) >= 999999
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-    : String(Math.max(0, Number(billing?.remaining?.projects ?? ((billing?.limits?.projects || 0) - (billing?.usage?.projects || 0)))));
-  const trialLine = billing.plan === 'free'
-    ? `<div class="small">Пробный период: <strong>${Number(billing.trial_days_left || 0)} дн.</strong>${billing.trial_ends_at ? ` · до ${esc(new Date(billing.trial_ends_at).toLocaleDateString('ru-RU'))}` : ''}</div>`
-    : '<div class="small">Платный тариф активен. Лимиты синхронизированы с backend.</div>';
-  const lockedItems = [];
-  if (!billing?.limits?.can_autopublish) lockedItems.push('Автопостинг');
-  if (String(billing?.limits?.analytics_level || 'none') === 'none') lockedItems.push('Аналитика');
-  const lockText = lockedItems.length ? lockedItems.join(', ') : 'Все ключевые функции доступны';
-  const trialExpiringSoon = billing.plan === 'free' && Number(billing.trial_days_left || 0) <= 2;
-  const nextBestStep = hasGeneratedContent
-    ? (hasConnectedChannels ? 'Синхронизируйте метрики или опубликуйте следующий материал.' : 'Подключите соцсети позже, а пока продолжайте генерировать контент.')
-    : 'Начните с первой темы и получите пост или структуру видео меньше чем за минуту.';
-  ensureDashboardQuickStartState();
-  const resolvedQuickNicheId = resolveDashboardActiveNicheId();
-  if (resolvedQuickNicheId && state.dashboardQuickStart.nicheId !== resolvedQuickNicheId) {
-    state.dashboardQuickStart.nicheId = resolvedQuickNicheId;
-  }
-  const dashboardNicheId = String(state.dashboardQuickStart.nicheId || '').trim();
-  const dashboardNicheMeta = dashboardNicheId ? dashboardQuickNicheMeta(dashboardNicheId) : null;
-  const quickActionCardsHtml = dashboardNicheId
-    ? DASHBOARD_QUICK_ACTIONS.map((action) => {
-      const access = getQuickActionAccess(action.key, billing);
-      const stateLabel = access.isLocked ? 'Locked' : (access.isPreview ? 'Preview' : 'Доступно');
-      const accessText = access.isPreview
-        ? 'Preview на вашем тарифе'
-        : (access.isLocked ? 'Недоступно на текущем тарифе' : 'Доступно на вашем тарифе');
-      const buttonLabel = access.isLocked ? 'Обновить тариф' : action.buttonLabel;
-      return `<article class="dash-quick-card glass-card dash-quick-card-${esc(action.size)} ${access.isLocked ? 'is-locked' : ''} ${access.isPreview ? 'is-preview' : ''}">
-        <div class="dash-quick-accent">${esc(action.accent)}</div>
-        <div class="dash-quick-topline">
-          <div class="dash-quick-meta">${esc(accessText)}</div>
-          <span class="dash-quick-status">${esc(stateLabel)}</span>
-        </div>
-        <h3>${esc(action.title)}</h3>
-        <p>${esc(action.description)}</p>
-        <div class="small">Ниша: <strong>${esc(dashboardNicheMeta?.label || '—')}</strong></div>
-        ${access.isLocked ? '<div class="small">На текущем тарифе действие закрыто. Откроется после апгрейда.</div>' : ''}
-        <button type="button" class="btn ${access.isLocked ? 'btn-ghost' : 'btn-primary'}" data-dash-quick-action="${esc(action.key)}">${esc(buttonLabel)}</button>
-      </article>`;
-    }).join('')
-    : '';
-  const quickStartShell = dashboardNicheId
-    ? `<section class="dash-card dash-quick-shell glass-card">
-        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;">
-          <div style="max-width:760px;">
-            <div class="dash-hero-topline">Быстрый старт</div>
-            <h2 style="margin:10px 0 8px 0;">Что хотите создать?</h2>
-            <p class="small" style="margin:0;">Выберите действие и получите результат за пару кликов. На основе ниши <strong>${esc(dashboardNicheMeta?.label || '—')}</strong> AI подготовит идеи, структуру и готовые заготовки.</p>
-          </div>
-          <div class="dash-quick-controls">
-            ${selectField('dashQuickNiche', 'Ниша', dashboardNicheId, DIRECTOR_NICHE_OPTIONS)}
-          </div>
-        </div>
-        <div class="dash-quick-grid">${quickActionCardsHtml}</div>
-      </section>`
-    : `<section class="dash-card dash-quick-shell glass-card">
-        <div class="dash-quick-empty">
-          <div class="dash-hero-topline">Быстрый старт</div>
-          <h2 style="margin:10px 0 8px 0;">Сначала выберите нишу</h2>
-          <p class="small">Ниша нужна, чтобы контент-планы, серии постов, видео, hooks и CTA были релевантны именно вашему бизнесу.</p>
-          <div class="dash-quick-empty-controls">
-            ${selectField('dashQuickNiche', 'Ниша', '', [{ value: '', label: 'Выберите нишу' }].concat(DIRECTOR_NICHE_OPTIONS))}
-            <button id="dashQuickPickNicheBtn" class="btn btn-primary" type="button">Выбрать нишу</button>
-          </div>
-        </div>
-      </section>`;
-  const onboardingHero = shouldShowOnboardingHero ? `
-      <section class="card glass-card" style="margin-bottom:18px;border:1px solid rgba(54,102,255,.18);box-shadow:0 18px 48px rgba(15,26,61,.08);">
-        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-          <div style="max-width:720px;">
-            <div class="pill active" style="margin-bottom:10px;">Добро пожаловать в AutoSocial</div>
-            <h2 style="margin:0 0 8px 0;">Начните с первого результата, а не с пустой аналитики</h2>
-            <p class="small" style="margin:0 0 12px 0;">Ваш план: <strong>${esc(billing.plan_title || planBadge(billing.plan || 'free').replace(/<[^>]+>/g, ''))}</strong>. Осталось: <strong>${postsRemaining}</strong> постов, <strong>${videosRemaining}</strong> видео, <strong>${esc(projectsRemaining)}</strong> рабочего пространства. ${trialExpiringSoon ? 'Trial скоро закончится, поэтому лучше получить первый результат сейчас.' : 'Первый результат можно получить меньше чем за минуту.'}</p>
-            <div class="cta-row">
-              <button id="dashFirstPostBtn" class="btn btn-primary" type="button">Создать первый пост</button>
-              <button id="dashFirstVideoBtn" class="btn btn-secondary" type="button">Создать первое видео</button>
-              <button id="dashConnectChannelsBtn" class="btn btn-ghost" type="button">Подключить соцсети</button>
+  const recentListHtml = stats.loading
+    ? skeletonCards
+    : (sortedRecent.slice(0, 5).length
+      ? `<div class="dash-recent-list">${sortedRecent.slice(0, 5).map((item) => {
+          const m = item.metrics || {};
+          const title = item.title || shellText('nav_create');
+          const published = item.published_at ? new Date(item.published_at).toLocaleDateString(locale) : '—';
+          const platform = (item.platform || '').toUpperCase();
+          return `<article class="dash-recent-item dash-row-link" data-dash-item-url="${esc(item.url || '')}">
+            <div>
+              <strong>${esc(title)}</strong>
+              <p class="small">${esc(platform)} · ${esc(item.content_type || 'post')}</p>
             </div>
-            <div class="small" style="margin-top:10px;">${hasConnectedChannels ? 'Каналы уже можно использовать для публикации и синхронизации.' : 'Сначала можно сгенерировать контент, а подключить каналы позже для автопостинга и аналитики.'}</div>
-          </div>
-          <button id="dashDismissOnboardingBtn" class="btn btn-ghost" type="button">Скрыть</button>
-        </div>
-        <div class="grid-3" style="margin-top:16px;">
+            <div class="dash-recent-meta">
+              <span>${esc(shellText('dashboard_reach_label'))}: <strong>${fmt(m.reach)}</strong></span>
+              <span>${esc(shellText('dashboard_views_label'))}: <strong>${fmt(m.views)}</strong></span>
+              <small>${esc(published)}</small>
+            </div>
+          </article>`;
+        }).join('')}</div>`
+      : `<p class="small">${esc(shellText('common_no_materials_period'))}</p>`);
 
-          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 2</div><strong>Сгенерируйте пост или структуру видео</strong><p class="small" style="margin:8px 0 0 0;">Получите первый черновик сразу и отредактируйте его при необходимости.</p></article>
-          <article class="card" style="padding:14px;"><div class="small" style="opacity:.7;">Шаг 3</div><strong>Опубликуйте сейчас или подключите каналы позже</strong><p class="small" style="margin:8px 0 0 0;">Контент можно подготовить заранее, а автопостинг включить после подключения соцсетей.</p></article>
-        </div>
-      </section>` : '';
-  const analyticsEmptyState = shouldShowAnalyticsEmptyState ? `
-        <section class="card glass-card" style="margin-bottom:18px;">
-          <h3 style="margin-top:0;">Аналитика появится после первых публикаций</h3>
-          <p class="small">Сейчас панель не пустая и не сломана: данные подтянутся после публикаций и синхронизации. Пока главный путь к value - создать первый пост или первое видео.</p>
-          <div class="cta-row">
-            <button id="dashEmptyCreateBtn" class="btn btn-primary" type="button">Начать с контента</button>
-            <button id="dashEmptySyncBtn" class="btn btn-ghost" type="button">Понятно</button>
-          </div>
-        </section>` : '';
-  const analyticsHeader = shouldShowAnalyticsEmptyState ? 'Первые данные появятся после публикаций' : 'Ваш рост за 30 дней';
-  const analyticsBadge = shouldShowAnalyticsEmptyState ? 'Пока нет данных для графиков - сначала создайте и опубликуйте контент' : 'данные: Facebook + Instagram + YouTube / период: 30 дней';
-  const analyticsHeroButton = shouldShowAnalyticsEmptyState
-    ? '<button id="dashOpenCreateBtn" class="btn btn-primary" type="button">Начать с контента</button>'
-    : (advancedAnalyticsLocked
-      ? `<button class="btn btn-ghost" type="button" data-link="/billing">${advancedAnalyticsPlaceholder}</button>`
-      : '<button id="dashAiBreakdownBtn" class="btn btn-ghost" type="button">Из чего складывается</button>');
-  const analyticsHeroKpis = shouldShowAnalyticsEmptyState
-    ? `<article class="dash-kpi-card glass-card"><p>Следующий шаг</p><strong>Создать</strong><small>${esc(nextBestStep)}</small></article>
-       <article class="dash-kpi-card glass-card"><p>Каналы</p><strong>${hasConnectedChannels ? 'Есть' : 'Пока нет'}</strong><small>${hasConnectedChannels ? 'Можно публиковать и синхронизировать.' : 'Сначала можно работать без подключений.'}</small></article>
-       <article class="dash-kpi-card glass-card"><p>Trial</p><strong>${billing.plan === 'free' ? `${Number(billing.trial_days_left || 0)} дн.` : 'Активен'}</strong><small>${billing.plan === 'free' ? 'Покажите первую ценность до конца пробного периода.' : 'Лимиты и доступ уже активны.'}</small></article>
-       <article class="dash-kpi-card glass-card"><p>Лимиты</p><strong>${postsRemaining}/${videosRemaining}</strong><small>Осталось постов / видео в текущем периоде.</small></article>`
-    : (stats.loading ? skeletonCards : `
-            <article class="dash-kpi-card glass-card"><p>Охват</p><strong>${fmt(current.reach)}</strong><small class="${Number(delta?.reach?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.reach)}</small></article>
-            <article class="dash-kpi-card glass-card"><p>Просмотры</p><strong>${fmt(current.views)}</strong><small class="${Number(delta?.views?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.views)}</small></article>
-            <article class="dash-kpi-card glass-card"><p>Уровень вовлеченности</p><strong>${pct(current.engagement_rate || 0)}</strong><small class="${Number(delta?.engagement_rate?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.engagement_rate)}</small></article>
-            <article class="dash-kpi-card glass-card"><p>Количество постов</p><strong>${fmt(current.items)}</strong><small class="${Number(delta?.items?.abs || 0) >= 0 ? 'is-positive' : 'is-negative'}">vs prev 30d: ${deltaLabel(delta.items)}</small></article>
-          `);
-
-  return appLayout('/dashboard', 'Панель управления', `
-    <section class="dash-client-shell dash-v2-shell">
-      ${onboardingHero}
-      ${quickStartShell}
-      <header class="dash-card dash-hero glass-card">
+  const connectionsSection = `<section class="dash-card glass-card">
+      <div class="dash-section-head">
         <div>
-          <div class="dash-hero-topline">${analyticsHeader}</div>
-          <div class="dash-hero-score-row">
-            ${shouldShowAnalyticsEmptyState
-              ? `<div class="dash-hero-score">1</div>
-                 <div class="dash-hero-score-meta">
-                   <span>Лучший следующий шаг</span>
+          <h3>${esc(shellText('dashboard_connections_title'))}</h3>
+          <p class="small">${esc(shellText('dashboard_connections_lead'))}</p>
+        </div>
+        <button id="dashSyncMetricsBtn" class="btn btn-secondary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? esc(shellText('dashboard_syncing')) : esc(shellText('dashboard_sync_now'))}</button>
+      </div>
+      <div class="dash-platform-grid dash-platform-grid-compact">
+        <article class="dash-platform-card glass-card">
+          <div class="dash-platform-head"><h4>Facebook</h4><span class="dash-status-chip ${statusClass(fbStatus)}">${statusLabel(fbStatus)}</span></div>
+          <p>${esc(shellText('dashboard_reach_label'))}: <strong>${fmt(byPlatform.facebook?.reach)}</strong></p>
+          <p>${esc(shellText('dashboard_views_label'))}: <strong>${fmt(byPlatform.facebook?.views)}</strong></p>
+          <p class="small">${esc(shellText('dashboard_content_items'))}: ${fmt(byPlatform.facebook?.items)}</p>
+        </article>
+        <article class="dash-platform-card glass-card">
+          <div class="dash-platform-head"><h4>Instagram</h4><span class="dash-status-chip ${statusClass(igStatus)}">${statusLabel(igStatus)}</span></div>
+          <p>${esc(shellText('dashboard_reach_label'))}: <strong>${fmt(byPlatform.instagram?.reach)}</strong></p>
+          <p>${esc(shellText('dashboard_views_label'))}: <strong>${fmt(byPlatform.instagram?.views)}</strong></p>
+          <p class="small">${esc(shellText('dashboard_content_items'))}: ${fmt(byPlatform.instagram?.items)}</p>
+        </article>
+        <article class="dash-platform-card glass-card">
+          <div class="dash-platform-head"><h4>YouTube</h4><span class="dash-status-chip ${statusClass(ytStatus)}">${statusLabel(ytStatus)}</span></div>
+          <p>${esc(shellText('dashboard_reach_label'))}: <strong>${fmt(byPlatform.youtube?.reach)}</strong></p>
+          <p>${esc(shellText('dashboard_views_label'))}: <strong>${fmt(byPlatform.youtube?.views)}</strong></p>
+          <p class="small">${esc(shellText('dashboard_content_items'))}: ${fmt(byPlatform.youtube?.items)}</p>
+        </article>
+      </div>
+    </section>`;
 
-                 </div>`
-              : (advancedAnalyticsLocked
-                ? `<div class="dash-hero-score">🔒</div>
-                   <div class="dash-hero-score-meta">
-                     <span>${advancedAnalyticsPlaceholder}</span>
-                   </div>`
-                : `<div class="dash-hero-score">${Number(aiScore.current || 0).toFixed(1)}</div>
-                   <div class="dash-hero-score-meta">
-                     <span>AI-Score / 100</span>
+  const performanceSection = shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
+      <div class="dash-section-head">
+        <div>
+          <h3>${esc(shellText('dashboard_growth_30'))}</h3>
+          <p class="small">${esc(chartDescription)}</p>
+        </div>
+        <div class="dash-metric-switch" role="tablist" aria-label="Metric switch">
+          <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">${esc(shellText('dashboard_reach_label'))}</button>
+          <button type="button" data-dash-metric="views" class="${chartMetric === 'views' ? 'active' : ''}">${esc(shellText('dashboard_views_label'))}</button>
+          <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">${esc(shellText('dashboard_engagement_label'))}</button>
+          ${advancedAnalyticsLocked ? '' : `<button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>`}
+        </div>
+      </div>
+      ${mainChartHtml}
+      <div class="dash-section-head" style="margin-top:18px;">
+        <div>
+          <h3>${esc(shellText('dashboard_forecast_title'))}</h3>
+          <p class="small">${esc(shellTextFmt('dashboard_forecast_lead', { days: Number(forecast.horizon_days || 7), level: String(forecast?.confidence?.level || 'low'), reasons: String((forecast?.confidence?.reasons || []).join(', ') || shellText('dashboard_no_insights')) }))}</p>
+        </div>
+        <div class="dash-sort-row">
+          <button type="button" data-dash-forecast-horizon="7" class="${Number(stats.forecastHorizon || 7) === 7 ? 'active' : ''}">${esc(shellTextFmt('dashboard_forecast_days', { days: 7 }))}</button>
+          <button type="button" data-dash-forecast-horizon="30" class="${Number(stats.forecastHorizon || 7) === 30 ? 'active' : ''}">${esc(shellTextFmt('dashboard_forecast_days', { days: 30 }))}</button>
+        </div>
+      </div>
+      <div class="dash-forecast-grid">
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_forecast_reach'))}</p><strong>${fmt(forecast?.totals?.reach || 0)}</strong></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_forecast_views'))}</p><strong>${fmt(forecast?.totals?.views || 0)}</strong></article>
+        <article class="dash-kpi-card glass-card"><p>${esc(shellText('dashboard_forecast_engagement'))}</p><strong>${pct(forecast?.totals?.engagement_rate_avg || 0)}</strong></article>
+      </div>
+    </section>`;
 
-                   </div>`)}
+  return appLayout('/dashboard', shellText('page_dashboard'), `
+    <section class="dash-client-shell dash-v2-shell">
+      <header class="dash-card dash-hero glass-card">
+        <div class="dash-hero-copy">
+          <div class="dash-hero-topline">${esc(shellText('dashboard_quick_start'))}</div>
+          <h1 class="dash-sales-title">${esc(shellText('dashboard_selling_headline'))}</h1>
+          <p class="dash-sales-subtitle">${esc(shellText('dashboard_selling_subtitle'))}</p>
+          <div class="dash-hero-inline">
+            <div class="dash-quick-controls">
+              ${selectField('dashQuickNiche', shellText('planner_niche'), dashboardNicheId, dashboardNicheOptions)}
+            </div>
+            <div class="dash-hero-inline-note">
+              <div class="small">${esc(shellTextFmt('dashboard_value_lead', { niche: dashboardNicheMeta?.label || shellText('dashboard_select_niche_option') }))}</div>
+              <div class="small">${esc(hasConnectedChannels ? shellText('dashboard_channels_ready') : shellText('dashboard_generate_then_connect'))}</div>
+            </div>
           </div>
-          <div class="dash-hero-badge">${analyticsBadge}</div>
-          ${analyticsHeroButton}
         </div>
         <div class="dash-hero-kpis">
-          ${analyticsHeroKpis}
-          <div class="cta-row">
-            <button id="dashSyncMetricsBtn" class="btn btn-primary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? 'Синхронизирую...' : (shouldShowAnalyticsEmptyState ? 'Синхронизировать позже' : 'Синхронизировать')}</button>
-            <button id="dashCreatePostBtn" class="btn btn-secondary">${shouldShowAnalyticsEmptyState ? 'Создать первый пост' : 'Создать пост'}</button>
-          </div>
+          ${summaryCardsHtml}
+        </div>
+        <div class="dash-hero-actions-row">
+          <div class="dash-quick-grid dash-primary-grid">${primaryActionsHtml}</div>
         </div>
       </header>
       <main class="dash-client-content">
-        <section class="grid-2" style="margin-bottom:18px;">
-          <article class="card glass-card">
-            <h3 style="margin-top:0;">Текущий план</h3>
-            <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <section class="grid-2 dash-dashboard-row">
+          ${recommendationSection}
+          <article class="dash-card glass-card">
+            <div class="dash-section-head">
               <div>
-                <div class="small">План</div>
-                <div style="margin-top:6px;">${planBadge(billing.plan || 'free')}</div>
+                <h3>${esc(shellText('dashboard_published_posts'))}</h3>
+                <p class="small">${esc(shellText('dashboard_recent_lead'))}</p>
               </div>
-              <button type="button" class="btn btn-primary" data-link="/billing">Апгрейд</button>
+              <div class="dash-sort-row">
+                <button type="button" class="${recentSort === 'reach' ? 'active' : ''}" data-dash-sort="reach">${esc(shellText('dashboard_sort_reach'))}</button>
+                <button type="button" class="${recentSort === 'views' ? 'active' : ''}" data-dash-sort="views">${esc(shellText('dashboard_sort_views'))}</button>
+                <button type="button" class="${recentSort === 'engagement' ? 'active' : ''}" data-dash-sort="engagement">${esc(shellText('dashboard_sort_engagement'))}</button>
+              </div>
             </div>
-            <div class="small" style="margin-top:12px;">Посты: <strong>${Number(billing?.usage?.posts_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.posts_per_month || 0)}</strong></div>
-            <div class="small" style="margin-top:6px;">Видео: <strong>${Number(billing?.usage?.videos_per_month || 0)}</strong> / <strong>${Number(billing?.limits?.videos_per_month || 0)}</strong></div>
-            <div class="small" style="margin-top:6px;">Рабочие пространства: <strong>${Number(billing?.usage?.projects || 0)}</strong> / <strong>${esc(projectLimitLabel)}</strong></div>
-            <div class="small" style="margin-top:6px;">Каналы: <strong>${Number(billing?.usage?.accounts_connected || 0)}</strong> / <strong>${esc(accountLimitLabel)}</strong></div>
-            <div class="small" style="margin-top:6px;">Locked / недоступно: <strong>${esc(lockText)}</strong></div>
-            <div style="margin-top:10px;">${trialLine}</div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-          </article>
-          <article class="card glass-card">
-            <h3 style="margin-top:0;">Что доступно сейчас</h3>
-            <ul class="small">
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-              <li>Аналитика: <strong>${esc(String(billing?.limits?.analytics_level || 'none'))}</strong></li>
-              <li>Шаблоны по нишам: <strong>${esc(String(billing?.limits?.niche_templates || 'limited'))}</strong></li>
-            </ul>
-            <p class="small">${Number(billing?.usage?.posts_per_month || 0) <= 0 && Number(billing?.usage?.videos_per_month || 0) <= 0
-              ? 'Следующий шаг: откройте «Создать», выберите тему и получите первый пост или структуру видео за несколько минут.'
-              : 'Если лимит закончится или функция недоступна, paywall должен вести на страницу тарифа без ложных кнопок и пустых действий.'}</p>
+            ${recentListHtml}
           </article>
         </section>
-        ${analyticsEmptyState}
-        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-platform-grid">
-          <article class="dash-platform-card glass-card">
-            <div class="dash-platform-head"><h4>Facebook</h4><span class="dash-status-chip ${statusClass(fbStatus)}">${statusLabel(fbStatus)}</span></div>
-            <p>Охват: <strong>${fmt(byPlatform.facebook?.reach)}</strong></p>
-            <p>Просмотры: <strong>${fmt(byPlatform.facebook?.views)}</strong></p>
-            <p class="small">Контент-единиц: ${fmt(byPlatform.facebook?.items)}</p>
-            ${buildSpark(fbSeries, 'facebook')}
-          </article>
-          <article class="dash-platform-card glass-card">
-            <div class="dash-platform-head"><h4>Instagram</h4><span class="dash-status-chip ${statusClass(igStatus)}">${statusLabel(igStatus)}</span></div>
-            <p>Охват: <strong>${fmt(byPlatform.instagram?.reach)}</strong></p>
-            <p>Просмотры: <strong>${fmt(byPlatform.instagram?.views)}</strong></p>
-            <p class="small">Контент-единиц: ${fmt(byPlatform.instagram?.items)}</p>
-            ${buildSpark(igSeries, 'instagram')}
-          </article>
-          <article class="dash-platform-card glass-card">
-            <div class="dash-platform-head"><h4>YouTube</h4><span class="dash-status-chip ${statusClass(ytStatus)}">${statusLabel(ytStatus)}</span></div>
-            <p>Охват: <strong>${fmt(byPlatform.youtube?.reach)}</strong></p>
-            <p>Просмотры: <strong>${fmt(byPlatform.youtube?.views)}</strong></p>
-            <p class="small">Контент-единиц: ${fmt(byPlatform.youtube?.items)}</p>
-            ${buildSpark(ytSeries, 'youtube')}
-          </article>
-        </section>`}
-        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
-          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div>
-              <h3>График результатов за 30 дней</h3>
-              <p class="small">${esc(chartDescription)}</p>
-            </div>
-            <div class="dash-metric-switch" role="tablist" aria-label="Metric switch">
-              <button type="button" data-dash-metric="reach" class="${chartMetric === 'reach' ? 'active' : ''}">Охват аудитории</button>
-              <button type="button" data-dash-metric="views" class="${chartMetric === 'views' ? 'active' : ''}">Просмотры</button>
-              <button type="button" data-dash-metric="engagement" class="${chartMetric === 'engagement' ? 'active' : ''}">Вовлечённость</button>
-              ${advancedAnalyticsLocked ? '' : `<button type="button" data-dash-metric="ai_score" class="${chartMetric === 'ai_score' ? 'active' : ''}">AI-Score</button>`}
-            </div>
-          </div>
-          ${mainChartHtml}
-        </section>`}
-        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
-          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div>
-              <h3>Прогноз</h3>
-              <p class="small">На ${Number(forecast.horizon_days || 7)} дней · confidence: <strong>${esc(forecast?.confidence?.level || 'low')}</strong> · ${esc((forecast?.confidence?.reasons || []).join(', ') || 'недостаточно данных')}</p>
-            </div>
-            <div class="dash-sort-row">
-              <button type="button" data-dash-forecast-horizon="7" class="${Number(stats.forecastHorizon || 7) === 7 ? 'active' : ''}">7 дней</button>
-
-            </div>
-          </div>
-          <div class="dash-forecast-grid">
-            <article class="dash-kpi-card glass-card"><p>Прогноз Reach</p><strong>${fmt(forecast?.totals?.reach || 0)}</strong></article>
-            <article class="dash-kpi-card glass-card"><p>Прогноз Views</p><strong>${fmt(forecast?.totals?.views || 0)}</strong></article>
-            <article class="dash-kpi-card glass-card"><p>Прогноз Engagement</p><strong>${pct(forecast?.totals?.engagement_rate_avg || 0)}</strong></article>
-          </div>
-          <div class="dash-forecast-scenarios">
-            <div><strong>Текущий темп</strong><p class="small">${Number(forecast?.scenarios?.current?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.current?.reach || 0)}</p></div>
-            <div><strong>+30% частоты</strong><p class="small">${Number(forecast?.scenarios?.plus30?.posts_per_week || 0).toFixed(1)} поста/нед · Reach ${fmt(forecast?.scenarios?.plus30?.reach || 0)}</p></div>
-          </div>
-        </section>`}
-        ${shouldShowAnalyticsEmptyState ? '' : (advancedAnalyticsLocked
-          ? `<section class="dash-card dash-ai-card glass-card">
-              <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div>
-                  <h3>AI-инсайты</h3>
-                  <p class="small">${advancedAnalyticsPlaceholder}</p>
-                </div>
-                <button class="btn btn-ghost" type="button" data-link="/billing">Открыть Growth</button>
-              </div>
-            </section>`
-          : `<section class="dash-card dash-ai-card glass-card">
-              <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div>
-                  <h3>AI-инсайты</h3>
-                  <p class="small">Лучшие точки роста на основе фактических метрик.</p>
-                </div>
-                <div class="cta-row">
-                  <button id="dashApplyRecommendationsBtn" class="btn btn-secondary">Применить рекомендации</button>
-                  <button id="dashOpenCalendarBtn" class="btn btn-ghost">Открыть календарь</button>
-                </div>
-              </div>
-              <div class="dash-insights-grid">${stats.loading ? skeletonCards : insightCards}</div>
-            </section>`)}
-        ${shouldShowAnalyticsEmptyState ? '' : `<section class="dash-card glass-card">
-          <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <h3>Опубликованные посты</h3>
-            <div class="dash-sort-row">
-              <button type="button" class="${recentSort === 'reach' ? 'active' : ''}" data-dash-sort="reach">Сортировка по охвату</button>
-              <button type="button" class="${recentSort === 'views' ? 'active' : ''}" data-dash-sort="views">Сортировка по просмотрам</button>
-              <button type="button" class="${recentSort === 'engagement' ? 'active' : ''}" data-dash-sort="engagement">Сортировка по вовлеченности</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Контент</th>
-                  <th>Охват</th>
-                  <th>Просмотры</th>
-                  <th>Уровень вовлеченности</th>
-                  <th>Дата</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>${recentRows}</tbody>
-            </table>
-          </div>
-        </section>`}
+        <section class="grid-2 dash-dashboard-row">
+          ${performanceSection || `<section class="dash-card glass-card"><h3>${esc(shellText('dashboard_growth_30'))}</h3><p class="small">${esc(shellText('dashboard_no_data_sync'))}</p></section>`}
+          ${connectionsSection}
+        </section>
       </main>
       ${(stats.aiBreakdownOpen && !advancedAnalyticsLocked) ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
         <div class="dash-modal glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;">
-            <h3 style="margin:0;">Из чего складывается AI-Score</h3>
-            <button id="dashAiBreakdownClose" type="button" class="btn btn-ghost">Закрыть</button>
+            <h3 style="margin:0;">${esc(shellText('dashboard_breakdown_title'))}</h3>
+            <button id="dashAiBreakdownClose" type="button" class="btn btn-ghost">${esc(shellText('common_close'))}</button>
           </div>
-          <p class="small">Период: ${esc(aiScore?.breakdown?.period?.from || '—')} > ${esc(aiScore?.breakdown?.period?.to || '—')}</p>
+          <p class="small">${esc(shellText('dashboard_breakdown_period_label'))}: ${esc(aiScore?.breakdown?.period?.from || '—')} > ${esc(aiScore?.breakdown?.period?.to || '—')}</p>
           <div class="dash-breakdown-list">
             ${(Array.isArray(aiScore?.breakdown?.factors) && aiScore.breakdown.factors.length)
               ? aiScore.breakdown.factors.map((f) => {
-
+                const score = Number(f?.score || 0);
                 const weight = Math.max(Number(f?.weight || 1), 1);
-
+                const ratio = Math.max(0, Math.min(100, (score / weight) * 100));
                 const conf = String(f?.confidence || 'low');
-                const confText = conf === 'high' ? 'Высокая' : (conf === 'medium' ? 'Средняя' : 'Низкая');
-                const actionPath = String(f?.key || '').includes('timing') ? '/calendar' : '/create';
+                const confText = conf === 'high'
+                  ? shellText('dashboard_confidence_high')
+                  : (conf === 'medium' ? shellText('dashboard_confidence_medium') : shellText('dashboard_confidence_low'));
                 return `<article class="dash-breakdown-item">
                   <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-                    <strong>${esc(f?.title || 'Фактор')}</strong>
+                    <strong>${esc(f?.title || shellText('dashboard_insight_title'))}</strong>
                     <span class="dash-confidence ${esc(conf)}">${esc(confText)}</span>
                   </div>
-                  <div class="small">Вес ${weight} · ${score.toFixed(1)} балла</div>
+                  <div class="small">${esc(shellText('dashboard_breakdown_weight_label'))} ${weight} · ${score.toFixed(1)}</div>
                   <div class="dash-mini-progress"><span style="width:${ratio.toFixed(1)}%"></span></div>
                   <p class="small">${esc(f?.how_to_improve || '—')}</p>
                   <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-                    <small>Ожидаемый эффект: ${esc(f?.expected_gain || '—')}</small>
-
+                    <small>${esc(shellText('dashboard_breakdown_expected_effect'))}: ${esc(f?.expected_gain || '—')}</small>
                   </div>
                 </article>`;
               }).join('')
-              : '<p class="small">Недостаточно данных. Нажмите «Синхронизировать».</p>'
+              : `<p class="small">${esc(shellText('dashboard_no_data_sync'))}</p>`
             }
           </div>
         </div>
@@ -2962,6 +5377,7 @@ function pageCreate() {
   `);
 }
 function pageConnections() {
+  const locale = uiLocale();
   const query = new URLSearchParams(location.search);
   const err = query.get('error');
   const msg = query.get('message');
@@ -2988,11 +5404,11 @@ function pageConnections() {
 
   const primaryByStatus = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s === 'not_connected') return { action: 'connect', label: 'Подключить Facebook' };
-    if (s === 'connected_need_page') return { action: 'pick_page', label: 'Выбрать страницу' };
-    if (s === 'connected_ready' || s === 'connected') return { action: 'test', label: 'Тест публикации' };
-    if (s === 'token_expired' || s === 'permissions_missing' || s === 'disconnected') return { action: 'reconnect', label: 'Переподключить' };
-    return { action: 'retry', label: 'Повторить' };
+    if (s === 'not_connected') return { action: 'connect', label: shellText('connections_connect_meta') };
+    if (s === 'connected_need_page') return { action: 'pick_page', label: shellText('connections_choose_page') };
+    if (s === 'connected_ready' || s === 'connected') return { action: 'test', label: shellText('connections_test_publication') };
+    if (s === 'token_expired' || s === 'permissions_missing' || s === 'disconnected') return { action: 'reconnect', label: shellText('connections_reconnect') };
+    return { action: 'retry', label: shellText('connections_retry') };
   };
   const renderConnectionAvatar = (imageUrl, fallbackText, extraClass = '') => {
     const cls = `avatar connection-brand-avatar ${extraClass}`.trim();
@@ -3031,36 +5447,36 @@ function pageConnections() {
         const status = String(c.status || 'not_connected').toLowerCase();
         const primary = primaryByStatus(status);
         const avatar = renderConnectionAvatar(c.facebook_page_picture_url, c.facebook_page_name || 'Facebook', 'connection-brand-avatar-meta');
-        const brandTitle = safeText(c.facebook_page_name, 'Страница Facebook');
+        const brandTitle = safeText(c.facebook_page_name, shellText('connections_facebook_page'));
         const pageLine = c.facebook_page_name
           ? `${esc(c.facebook_page_name)}`
-          : `<span class="small">Страница не выбрана</span>`;
+          : `<span class="small">${esc(shellText('connections_page_not_selected'))}</span>`;
         const igLine = c.instagram_business_id
-          ? `${esc(safeText(c.instagram_username, '')) ? `@${esc(c.instagram_username)}` : 'Instagram Business подключен'}`
-          : `<span class="small">Instagram Business не выбран</span>`;
-        const howToFix = c.status_help_text || 'Проверьте детали подключения.';
+          ? `${esc(safeText(c.instagram_username, '')) ? `@${esc(c.instagram_username)}` : shellText('connections_instagram_business')}`
+          : `<span class="small">${esc(shellText('connections_instagram_not_selected'))}</span>`;
+        const howToFix = c.status_help_text || shellText('connections_check_details');
         const canRefresh = status === 'connected_ready' || status === 'connected' || status === 'token_expired';
         const canAddPage = status === 'connected_ready' || status === 'connected' || status === 'connected_need_page';
-        const statusText = status === 'connected_ready' || status === 'connected' ? 'Готово' : 'Нужно действие';
-        const syncText = canRefresh ? 'Синхронизация OK' : 'Ограничено';
-        const pageHealth = c.facebook_page_name ? 'Страница привязана' : 'Страница не выбрана';
-        const igHealth = c.instagram_business_id ? 'IG business активен' : 'IG business не найден';
+        const statusText = status === 'connected_ready' || status === 'connected' ? shellText('status_done') : shellText('connections_need_action');
+        const syncText = canRefresh ? 'OK' : shellText('connections_limited');
+        const pageHealth = c.facebook_page_name ? shellText('connections_facebook_ok') : shellText('status_connected_need_page');
+        const igHealth = c.instagram_business_id ? shellText('connections_instagram_ok') : shellText('status_not_connected');
         return `<article class="card connection-card">
           <div class="row connection-head">
             <div>
-              <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">Автопостинг</span></div>
+              <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">Meta</span><span class="connection-caption">${esc(shellText('connections_autoposting'))}</span></div>
               <div class="row connection-title-row">${avatar}<div><h3 class="connection-title">${esc(brandTitle)}</h3><div class="connection-platform-stack">${renderPlatformMini('Facebook', 'facebook')}${renderPlatformMini('Instagram', 'instagram')}</div></div></div>
-              <div class="small connection-subtitle">Подключённый бренд-аккаунт для публикации в Facebook и Instagram.</div>
+              <div class="small connection-subtitle">${esc(shellText('connections_meta_subtitle'))}</div>
             </div>
             <div>${statusBadge(status)}</div>
           </div>
           <div class="grid-2 connection-grid-info">
-            <div class="connection-identity"><span class="connection-label">Facebook Page</span><div class="connection-main-text">${pageLine}</div></div>
-            <div class="connection-identity"><span class="connection-label">Instagram Business</span><div class="connection-main-text">${igLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">${esc(shellText('connections_facebook_page'))}</span><div class="connection-main-text">${pageLine}</div></div>
+            <div class="connection-identity"><span class="connection-label">${esc(shellText('connections_instagram_business'))}</span><div class="connection-main-text">${igLine}</div></div>
           </div>
           <div class="connection-kpis connection-kpis-compact">
-            <div class="connection-kpi"><strong>${esc(statusText)}</strong><span>Состояние публикации</span></div>
-            <div class="connection-kpi"><strong>${esc(syncText)}</strong><span>Статус синхронизации</span></div>
+            <div class="connection-kpi"><strong>${esc(statusText)}</strong><span>${esc(shellText('connections_publication_state'))}</span></div>
+            <div class="connection-kpi"><strong>${esc(syncText)}</strong><span>${esc(shellText('connections_sync_status'))}</span></div>
           </div>
           <div class="connection-hint-wrap">
             <div class="small connection-hint">${esc(howToFix)}</div>
@@ -3068,13 +5484,13 @@ function pageConnections() {
           </div>
           <div class="cta-row connection-actions">
             <button class="btn btn-primary connection-btn-sm" data-primary-action="${esc(primary.action)}" data-connection-id="${c.id}">${esc(primary.label)}</button>
-            ${canAddPage ? `<button class="btn btn-ghost connection-btn-sm" data-add-page="${c.id}">Добавить страницу</button>` : ''}
-            ${canRefresh ? `<button class="btn btn-secondary connection-btn-sm" data-refresh="${c.id}">Обновить токен</button>` : ''}
-            <button class="btn btn-danger connection-btn-sm" data-disconnect="${c.id}">Отключить</button>
+            ${canAddPage ? `<button class="btn btn-ghost connection-btn-sm" data-add-page="${c.id}">${esc(shellText('connections_add_page'))}</button>` : ''}
+            ${canRefresh ? `<button class="btn btn-secondary connection-btn-sm" data-refresh="${c.id}">${esc(shellText('connections_refresh_token'))}</button>` : ''}
+            <button class="btn btn-danger connection-btn-sm" data-disconnect="${c.id}">${esc(shellText('connections_disconnect'))}</button>
           </div>
         </article>`;
       }).join('')}`
-    : `<article class="card connection-card">${emptyState('Нет подключенных Meta-аккаунтов', 'Подключите Facebook Page и Instagram Business, чтобы начать публикацию.', 'Подключить Facebook', '/connections')}</article>`;
+    : `<article class="card connection-card">${emptyState(shellText('connections_title'), shellText('connections_lead'), shellText('connections_connect_meta'), '/connections')}</article>`;
 
   const y = state.youtubeConnection || {};
   const youtubeConnected = !!y.connected;
@@ -3082,9 +5498,9 @@ function pageConnections() {
     <article class="card connection-card yt-connection-card">
       <div class="row connection-head">
         <div>
-          <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">Видео и Shorts</span></div>
-          <div class="row connection-title-row">${renderConnectionAvatar(y.channel_picture_url, y.channel_name || 'YouTube', 'connection-brand-avatar-youtube')}<div><h3 class="connection-title">${esc(safeText(y.channel_name, 'YouTube канал'))}</h3><div class="connection-platform-stack">${renderPlatformMini('YouTube', 'youtube')}</div></div></div>
-          <div class="small connection-subtitle">Подключённый канал для роликов, Shorts и постов сообщества.</div>
+          <div class="row connection-chip-row" style="align-items:center;gap:10px;"><span class="pill">YouTube</span><span class="connection-caption">${esc(shellText('connections_youtube_caption'))}</span></div>
+          <div class="row connection-title-row">${renderConnectionAvatar(y.channel_picture_url, y.channel_name || 'YouTube', 'connection-brand-avatar-youtube')}<div><h3 class="connection-title">${esc(safeText(y.channel_name, shellText('connections_youtube_channel')))}</h3><div class="connection-platform-stack">${renderPlatformMini('YouTube', 'youtube')}</div></div></div>
+          <div class="small connection-subtitle">${esc(shellText('connections_youtube_subtitle'))}</div>
         </div>
         <div>${statusBadge(y.status || 'connected_ready')}</div>
       </div>
@@ -3094,18 +5510,18 @@ function pageConnections() {
         <span class="pill">AI Script + Post</span>
       </div>
       <div class="connection-grid-info">
-        <div class="connection-identity"><span class="connection-label">Канал</span><div class="connection-main-text">${esc(safeText(y.channel_name, 'YouTube канал'))}</div></div>
+        <div class="connection-identity"><span class="connection-label">${esc(shellText('common_channel'))}</span><div class="connection-main-text">${esc(safeText(y.channel_name, shellText('connections_youtube_channel')))}</div></div>
       </div>
       <div class="connection-kpis connection-kpis-compact">
-        <div class="connection-kpi"><strong>Готово</strong><span>Контент-пайплайн</span></div>
-        <div class="connection-kpi"><strong>Мультиформат</strong><span>Shorts и long-form</span></div>
+        <div class="connection-kpi"><strong>${esc(shellText('status_done'))}</strong><span>${esc(shellText('connections_content_pipeline'))}</span></div>
+        <div class="connection-kpi"><strong>${esc(shellText('connections_multiformat'))}</strong><span>${esc(shellText('connections_youtube_multiformat'))}</span></div>
       </div>
       <div class="connection-hint-wrap">
-        <div class="small connection-hint">Откройте YouTube Studio и выберите тему, формат и длительность.</div>
+        <div class="small connection-hint">${esc(shellText('connections_youtube_hint'))}</div>
       </div>
       <div class="cta-row connection-actions">
-        <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">Открыть студию</button>
-        <button type="button" class="btn btn-danger connection-btn-sm" data-youtube-disconnect="1">Отключить YouTube</button>
+        <button class="btn btn-primary connection-btn-sm" type="button" data-link="/youtube">${esc(shellText('connections_open_studio'))}</button>
+        <button type="button" class="btn btn-danger connection-btn-sm" data-youtube-disconnect="1">${esc(shellText('connections_disconnect_youtube'))}</button>
       </div>
     </article>
   ` : '';
@@ -3127,27 +5543,27 @@ function pageConnections() {
   const visiblePages = (picker.pages || []).filter((p) => pageInFilter(p) && pageMatches(p));
 
   const pickerList = picker.loading
-    ? `<p class="small">Загружаю список страниц…</p>`
+    ? `<p class="small">${esc(shellText('connections_loading_pages'))}</p>`
     : (picker.error
         ? `<p class="small" style="color:var(--error);">${esc(picker.error)}</p>`
         : (picker.pages.length
             ? (visiblePages.length
                 ? `<div class="list">${visiblePages.map((p) => {
                 const pic = p.page_picture_url ? `<span class="avatar"><img src="${esc(p.page_picture_url)}" alt="" /></span>` : `<span class="avatar">${esc((safeText(p.page_name,'P')[0] || 'P').toUpperCase())}</span>`;
-                const ig = p.has_ig ? `<span class="pill ok">IG привязан</span>` : `<span class="pill warn">Без IG</span>`;
+                const ig = p.has_ig ? `<span class="pill ok">${esc(shellText('connections_ig_linked'))}</span>` : `<span class="pill warn">${esc(shellText('connections_without_ig'))}</span>`;
 
 
 
               }).join('')}</div>`
-                : `<p class="small">Неподключенных страниц не найдено. Все доступные страницы уже добавлены.</p>`)
-            : `<p class="small">Страницы не найдены. Проверьте, что у аккаунта есть роль на Facebook Page и выданы permissions (pages_show_list).</p>`));
+                : `<p class="small">${esc(shellText('connections_no_unconnected_pages'))}</p>`)
+            : `<p class="small">${esc(shellText('connections_pages_not_found'))}</p>`));
 
-  const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>Выбор Facebook Page</h3><button id="closePickerBtn" class="btn btn-ghost">Закрыть</button></div><div class="modal-body"><p class="small">Покажем все страницы, к которым у вашего токена есть доступ. Выберите нужную для публикаций.</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">Все</button><button id="filterNotConnectedBtn" class="btn btn-ghost">Неподключенные</button><button id="filterWithIgBtn" class="btn btn-ghost">С IG</button><button id="filterWithoutIgBtn" class="btn btn-ghost">Без IG</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="Поиск: название / Page ID / @IG" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">Обновить список</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>Использовать</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>Добавить как отдельное</button></div></div></div>`;
+  const modal = `<div id="connectionPickerBackdrop" class="modal-backdrop ${picker.open ? 'open' : ''}"><div class="modal" role="dialog" aria-modal="true"><div class="modal-header"><h3>${esc(shellText('connections_picker_title'))}</h3><button id="closePickerBtn" class="btn btn-ghost">${esc(shellText('common_close'))}</button></div><div class="modal-body"><p class="small">${esc(shellText('connections_picker_lead'))}</p><div class="row" style="justify-content:space-between;align-items:center;margin:10px 0;"><div class="cta-row"><button id="filterAllBtn" class="btn btn-ghost">${esc(shellText('connections_filter_all'))}</button><button id="filterNotConnectedBtn" class="btn btn-ghost">${esc(shellText('connections_filter_not_connected'))}</button><button id="filterWithIgBtn" class="btn btn-ghost">${esc(shellText('connections_filter_with_ig'))}</button><button id="filterWithoutIgBtn" class="btn btn-ghost">${esc(shellText('connections_filter_without_ig'))}</button></div><input id="pageSearchInput" style="max-width:320px;" placeholder="${esc(shellText('common_search_pages'))}" /></div>${pickerList}</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button id="refreshPagesBtn" class="btn btn-secondary">${esc(shellText('common_refresh_list'))}</button><button id="savePickedPageBtn" class="btn btn-primary" ${picker.selectedPageId ? '' : 'disabled'}>${esc(shellText('common_use'))}</button><button id="addPickedPageBtn" class="btn btn-secondary" ${picker.selectedPageId ? '' : 'disabled'}>${esc(shellText('common_add_separate'))}</button></div></div></div>`;
 
   const connectYoutubeBtn = youtubeConnected
-    ? '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button" disabled>YouTube подключён</button>'
-    : '<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button">Подключить YouTube</button>';
-  return appLayout('/connections', 'Подключения', `<section class="card connection-shell"><h2>Подключенные аккаунты</h2><p class="small">Подключите Meta и YouTube. В карточке показывается реальное лого подключённой страницы или канала.</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">Подключить Meta</button>${connectYoutubeBtn}</div>${cards}</section>${modal}`);
+    ? `<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button" disabled>${esc(shellText('connections_youtube_connected'))}</button>`
+    : `<button id="connectYoutubeBtn" class="btn btn-secondary connection-btn-sm" type="button">${esc(shellText('connections_connect_youtube'))}</button>`;
+  return appLayout('/connections', shellText('page_connections'), `<section class="card connection-shell"><h2>${esc(shellText('connections_title'))}</h2><p class="small">${esc(shellText('connections_lead'))}</p><div class="cta-row connections-toolbar"><button id="connectMetaBtn" data-testid="connect-meta-btn" class="btn btn-primary connection-btn-sm">${esc(shellText('connections_connect_meta'))}</button>${connectYoutubeBtn}</div>${cards}</section>${modal}`);
 }
 
 function plansTable() {
@@ -3158,7 +5574,7 @@ function plansTable() {
     const v = planMap[name]?.[key];
     return v === undefined || v === null || String(v).trim() === '' ? fallback : v;
   };
-  const yesNo = (v) => (v ? '\u0414\u0430' : '\u041d\u0435\u0442');
+  const yesNo = (v) => shellYesNo(v);
   const price = (name) => {
     if (marketingMap[name]?.price) return marketingMap[name].price;
     const v = planMap[name]?.price_eur_month;
@@ -3168,27 +5584,27 @@ function plansTable() {
   };
   const workspaces = (name) => {
     const v = planMap[name]?.max_projects;
-    if (Number(v || 0) >= 999999 || String(name) === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    if (Number(v || 0) >= 999999 || String(name) === 'agency') return shellText('billing_unlimited');
     return v ?? '\u2014';
   };
   const channels = (name) => {
     const v = planMap[name]?.accounts_connected;
-    if (Number(v || 0) >= 999999 || String(name) === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    if (Number(v || 0) >= 999999 || String(name) === 'agency') return shellText('billing_unlimited');
     return v ?? '\u2014';
   };
   const analytics = (name) => {
     const key = String(planMap[name]?.analytics_level || 'none').toLowerCase();
-    return key === 'advanced' ? '\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f' : (key === 'basic' ? '\u0431\u0430\u0437\u043e\u0432\u0430\u044f' : '\u043d\u0435\u0442');
+    return key === 'advanced' ? shellText('billing_analytics_advanced') : (key === 'basic' ? shellText('billing_analytics_basic') : shellText('billing_analytics_none'));
   };
-  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>\u0424\u0443\u043d\u043a\u0446\u0438\u044f</th><th>Free Trial</th><th>Starter</th><th>Growth</th><th>Agency</th></tr></thead><tbody>
-    <tr><td>\u0426\u0435\u043d\u0430 / \u043c\u0435\u0441\u044f\u0446</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
-    <tr><td>\u041f\u0440\u043e\u0431\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434</td><td>7 \u0434\u043d\u0435\u0439</td><td>\u2014</td><td>\u2014</td><td>\u2014</td></tr>
-    <tr><td>\u041f\u043e\u0441\u0442\u044b / \u043c\u0435\u0441\u044f\u0446</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
-    <tr><td>\u0412\u0438\u0434\u0435\u043e / \u043c\u0435\u0441\u044f\u0446</td><td>${f('free','max_videos_period',3)}</td><td>${f('starter','max_videos_period',10)}</td><td>${f('growth','max_videos_period',40)}</td><td>${f('agency','max_videos_period',150)}</td></tr>
-    <tr><td>\u0420\u0430\u0431\u043e\u0447\u0438\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0430</td><td>${workspaces('free')}</td><td>${workspaces('starter')}</td><td>${workspaces('growth')}</td><td>${workspaces('agency')}</td></tr>
-    <tr><td>\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0435 \u043a\u0430\u043d\u0430\u043b\u044b</td><td>${channels('free')}</td><td>${channels('starter')}</td><td>${channels('growth')}</td><td>${channels('agency')}</td></tr>
-    <tr><td>\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
-    <tr><td>\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430</td><td>${analytics('free')}</td><td>${analytics('starter')}</td><td>${analytics('growth')}</td><td>${analytics('agency')}</td></tr>
+  return `<div class="table-wrap"><table class="pricing-table"><thead><tr><th>${esc(shellText('billing_feature_title'))}</th><th>${esc(shellText('plan_free'))}</th><th>${esc(shellText('plan_starter'))}</th><th>${esc(shellText('plan_growth'))}</th><th>${esc(shellText('plan_agency'))}</th></tr></thead><tbody>
+    <tr><td>${esc(shellText('common_price_month'))}</td><td>${price('free')}</td><td>${price('starter')}</td><td>${price('growth')}</td><td>${price('agency')}</td></tr>
+    <tr><td>${esc(shellText('common_trial_period'))}</td><td>${esc(shellText('billing_trial_7_days'))}</td><td>\u2014</td><td>\u2014</td><td>\u2014</td></tr>
+    <tr><td>${esc(shellText('common_posts_month'))}</td><td>${f('free','max_posts_month',30)}</td><td>${f('starter','max_posts_month',150)}</td><td>${f('growth','max_posts_month',600)}</td><td>${f('agency','max_posts_month',2000)}</td></tr>
+    <tr><td>${esc(shellText('common_videos_month'))}</td><td>${f('free','max_videos_period',3)}</td><td>${f('starter','max_videos_period',10)}</td><td>${f('growth','max_videos_period',40)}</td><td>${f('agency','max_videos_period',150)}</td></tr>
+    <tr><td>${esc(shellText('common_workspaces'))}</td><td>${workspaces('free')}</td><td>${workspaces('starter')}</td><td>${workspaces('growth')}</td><td>${workspaces('agency')}</td></tr>
+    <tr><td>${esc(shellText('common_connected_channels'))}</td><td>${channels('free')}</td><td>${channels('starter')}</td><td>${channels('growth')}</td><td>${channels('agency')}</td></tr>
+    <tr><td>${esc(shellText('common_autoposting'))}</td><td>${yesNo(f('free','can_autopublish',false))}</td><td>${yesNo(f('starter','can_autopublish',true))}</td><td>${yesNo(f('growth','can_autopublish',true))}</td><td>${yesNo(f('agency','can_autopublish',true))}</td></tr>
+    <tr><td>${esc(shellText('billing_analytics_label'))}</td><td>${analytics('free')}</td><td>${analytics('starter')}</td><td>${analytics('growth')}</td><td>${analytics('agency')}</td></tr>
   </tbody></table></div>`;
 }
 
@@ -3200,7 +5616,7 @@ function pricingCards() {
     free: { posts: '30', videos: '3', workspaces: '1', channels: '1', autopublish: false, analytics: 'none' },
     starter: { posts: '150', videos: '10', workspaces: '2', channels: '2', autopublish: true, analytics: 'basic' },
     growth: { posts: '600', videos: '40', workspaces: '5', channels: '5', autopublish: true, analytics: 'advanced' },
-    agency: { posts: '2000', videos: '150', workspaces: '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430', channels: '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430', autopublish: true, analytics: 'advanced' },
+    agency: { posts: '2000', videos: '150', workspaces: shellText('billing_unlimited'), channels: shellText('billing_unlimited'), autopublish: true, analytics: 'advanced' },
   };
 
   const stripe = state.billing?.stripe || {};
@@ -3209,11 +5625,11 @@ function pricingCards() {
   const current = String(state.billing?.plan || state.user?.plan || 'free').toLowerCase();
   const order = ['free', 'starter', 'growth', 'agency'];
   const meta = {
-    free: { title: marketingMap.free?.name || 'Free Trial 7 days', desc: '\u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u0440\u0430\u0431\u043e\u0442\u044b \u0431\u0435\u0437 \u043a\u0430\u0440\u0442\u044b \u0438 \u043b\u0438\u0448\u043d\u0438\u0445 \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432.' },
-    starter: { title: marketingMap.starter?.name || 'Starter', desc: '\u0414\u043b\u044f \u043c\u0430\u043b\u043e\u0433\u043e \u0431\u0438\u0437\u043d\u0435\u0441\u0430.' },
-    growth: { title: marketingMap.growth?.name || 'Growth', desc: '\u0414\u043b\u044f \u0440\u0435\u0433\u0443\u043b\u044f\u0440\u043d\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0435\u043d\u0442-\u043f\u043e\u0442\u043e\u043a\u0430, \u0432\u0438\u0434\u0435\u043e \u0438 \u0430\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433\u0430.', highlight: true },
-    agency: { title: marketingMap.agency?.name || 'Agency', desc: '\u0414\u043b\u044f \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u0438\u0445 \u0431\u0440\u0435\u043d\u0434\u043e\u0432 \u0438 \u043a\u043b\u0438\u0435\u043d\u0442\u0441\u043a\u0438\u0445 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432.' },
-    admin: { title: 'Admin Unlimited', desc: '\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0438\u0439 \u0441\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0439 \u0442\u0430\u0440\u0438\u0444 \u0441 \u043f\u043e\u043b\u043d\u044b\u043c \u0434\u043e\u0441\u0442\u0443\u043f\u043e\u043c.' },
+    free: { title: shellText('billing_plan_free_title'), desc: shellText('billing_plan_free_desc') },
+    starter: { title: marketingMap.starter?.name || shellText('plan_starter'), desc: shellText('billing_plan_starter_desc') },
+    growth: { title: marketingMap.growth?.name || shellText('plan_growth'), desc: shellText('billing_plan_growth_desc'), highlight: true },
+    agency: { title: marketingMap.agency?.name || shellText('plan_agency'), desc: shellText('billing_plan_agency_desc') },
+    admin: { title: shellText('plan_admin'), desc: shellText('billing_admin_internal') },
   };
   const price = (name) => {
     if (marketingMap[name]?.price) return marketingMap[name].price;
@@ -3223,13 +5639,13 @@ function pricingCards() {
   };
   const workspaces = (name) => {
     const live = planMap[name]?.max_projects;
-    if (Number(live || 0) >= 999999 || name === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    if (Number(live || 0) >= 999999 || name === 'agency') return shellText('billing_unlimited');
     if (live !== undefined && live !== null && String(live).trim() !== '') return live;
     return marketingFeatures[name]?.workspaces ?? '\u2014';
   };
   const channels = (name) => {
     const live = planMap[name]?.accounts_connected;
-    if (Number(live || 0) >= 999999 || name === 'agency') return '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430';
+    if (Number(live || 0) >= 999999 || name === 'agency') return shellText('billing_unlimited');
     if (live !== undefined && live !== null && String(live).trim() !== '') return live;
     return marketingFeatures[name]?.channels ?? '\u2014';
   };
@@ -3253,30 +5669,30 @@ function pricingCards() {
   };
   const analyticsLabel = (name) => {
     const key = analytics(name);
-    return key === 'advanced' ? '\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f' : (key === 'basic' ? '\u0431\u0430\u0437\u043e\u0432\u0430\u044f' : '\u043d\u0435\u0442');
+    return key === 'advanced' ? shellText('billing_analytics_advanced') : (key === 'basic' ? shellText('billing_analytics_basic') : shellText('billing_analytics_none'));
   };
-  const yesNo = (v) => (v ? '\u0434\u0430' : '\u043d\u0435\u0442');
+  const yesNo = (v) => shellYesNo(v);
   const adminCard = current === 'admin'
     ? `<article class="card plan-card highlight">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div class="plan-title">${esc(meta.admin.title)}</div>
-            <div class="plan-price">\u221e<span class="plan-price-suffix">/internal</span></div>
+            <div class="plan-price">\u221e<span class="plan-price-suffix">${esc(shellText('billing_internal_suffix'))}</span></div>
             <div class="small muted" style="margin-top:6px;">${esc(meta.admin.desc)}</div>
           </div>
           <div>${planBadge('admin')}</div>
         </div>
         <div class="plan-features">
-          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u0440\u0430\u0431\u043e\u0447\u0438\u0445 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432</div>
-          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u043f\u043e\u0441\u0442\u043e\u0432/\u043c\u0435\u0441</div>
-          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u0432\u0438\u0434\u0435\u043e/\u043c\u0435\u0441</div>
-          <div class="small"><strong>\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430</strong> \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0445 \u043a\u0430\u043d\u0430\u043b\u043e\u0432</div>
-          <div class="small">\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433: <strong>\u0434\u0430</strong></div>
-          <div class="small">\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430: <strong>\u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u0430\u044f</strong></div>
+          <div class="small"><strong>${esc(shellText('billing_unlimited'))}</strong> ${esc(shellText('billing_workspace_plural'))}</div>
+          <div class="small"><strong>${esc(shellText('billing_unlimited'))}</strong> ${esc(shellText('common_posts_month').toLowerCase())}</div>
+          <div class="small"><strong>${esc(shellText('billing_unlimited'))}</strong> ${esc(shellText('common_videos_month').toLowerCase())}</div>
+          <div class="small"><strong>${esc(shellText('billing_unlimited'))}</strong> ${esc(shellText('billing_channels_plural'))}</div>
+          <div class="small">${esc(shellText('common_autoposting'))}: <strong>${esc(shellYesNo(true))}</strong></div>
+          <div class="small">${esc(shellText('billing_analytics_label'))}: <strong>${esc(shellText('billing_analytics_advanced'))}</strong></div>
         </div>
         <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
-          <button class="btn btn-secondary" disabled>\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0441\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0439 \u0442\u0430\u0440\u0438\u0444</button>
-          <span class="hint-pill">Admin</span>
+          <button class="btn btn-secondary" disabled>${esc(shellText('billing_current_plan_button'))}</button>
+          <span class="hint-pill">${esc(shellText('billing_admin_badge'))}</span>
         </div>
       </article>`
     : '';
@@ -3288,32 +5704,32 @@ function pricingCards() {
       const isCurrent = current === name;
       const canUpgrade = name !== 'free' && stripeReady && planPaymentAvailable(name);
       const btn = isCurrent
-        ? `<button class="btn btn-secondary" disabled>\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043f\u043b\u0430\u043d</button>`
+        ? `<button class="btn btn-secondary" disabled>${esc(shellText('billing_current_plan_button'))}</button>`
         : canUpgrade
-          ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">\u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043d\u0430 ${esc(m.title)}</button>`
+          ? `<button class="btn ${m.highlight ? 'btn-primary' : 'btn-secondary'}" data-upgrade="${esc(name)}">${esc(shellTextFmt('billing_switch_to', { plan: m.title }))}</button>`
           : name === 'free'
-            ? `<button class="btn btn-ghost" disabled>\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043f\u043e \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438</button>`
-            : `<button class="btn btn-ghost" disabled title="\u041f\u043b\u0430\u0442\u043d\u044b\u0435 \u043f\u043b\u0430\u043d\u044b \u0443\u0436\u0435 \u0443\u0447\u0430\u0441\u0442\u0432\u0443\u044e\u0442 \u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u043e\u0432\u043e\u0439 \u043b\u043e\u0433\u0438\u043a\u0435, \u043d\u043e checkout \u0435\u0449\u0451 \u043d\u0435 \u0432\u043a\u043b\u044e\u0447\u0451\u043d">\u0421\u043a\u043e\u0440\u043e \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e</button>`;
+            ? `<button class="btn btn-ghost" disabled>${esc(shellText('billing_available_on_signup'))}</button>`
+            : `<button class="btn btn-ghost" disabled>${esc(shellText('billing_coming_soon'))}</button>`;
       return `<article class="card plan-card ${m.highlight ? 'highlight' : ''}">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div class="plan-title">${esc(m.title)}</div>
-            <div class="plan-price">${price(name)}<span class="plan-price-suffix">/\u043c\u0435\u0441</span></div>
+            <div class="plan-price">${price(name)}<span class="plan-price-suffix">${esc(shellText('billing_month_suffix'))}</span></div>
             <div class="small muted" style="margin-top:6px;">${esc(m.desc)}</div>
           </div>
           <div>${planBadge(name)}</div>
         </div>
         <div class="plan-features">
-          <div class="small"><strong>${workspaces(name)}</strong> \u0440\u0430\u0431\u043e\u0447\u0438\u0445 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432</div>
-          <div class="small"><strong>${posts(name)}</strong> \u043f\u043e\u0441\u0442\u043e\u0432/\u043c\u0435\u0441</div>
-          <div class="small"><strong>${videos(name)}</strong> \u0432\u0438\u0434\u0435\u043e/\u043c\u0435\u0441</div>
-          <div class="small"><strong>${channels(name)}</strong> \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0451\u043d\u043d\u044b\u0445 \u043a\u0430\u043d\u0430\u043b\u043e\u0432</div>
-          <div class="small">\u0410\u0432\u0442\u043e\u043f\u043e\u0441\u0442\u0438\u043d\u0433: <strong>${yesNo(autopublish(name))}</strong></div>
-          <div class="small">\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430: <strong>${esc(analyticsLabel(name))}</strong></div>
+          <div class="small"><strong>${workspaces(name)}</strong> ${esc(shellText('billing_workspace_plural'))}</div>
+          <div class="small"><strong>${posts(name)}</strong> ${esc(shellText('common_posts_month').toLowerCase())}</div>
+          <div class="small"><strong>${videos(name)}</strong> ${esc(shellText('common_videos_month').toLowerCase())}</div>
+          <div class="small"><strong>${channels(name)}</strong> ${esc(shellText('billing_channels_plural'))}</div>
+          <div class="small">${esc(shellText('common_autoposting'))}: <strong>${yesNo(autopublish(name))}</strong></div>
+          <div class="small">${esc(shellText('billing_analytics_label'))}: <strong>${esc(analyticsLabel(name))}</strong></div>
         </div>
         <div class="cta-row" style="margin-top:12px;justify-content:space-between;gap:10px;">
           ${btn}
-          ${m.highlight ? `<span class="hint-pill">\u041f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u044b\u0439</span>` : `<span></span>`}
+          ${m.highlight ? `<span class="hint-pill">${esc(shellText('billing_popular'))}</span>` : `<span></span>`}
         </div>
       </article>`;
     }).join('')}
@@ -3321,6 +5737,7 @@ function pricingCards() {
 }
 
 function pageHistory(showCalendar = false) {
+  const locale = uiLocale();
   const viewer = state.postViewer || { open: false, loading: false, post: null, error: '' };
   const editor = state.postEditor || { open: false, saving: false, post: null, error: '' };
   const today = new Date();
@@ -3335,7 +5752,7 @@ function pageHistory(showCalendar = false) {
   for (let cursor = new Date(start.getTime()); cursor < end; cursor = new Date(cursor.getTime() + dayMs)) {
     dayKeys.push(localDateKey(cursor));
   }
-  const rangeLabel = start.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const rangeLabel = start.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   const dateToKey = (value) => {
     if (!value) return '';
     return localDateKey(value);
@@ -3371,12 +5788,15 @@ function pageHistory(showCalendar = false) {
 
   const selectedDayPosts = grouped[selectedDayKey] || [];
   const selectedDate = new Date(`${selectedDayKey}T00:00:00`);
-  const selectedDateLabel = selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const selectedDateLabel = selectedDate.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   const postsInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k]?.length || 0), 0);
   const publishedInMonth = dayKeys.reduce((acc, k) => acc + (grouped[k] || []).filter((p) => plannerStatus(p) === 'published').length, 0);
   const draftsWithoutDay = grouped.draft.length;
 
-  const weekDayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const weekDayLabels = Array.from({ length: 7 }, (_, idx) => {
+    const base = new Date(Date.UTC(2026, 2, 2 + idx));
+    return base.toLocaleDateString(locale, { weekday: 'short' });
+  });
   const leadingEmpty = (start.getDay() + 6) % 7;
   const monthCells = [];
   for (let i = 0; i < leadingEmpty; i += 1) monthCells.push('<div class="phone-day-blank"></div>');
@@ -3393,12 +5813,12 @@ function pageHistory(showCalendar = false) {
 
   const selectedPostsHtml = selectedDayPosts.map((p) => {
     const status = plannerStatus(p);
-    const title = p.topic || p.title_preview || `Пост #${p.id}`;
-    const when = p.published_at ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}` : (p.schedule_at ? `План: ${new Date(p.schedule_at).toLocaleString()}` : 'Без даты');
+    const title = p.topic || p.title_preview || `${shellText('history_post_title')} #${p.id}`;
+    const when = p.published_at ? `${shellText('history_published_prefix')}: ${new Date(p.published_at).toLocaleString(locale)}` : (p.schedule_at ? `${shellText('history_planned_prefix')}: ${new Date(p.schedule_at).toLocaleString(locale)}` : shellText('history_no_date'));
     return `<article class="phone-post-row">
       <div class="phone-post-main">
         <strong class="truncate" title="${esc(title)}">${esc(title)}</strong>
-        <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${status === 'published' ? 'Опубликован' : 'Черновик'}</div>
+        <div class="small">${esc(p.platform || '—')} · ${esc(when)} · ${status === 'published' ? shellText('history_published_label') : shellText('history_draft_label')}</div>
       </div>
     </article>`;
   }).join('');
@@ -3410,15 +5830,15 @@ function pageHistory(showCalendar = false) {
       <button class="btn btn-ghost phone-nav-btn" id="calendarNextMonthBtn">></button>
     </div>
     <div class="phone-cal-subline">
-      <button class="btn btn-ghost" id="calendarTodayBtn">Сегодня</button>
-      <span class="small">Постов в месяце: ${postsInMonth} · Опубликовано: ${publishedInMonth} · Вне месяца/без даты: ${draftsWithoutDay}</span>
+      <button class="btn btn-ghost" id="calendarTodayBtn">${esc(shellText('common_today'))}</button>
+      <span class="small">${esc(shellText('history_posts_month'))}: ${postsInMonth} · ${esc(shellText('history_published_month'))}: ${publishedInMonth} · ${esc(shellText('history_outside_month'))}: ${draftsWithoutDay}</span>
     </div>
     <div class="phone-weekdays">${weekDayLabels.map((w) => `<span>${w}</span>`).join('')}</div>
     <div class="phone-days">${monthCells.join('')}</div>
     <div class="phone-selected-panel">
       <h4 id="historySelectedDayLabel" style="margin:0;">${esc(selectedDateLabel)}</h4>
       <div id="historySelectedDayPosts">
-        ${selectedPostsHtml || `<div class="small muted">На этот день постов нет</div>`}
+        ${selectedPostsHtml || `<div class="small muted">${esc(shellText('history_no_posts_day'))}</div>`}
       </div>
     </div>
   </section>`;
@@ -3426,16 +5846,16 @@ function pageHistory(showCalendar = false) {
   const table = state.posts.length
     ? `<div class="table-wrap"><table>
         <thead><tr>
-          <th>Дата</th>
-          <th>Платформа</th>
-          <th>Тема</th>
-          <th>Статус</th>
-          <th>Публикация</th>
-          <th>Действия</th>
+          <th>${esc(shellText('history_date'))}</th>
+          <th>${esc(shellText('history_platform'))}</th>
+          <th>${esc(shellText('history_topic'))}</th>
+          <th>${esc(shellText('common_status'))}</th>
+          <th>${esc(shellText('history_publication'))}</th>
+          <th>${esc(shellText('history_actions'))}</th>
         </tr></thead>
         <tbody>
           ${state.posts.map((p) => {
-            const pub = p.published_at ? `Опубликовано: ${new Date(p.published_at).toLocaleString()}` : (p.schedule_at ? `Запланировано: ${new Date(p.schedule_at).toLocaleString()}` : '—');
+            const pub = p.published_at ? `${shellText('history_published_prefix')}: ${new Date(p.published_at).toLocaleString(locale)}` : (p.schedule_at ? `${shellText('history_planned_prefix')}: ${new Date(p.schedule_at).toLocaleString(locale)}` : '—');
             const retryDisabled = (p.status === 'queued' || p.status === 'running') ? 'disabled' : '';
             const title = ((p.topic || '').trim() && (p.topic || '').includes('?') && (p.title_preview || '').trim())
               ? p.title_preview
@@ -3444,44 +5864,44 @@ function pageHistory(showCalendar = false) {
             const isYoutube = String(p.platform || '').toLowerCase() === 'youtube';
             const publishDisabled = (isPublished || p.status === 'failed' || isYoutube) ? 'disabled' : '';
             return `<tr>
-              <td>${new Date(p.created_at).toLocaleString()}</td>
+              <td>${new Date(p.created_at).toLocaleString(locale)}</td>
               <td>${esc(p.platform)}</td>
               <td class="truncate" title="${esc(title)}">${esc(title)}</td>
               <td>${statusBadge(plannerStatus(p))}</td>
               <td class="small">${esc(pub)}</td>
               <td>
                 <div class="cta-row" style="justify-content:flex-end;">
-                  <button class="btn btn-ghost" data-edit-post="${p.id}">Редактировать</button>
-                  ${isPublished ? `<button class="btn btn-ghost" data-hide-post="${p.id}">Убрать с сайта</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>Опубликовать</button>`}
-                  ${isPublished ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">Удалить</button>`}
-                  <button class="btn btn-ghost" data-view-post="${p.id}">Открыть</button>
-                  <button class="btn btn-ghost" data-retry="${p.id}" ${retryDisabled}>Повтор</button>
+                  <button class="btn btn-ghost" data-edit-post="${p.id}">${esc(shellText('common_edit'))}</button>
+                  ${isPublished ? `<button class="btn btn-ghost" data-hide-post="${p.id}">${esc(shellText('history_remove_site'))}</button>` : `<button class="btn btn-secondary" data-publish-now="${p.id}" ${publishDisabled}>${esc(shellText('common_publish'))}</button>`}
+                  ${isPublished ? '' : `<button class="btn btn-danger" data-delete-post="${p.id}">${esc(shellText('common_delete'))}</button>`}
+                  <button class="btn btn-ghost" data-view-post="${p.id}">${esc(shellText('common_open'))}</button>
+                  <button class="btn btn-ghost" data-retry="${p.id}" ${retryDisabled}>${esc(shellText('common_retry'))}</button>
                 </div>
               </td>
             </tr>`;
           }).join('')}
         </tbody>
       </table></div>`
-    : emptyState('Календарь пуст', 'Создайте первый пост и опубликуйте его.', 'Создать пост', '/create');
+    : emptyState(shellText('history_empty_title'), shellText('history_empty_text'), shellText('history_create_post'), '/create');
 
   const modalBody = viewer.loading
-    ? `<p class="small">Загружаю пост…</p>`
+    ? `<p class="small">${esc(shellText('history_loading_post'))}</p>`
     : (viewer.error
         ? `<p class="small" style="color:var(--error);">${esc(viewer.error)}</p>`
         : (viewer.post
             ? (() => {
                 const p = viewer.post;
                 const meta = [
-                  p.platform ? `Платформа: <strong>${esc(p.platform)}</strong>` : '',
-                  p.status ? `Статус: ${statusBadge(p.status)}` : '',
-                  p.schedule_at ? `План: <strong>${esc(new Date(p.schedule_at).toLocaleString())}</strong>` : '',
-                  p.published_at ? `Публикация: <strong>${esc(new Date(p.published_at).toLocaleString())}</strong>` : '',
+                  p.platform ? `${shellText('history_platform_prefix')}: <strong>${esc(p.platform)}</strong>` : '',
+                  p.status ? `${shellText('history_status_prefix')}: ${statusBadge(p.status)}` : '',
+                  p.schedule_at ? `${shellText('history_planned_prefix')}: <strong>${esc(new Date(p.schedule_at).toLocaleString(locale))}</strong>` : '',
+                  p.published_at ? `${shellText('history_publication')}: <strong>${esc(new Date(p.published_at).toLocaleString(locale))}</strong>` : '',
                 ].filter(Boolean).join(' • ');
                 const text = (p.generated_text || '').trim();
                 const mediaUrl = String(p.media_url || '').trim();
                 const mediaPreview = mediaUrl
                   ? `<div style="margin:12px 0 14px 0;">
-                      <p class="small" style="margin:0 0 8px 0;"><strong>Изображение</strong></p>
+                      <p class="small" style="margin:0 0 8px 0;"><strong>${esc(shellText('history_view_image'))}</strong></p>
                       <a href="${esc(mediaUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;">
                         <img
                           src="${esc(mediaUrl)}"
@@ -3495,7 +5915,7 @@ function pageHistory(showCalendar = false) {
                   : '';
                 const body = text
                   ? `<div class="post-preview" style="white-space:pre-wrap;line-height:1.45;">${esc(text)}</div>`
-                  : `<p class="small muted">Текст еще не готов. Если статус “queued/running”, подождите 10–30 секунд и откройте снова.</p>`;
+                  : `<p class="small muted">${esc(shellText('history_text_not_ready'))}</p>`;
                 const err = p.error_message ? `<p class="small" style="color:var(--error);margin-top:10px;">Ошибка: ${esc(p.error_message)}</p>` : '';
                 const prompt = (p.prompt_text || '').trim();
 
@@ -3508,13 +5928,13 @@ function pageHistory(showCalendar = false) {
                   ${details}
                 </div>`;
               })()
-            : `<p class="small muted">Выберите пост в таблице.</p>`));
+            : `<p class="small muted">${esc(shellText('history_select_post'))}</p>`));
 
   const modal = `<div id="postViewerBackdrop" class="modal-backdrop ${viewer.open ? 'open' : ''}">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-header">
-        <h3>Пост</h3>
-        <button id="closePostViewerBtn" class="btn btn-ghost">Закрыть</button>
+        <h3>${esc(shellText('history_post_title'))}</h3>
+        <button id="closePostViewerBtn" class="btn btn-ghost">${esc(shellText('history_close'))}</button>
       </div>
       <div class="modal-body">
         ${modalBody}
@@ -3528,7 +5948,7 @@ function pageHistory(showCalendar = false) {
     ${field('editTopic', 'Тема', 'text', editor.post.topic || '')}
     ${field('editText', 'Текст', 'textarea', editor.post.generated_text || '')}
     <div class="field">
-      <label>Платформы</label>
+      <label>${esc(shellText('history_platforms'))}</label>
       <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;">
         <label class="create-toggle"><input id="editPlatformFacebook" type="checkbox" ${editorPlatforms.facebook ? 'checked' : ''}/> Facebook</label>
         <label class="create-toggle"><input id="editPlatformInstagram" type="checkbox" ${editorPlatforms.instagram ? 'checked' : ''}/> Instagram</label>
@@ -3538,7 +5958,7 @@ function pageHistory(showCalendar = false) {
     ${field('editMedia', 'Ссылка на изображение (опц.)', 'text', editor.post.media_url || '', 'https://...')}
     ${String(editor.post.media_url || '').trim()
       ? `<div style="margin:10px 0 4px 0;">
-          <p class="small" style="margin:0 0 8px 0;"><strong>Превью изображения</strong></p>
+          <p class="small" style="margin:0 0 8px 0;"><strong>${esc(shellText('history_image_preview'))}</strong></p>
           <a href="${esc(String(editor.post.media_url || '').trim())}" target="_blank" rel="noopener noreferrer" style="display:block;">
             <img
               src="${esc(String(editor.post.media_url || '').trim())}"
@@ -3546,29 +5966,29 @@ function pageHistory(showCalendar = false) {
               onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='block';"
               style="width:100%;max-height:320px;object-fit:contain;border-radius:14px;border:1px solid rgba(99,102,241,.16);background:rgba(255,255,255,.75);display:block;"
             />
-            <div style="display:none;padding:14px;border:1px solid rgba(99,102,241,.16);border-radius:14px;background:rgba(255,255,255,.75);color:var(--muted);">Изображение недоступно</div>
+            <div style="display:none;padding:14px;border:1px solid rgba(99,102,241,.16);border-radius:14px;background:rgba(255,255,255,.75);color:var(--muted);">${esc(shellText('history_image_unavailable'))}</div>
           </a>
         </div>`
       : ''}
     ${field('editSchedule', 'Дата и время публикации (опц.)', 'datetime-local', toLocalInputValue(editor.post.schedule_at))}
     <div class="cta-row" style="justify-content:flex-end;margin-top:12px;">
-      <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>Снять с расписания</button>
-      <button id="savePostEditBtn" class="btn btn-primary" ${editor.saving ? 'disabled' : ''}>${editor.saving ? 'Сохраняю…' : 'Сохранить'}</button>
+      <button id="clearScheduleBtn" class="btn btn-ghost" ${editor.saving ? 'disabled' : ''}>${esc(shellText('history_clear_schedule'))}</button>
+      <button id="savePostEditBtn" class="btn btn-primary" ${editor.saving ? 'disabled' : ''}>${esc(editor.saving ? shellText('history_saving') : shellText('history_save'))}</button>
     </div>
-  </div>` : `<p class="small muted">Пост не выбран.</p>`;
+  </div>` : `<p class="small muted">${esc(shellText('history_post_not_selected'))}</p>`;
 
   const editModal = `<div id="postEditBackdrop" class="modal-backdrop ${editor.open ? 'open' : ''}">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-header">
-        <h3>Редактирование перед публикацией</h3>
-        <button id="closePostEditBtn" class="btn btn-ghost">Закрыть</button>
+        <h3>${esc(shellText('history_edit_before_publish'))}</h3>
+        <button id="closePostEditBtn" class="btn btn-ghost">${esc(shellText('history_close'))}</button>
       </div>
       <div class="modal-body">${editorBody}</div>
     </div>
   </div>`;
 
   const calendarSection = showCalendar ? plannerBoard : '';
-  return appLayout(showCalendar ? '/calendar' : '/history', showCalendar ? 'Календарь' : 'История', `${calendarSection}<section class="card"><h2>Архив публикаций</h2>${table}</section>${modal}${editModal}`);
+  return appLayout(showCalendar ? '/calendar' : '/history', showCalendar ? shellText('page_calendar') : shellText('page_history'), `${calendarSection}<section class="card"><h2>${esc(shellText('archive_title') || 'Archive')}</h2>${table}</section>${modal}${editModal}`);
 }
 
 function pageCalendar() {
@@ -3597,47 +6017,47 @@ function pageBilling() {
   const stripeHint = stripe.subscriptions_ready
     ? ''
     : `<section class="card" style="margin-bottom:18px;">
-         <h3>Оплата временно недоступна</h3>
-         <p class="small">${b.plan === 'admin' ? 'Для администратора checkout не нужен: активен внутренний безлимитный тариф.' : 'Тарифы Starter, Growth и Agency уже участвуют в логике продукта, но их checkout пока выключен.'}</p>
+         <h3>${esc(shellText('billing_checkout_disabled'))}</h3>
+         <p class="small">${esc(b.plan === 'admin' ? shellText('billing_checkout_disabled_admin') : shellText('billing_checkout_disabled_generic'))}</p>
        </section>`;
   const analyticsLevelLabel = (() => {
     const key = String(b.limits.analytics_level || 'none').toLowerCase();
-    return key === 'advanced' ? 'Расширенная' : (key === 'basic' ? 'Базовая' : 'Нет');
+    return key === 'advanced' ? shellText('billing_analytics_advanced') : (key === 'basic' ? shellText('billing_analytics_basic') : shellText('billing_analytics_none'));
   })();
+  const usageLine = (label, used, limit, max, unlimited = false) => `
+      <div class="small">${esc(label)}: <strong>${Number(used || 0)}</strong> / <strong>${esc(unlimited ? shellText('billing_unlimited') : String(limit || 0))}</strong></div>
+      ${progressBar(used, max)}
+  `;
 
   const billingInfo = `<section class="grid-2" style="margin-bottom:18px;">
     <article class="card">
-      <h2 style="margin-bottom:6px;">Тарифы и биллинг</h2>
-      <p class="small">Текущий план: <strong>${esc(b.plan_title || planBadge(b.plan || 'free').replace(/<[^>]+>/g, ''))}</strong></p>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+      <h2 style="margin-bottom:6px;">${esc(shellText('billing_title'))}</h2>
+      <p class="small">${esc(shellText('billing_current_plan'))}: <strong>${esc(localizedPlanTitle(b.plan || 'free', b.plan_title || ''))}</strong></p>
+      <p class="small muted" style="margin-top:8px;">${esc(shellText('billing_workspace_hint'))}</p>
       <div class="cta-row" style="margin-top:12px;">
-        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? 'Для admin-плана управление подпиской не требуется' : 'Портал подписки станет доступен после включения оплаты')}">Управление подпиской</button>
+        <button class="btn btn-ghost" data-portal="1" ${stripe.portal_ready ? '' : 'disabled'} title="${stripe.portal_ready ? '' : (b.plan === 'admin' ? shellText('billing_portal_admin_hint') : shellText('billing_portal_wait_hint'))}">${esc(shellText('billing_manage_subscription'))}</button>
       </div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
     </article>
     <article class="card">
-      <h3>Использование</h3>
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-      ${progressBar(usedMonth, monthMax)}
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-      ${progressBar(usedVideos, videoMax)}
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-      ${progressBar(usedProjects, projectsMax)}
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-      ${progressBar(usedDaily, dayMax)}
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
+      <h3>${esc(shellText('billing_usage_title'))}</h3>
+      ${usageLine(shellText('common_posts_month'), usedMonth, limitMonth, monthMax, monthlyUnlimited)}
+      ${usageLine(shellText('common_videos_month'), usedVideos, limitVideos, videoMax, videosUnlimited)}
+      ${usageLine(shellText('common_workspaces'), usedProjects, limitProjects, projectsMax, projectsUnlimited)}
+      ${usageLine(shellText('billing_daily_limit'), usedDaily, limitDaily, dayMax, dailyUnlimited)}
+      <p class="small muted" style="margin-top:8px;">${esc(shellText('billing_analytics_label'))}: <strong>${esc(analyticsLevelLabel)}</strong></p>
+      <p class="small muted" style="margin-top:8px;">${esc(shellText('billing_workspace_hint'))}</p>
     </article>
   </section>`;
 
   return appLayout(
     '/billing',
-    'Тарифы',
+    shellText('page_billing'),
     `${stripeHint}${billingInfo}
      ${pricingCards()}
      <section class="card" style="margin-top:18px;">
-       <h3>Сравнение тарифов</h3>
+       <h3>${esc(shellText('billing_compare_title'))}</h3>
        ${plansTable()}
-       <div class="small muted" style="margin-top:10px;">Growth - основной тариф для регулярного контента, видео и автопостинга.</div>
+       <div class="small muted" style="margin-top:10px;">${esc(shellText('billing_growth_note'))}</div>
      </section>`
   );
 }
@@ -3713,56 +6133,55 @@ function pageYouTubeStudio() {
   const videoResult = y.videoResult || null;
   const postResult = y.postResult || null;
 
-  const resultHtml = !videoResult ? '<p class="small">Сгенерируйте пакет видео, чтобы увидеть структуру ролика, заголовки и описание.</p>' : `
+  const resultHtml = !videoResult ? `<p class="small">${esc(shellText('youtube_result_empty'))}</p>` : `
     <div class="wizard-summary">
-      <span class="pill">Тип: ${esc(videoResult.video_type || '—')}</span>
-      <span class="pill">Длительность: ${esc(String(videoResult.duration_seconds || '—'))} сек</span>
-      <span class="pill">Ожидание: ~${esc(String(videoResult.estimated_wait_seconds || '—'))} сек</span>
+      <span class="pill">${esc(shellText('youtube_video_type'))}: ${esc(videoResult.video_type || '—')}</span>
+      <span class="pill">${esc(shellText('common_duration'))}: ${esc(String(videoResult.duration_seconds || '—'))} сек</span>
+      <span class="pill">${esc(shellText('youtube_wait_estimate'))}: ~${esc(String(videoResult.estimated_wait_seconds || '—'))} сек</span>
     </div>
     <p class="small">${esc(videoResult.server_capacity_note || '')}</p>
-    <h3 style="margin-top:10px;">Варианты заголовка</h3>
+    <h3 style="margin-top:10px;">${esc(shellText('youtube_title_options'))}</h3>
     <ul class="small">${(videoResult.title_options || []).map((t) => `<li>${esc(t)}</li>`).join('') || '<li>—</li>'}</ul>
-    <h3 style="margin-top:10px;">Хук</h3>
+    <h3 style="margin-top:10px;">${esc(shellText('common_hook'))}</h3>
     <p class="small">${esc(videoResult.hook || '—')}</p>
-    <h3 style="margin-top:10px;">Описание</h3>
+    <h3 style="margin-top:10px;">${esc(shellText('common_description'))}</h3>
     <p class="small">${esc(videoResult.description || '—')}</p>
-    <h3 style="margin-top:10px;">Таймлайн</h3>
-    <div class="table-wrap"><table><thead><tr><th>Время</th><th>Сегмент</th><th>Озвучка</th><th>Визуал</th></tr></thead><tbody>
+    <h3 style="margin-top:10px;">${esc(shellText('youtube_timeline'))}</h3>
+    <div class="table-wrap"><table><thead><tr><th>${esc(shellText('youtube_time'))}</th><th>${esc(shellText('youtube_segment'))}</th><th>${esc(shellText('youtube_voiceover'))}</th><th>${esc(shellText('youtube_visual'))}</th></tr></thead><tbody>
       ${(videoResult.timeline || []).map((s) => `<tr><td>${esc(s.t || '—')}</td><td>${esc(s.segment || '—')}</td><td>${esc(s.voiceover || '—')}</td><td>${esc(s.visual || '—')}</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>'}
     </tbody></table></div>
-    <h3 style="margin-top:10px;">CTA и пост</h3>
-    <p class="small"><strong>CTA:</strong> ${esc(videoResult.cta || '—')}</p>
-    <p class="small"><strong>Community post:</strong> ${esc(videoResult.community_post || '—')}</p>
-    <p class="small"><strong>Хештеги:</strong> ${esc((videoResult.hashtags || []).join(' ') || '—')}</p>
+    <h3 style="margin-top:10px;">${esc(shellText('common_cta'))} & post</h3>
+    <p class="small"><strong>${esc(shellText('common_cta'))}:</strong> ${esc(videoResult.cta || '—')}</p>
+    <p class="small"><strong>${esc(shellText('youtube_community_post'))}:</strong> ${esc(videoResult.community_post || '—')}</p>
+    <p class="small"><strong>${esc(shellText('common_hashtags'))}:</strong> ${esc((videoResult.hashtags || []).join(' ') || '—')}</p>
   `;
 
-  return appLayout('/youtube', 'YouTube Studio', `
+  return appLayout('/youtube', shellText('youtube_studio_title'), `
     <section class="grid-2">
       <article class="card">
-        <h2>Генерация ролика для YouTube</h2>
-        <p class="small">Настройте тип ролика, длительность и тему. Для стабильной генерации на сервере long ограничен до 480 секунд.</p>
-        ${selectField('ytProject', 'Проект', y.projectId || options[0]?.value || '', options.length ? options : [{ value: '', label: 'Нет проектов' }])}
-        ${field('ytTopic', 'Тема ролика', 'text', y.topic || '', 'Например: Как малому бизнесу получать заявки из YouTube')}
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-        ${field('ytDuration', 'Длительность (сек)', 'number', String(y.durationSeconds || 45), '45')}
-        ${selectField('ytLang', 'Язык', y.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
-        ${selectField('ytTone', 'Тон', y.tone || 'expert', [{ value: 'expert', label: 'Экспертный' }, { value: 'friendly', label: 'Дружелюбный' }, { value: 'sales', label: 'Продающий' }])}
-        ${field('ytStyle', 'Стиль', 'text', y.style || 'educational', 'educational / storytelling / analytical')}
-        ${field('ytAudience', 'Целевая аудитория', 'text', y.audience || '', 'Владельцы бизнеса, маркетологи, эксперты')}
-        ${field('ytGoal', 'Цель ролика', 'text', y.goal || 'engagement', 'engagement / leads / views')}
+        <h2>${esc(shellText('youtube_studio_title'))}</h2>
+        <p class="small">${esc(shellText('create_hub_youtube_hint'))}</p>
+        ${selectField('ytProject', shellText('common_project'), y.projectId || options[0]?.value || '', options.length ? options : [{ value: '', label: shellText('common_no_projects') }])}
+        ${field('ytTopic', shellText('common_topic'), 'text', y.topic || '', shellText('youtube_topic_placeholder') || 'YouTube topic')}
+        ${field('ytDuration', `${shellText('common_duration')} (сек)`, 'number', String(y.durationSeconds || 45), '45')}
+        ${selectField('ytLang', shellText('common_language'), y.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
+        ${selectField('ytTone', shellText('common_tone'), y.tone || 'expert', [{ value: 'expert', label: 'Экспертный' }, { value: 'friendly', label: 'Дружелюбный' }, { value: 'sales', label: 'Продающий' }])}
+        ${field('ytStyle', shellText('common_style'), 'text', y.style || 'educational', 'educational / storytelling / analytical')}
+        ${field('ytAudience', shellText('youtube_audience'), 'text', y.audience || '', shellText('youtube_audience_placeholder') || 'Small business owners, marketers, experts')}
+        ${field('ytGoal', shellText('youtube_goal'), 'text', y.goal || 'engagement', shellText('youtube_goal_placeholder'))}
         <div class="cta-row">
-          <button id="ytGenerateVideoBtn" type="button" class="btn btn-primary" ${y.loadingVideo ? 'disabled' : ''}>${y.loadingVideo ? 'Генерирую…' : 'Сгенерировать ролик'}</button>
+          <button id="ytGenerateVideoBtn" type="button" class="btn btn-primary" ${y.loadingVideo ? 'disabled' : ''}>${y.loadingVideo ? esc(shellText('youtube_generating_video')) : esc(shellText('youtube_generate_video'))}</button>
         </div>
         <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);" />
-        <h3>YouTube пост</h3>
-        ${selectField('ytPostKind', 'Тип поста', y.postKind || 'community', postKindOptions)}
+        <h3>${esc(shellText('youtube_post_title'))}</h3>
+        ${selectField('ytPostKind', shellText('youtube_video_type'), y.postKind || 'community', postKindOptions)}
         <div class="cta-row">
-          <button id="ytGeneratePostBtn" type="button" class="btn btn-secondary" ${y.loadingPost ? 'disabled' : ''}>${y.loadingPost ? 'Генерирую…' : 'Сгенерировать YouTube пост'}</button>
+          <button id="ytGeneratePostBtn" type="button" class="btn btn-secondary" ${y.loadingPost ? 'disabled' : ''}>${y.loadingPost ? esc(shellText('youtube_generating_post')) : esc(shellText('youtube_generate_post'))}</button>
         </div>
-        ${postResult ? `<p class="small" style="margin-top:10px;">Пост создан: #${esc(String(postResult.id || '—'))} (${esc(postResult.status || '—')}). Откройте раздел "Календарь".</p>` : ''}
+        ${postResult ? `<p class="small" style="margin-top:10px;">${esc(shellTextFmt('youtube_post_created', { id: String(postResult.id || '—'), status: String(postResult.status || '—') }))}</p>` : ''}
       </article>
       <article class="card">
-        <h2>Результат генерации</h2>
+        <h2>${esc(shellText('create_director_result'))}</h2>
         ${resultHtml}
       </article>
     </section>
@@ -3774,20 +6193,20 @@ function pageContact() {
 }
 
 function pageSupport() {
-  return appLayout('/support', 'Поддержка', `<section class="grid-2">
+  return appLayout('/support', shellText('page_support'), `<section class="grid-2">
     <article class="card">
-      <h2>Поддержка</h2>
-      <p class="small">Поможем с подключением Meta, YouTube и настройкой публикаций.</p>
+      <h2>${esc(shellText('support_title'))}</h2>
+      <p class="small">${esc(shellText('support_lead'))}</p>
       <p><strong>Email:</strong> support@autosocial.tech</p>
-      <p><strong>Часы поддержки:</strong> Пн-Пт 09:00-18:00 UTC</p>
+      <p><strong>${esc(shellText('support_hours_label'))}:</strong> ${esc(shellText('support_hours_value'))}</p>
     </article>
     <article class="card">
-      <h2>Безопасность</h2>
+      <h2>${esc(shellText('support_security_title'))}</h2>
       <ul class="small">
-        <li>Безопасные платежи Stripe</li>
-        <li>SSL-шифрование</li>
-        <li>Соответствие GDPR</li>
-        <li>Без скрытых платежей</li>
+        <li>${esc(shellText('support_security_payments'))}</li>
+        <li>${esc(shellText('support_security_ssl'))}</li>
+        <li>${esc(shellText('support_security_gdpr'))}</li>
+        <li>${esc(shellText('support_security_nohidden'))}</li>
       </ul>
     </article>
   </section>`);
@@ -3860,7 +6279,7 @@ function buildVideoPublicationText(directorState, platform = 'facebook') {
   const base = (p === 'youtube' && ytDescription)
     ? ytDescription
     : String(rawLines.join(' ').replace(/\s+/g, ' ').trim() || '');
-  if (!base) return 'Сначала сгенерируйте структуру, затем соберите видео.';
+  if (!base) return shellText('create_director_preview_wait_video');
   const sentenceParts = String(base)
     .replace(/\s+/g, ' ')
     .match(/[^.!?]+[.!?]?/g) || [String(base).trim()];
@@ -3904,7 +6323,7 @@ function buildVideoPublicationText(directorState, platform = 'facebook') {
       out = `${out}\n\n${cta}`.trim();
     }
   }
-  return out || 'Сначала сгенерируйте структуру, затем соберите видео.';
+  return out || shellText('create_director_preview_wait_video');
 }
 
 function getVideoPreviewTextState(directorState, platform = 'facebook') {
@@ -3930,9 +6349,9 @@ function resolveDirectorPostPreviewText({ draft, draftMatchesSelection, loadingD
   const generatedText = String(draft?.post_text || '').trim();
   if (generatedText) return generatedText;
   if (loadingDrafts) return selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...';
-  if (draftMatchesSelection) return 'Сгенерируйте контент, чтобы увидеть результат.';
+  if (draftMatchesSelection) return shellText('create_director_preview_wait_post');
   if (hasSelection) return selectedThemePreviewText || 'Генерируем текст по выбранной теме и подходу...';
-  return 'Сгенерируйте контент, чтобы увидеть результат.';
+  return shellText('create_director_preview_wait_post');
 }
 
 function loadCampaignDraftLocal() {
@@ -4260,8 +6679,8 @@ function renderSocialPreview(payload) {
   const isVideo = String(media.type || '').toLowerCase() === 'video';
   const caption = String(p.caption || '').trim();
   const maxChars = platform === 'instagram' ? 220 : (platform === 'facebook' ? 300 : 320);
-  const shortCaption = caption.length > maxChars ? `${caption.slice(0, maxChars)}... ещё` : caption;
-  const name = p.meta?.account_name || p.meta?.page_name || (platform === 'youtube' ? 'YouTube канал' : 'Ваш аккаунт');
+  const shortCaption = caption.length > maxChars ? `${caption.slice(0, maxChars)}... ${shellText('create_show_more')}` : caption;
+  const name = p.meta?.account_name || p.meta?.page_name || (platform === 'youtube' ? shellText('create_director_youtube_channel') : shellText('create_director_your_account'));
   const tags = Array.isArray(p.hashtags) ? p.hashtags : [];
   const cta = String(p.cta || '').trim();
   const mediaHtml = isVideo
@@ -4270,39 +6689,134 @@ function renderSocialPreview(payload) {
         <span class="play-badge">?</span>
         ${media.duration_s ? `<span class="duration-badge">${esc(String(Math.round(media.duration_s)))}s</span>` : ''}
       </div>`
-    : `<div class="social-preview-media image">${media.url ? `<img src="${esc(media.url)}" alt="" />` : '<div class="media-missing">Нет изображения</div>'}</div>`;
+    : `<div class="social-preview-media image">${media.url ? `<img src="${esc(media.url)}" alt="" />` : `<div class="media-missing">${esc(shellText('history_image_unavailable'))}</div>`}</div>`;
   const actions = platform === 'youtube'
-    ? '<div class="social-actions"><span>?? Нравится</span><span>?? Комментарии</span><span>?? Подписка</span></div>'
-    : '<div class="social-actions"><span>Нравится</span><span>Комментарий</span><span>Поделиться</span></div>';
+    ? `<div class="social-actions"><span>?? ${esc(shellText('common_like'))}</span><span>?? ${esc(shellText('common_comment'))}</span><span>?? ${esc(shellText('common_subscribe'))}</span></div>`
+    : `<div class="social-actions"><span>${esc(shellText('common_like'))}</span><span>${esc(shellText('common_comment'))}</span><span>${esc(shellText('common_share'))}</span></div>`;
   const titleLine = platform === 'youtube'
-    ? `<p class="small"><strong>${esc(p.meta?.title || 'Заголовок видео')}</strong></p>`
+    ? `<p class="small"><strong>${esc(p.meta?.title || shellText('youtube_title_options'))}</strong></p>`
     : '';
   return `
     <article class="card social-preview-card glass-card">
       <div class="social-header"><div class="avatar"></div><div><strong>${esc(name)}</strong><p class="small">${platform === 'instagram' ? 'Instagram' : (platform === 'youtube' ? 'YouTube' : 'Facebook')}</p></div></div>
       ${titleLine}
-      <p class="social-caption">${esc(shortCaption || 'Текст публикации')}</p>
+      <p class="social-caption">${esc(shortCaption || shellText('create_preview_text_label'))}</p>
       ${mediaHtml}
       <div class="social-tags">${tags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
-      <button class="btn btn-secondary" type="button" ${cta ? '' : 'disabled'}>${esc(cta || 'Призыв')}</button>
+      <button class="btn btn-secondary" type="button" ${cta ? '' : 'disabled'}>${esc(cta || shellText('create_preview_cta_placeholder'))}</button>
       ${actions}
     </article>
   `;
 }
 
+function pageCreateHub() {
+  const billingPlan = String(state.billing?.plan || state.user?.plan || 'free').trim().toLowerCase() || 'free';
+  const planLabel = String(localizedPlanTitle(billingPlan, state.billing?.plan_title || '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
+  const launcherCards = [
+    { title: shellText('create_hub_post_title'), subtitle: shellText('create_hub_post_subtitle'), href: '/create/post', accent: 'POST', cta: shellText('create_hub_post_cta') },
+    { title: shellText('create_hub_video_title'), subtitle: shellText('create_hub_video_subtitle'), href: '/create/video', accent: 'VIDEO', cta: shellText('create_hub_video_cta') },
+    { title: shellText('create_hub_weekly_title'), subtitle: shellText('create_hub_weekly_subtitle'), href: plannerUrl('post', 7), accent: '7D', cta: shellText('create_hub_weekly_cta') },
+    { title: shellText('create_hub_monthly_title'), subtitle: shellText('create_hub_monthly_subtitle'), href: plannerUrl('post', 30), accent: '30D', cta: shellText('create_hub_monthly_cta') },
+  ];
+  const secondaryCards = [
+    { title: shellText('create_hub_youtube_title'), subtitle: shellText('create_hub_youtube_subtitle'), href: '/youtube', cta: shellText('create_hub_youtube_cta') },
+    { title: shellText('create_hub_planner_title'), subtitle: shellText('create_hub_planner_subtitle'), href: '/create/plan', cta: shellText('create_hub_planner_cta') },
+  ];
+  return appLayout('/create', shellText('nav_create'), `
+    <section class="create-hub-shell">
+      <article class="card glass-card create-hub-hero">
+        <div>
+          <div class="create-step-label">${esc(shellText('create_hub_label'))}</div>
+          <h1>${esc(shellText('create_hub_title'))}</h1>
+          <p class="create-hub-lead">${esc(shellText('create_hub_lead'))}</p>
+        </div>
+        <div class="create-hub-plan-badge">
+          <span class="pill">${esc(shellText('create_hub_plan_prefix'))}: ${esc(planLabel)}</span>
+          <span class="small">${esc(shellText('create_hub_youtube_hint'))}</span>
+        </div>
+      </article>
+      <div class="create-hub-grid">
+        ${launcherCards.map((card) => `
+          <article class="create-hub-card glass-card">
+            <div class="create-hub-accent">${esc(card.accent)}</div>
+            <h3>${esc(card.title)}</h3>
+            <p>${esc(card.subtitle)}</p>
+            <button type="button" class="btn btn-primary" data-link="${card.href}">${esc(card.cta)}</button>
+          </article>
+        `).join('')}
+      </div>
+      <div class="create-hub-secondary">
+        ${secondaryCards.map((card) => `
+          <article class="create-hub-secondary-card">
+            <div>
+              <h3>${esc(card.title)}</h3>
+              <p class="small">${esc(card.subtitle)}</p>
+            </div>
+            <button type="button" class="btn btn-ghost" data-link="${card.href}">${esc(card.cta)}</button>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `);
+}
+
+function pageCreatePlanHub() {
+  const plannerCards = [
+    { title: shellText('create_planner_post7'), subtitle: shellText('create_planner_post7_subtitle'), href: plannerUrl('post', 7), accent: 'POST 7D' },
+    { title: shellText('create_planner_post30'), subtitle: shellText('create_planner_post30_subtitle'), href: plannerUrl('post', 30), accent: 'POST 30D' },
+    { title: shellText('create_planner_video7'), subtitle: shellText('create_planner_video7_subtitle'), href: plannerUrl('video', 7), accent: 'VIDEO 7D' },
+    { title: shellText('create_planner_video30'), subtitle: shellText('create_planner_video30_subtitle'), href: plannerUrl('video', 30), accent: 'VIDEO 30D' },
+  ];
+  return appLayout('/create', shellText('create_planner_page_title'), `
+    <section class="create-hub-shell">
+      <article class="card glass-card create-hub-hero">
+        <div>
+          <div class="create-step-label">${esc(shellText('create_planner_label'))}</div>
+          <h1>${esc(shellText('create_planner_title'))}</h1>
+          <p class="create-hub-lead">${esc(shellText('create_planner_lead'))}</p>
+        </div>
+        <div class="create-hub-plan-badge">
+          <button type="button" class="btn btn-ghost" data-link="/create/post">${esc(shellText('create_post_studio_button'))}</button>
+          <button type="button" class="btn btn-ghost" data-link="/create/video">${esc(shellText('create_video_studio_button'))}</button>
+        </div>
+      </article>
+      <div class="create-hub-grid">
+        ${plannerCards.map((card) => `
+          <article class="create-hub-card glass-card">
+            <div class="create-hub-accent">${esc(card.accent)}</div>
+            <h3>${esc(card.title)}</h3>
+            <p>${esc(card.subtitle)}</p>
+            <button type="button" class="btn btn-primary" data-link="${card.href}">${esc(shellText('create_planner_open'))}</button>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `);
+}
+
 function pageCreateDirector() {
+  const locale = uiLocale();
   const d = state.createDirector || {};
+  const studioRoute = getCreateStudioRoute();
+  const forcedContentType = studioRoute?.mode === 'video' ? 'video' : 'post';
   const generationMode = String(d.generationMode || 'manual').trim() === 'plan' ? 'plan' : 'manual';
   if (!d._contentTypeBootstrapped) {
     let localType = '';
     let queryType = '';
     try { localType = String(localStorage.getItem(CREATE_DIRECTOR_TYPE_KEY) || '').trim(); } catch {}
     try { queryType = String(new URLSearchParams(window.location.search).get('type') || '').trim(); } catch {}
-    d.contentType = normalizeDirectorContentType(queryType || localType || d.contentType || 'post');
+    d.contentType = normalizeDirectorContentType((studioRoute && studioRoute.mode !== 'hub' && studioRoute.mode !== 'plan') ? forcedContentType : (queryType || localType || d.contentType || 'post'));
     d._contentTypeBootstrapped = true;
+  }
+  if (studioRoute && studioRoute.mode !== 'hub' && studioRoute.mode !== 'plan') {
+    d.contentType = forcedContentType;
   }
   const contentType = normalizeDirectorContentType(d.contentType || 'post');
   const isVideo = contentType === 'video';
+  const studioTitle = isVideo ? shellText('studio_video_title') : shellText('studio_post_title');
+  const studioSubtitle = isVideo
+    ? shellText('studio_video_subtitle')
+    : shellText('studio_post_subtitle');
   const loading = !!d.loadingSuggest || !!d.loadingDrafts;
   const platforms = d.platforms || { facebook: true, instagram: true, youtube: false };
   if (isVideo) {
@@ -4329,6 +6843,7 @@ function pageCreateDirector() {
   const isWeeklyPlanFlow = quickActionType === 'weekly_plan';
   const isMonthlyPlanFlow = quickActionType === 'monthly_plan';
   const isPlanFlow = isWeeklyPlanFlow || isMonthlyPlanFlow;
+  const inlinePlanDays = String(d.planHorizon || 'week') === 'month' ? 30 : 7;
   const prioritizeDirectorCard = isPlanFlow;
   const planFlowGenerated = isPlanFlow && d.planFlowState === 'generated';
   const planFlowLoading = isPlanFlow && d.planFlowState === 'loading';
@@ -4351,13 +6866,13 @@ function pageCreateDirector() {
     && String(d.lastDraftTopic || '').trim() === effectiveSelectedTopic
     && String(d.lastDraftAngle || '').trim() === String(d.selectedAngle || '').trim();
   const selectedThemePreviewText = [
-    String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
-    String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
-    'Готовим текст под выбранную тему…',
+    String(effectiveSelectedTopic || baseTopic || '').trim() ? `${shellText('create_preview_topic_prefix')}: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
+    String(d.selectedAngle || '').trim() ? `${shellText('create_preview_angle_prefix')}: ${String(d.selectedAngle || '').trim()}` : '',
+    shellText('create_director_preview_wait_post'),
   ].filter(Boolean).join('\n');
   const videoPreviewTextState = isVideo ? getVideoPreviewTextState(d, activePlatform) : null;
   const previewText = isVideo
-    ? (videoPreviewTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
+    ? (videoPreviewTextState?.text || shellText('create_director_preview_wait_video'))
     : resolveDirectorPostPreviewText({
       draft: activeDraft,
       draftMatchesSelection,
@@ -4388,14 +6903,14 @@ function pageCreateDirector() {
   const videoProgress = Math.max(0, Math.min(100, Number(d.videoProgress || 0)));
   const videoStep = String(d.videoStep || 'queued').trim().toLowerCase() || 'queued';
   const videoStepLabelMap = {
-    structure: 'Структура',
-    footage: 'Футажи',
-    render: 'Рендер',
-    export: 'Экспорт',
-    upload: 'Загрузка',
-    queued: 'Очередь',
+    structure: shellText('create_video_step_structure'),
+    footage: shellText('create_video_step_footage'),
+    render: shellText('create_video_step_render'),
+    export: shellText('create_video_step_export'),
+    upload: shellText('create_video_step_upload'),
+    queued: shellText('create_video_step_queued'),
   };
-  const videoStepLabel = videoStepLabelMap[videoStep] || 'Обработка';
+  const videoStepLabel = videoStepLabelMap[videoStep] || shellText('create_video_step_processing');
   const videoStepPills = ['structure', 'footage', 'render', 'export', 'upload']
     .map((stepKey, idx) => {
       const currentIdx = ['structure', 'footage', 'render', 'export', 'upload'].indexOf(videoStep);
@@ -4426,18 +6941,18 @@ function pageCreateDirector() {
   })();
   const planItems = Array.isArray(d.planItems) ? d.planItems : [];
   const planRows = planItems.length
-    ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Дата</th><th>Тема</th><th>Статус</th></tr></thead><tbody>
-      ${planItems.map((x) => `<tr><td>${esc(new Date(x.scheduled_at).toLocaleString('ru-RU'))}</td><td>${esc(x.topic || '—')}</td><td>${esc(x.status || 'planned')}</td></tr>`).join('')}
+      ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>${esc(shellText('create_table_date'))}</th><th>${esc(shellText('common_topic'))}</th><th>${esc(shellText('create_table_status'))}</th></tr></thead><tbody>
+      ${planItems.map((x) => `<tr><td>${esc(new Date(x.scheduled_at).toLocaleString(locale))}</td><td>${esc(x.topic || '—')}</td><td>${esc(x.status || 'planned')}</td></tr>`).join('')}
     </tbody></table></div>`
-    : '<p class="small">План пока не сформирован.</p>';
+    : `<p class="small">${esc(shellText('create_plan_not_formed'))}</p>`;
   const bestSlots = d.bestSlots || null;
   const bestTimesLocked = !!bestSlots?.locked || !hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free');
   const bestDaysText = Array.isArray(bestSlots?.best_days) ? bestSlots.best_days.map((x) => x.label).join(', ') : '';
   const bestHoursText = Array.isArray(bestSlots?.best_hours) ? bestSlots.best_hours.map((h) => `${h}:00`).join(', ') : '';
   const nextSlotPills = Array.isArray(bestSlots?.next_slots)
-    ? bestSlots.next_slots.slice(0, 4).map((iso) => `<button type="button" class="btn btn-ghost" data-cd-slot="${esc(iso)}">${esc(new Date(iso).toLocaleString('ru-RU', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))}</button>`).join('')
+    ? bestSlots.next_slots.slice(0, 4).map((iso) => `<button type="button" class="btn btn-ghost" data-cd-slot="${esc(iso)}">${esc(new Date(iso).toLocaleString(locale, { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))}</button>`).join('')
     : '';
-  const miniPlanRows = planItems.slice(0, 6).map((x) => `<div class="small" style="display:flex;justify-content:space-between;gap:8px;"><span>${esc(new Date(x.scheduled_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }))}</span><span class="truncate">${esc(x.topic || '—')}</span></div>`).join('');
+  const miniPlanRows = planItems.slice(0, 6).map((x) => `<div class="small" style="display:flex;justify-content:space-between;gap:8px;"><span>${esc(new Date(x.scheduled_at).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }))}</span><span class="truncate">${esc(x.topic || '—')}</span></div>`).join('');
   const quickPlanItems = isPlanFlow
     ? ((Array.isArray(d.planFlowItems) && d.planFlowItems.length)
       ? d.planFlowItems
@@ -4449,10 +6964,10 @@ function pageCreateDirector() {
   const isHorizontalVideo = String(d.videoOrientation || 'vertical') === 'horizontal';
   const durationOptions = (isHorizontalVideo ? ['120', '180', '240', '300', '360', '420', '480'] : ['20', '30', '40', '60']).map((v) => ({ value: v, label: `${v} сек` }));
   const previewStateText = [
-    String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
-    String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
-  ].filter(Boolean).join(' · ') || (isVideo ? 'Соберите структуру, чтобы увидеть preview.' : 'Выберите тему и угол подачи, чтобы увидеть preview.');
-  const planTitle = String(state.billing?.plan_title || planBadge(state.billing?.plan || state.user?.plan || 'free').replace(/<[^>]+>/g, '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
+    String(effectiveSelectedTopic || baseTopic || '').trim() ? `${shellText('create_preview_topic_prefix')}: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
+    String(d.selectedAngle || '').trim() ? `${shellText('create_preview_angle_prefix')}: ${String(d.selectedAngle || '').trim()}` : '',
+  ].filter(Boolean).join(' · ') || (isVideo ? shellText('create_director_preview_wait_video') : shellText('create_director_preview_wait_post'));
+  const planTitle = String(localizedPlanTitle(state.billing?.plan || state.user?.plan || 'free', state.billing?.plan_title || '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
   const planPostsRemaining = Math.max(0, Number(state.billing?.remaining?.posts_generated ?? ((state.billing?.limits?.posts_per_month || 0) - (state.billing?.usage?.posts_per_month || 0))));
   const planVideosRemaining = Math.max(0, Number(state.billing?.remaining?.videos_generated ?? ((state.billing?.limits?.videos_per_month || 0) - (state.billing?.usage?.videos_per_month || 0))));
   const planChannelsRemaining = Number(state.billing?.limits?.accounts_connected || 0) >= 999999
@@ -4485,17 +7000,17 @@ function pageCreateDirector() {
           <button id="cdGenerateIdeas" class="btn btn-secondary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
             ${directorIdeasButtonLabel(d, loading)}
           </button>
-          <span class="small">Кнопка работает от текущей ниши или вашей темы.</span>
+          <span class="small">${esc(shellText('create_director_intro'))}</span>
         </div>
         ${topicHeadlineItems.length ? `<div class="create-assist-list create-topic-list" style="margin-bottom:10px;">
           ${topicHeadlineItems.map((item) => `<button type="button" class="btn ${(String(d.selectedSuggestedTopic || '').trim() === item.title && !String(d.appliedManualTopic || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-topic="${encodeURIComponent(item.title)}" title="Использовать эту тему">${esc(item.title)}</button>`).join('')}
         </div>
         ` : ''}
         <div class="create-topic-manual">
-          ${field('cdManualTopic', 'Своя тема', 'text', d.manualTopicInput || '', 'Не нашли нужный вариант? Введите тему вручную')}
+          ${field('cdManualTopic', shellText('create_director_custom_niche'), 'text', d.manualTopicInput || '', shellText('create_director_custom_niche_placeholder'))}
           <div class="row" style="gap:8px;flex-wrap:wrap;">
-            <button id="cdApplyManualTopic" class="btn btn-ghost" type="button" ${String(d.manualTopicInput || '').trim() ? '' : 'disabled'}>Использовать эту тему</button>
-            ${effectiveSelectedTopic ? `<span class="pill active">Выбрано: ${esc(effectiveSelectedTopic)}</span>` : '<span class="small">Тема пока не выбрана</span>'}
+            <button id="cdApplyManualTopic" class="btn btn-ghost" type="button" ${String(d.manualTopicInput || '').trim() ? '' : 'disabled'}>${esc(shellText('create_director_use_topic'))}</button>
+            ${effectiveSelectedTopic ? `<span class="pill active">${esc(shellText('create_director_selected_topic'))}: ${esc(effectiveSelectedTopic)}</span>` : `<span class="small">${esc(shellText('create_director_topic_not_selected'))}</span>`}
           </div>
         </div>
       </div>
@@ -4534,11 +7049,11 @@ function pageCreateDirector() {
           <div class="create-step-label">Быстрый старт</div>
           <h3 style="margin:0 0 8px 0;">${esc(quickActionResult.title)} · ${esc(quickActionResult.nicheLabel || nicheMeta?.label || '—')}</h3>
           <p class="small" style="margin:0;">${esc(quickActionResult.subtitle)}</p>
-          ${quickActionResult.access.isPreview ? '<p class="small" style="margin:8px 0 0 0;"><strong>Preview:</strong> полный объём доступен после апгрейда тарифа.</p>' : ''}
+          ${quickActionResult.access.isPreview ? `<p class="small" style="margin:8px 0 0 0;"><strong>${esc(shellText('create_plan_preview_note'))}:</strong> ${esc(shellText('create_plan_preview_note_text'))}</p>` : ''}
         </div>
         <div class="cta-row">
-          <button id="cdQuickActionRefresh" class="btn btn-secondary" type="button">Обновить подборку</button>
-          ${quickActionResult.access.isPreview ? '<button class="btn btn-ghost" type="button" data-link="/billing">Обновить тариф</button>' : ''}
+          <button id="cdQuickActionRefresh" class="btn btn-secondary" type="button">${esc(shellText('common_refresh'))}</button>
+          ${quickActionResult.access.isPreview ? `<button class="btn btn-ghost" type="button" data-link="/billing">${esc(shellText('dashboard_upgrade'))}</button>` : ''}
         </div>
       </div>
       <div class="dash-quick-results-grid" style="margin-top:14px;">${quickActionItemsHtml}</div>
@@ -4548,35 +7063,35 @@ function pageCreateDirector() {
   const quickCard = `
     <article class="card glass-card create-director-card">
       <div class="row" style="justify-content:space-between;align-items:center;gap:10px;">
-        <h2 style="margin:0;">AI Контент-директор</h2>
+        <h2 style="margin:0;">${esc(shellText('create_director_title'))}</h2>
         <div class="row" style="gap:8px;">
-          <div class="create-segmented-control" role="tablist" aria-label="Тип контента">
-            <button id="cdTypePost" class="btn segment-btn ${!isVideo ? 'btn-primary' : 'btn-ghost'}" type="button" aria-pressed="${!isVideo ? 'true' : 'false'}">Пост</button>
-            <button id="cdTypeVideo" class="btn segment-btn ${isVideo ? 'btn-primary' : 'btn-ghost'}" type="button" aria-pressed="${isVideo ? 'true' : 'false'}">Видео</button>
+          <div class="create-segmented-control" role="tablist" aria-label="${esc(shellText('create_director_content_type'))}">
+            <button id="cdTypePost" class="btn segment-btn ${!isVideo ? 'btn-primary' : 'btn-ghost'}" type="button" aria-pressed="${!isVideo ? 'true' : 'false'}">${esc(shellText('create_director_post'))}</button>
+            <button id="cdTypeVideo" class="btn segment-btn ${isVideo ? 'btn-primary' : 'btn-ghost'}" type="button" aria-pressed="${isVideo ? 'true' : 'false'}">${esc(shellText('create_director_video'))}</button>
           </div>
         </div>
       </div>
-      <p class="small" style="margin:0 0 8px 0;">Выберите сферу бизнеса, чтобы AI предложил релевантные идеи, формулировки и шаблоны именно под вашу нишу.</p>
-      ${selectField('cdTopicPreset', 'Ниша *', d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+      <p class="small" style="margin:0 0 8px 0;">${esc(shellText('create_director_intro'))}</p>
+      ${selectField('cdTopicPreset', shellText('create_director_niche_required'), d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-      ${d.customTopicMode ? field('cdTopic', 'Своя ниша/тема', 'text', d.customBaseTopicInput || '', 'Например: контент-маркетинг для стоматологии') : ''}
-      <p class="small create-selected-topic">Выбранная тема: <strong>${esc(effectiveSelectedTopic || '—')}</strong></p>
+      ${d.customTopicMode ? field('cdTopic', shellText('create_director_custom_niche'), 'text', d.customBaseTopicInput || '', shellText('create_director_custom_niche_placeholder')) : ''}
+      <p class="small create-selected-topic">${esc(shellText('create_director_selected_topic'))}: <strong>${esc(effectiveSelectedTopic || shellText('create_director_selected_topic_empty'))}</strong></p>
       <div class="grid-2">
-        ${selectField('cdGoal', 'Цель *', d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
-        ${field('cdOffer', 'Оффер (опционально)', 'text', d.offer || '', 'Например: бесплатный аудит за 15 минут')}
+        ${selectField('cdGoal', shellText('create_director_goal'), d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
+        ${field('cdOffer', shellText('create_director_offer'), 'text', d.offer || '', shellText('create_director_offer_placeholder'))}
       </div>
-      ${selectField('cdLang', 'Язык', d.language || 'ru', CONTENT_LANG_OPTIONS)}
+      ${selectField('cdLang', shellText('create_director_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
       ${!isVideo ? `<div class="row" style="gap:10px;flex-wrap:wrap;margin:8px 0 0 0;">
-        <label class="create-toggle"><input id="cdImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''}/> С картинкой</label>
-        <span class="small">Если не отмечено, пост генерируется без картинки.</span>
+        <label class="create-toggle"><input id="cdImageEnabled" type="checkbox" ${d.imageEnabled ? 'checked' : ''}/> ${esc(shellText('create_director_with_image'))}</label>
+        <span class="small">${esc(shellText('create_director_with_image_hint'))}</span>
       </div>` : ''}
       ${planAwareBlock}
 
       <details class="create-pro-accordion">
-        <summary>Расширенные настройки</summary>
+        <summary>${esc(shellText('create_director_advanced'))}</summary>
         ${isVideo
           ? `<article class="card" style="margin-top:10px;padding:10px;">
-              <h4 style="margin:0 0 8px 0;">Настройки видео</h4>
+              <h4 style="margin:0 0 8px 0;">${esc(shellText('create_director_video_settings'))}</h4>
               <div class="grid-2">
                 ${selectField('cdVideoOrientation', 'Формат', d.videoOrientation || 'vertical', [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное видео (16:9, до 8 минут)' }])}
                 ${selectField('cdVideoDurationPreset', 'Длительность', d.videoDurationPreset || '30', durationOptions)}
@@ -4601,12 +7116,12 @@ function pageCreateDirector() {
             </article>`}
       </details>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>${directorIdeasButtonLabel(d, loading)}</button>
-        ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${d.videoRenderLoading ? 'Собираем видео…' : 'Собрать видео'}</button>` : ''}
+        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>${loading ? esc(shellText('create_director_generate')) : directorIdeasButtonLabel(d, loading)}</button>
+        ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${esc(d.videoRenderLoading ? shellText('create_director_rendering_video') : shellText('create_director_render_video'))}</button>` : ''}
       </div>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-      ${isVideo ? `<div class="create-step-label">Шаг 4 — Видео</div>` : ''}
-      ${isVideo ? `<p id="cdVideoStatusText" class="small">${esc(d.videoJobStatus ? `Статус видео: ${d.videoJobStatus}` : 'Статус видео: ожидание')}</p>` : ''}
+      ${isVideo ? `<div class="create-step-label">${esc(shellText('create_director_video'))}</div>` : ''}
+      ${isVideo ? `<p id="cdVideoStatusText" class="small">${esc(d.videoJobStatus ? shellTextFmt('create_director_video_status', { status: d.videoJobStatus }) : shellText('create_director_preview_wait_video'))}</p>` : ''}
       ${d.status === 'loading' ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
       ${warningsReadable.length ? `<p class="small">${warningsReadable.map((w) => esc(w)).join(' · ')}</p>` : ''}
     </article>
@@ -4614,32 +7129,32 @@ function pageCreateDirector() {
 
   let resultCard = `
     <article class="card glass-card create-director-card">
-      <h3 style="margin-top:0;">Результат</h3>
-      <p class="small">Сначала получите заголовки, затем выберите тему. Дальше AI сразу соберёт результат в превью.</p>
+      <h3 style="margin-top:0;">${esc(shellText('create_director_result'))}</h3>
+      <p class="small">${esc(shellText('create_director_result_lead'))}</p>
       <article class="card" style="margin:8px 0 12px 0;padding:10px;">
-        <label style="margin:0;font-weight:700;">Заголовки</label>
-        <p class="small" style="margin:6px 0 8px 0;">Подберите темы под выбранную нишу и используйте нужный вариант для генерации.</p>
+        <label style="margin:0;font-weight:700;">${esc(shellText('create_director_headlines'))}</label>
+        <p class="small" style="margin:6px 0 8px 0;">${esc(shellText('create_director_headlines_lead'))}</p>
         ${topicChooserHtml}
       </article>
       ${isVideo ? `<article class="card" style="margin:8px 0 12px 0;padding:10px;">
-        <h4 style="margin:0 0 8px 0;">Структура видео</h4>
-        ${d.videoStructureLoading ? '<p class="small">AI формирует структуру...</p>' : ''}
+        <h4 style="margin:0 0 8px 0;">${esc(shellText('create_director_structure'))}</h4>
+        ${d.videoStructureLoading ? `<p class="small">${esc(shellText('create_director_structure_loading'))}</p>` : ''}
         ${d.videoStructure ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
-          <p class="small">Озвучка: мужской голос Eddy · Субтитры: включены · Фоновая музыка: тихая</p>
+          <p class="small">${esc(shellTextFmt('create_director_voice_line', { voice: 'Eddy', tone: shellText('common_tone_neutral'), subtitles: shellText('common_subtitles_enabled'), music: shellText('common_music_quiet') }))}</p>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
             ${(Array.isArray(d.videoStructure.scenes) ? d.videoStructure.scenes : []).map((s) => `<div class="small"><strong>${Number(s.index || 0) + 1}.</strong> ${esc(s.text || '')} <span style="opacity:.75;">(~${Number(s.duration_s || 0).toFixed(1)} c)</span></div>`).join('')}
-          </div>` : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить план сцен под выбранную длительность.</p>'}
+          </div>` : `<p class="small">${esc(shellText('create_director_structure_empty'))}</p>`}
       </article>` : ''}
       <article class="card" style="margin-top:10px;padding:10px;">
-        <label style="margin:0;font-weight:700;">Подходы</label>
-        <p class="small" style="margin:6px 0 8px 0;">Выберите угол подачи, который лучше всего подходит для этого поста или видео.</p>
+        <label style="margin:0;font-weight:700;">${esc(shellText('create_director_approaches'))}</label>
+        <p class="small" style="margin:6px 0 8px 0;">${esc(shellText('create_director_approaches_lead'))}</p>
         <div class="row create-result-toolbar">
           <button id="cdRefreshApproaches" type="button" class="btn btn-secondary" ${(loading || d.refreshingApproaches || (Number(d.approachesRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-            ${d.refreshingApproaches ? 'Обновляю…' : `Обновить подходы (${Math.min(Number(d.approachesRefreshCount || 0), 5)}/5)`}
+            ${d.refreshingApproaches ? esc(shellText('create_director_refreshing')) : esc(shellTextFmt('create_director_refresh_approaches', { count: Math.min(Number(d.approachesRefreshCount || 0), 5) }))}
           </button>
         </div>
         <div class="create-assist-list">
-          ${angles.length ? angles.map((a) => `<button type="button" class="btn ${d.selectedAngle === a ? 'btn-primary' : 'btn-ghost'}" data-cd-angle="${encodeURIComponent(a)}">${esc(a)}</button>`).join('') : '<span class="small">Пока пусто</span>'}
+          ${angles.length ? angles.map((a) => `<button type="button" class="btn ${d.selectedAngle === a ? 'btn-primary' : 'btn-ghost'}" data-cd-angle="${encodeURIComponent(a)}">${esc(a)}</button>`).join('') : `<span class="small">${esc(shellText('create_director_empty_list'))}</span>`}
         </div>
       </article>
       <article class="card" style="margin-top:10px;padding:10px;">
@@ -4647,13 +7162,13 @@ function pageCreateDirector() {
         <p class="small" style="margin:6px 0 8px 0;">Подберите CTA под текущую тему, формат и цель публикации.</p>
         <div class="row create-result-toolbar">
           <button id="cdRefreshCta" type="button" class="btn btn-secondary" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-            ${d.refreshingCta ? 'Обновляю…' : `Обновить призыв (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
+            ${d.refreshingCta ? esc(shellText('create_director_refreshing')) : esc(shellTextFmt('create_director_refresh_cta', { count: Math.min(Number(d.ctaRefreshCount || 0), 5) }))}
           </button>
         </div>
         <div class="create-assist-list">
           ${ctaOptions.length
             ? ctaOptions.map((c) => `<button type="button" class="btn ${(String(d.selectedCta || '').trim() === String(c || '').trim()) ? 'btn-primary' : 'btn-ghost'}" data-cd-cta="${encodeURIComponent(c)}">${esc(c)}</button>`).join('')
-            : '<span class="small">Пока пусто</span>'}
+            : `<span class="small">${esc(shellText('create_director_empty_list'))}</span>`}
         </div>
       </article>
       <article class="card" style="margin-top:10px;padding:10px;">
@@ -4661,23 +7176,23 @@ function pageCreateDirector() {
           ? `<div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
              <p class="small" style="margin:6px 0 8px 0;">GPT генерирует обложку без текста под тему ролика.</p>
              <div class="row" style="gap:8px;flex-wrap:wrap;">
-               <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? 'Генерируем обложку…' : 'Сгенерировать обложку'}</button>
-               <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>Обновить обложку (${Math.min(Number(d.imageRefreshCount || 0), 3)}/3)</button>
+               <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? esc(shellText('common_generate')) : esc(shellText('create_director_generate_cover'))}</button>
+               <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>${esc(shellTextFmt('create_director_refresh_cover', { count: Math.min(Number(d.imageRefreshCount || 0), 3) }))}</button>
              </div>`
           : `<div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
               <p class="small" style="margin:6px 0 8px 0;">Управляется в расширенных настройках. Здесь можно только сгенерировать или обновить картинку.</p>
               <div class="row" style="gap:8px;flex-wrap:wrap;">
-                <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || !d.imageEnabled || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? 'Генерируем картинку…' : 'Сгенерировать картинку'}</button>
-                <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || !d.imageEnabled || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>Обновить картинку (${Math.min(Number(d.imageRefreshCount || 0), 3)}/3)</button>
+                <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || !d.imageEnabled || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? esc(shellText('common_generate')) : esc(shellText('create_director_generate_image'))}</button>
+                <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || !d.imageEnabled || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>${esc(shellTextFmt('create_director_refresh_image', { count: Math.min(Number(d.imageRefreshCount || 0), 3) }))}</button>
               </div>`
         }
       </article>
       <article class="card" style="margin-top:10px;padding:10px;">
-        <label style="margin:0;font-weight:700;">Хештеги</label>
+        <label style="margin:0;font-weight:700;">${esc(shellText('create_director_hashtags_title'))}</label>
         <p class="small" style="margin:6px 0 8px 0;">Подберите набор хештегов под текущую нишу и выбранную тему.</p>
         <div class="row create-result-toolbar">
           <button id="cdRefreshTags" type="button" class="btn btn-secondary" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-            ${d.refreshingHashtags ? 'Обновляю…' : `Обновить хештеги (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
+            ${d.refreshingHashtags ? esc(shellText('create_director_refreshing')) : esc(shellTextFmt('create_director_refresh_hashtags', { count: Math.min(Number(d.hashtagsRefreshCount || 0), 5) }))}
           </button>
         </div>
         <div class="create-assist-list">
@@ -4688,7 +7203,7 @@ function pageCreateDirector() {
                 const selected = (selectedTagSet.join(' ') === key) || (!selectedTagSet.length && key === ((hashtagSets[0] || []).join(' ')));
                 return `<button type="button" class="btn ${selected ? 'btn-primary' : 'btn-ghost'}" data-cd-hset="${encodeURIComponent(key)}">${esc(key)}</button>`;
               }).join('')
-            : '<span class="small">Пока пусто</span>'}
+            : `<span class="small">${esc(shellText('create_director_empty_list'))}</span>`}
         </div>
       </article>
       <div class="row" style="gap:12px;flex-wrap:wrap;margin-top:10px;">
@@ -4697,18 +7212,18 @@ function pageCreateDirector() {
       </div>
       <div class="cta-row" style="margin-top:10px;">
         <button id="cdSave" type="button" class="btn btn-ghost" ${activeDraft ? '' : 'disabled'}>Сохранить</button>
-        <button id="cdSchedule" type="button" class="btn btn-secondary" ${activeDraft ? '' : 'disabled'}>Запланировать</button>
-        <button id="cdPublish" type="button" class="btn btn-primary" ${activeDraft ? '' : 'disabled'}>Опубликовать</button>
+        <button id="cdSchedule" type="button" class="btn btn-secondary" ${activeDraft ? '' : 'disabled'}>${esc(shellText('common_schedule'))}</button>
+        <button id="cdPublish" type="button" class="btn btn-primary" ${activeDraft ? '' : 'disabled'}>${esc(shellText('common_publish'))}</button>
       </div>
-      ${field('cdScheduleAt', 'Дата/время для планирования', 'datetime-local', d.scheduleAt || '')}
+      ${field('cdScheduleAt', shellText('create_director_schedule_at'), 'datetime-local', d.scheduleAt || '')}
       <article class="card" style="margin-top:12px;padding:12px;">
-        <h3 style="margin-top:0;">Контент-план</h3>
-        <p class="small">AI может сам выбрать лучшие дни и часы публикации.</p>
+        <h3 style="margin-top:0;">${esc(shellText('create_director_content_plan_title'))}</h3>
+        <p class="small">${esc(shellText('create_director_content_plan_lead'))}</p>
         <div class="row" style="gap:8px;flex-wrap:wrap;">
-          <button id="cdPlanWeek" type="button" class="btn ${d.planHorizon === 'week' ? 'btn-primary' : 'btn-ghost'}">План на неделю</button>
-          <button id="cdPlanMonth" type="button" class="btn ${d.planHorizon === 'month' ? 'btn-primary' : 'btn-ghost'}">План на месяц</button>
-          <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Формирую…' : 'Сформировать план'}</button>
-          <button id="cdBestTimes" type="button" class="btn btn-ghost">Лучшие дни/часы</button>
+          <button id="cdPlanWeek" type="button" class="btn ${d.planHorizon === 'week' ? 'btn-primary' : 'btn-ghost'}">${esc(shellText('create_plan_week_button'))}</button>
+          <button id="cdPlanMonth" type="button" class="btn ${d.planHorizon === 'month' ? 'btn-primary' : 'btn-ghost'}">${esc(shellText('create_plan_month_button'))}</button>
+          <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? esc(shellText('planner_generating')) : esc(shellTextFmt('planner_generate', { days: inlinePlanDays }))}</button>
+          <button id="cdBestTimes" type="button" class="btn btn-ghost">${esc(shellText('create_best_times'))}</button>
         </div>
         ${bestTimesLocked
           ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
@@ -4749,15 +7264,15 @@ function pageCreateDirector() {
     resultCard = showVideoStructure ? `
       <article class="card glass-card create-director-card">
         <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-          <h3 style="margin:0;">Структура видео</h3>
+          <h3 style="margin:0;">${esc(shellText('create_director_video_headline'))}</h3>
           ${structureCanToggle
-            ? `<button id="cdToggleStructure" type="button" class="btn btn-ghost">${structureExpanded ? 'Свернуть' : 'Открыть больше'}</button>`
+            ? `<button id="cdToggleStructure" type="button" class="btn btn-ghost">${structureExpanded ? esc(shellText('create_preview_collapse')) : esc(shellText('create_preview_open_more'))}</button>`
             : ''}
         </div>
         ${d.videoStructure
-          ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || 'Видео')}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
-             <p class="small">Голос: ${esc((resolvedVoiceGender === 'female' ? 'женский' : 'мужской'))} · Интонация: ${esc((resolvedVoiceTone === 'calm' ? 'спокойная' : (resolvedVoiceTone === 'live' ? 'живая' : 'нейтральная')))} · Субтитры: включены · Фон: тихая музыка</p>
-             <p class="small">Перетяните сцены, чтобы изменить порядок в итоговом видео.</p>
+          ? `<p class="small"><strong>${esc(d.videoStructure.title || effectiveSelectedTopic || baseTopic || shellText('create_director_video_title_fallback'))}</strong> · ${esc(String(d.videoDurationPreset || '30'))} сек</p>
+             <p class="small">${esc(shellTextFmt('create_director_voice_line', { voice: shellText(resolvedVoiceGender === 'female' ? 'common_voice_female' : 'common_voice_male'), tone: shellText(resolvedVoiceTone === 'calm' ? 'common_tone_calm' : (resolvedVoiceTone === 'live' ? 'common_tone_live' : 'common_tone_neutral')), subtitles: shellText('common_subtitles_enabled'), music: shellText('common_music_quiet') }))}</p>
+             <p class="small">${esc(shellText('create_director_drag_scenes'))}</p>
              <div style="display:grid;gap:8px;margin-top:10px;">
                ${visibleScenes.map((s, scenePos) => `
                  <div class="small card" draggable="true" data-cd-scene="${scenePos}" style="padding:10px;border:1px solid rgba(99,102,241,.18);cursor:grab;">
@@ -4770,38 +7285,38 @@ function pageCreateDirector() {
                    </div>
                    <textarea
                      data-cd-scene-text="${scenePos}"
-                     placeholder="Текст сцены"
-                     style="margin:8px 0 0 0;width:100%;min-height:36px;max-height:56px;border:1px solid rgba(99,102,241,.18);border-radius:8px;padding:6px 8px;background:transparent;color:inherit;line-height:1.35;font-size:14px;font-family:inherit;font-weight:500;resize:none;overflow:auto;"
-                   >${esc(s.text || '')}</textarea>
-                 </div>
-               `).join('')}
-              </div>
-              ${structureCanToggle && !structureExpanded
-                ? '<p class="small muted" style="margin-top:8px;">Показаны первые сцены. Нажмите «Открыть больше», чтобы увидеть всю структуру.</p>'
-                : ''}`
-          : '<p class="small">Нажмите «Сгенерировать структуру», чтобы получить структуру, хештеги и призыв.</p>'}
+                      placeholder="${esc(shellText('create_director_scene_text'))}"
+                      style="margin:8px 0 0 0;width:100%;min-height:36px;max-height:56px;border:1px solid rgba(99,102,241,.18);border-radius:8px;padding:6px 8px;background:transparent;color:inherit;line-height:1.35;font-size:14px;font-family:inherit;font-weight:500;resize:none;overflow:auto;"
+                    >${esc(s.text || '')}</textarea>
+                  </div>
+                `).join('')}
+               </div>
+               ${structureCanToggle && !structureExpanded
+                 ? `<p class="small muted" style="margin-top:8px;">${esc(shellText('create_preview_open_more'))}: ${esc(shellText('create_director_structure'))}</p>`
+                 : ''}`
+          : `<p class="small">${esc(shellText('create_director_structure_hint'))}</p>`}
         ${showVideoStructure ? `<div class="row" style="margin-top:10px;justify-content:flex-end;gap:8px;">
-          <button id="cdSceneAdd" type="button" class="btn btn-ghost">Добавить сцену</button>
+          <button id="cdSceneAdd" type="button" class="btn btn-ghost">${esc(shellText('create_director_add_scene'))}</button>
         </div>` : ''}
         ${showVideoStructure ? `<div style="margin-top:10px;display:grid;gap:10px;">
           <div class="create-preview-meta-block">
             <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-              <p class="small" style="margin:0;"><strong>Хештеги</strong></p>
+              <p class="small" style="margin:0;"><strong>${esc(shellText('create_director_hashtags_title'))}</strong></p>
               <button id="cdRefreshTagsInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingHashtags || (Number(d.hashtagsRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-                ${d.refreshingHashtags ? 'Обновляю…' : `Обновить (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
+                ${d.refreshingHashtags ? esc(shellText('create_director_refreshing')) : `${esc(shellText('common_refresh'))} (${Math.min(Number(d.hashtagsRefreshCount || 0), 5)}/5)`}
               </button>
             </div>
-            ${previewTags.length ? '' : '<p class="small director-meta-placeholder">Появятся после генерации структуры.</p>'}
+            ${previewTags.length ? '' : `<p class="small director-meta-placeholder">${esc(shellText('create_director_structure_loading'))}</p>`}
             <input id="cdVideoTagsInline" class="director-meta-input" type="text" value="${esc((previewTags || []).join(' '))}" ${d.videoStructure ? '' : 'disabled'} />
           </div>
           <div class="create-preview-meta-block">
             <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-              <p class="small" style="margin:0;"><strong>Призыв</strong></p>
+              <p class="small" style="margin:0;"><strong>${esc(shellText('create_director_cta_title'))}</strong></p>
               <button id="cdRefreshCtaInline" type="button" class="btn btn-ghost" ${(loading || d.refreshingCta || (Number(d.ctaRefreshCount || 0) >= 5) || !String(baseTopic || '').trim()) ? 'disabled' : ''}>
-                ${d.refreshingCta ? 'Обновляю…' : `Обновить (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
+                ${d.refreshingCta ? esc(shellText('create_director_refreshing')) : `${esc(shellText('common_refresh'))} (${Math.min(Number(d.ctaRefreshCount || 0), 5)}/5)`}
               </button>
             </div>
-            ${String(d.selectedCta || '').trim() ? '' : '<p class="small director-meta-placeholder">Появится после генерации структуры.</p>'}
+            ${String(d.selectedCta || '').trim() ? '' : `<p class="small director-meta-placeholder">${esc(shellText('create_director_structure_loading'))}</p>`}
             <input id="cdVideoCtaInline" class="director-meta-input" type="text" value="${esc(String(d.selectedCta || '').trim())}" ${d.videoStructure ? '' : 'disabled'} />
           </div>
         </div>` : ''}
@@ -4822,34 +7337,32 @@ function pageCreateDirector() {
 
   if (isPlanFlow) {
     const summaryFormat = isWeeklyPlanFlow ? 'Посты на неделю' : 'Посты на месяц';
-    const planHeroTitle = isWeeklyPlanFlow ? 'Контент-план на 7 дней' : 'Контент-план на 30 дней';
-    const planHeroSubtitle = isWeeklyPlanFlow
-      ? 'AI подготовит 7 готовых идей для вашей ниши: темы, формат, угол подачи, CTA, хештеги и основу для публикации.'
-      : 'AI подготовит месячный контент-план с идеями, структурой публикаций и готовыми заготовками под вашу нишу.';
+    const planHeroTitle = isWeeklyPlanFlow ? shellText('create_plan_weekly_title') : shellText('create_plan_monthly_title');
+    const planHeroSubtitle = isWeeklyPlanFlow ? shellText('create_plan_weekly_subtitle') : shellText('create_plan_monthly_subtitle');
     const selectedPlanItemFormat = planFormatLabel(selectedPlanDay?.contentFormat || selectedPlanDay?.objective || 'post');
-    const progressSteps = ['Анализируем нишу', 'Подбираем темы', 'Формируем структуру публикаций', 'Готовим CTA и хештеги', 'Собираем итоговый план'];
+    const progressSteps = ['create_plan_progress_1', 'create_plan_progress_2', 'create_plan_progress_3', 'create_plan_progress_4', 'create_plan_progress_5'].map((key) => shellText(key));
     const currentProgressIdx = Math.max(0, Math.min(progressSteps.length, Number(d.planFlowProgressStep || 0)));
     const planSettingsCard = `
       <article class="card glass-card create-director-card plan-flow-settings-card">
-        <div class="create-step-label">Настройки плана</div>
+        <div class="create-step-label">${esc(shellText('create_plan_settings'))}</div>
         <div class="grid-2">
-          ${selectField('cdTopicPreset', 'Ниша', d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+          ${selectField('cdTopicPreset', shellText('planner_niche'), d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
           ${selectField('cdGoal', 'Цель', d.goal || 'engagement', [{ value: 'awareness', label: 'Охват' }, { value: 'engagement', label: 'Вовлечение' }, { value: 'lead', label: 'Лиды' }, { value: 'sales', label: 'Продажи' }])}
-          ${selectField('cdLang', 'Язык', d.language || 'ru', CONTENT_LANG_OPTIONS)}
-          ${field('cdOffer', 'Оффер (опционально)', 'text', d.offer || '', 'Например: бесплатная консультация или диагностика')}
+          ${selectField('cdLang', shellText('planner_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
+          ${field('cdOffer', shellText('create_director_offer'), 'text', d.offer || '', shellText('create_director_offer_placeholder'))}
         </div>
-        <label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> Своя ниша/тема</label>
-        ${d.customTopicMode ? field('cdTopic', 'Своя ниша/тема', 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : ''}
-        <p class="small create-plan-settings-note">AI использует эти данные, чтобы подобрать релевантные темы и структуру публикаций.</p>
+        <label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> ${esc(shellText('create_director_custom_niche'))}</label>
+        ${d.customTopicMode ? field('cdTopic', shellText('create_director_custom_niche'), 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : ''}
+        <p class="small create-plan-settings-note">${esc(shellText('create_plan_note'))}</p>
         <div class="cta-row plan-flow-primary-cta">
-          <button id="cdGeneratePlanFlow" class="btn btn-primary" type="button" ${planFlowLoading ? 'disabled' : ''}>${planFlowLoading ? 'Готовим план…' : `Сгенерировать план на ${planFlowDays} дней`}</button>
-          ${planFlowGenerated ? '<button id="cdQuickActionRefresh" class="btn btn-ghost" type="button">Перегенерировать план</button>' : ''}
+          <button id="cdGeneratePlanFlow" class="btn btn-primary" type="button" ${planFlowLoading ? 'disabled' : ''}>${planFlowLoading ? esc(shellText('create_plan_generating')) : esc(shellTextFmt('create_plan_generate', { days: planFlowDays }))}</button>
+          ${planFlowGenerated ? `<button id="cdQuickActionRefresh" class="btn btn-ghost" type="button">${esc(shellText('create_plan_regenerate'))}</button>` : ''}
         </div>
       </article>
     `;
     const planProgressCard = planFlowLoading ? `
       <article class="card glass-card create-director-card plan-flow-progress-card">
-        <h3 style="margin-top:0;">AI готовит ваш контент-план</h3>
+        <h3 style="margin-top:0;">${esc(shellText('create_plan_progress_title'))}</h3>
         <div class="plan-flow-progress-list">
           ${progressSteps.map((label, idx) => {
             const stateCls = idx < currentProgressIdx ? 'done' : (idx === currentProgressIdx ? 'active' : '');
@@ -4860,15 +7373,15 @@ function pageCreateDirector() {
     ` : '';
     const planEmptyCard = (!planFlowGenerated && !planFlowLoading && !planFlowError) ? `
       <article class="card glass-card create-director-card plan-flow-empty-card">
-        <h3 style="margin-top:0;">Выберите нишу и запустите генерацию</h3>
-        <p class="small">Выберите нишу и нажмите «Сгенерировать план», чтобы получить готовые идеи публикаций.</p>
+        <h3 style="margin-top:0;">${esc(shellText('create_plan_empty_title'))}</h3>
+        <p class="small">${esc(shellText('create_plan_empty_text'))}</p>
       </article>
     ` : '';
     const planErrorCard = planFlowError ? `
       <article class="card glass-card create-director-card plan-flow-error-card">
-        <h3 style="margin-top:0;">Не удалось создать план</h3>
+        <h3 style="margin-top:0;">${esc(shellText('create_plan_error_title'))}</h3>
         <p class="small">${esc(planFlowError)}</p>
-        <p class="small">Если ошибка повторяется, обновите страницу или измените параметры.</p>
+        <p class="small">${esc(shellText('create_plan_error_text'))}</p>
       </article>
     ` : '';
     const planResultsBody = (() => {
@@ -4878,8 +7391,8 @@ function pageCreateDirector() {
         return weeks.map((week) => `
           <section class="plan-flow-week-group">
             <div class="row" style="justify-content:space-between;align-items:center;gap:8px;">
-              <h4 style="margin:0;">Неделя ${week.index}</h4>
-              <span class="small">${week.items.length} публикаций</span>
+              <h4 style="margin:0;">${esc(shellText('create_plan_week'))} ${week.index}</h4>
+              <span class="small">${week.items.length} ${esc(shellText('create_plan_posts_count'))}</span>
             </div>
             <div class="plan-flow-grid">
               ${week.items.map((item) => `
@@ -4891,7 +7404,7 @@ function pageCreateDirector() {
                     </div>
                     <span class="pill">${esc(planFormatLabel(item.contentFormat || item.objective || 'post'))}</span>
                   </div>
-                  <p class="small"><strong>Угол подачи:</strong> ${esc(item.angle || '—')}</p>
+                  <p class="small"><strong>${esc(shellText('create_plan_angle'))}:</strong> ${esc(item.angle || '—')}</p>
                   <p class="small">${esc(planDayPreview(item))}</p>
                   <p class="small"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
                   <div class="create-preview-tags">${String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 6).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('')}</div>
@@ -4910,19 +7423,19 @@ function pageCreateDirector() {
           <article class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}">
             <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
               <div>
-                <div class="small">День ${Number(item.day || 0)}</div>
+                <div class="small">${esc(shellText('create_plan_day'))} ${Number(item.day || 0)}</div>
                 <strong>${esc(item.topic || '—')}</strong>
               </div>
               <span class="pill">${esc(planFormatLabel(item.contentFormat || item.objective || 'post'))}</span>
             </div>
-            <p class="small"><strong>Угол подачи:</strong> ${esc(item.angle || '—')}</p>
+            <p class="small"><strong>${esc(shellText('create_plan_angle'))}:</strong> ${esc(item.angle || '—')}</p>
             <p class="small">${esc(planDayPreview(item))}</p>
             <p class="small"><strong>CTA:</strong> ${esc(item.cta || '—')}</p>
             <div class="create-preview-tags">${String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 6).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('')}</div>
             <div class="cta-row plan-flow-day-actions">
-              <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(item.day || 0)}">Использовать</button>
-              <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(item.day || 0)}">Запланировать</button>
-              <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(item.day || 0)}">Редактировать</button>
+              <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(item.day || 0)}">${esc(shellText('create_plan_use'))}</button>
+              <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(item.day || 0)}">${esc(shellText('common_schedule'))}</button>
+              <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(item.day || 0)}">${esc(shellText('create_plan_edit'))}</button>
             </div>
           </article>
         `).join('')}
@@ -4932,88 +7445,88 @@ function pageCreateDirector() {
       <article class="card glass-card create-director-card plan-flow-results-card">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div>
-            <div class="create-step-label">Результат</div>
-            <h3 style="margin:0 0 8px 0;">${esc(planHeroTitle)} готов</h3>
-            <p class="small" style="margin:0;">${esc(isWeeklyPlanFlow ? '7 карточек с готовыми темами и CTA для вашей ниши.' : 'Месячный план сгруппирован по неделям, чтобы его было проще просмотреть и использовать.')}</p>
+            <div class="create-step-label">${esc(shellText('create_plan_result'))}</div>
+            <h3 style="margin:0 0 8px 0;">${esc(shellTextFmt('create_plan_ready_title', { title: planHeroTitle }))}</h3>
+            <p class="small" style="margin:0;">${esc(isWeeklyPlanFlow ? shellText('create_plan_ready_weekly') : shellText('create_plan_ready_monthly'))}</p>
           </div>
           <div class="cta-row">
-            <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Сохраняем…' : 'Сохранить план'}</button>
-            <button type="button" class="btn btn-ghost" data-link="/calendar">Открыть календарь</button>
+            <button id="cdPlanGenerate" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? esc(shellText('common_saving')) : esc(shellText('create_plan_save'))}</button>
+            <button type="button" class="btn btn-ghost" data-link="/calendar">${esc(shellText('create_plan_open_calendar'))}</button>
           </div>
         </div>
-        ${quickActionResult?.access?.isPreview ? '<p class="small" style="margin-top:10px;"><strong>Preview:</strong> полный объём плана доступен после апгрейда тарифа.</p>' : ''}
+        ${quickActionResult?.access?.isPreview ? `<p class="small" style="margin-top:10px;"><strong>${esc(shellText('create_plan_preview_note'))}:</strong> ${esc(shellText('create_plan_preview_upgrade'))}</p>` : ''}
         ${planResultsBody}
       </article>
     ` : '';
     const planSidebar = `
       <aside class="create-preview-col create-preview-col-static plan-flow-sidebar">
         <article class="create-info-card glass-card">
-          <div class="create-step-label">${esc(isPlanFlow ? 'Быстрый старт' : '')}</div>
-          <h3 style="margin-top:0;">Вы создаёте: ${esc(planHeroTitle)}</h3>
+          <div class="create-step-label">${esc(isPlanFlow ? shellText('create_plan_quick_start') : '')}</div>
+          <h3 style="margin-top:0;">${esc(shellText('create_plan_creating'))}: ${esc(planHeroTitle)}</h3>
           <div class="wizard-summary">
-            <span class="pill">Ниша: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
-            <span class="pill">Формат: ${esc(summaryFormat)}</span>
-            <span class="pill">Язык: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
-            <span class="pill">Цель: ${esc(planFlowGoalLabel)}</span>
+            <span class="pill">${esc(shellText('create_plan_summary_niche'))}: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
+            <span class="pill">${esc(shellText('create_plan_summary_format'))}: ${esc(summaryFormat)}</span>
+            <span class="pill">${esc(shellText('create_plan_summary_language'))}: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
+            <span class="pill">${esc(shellText('create_plan_summary_goal'))}: ${esc(planFlowGoalLabel)}</span>
           </div>
           ${!planFlowGenerated
-            ? `<p class="small">Здесь появится preview выбранного дня после генерации плана.</p>`
+            ? `<p class="small">${esc(shellText('create_plan_preview_placeholder'))}</p>`
             : ''}
         </article>
         ${!planFlowGenerated ? `
           <article class="create-info-card glass-card">
-            <h3 style="margin-top:0;">Что вы получите</h3>
+            <h3 style="margin-top:0;">${esc(shellText('create_plan_what_get'))}</h3>
             <ul class="check-list">
-              <li class="done">Готовые темы</li>
-              <li class="done">Идеи публикаций</li>
-              <li class="done">CTA для каждого дня</li>
-              <li class="done">Хештеги и основу для плана</li>
+              <li class="done">${esc(shellText('create_plan_what_get_topics'))}</li>
+              <li class="done">${esc(shellText('create_plan_what_get_ideas'))}</li>
+              <li class="done">${esc(shellText('create_plan_what_get_cta'))}</li>
+              <li class="done">${esc(shellText('create_plan_what_get_hashtags'))}</li>
             </ul>
           </article>
         ` : `
           <article class="create-preview-card glass-card">
-            <div class="create-step-label">Preview дня</div>
-            <h3 style="margin-top:0;">${esc(selectedPlanDay?.topic || 'Выберите день')}</h3>
-            <p class="small create-preview-state">${esc(selectedPlanDay ? selectedPlanItemFormat : 'Здесь появится preview выбранного дня после генерации плана.')}</p>
+            <div class="create-step-label">${esc(shellText('create_plan_preview_day'))}</div>
+            <h3 style="margin-top:0;">${esc(selectedPlanDay?.topic || shellText('create_plan_select_day'))}</h3>
+            <p class="small create-preview-state">${esc(selectedPlanDay ? selectedPlanItemFormat : shellText('create_plan_selected_day_placeholder'))}</p>
             ${selectedPlanDay ? `
               <p class="create-preview-text" style="min-height:auto;">${esc(planDayPreview(selectedPlanDay))}</p>
               <div class="create-preview-meta-block">
                 <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> ${esc(selectedPlanDay.cta || '—')}</p>
-                <div class="create-preview-tags">${String(selectedPlanDay.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 8).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || '<span class="small">Хештеги появятся здесь</span>'}</div>
+                <div class="create-preview-tags">${String(selectedPlanDay.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 8).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || `<span class="small">${esc(shellText('create_plan_hashtags_placeholder'))}</span>`}</div>
               </div>
               <div class="cta-row" style="margin-top:12px;">
-                <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(selectedPlanDay.day || 0)}">Использовать</button>
-                <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">Запланировать</button>
-                <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(selectedPlanDay.day || 0)}">Редактировать</button>
+                <button type="button" class="btn btn-secondary" data-cd-plan-select-day="${Number(selectedPlanDay.day || 0)}">${esc(shellText('create_plan_use'))}</button>
+                <button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">${esc(shellText('common_schedule'))}</button>
+                <button type="button" class="btn btn-ghost" data-cd-plan-edit="${Number(selectedPlanDay.day || 0)}">${esc(shellText('create_plan_edit'))}</button>
               </div>
             ` : ''}
           </article>
           <article class="create-info-card glass-card">
-            <h3 style="margin-top:0;">Быстрые действия</h3>
+            <h3 style="margin-top:0;">${esc(shellText('create_plan_quick_actions'))}</h3>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-              <button id="cdPlanGenerateSidebar" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? 'Сохраняем…' : 'Сохранить план'}</button>
-              ${selectedPlanDay ? `<button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">Запланировать день</button>` : '<button type="button" class="btn btn-ghost" data-link="/calendar">Открыть календарь</button>'}
+              <button id="cdPlanGenerateSidebar" type="button" class="btn btn-secondary" ${d.planLoading ? 'disabled' : ''}>${d.planLoading ? esc(shellText('common_saving')) : esc(shellText('create_plan_save'))}</button>
+              ${selectedPlanDay ? `<button type="button" class="btn btn-primary" data-cd-plan-schedule-day="${Number(selectedPlanDay.day || 0)}">${esc(shellText('create_plan_schedule_day'))}</button>` : `<button type="button" class="btn btn-ghost" data-link="/calendar">${esc(shellText('create_plan_open_calendar'))}</button>`}
             </div>
           </article>
         `}
       </aside>
     `;
-    return appLayout('/create', 'Создать', `
+    return appLayout('/create', shellText('page_create') || shellText('nav_create'), `
       <section class="create-wizard-shell create-director-shell plan-flow-shell">
         <div class="create-wizard-grid plan-flow-layout">
           <article class="create-main-col">
             <article class="card glass-card create-director-card plan-flow-hero-card">
-              <div class="create-step-label">Из панели управления</div>
+              <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
               <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                 <div style="max-width:760px;">
                   <h1 class="plan-flow-hero-title">${esc(planHeroTitle)}</h1>
                   <p class="plan-flow-hero-subtitle">${esc(planHeroSubtitle)}</p>
                 </div>
                 <div class="wizard-summary plan-flow-summary">
-                  <span class="pill">Ниша: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
-                  <span class="pill">Формат: ${esc(summaryFormat)}</span>
-                  <span class="pill">Язык: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
-                  <span class="pill">Цель: ${esc(planFlowGoalLabel)}</span>
+                  <span class="pill">${esc(shellText('create_plan_summary_niche'))}: ${esc(directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic) || '—')}</span>
+                  <span class="pill">${esc(shellText('create_plan_summary_format'))}: ${esc(summaryFormat)}</span>
+                  <span class="pill">${esc(shellText('create_plan_summary_language'))}: ${esc((CONTENT_LANG_OPTIONS.find((opt) => opt.value === (d.language || 'ru')) || { label: 'Русский' }).label)}</span>
+                  <span class="pill">${esc(shellText('create_plan_summary_goal'))}: ${esc(planFlowGoalLabel)}</span>
                 </div>
               </div>
             </article>
@@ -5031,69 +7544,53 @@ function pageCreateDirector() {
 
   const previewCard = `
     <article class="create-preview-card glass-card">
-      <div class="row" style="justify-content:space-between;align-items:center;">
-        <span class="small">Платформа</span>
-
-      </div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-        <span class="small">Preview</span>
-        <div class="create-segmented-control" role="tablist" aria-label="Preview type">
-          <button id="cdPreviewTypePost" class="btn segment-btn ${!isVideo ? 'btn-primary' : 'btn-ghost'}" type="button">Пост</button>
-          <button id="cdPreviewTypeVideo" class="btn segment-btn ${isVideo ? 'btn-primary' : 'btn-ghost'}" type="button">Видео</button>
+      <div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="small">${esc(isVideo ? shellText('create_preview_video') : shellText('create_preview_post'))}</span>
+        <div class="row" style="gap:6px;flex-wrap:wrap;">
+          ${platformOrder.map((p) => {
+            const enabled = !!(d.platforms && d.platforms[p]);
+            const label = p === 'youtube' ? 'YouTube' : (p === 'instagram' ? 'Instagram' : 'Facebook');
+            const cls = activePlatform === p ? 'pill active pill-btn' : 'pill pill-btn';
+            return `<button type="button" class="${cls}" data-cd-preview-platform="${p}" ${enabled ? '' : 'disabled'} title="${enabled ? '' : '\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u0443 \u0441\u043b\u0435\u0432\u0430'}" aria-pressed="${activePlatform === p ? 'true' : 'false'}">${label}</button>`;
+          }).join('')}
         </div>
       </div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-        ${platformOrder.map((p) => {
-          const enabled = !!(d.platforms && d.platforms[p]);
-          const label = p === 'youtube' ? 'YouTube' : (p === 'instagram' ? 'Instagram' : 'Facebook');
-          const cls = activePlatform === p ? 'pill active pill-btn' : 'pill pill-btn';
-          return `<button type="button" class="${cls}" data-cd-preview-platform="${p}" ${enabled ? '' : 'disabled'} title="${enabled ? '' : 'Включите платформу слева'}" aria-pressed="${activePlatform === p ? 'true' : 'false'}">${label}</button>`;
-        }).join('')}
-      </div>
-      <h3 id="cdPreviewTitle">${esc(d.videoStructure?.title || effectiveSelectedTopic || baseTopic || 'Тема')}</h3>
+      <h3 id="cdPreviewTitle">${esc(d.videoStructure?.title || effectiveSelectedTopic || baseTopic || '\u0422\u0435\u043c\u0430')}</h3>
       <p class="small create-preview-state">${esc(previewStateText)}</p>
       ${isVideo
         ? `<div class="create-video-preview-block">
             ${videoPlayableUrl
-              ? `<video class="create-video-player ${videoFrameClass}" controls preload="metadata" ${String(d.videoCoverUrl || '').trim() ? `poster="${esc(String(d.videoCoverUrl || '').trim())}"` : ''}>
-
-                 </video>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-
-                   <span id="cdVideoRatioTextReady" class="small">Готово: ${esc(String(d.videoDurationPreset || '30'))} сек · ${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')}</span>
+              ? `<video class="create-video-player ${videoFrameClass}" controls preload="metadata" ${String(d.videoCoverUrl || '').trim() ? `poster="${esc(String(d.videoCoverUrl || '').trim())}"` : ''}></video>
+                 <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px;gap:8px;">
+                   <span id="cdVideoRatioTextReady" class="small">\u0413\u043e\u0442\u043e\u0432\u043e: ${esc(String(d.videoDurationPreset || '30'))} \u0441\u0435\u043a \u00b7 ${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')}</span>
                  </div>`
               : `<div class="create-video-placeholder ${videoFrameClass}">
                    ${String(d.videoCoverUrl || '').trim() ? `<img src="${esc(d.videoCoverUrl)}" alt="Video cover" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />` : ''}
                    <div class="play-icon">?</div>
-                   <span id="cdVideoRatioText">${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')} · ${esc(String(d.videoDurationPreset || '30'))} сек</span>
+                   <span id="cdVideoRatioText">${esc(videoOrientation === 'horizontal' ? '16:9' : '9:16')} \u00b7 ${esc(String(d.videoDurationPreset || '30'))} \u0441\u0435\u043a</span>
                  </div>
                  <div style="margin-top:10px;">
-                   <div id="cdVideoStepText" class="small"><strong>${esc(videoStepLabel)}</strong> · <span id="cdVideoProgressNum">${videoProgress}</span>%</div>
+                   <div id="cdVideoStepText" class="small"><strong>${esc(videoStepLabel)}</strong> \u00b7 <span id="cdVideoProgressNum">${videoProgress}</span>%</div>
                    <div class="create-progress"><span id="cdVideoProgressFill" style="width:${videoProgress}%"></span></div>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
                  </div>`}
             ${uniqueClipsUsed.length
               ? `<div class="create-preview-meta-block">
-                   <p class="small" style="margin:0 0 6px 0;"><strong>Уникальные футажи:</strong> ${uniqueClipsUsed.length}</p>
-                   <div class="create-preview-tags">${uniqueClipsUsed.map((clip, idx) => `<span class="pill" title="${esc(String(clip.query_used || ''))}">${esc(String(clip.query_bucket || clip.query_used || `Клип ${idx + 1}`))}</span>`).join('')}</div>
+                   <p class="small" style="margin:0 0 6px 0;"><strong>\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0444\u0443\u0442\u0430\u0436\u0438:</strong> ${uniqueClipsUsed.length}</p>
+                   <div class="create-preview-tags">${uniqueClipsUsed.map((clip, idx) => `<span class="pill" title="${esc(String(clip.query_used || ''))}">${esc(String(clip.query_bucket || clip.query_used || `\u041a\u043b\u0438\u043f ${idx + 1}`))}</span>`).join('')}</div>
                  </div>`
               : ''}
-            <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-            <p class="small" style="margin-top:10px;"><strong>Текст публикации:</strong></p>
+            <p class="small" style="margin-top:10px;"><strong>${esc(shellText('create_preview_text_label'))}:</strong></p>
             <p id="cdPreviewText" class="create-preview-text">${esc(previewText)}</p>
             ${videoPreviewTextState?.canExpand
-              ? `<div class="row" style="margin-top:6px;">
-
-                 </div>`
+              ? `<div class="row" style="margin-top:6px;"><button id="cdPreviewToggleText" type="button" class="btn btn-ghost">${esc(videoPreviewTextState.expanded ? shellText('create_preview_collapse') : shellText('create_preview_open_more'))}</button></div>`
               : ''}
             <div class="create-preview-meta-block">
-              <p class="small" style="margin:0 0 6px 0;"><strong>Хештеги:</strong></p>
+              <p class="small" style="margin:0 0 6px 0;"><strong>${esc(shellText('create_preview_hashtags'))}:</strong></p>
               <div id="cdPreviewTags" class="create-preview-tags">${previewTags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
             </div>
             <div class="create-preview-meta-block">
-              <p class="small" style="margin:0 0 6px 0;"><strong>Призыв к действию:</strong></p>
-              <button id="cdPreviewCta" class="btn btn-secondary create-preview-cta" type="button">${esc(String(d.selectedCta || '').trim() || activeDraft?.cta || ctaOptions[0] || 'Призыв')}</button>
+              <p class="small" style="margin:0 0 6px 0;"><strong>${esc(shellText('create_preview_cta'))}:</strong></p>
+              <button id="cdPreviewCta" class="btn btn-secondary create-preview-cta" type="button">${esc(String(d.selectedCta || '').trim() || activeDraft?.cta || ctaOptions[0] || shellText('create_preview_cta_placeholder'))}</button>
             </div>
           </div>`
         : `${(d.imageEnabled && String(d.imageUrl || '').trim())
@@ -5104,12 +7601,12 @@ function pageCreateDirector() {
           ${d.loadingDrafts ? '<div class="create-skeleton-lines" style="margin:6px 0 10px 0;"><span></span><span></span><span></span></div>' : ''}
           <p id="cdPreviewText" class="create-preview-text">${esc(previewText)}</p>
           <div class="create-preview-meta-block">
-            <p class="small" style="margin:0 0 6px 0;"><strong>Хештеги:</strong></p>
+            <p class="small" style="margin:0 0 6px 0;"><strong>${esc(shellText('create_preview_hashtags'))}:</strong></p>
             <div id="cdPreviewTags" class="create-preview-tags">${previewTags.map((h) => `<span class="pill">${esc(h)}</span>`).join('')}</div>
           </div>
           <div class="create-preview-meta-block">
-            <p class="small" style="margin:0 0 6px 0;"><strong>Призыв к действию:</strong></p>
-            <button id="cdPreviewCta" class="btn btn-secondary create-preview-cta" type="button">${esc(String(d.selectedCta || '').trim() || activeDraft?.cta || ctaOptions[0] || 'Призыв')}</button>
+            <p class="small" style="margin:0 0 6px 0;"><strong>${esc(shellText('create_preview_cta'))}:</strong></p>
+            <button id="cdPreviewCta" class="btn btn-secondary create-preview-cta" type="button">${esc(String(d.selectedCta || '').trim() || activeDraft?.cta || ctaOptions[0] || shellText('create_preview_cta_placeholder'))}</button>
           </div>`
       }
     </article>
@@ -5117,36 +7614,34 @@ function pageCreateDirector() {
 
   const qualityCard = `
     <article class="create-info-card glass-card">
-      <h3>Проверка качества</h3>
+      <h3>${esc(shellText('create_quality_title'))}</h3>
       <div id="cdQualityScore" class="create-quality-score">${Number(quality.score || 0)}<span>/100</span></div>
       <ul id="cdQualityList" class="check-list">${(quality.checks || []).map((it) => `<li class="${it.state === 'green' ? 'done' : (it.state === 'red' ? 'bad' : '')}">${esc(it.label)}</li>`).join('')}</ul>
-      <p id="cdQualityWarn" class="small">${(quality.warnings || []).length ? (quality.warnings || []).map((w) => esc(w)).join(' · ') : ''}</p>
+      <p id="cdQualityWarn" class="small">${(quality.warnings || []).length ? (quality.warnings || []).map((w) => esc(w)).join(' \u00b7 ') : ''}</p>
     </article>
   `;
-  const miniPlanCard = `
-    <article class="create-info-card glass-card">
-      <h3 style="margin-top:0;">План (мини)</h3>
-      <div class="row" style="gap:8px;flex-wrap:wrap;">
-        <button id="cdMiniWeek" type="button" class="btn ${d.planHorizon === 'week' ? 'btn-secondary' : 'btn-ghost'}">7 дней</button>
-        <button id="cdMiniMonth" type="button" class="btn ${d.planHorizon === 'month' ? 'btn-secondary' : 'btn-ghost'}">30 дней</button>
-        <button id="cdMiniBest" type="button" class="btn btn-ghost">AI время</button>
+  const studioHeroCard = `
+    <article class="card glass-card create-director-hero-card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="max-width:760px;">
+          <div class="create-step-label">${esc(studioTitle)}</div>
+          <h1 class="create-studio-title">${esc(studioTitle)}</h1>
+          <p class="create-studio-subtitle">${esc(studioSubtitle)}</p>
+        </div>
+        <div class="create-hub-plan-badge">
+          <button type="button" class="btn ${isVideo ? 'btn-ghost' : 'btn-secondary'}" data-link="/create/post">${esc(shellText('create_post_studio_button'))}</button>
+          <button type="button" class="btn ${isVideo ? 'btn-secondary' : 'btn-ghost'}" data-link="/create/video">${esc(shellText('create_video_studio_button'))}</button>
+          <button type="button" class="btn btn-ghost" data-link="/create/plan">${esc(shellText('create_planner_button'))}</button>
+          <button type="button" class="btn btn-ghost" data-link="/youtube">${esc(shellText('create_youtube_studio_button'))}</button>
+        </div>
       </div>
-      ${bestTimesLocked
-        ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
-        : ((bestDaysText || bestHoursText)
-          ? `<p class="small muted" style="margin-top:8px;">${[
-              bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
-              bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
-            ].filter(Boolean).join(' · ')}</p>`
-          : '')}
-      ${nextSlotPills ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px;">${nextSlotPills}</div>` : ''}
     </article>
   `;
   const mainColCards = prioritizeDirectorCard
-    ? `${quickCard}${quickActionPanel}${resultCard}`
-    : `${quickActionPanel}${quickCard}${resultCard}`;
+    ? `${studioHeroCard}${quickCard}${quickActionPanel}${resultCard}`
+    : `${studioHeroCard}${quickActionPanel}${quickCard}${resultCard}`;
 
-  return appLayout('/create', 'Создать', `
+  return appLayout('/create', studioTitle, `
     <section class="create-wizard-shell create-director-shell">
       <div class="create-wizard-grid">
         <article class="create-main-col">
@@ -5155,7 +7650,6 @@ function pageCreateDirector() {
         <aside class="create-preview-col create-preview-col-static">
           ${previewCard}
           ${qualityCard}
-          ${miniPlanCard}
         </aside>
       </div>
     </section>
@@ -5167,6 +7661,7 @@ function pageCreateVideoWeek() {
 }
 
 function pageCreatePlanner(route = getCreatePlannerRoute()) {
+  const locale = uiLocale();
   const planner = route || { kind: 'post', days: 7 };
   const cfg = getPlannerStateConfig(planner.kind, planner.days);
   const d = state.createDirector || {};
@@ -5183,7 +7678,7 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
           const times = Array.isArray(dItem?.slots)
             ? dItem.slots
                 .map((iso) => {
-                  try { return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+                  try { return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
                 })
                 .filter(Boolean)
                 .join(', ')
@@ -5220,59 +7715,59 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
                 <h2 style="margin:0;">${esc(cfg.title)}</h2>
                 <p class="small" style="margin:6px 0 0 0;">${esc(cfg.subtitle)}</p>
               </div>
-              <button class="btn btn-ghost" type="button" data-link="${esc(cfg.backUrl)}">Назад в AI Контент-директор</button>
+              <button class="btn btn-ghost" type="button" data-link="${esc(cfg.backUrl)}">${esc(shellText('planner_back_to_director'))}</button>
             </div>
             <div class="grid-2" style="margin-top:12px;">
-              ${selectField('plannerNiche', 'Ниша', normalizeNicheIdSafe(String(d.topicPreset || DEFAULT_DIRECTOR_NICHE).trim()) || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
-              ${field('plannerTopic', 'Своя тема/фокус', 'text', String(d.topic || '').trim(), plannerConfig.fieldConfig.topicPlaceholder)}
+              ${selectField('plannerNiche', shellText('planner_niche'), normalizeNicheIdSafe(String(d.topicPreset || DEFAULT_DIRECTOR_NICHE).trim()) || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+              ${field('plannerTopic', shellText('planner_topic_focus'), 'text', String(d.topic || '').trim(), plannerConfig.fieldConfig.topicPlaceholder)}
               ${selectField('plannerPostsPerDay', plannerConfig.fieldConfig.postsPerDayLabel, postsPerDayValue, [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }, { value: '6', label: '6' }])}
-              ${selectField('plannerLanguage', 'Язык', d.language || 'ru', [{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }])}
-              ${selectField('plannerTone', 'Стиль', d.tone || 'friendly', [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }])}
+              ${selectField('plannerLanguage', shellText('planner_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
+              ${selectField('plannerTone', shellText('planner_style'), d.tone || 'friendly', [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }])}
               ${plannerConfig.fieldConfig.secondaryField}
               ${plannerConfig.fieldConfig.tertiaryField}
             </div>
             <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-              <span class="small">Платформы:</span>
+              <span class="small">${esc(shellText('planner_platforms'))}:</span>
               ${plannerConfig.fieldConfig.platformsMarkup}
             </div>
             <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-              <span class="small">Время публикации:</span>
-              <button id="plannerTimeAi" type="button" class="btn ${timeModeValue === 'ai' ? 'btn-primary' : 'btn-ghost'}">AI время</button>
-              <button id="plannerTimeManual" type="button" class="btn ${timeModeValue === 'manual' ? 'btn-primary' : 'btn-ghost'}">Вручную</button>
-              ${timeModeValue === 'manual' ? field('plannerManualTime', 'Часы', 'time', manualTimeValue) : ''}
+              <span class="small">${esc(shellText('planner_time'))}:</span>
+              <button id="plannerTimeAi" type="button" class="btn ${timeModeValue === 'ai' ? 'btn-primary' : 'btn-ghost'}">${esc(shellText('planner_time_ai'))}</button>
+              <button id="plannerTimeManual" type="button" class="btn ${timeModeValue === 'manual' ? 'btn-primary' : 'btn-ghost'}">${esc(shellText('planner_time_manual'))}</button>
+              ${timeModeValue === 'manual' ? field('plannerManualTime', shellText('planner_manual_hours'), 'time', manualTimeValue) : ''}
             </div>
             ${bestTimesLocked
               ? `<p class="small muted" style="margin-top:8px;">${advancedAnalyticsLockText()}</p>`
               : (weeklyRecoText
-              ? `<p class="small muted" style="margin-top:8px;">Рекомендованный недельный план: ${esc(weeklyRecoText)}</p>`
+              ? `<p class="small muted" style="margin-top:8px;">${esc(shellText('planner_recommended_week'))}: ${esc(weeklyRecoText)}</p>`
               : ((bestDaysText || bestHoursText)
                 ? `<p class="small muted" style="margin-top:8px;">${[
-                    bestDaysText ? `Лучшие дни: ${bestDaysText}` : '',
-                    bestHoursText ? `Лучшие часы: ${bestHoursText}` : '',
+                    bestDaysText ? `${shellText('planner_best_days')}: ${bestDaysText}` : '',
+                    bestHoursText ? `${shellText('planner_best_hours')}: ${bestHoursText}` : '',
                   ].filter(Boolean).join(' · ')}</p>`
                 : ''))}
-            <div class="cta-row" style="margin-top:12px;">
-              <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? 'Формирую…' : `Сформировать план ${cfg.days} дней`}</button>
+            <div class="cta-row planner-actions-row" style="margin-top:12px;">
+              <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? esc(shellText('planner_generating')) : esc(shellTextFmt('planner_generate', { days: cfg.days }))}</button>
               ${cfg.kind === 'post'
-                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? '🚀 Планирую…' : '🚀 Опубликовать весь план автоматически'}</button>`
+                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? `🚀 ${esc(shellText('planner_scheduling'))}` : `🚀 ${esc(shellText('planner_schedule_all_cta'))}`}</button>`
                 : ''}
-              <button id="plannerApplyToDirector" class="btn btn-secondary" type="button" ${applying ? 'disabled' : ''}>${applying ? 'Применяю…' : 'Открыть в AI Контент-директор'}</button>
+              <button id="plannerApplyToDirector" class="btn btn-secondary" type="button" ${applying ? 'disabled' : ''}>${applying ? esc(shellText('planner_applying')) : esc(shellText('planner_open_in_director'))}</button>
             </div>
           </article>
           <article class="card glass-card create-director-card">
-            <h3 style="margin-top:0;">План по дням</h3>
+            <h3 style="margin-top:0;">${esc(shellText('planner_days_title'))}</h3>
             ${plannerView.sections}
           </article>
         </article>
-        <aside class="create-preview-col">
+        <aside class="create-preview-col create-preview-col-static">
           <article class="create-preview-card glass-card">
             <div class="row" style="justify-content:space-between;align-items:center;">
               <span class="small">${plannerConfig.panelLabel}</span>
-              <span class="small">${cfg.days} дней</span>
+              <span class="small">${esc(shellTextFmt('planner_panel_days', { days: cfg.days }))}</span>
             </div>
             <h3>${esc(plannerView.previewTitle)}</h3>
-            ${plannerConfig.previewType === 'video'
-              ? `<p class="small">${esc(plannerData.selectedPreviewItem ? planDayPreview(plannerData.selectedPreviewItem) : 'После генерации здесь появится подробное превью выбранного дня.')}</p>`
+              ${plannerConfig.previewType === 'video'
+              ? `<p class="small">${esc(plannerData.selectedPreviewItem ? planDayPreview(plannerData.selectedPreviewItem) : shellText('common_selected_day_preview'))}</p>`
               : ''}
             ${plannerView.preview}
           </article>
@@ -5691,7 +8186,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateDirector, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -5799,14 +8294,24 @@ function bindCommon() {
   if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
   const themeToggle = document.getElementById('themeToggleBtn');
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
-  const siteLangSelect = document.getElementById('siteLangSelect');
-  if (siteLangSelect && !siteLangSelect.dataset.boundAppLang) {
-    siteLangSelect.dataset.boundAppLang = '1';
-    siteLangSelect.addEventListener('change', () => {
-      const siteLang = String(siteLangSelect.value || '').trim();
+  const langSelects = Array.from(document.querySelectorAll('#siteLangSelect, #appShellLangSelect'));
+  const langLabels = Array.from(document.querySelectorAll('label[for="siteLangSelect"], label[for="appShellLangSelect"]'));
+  langSelects.forEach((langSelect) => {
+    langSelect.value = normalizeLang(state.lang) || 'en';
+    langSelect.setAttribute('aria-label', shellLanguageLabel());
+  });
+  langLabels.forEach((labelNode) => {
+    labelNode.textContent = shellLanguageLabel();
+  });
+  langSelects.forEach((langSelect) => {
+    if (langSelect.dataset.boundAppLang) return;
+    langSelect.dataset.boundAppLang = '1';
+    langSelect.addEventListener('change', () => {
+      const siteLang = String(langSelect.value || '').trim();
       setLanguage(siteLang, { persist: true });
+      render();
     });
-  }
+  });
 }
 
 async function bindCreateWizardV2(path) {
@@ -6682,7 +9187,7 @@ async function bindCreateWizardV2(path) {
 }
 
 async function bindCreateDirector(path) {
-  if (path !== '/create') return false;
+  if (!['/create/post', '/create/video'].includes(path)) return false;
   if (window.__campaignAutosaveTimer) {
     clearInterval(window.__campaignAutosaveTimer);
     window.__campaignAutosaveTimer = null;
@@ -6707,8 +9212,8 @@ async function bindCreateDirector(path) {
     try { localStorage.setItem(CREATE_DIRECTOR_TYPE_KEY, nextType); } catch {}
     try {
       const u = new URL(window.location.href);
-      if (nextType === 'video') u.searchParams.set('type', 'video');
-      else u.searchParams.delete('type');
+      u.pathname = nextType === 'video' ? '/create/video' : '/create/post';
+      u.searchParams.delete('type');
       history.replaceState({}, '', `${u.pathname}${u.search}${u.hash}`);
     } catch {}
   };
@@ -6718,7 +9223,8 @@ async function bindCreateDirector(path) {
     let queryType = '';
     try { localType = String(localStorage.getItem(CREATE_DIRECTOR_TYPE_KEY) || '').trim(); } catch {}
     try { queryType = String(new URLSearchParams(window.location.search).get('type') || '').trim(); } catch {}
-    const nextType = normalizeDirectorContentType(queryType || localType || d.contentType || 'post');
+    const forcedType = path === '/create/video' ? 'video' : 'post';
+    const nextType = normalizeDirectorContentType(forcedType || queryType || localType || d.contentType || 'post');
     persistContentType(nextType);
     d._contentTypeInited = true;
   };
@@ -6904,13 +9410,13 @@ async function bindCreateDirector(path) {
       && String(d.lastDraftAngle || '').trim() === String(d.selectedAngle || '').trim();
     const isVideoType = normalizeDirectorContentType(d.contentType || 'post') === 'video';
     const selectedThemePreviewText = [
-      String(effectiveSelectedTopic || baseTopic || '').trim() ? `Тема: ${String(effectiveSelectedTopic || baseTopic || '').trim()}` : '',
-      String(d.selectedAngle || '').trim() ? `Подход: ${String(d.selectedAngle || '').trim()}` : '',
-      'Готовим текст под выбранную тему…',
+      String(effectiveSelectedTopic || baseTopic || '').trim() ? shellTextFmt('create_director_preview_topic_line', { topic: String(effectiveSelectedTopic || baseTopic || '').trim() }) : '',
+      String(d.selectedAngle || '').trim() ? shellTextFmt('create_director_preview_angle_line', { angle: String(d.selectedAngle || '').trim() }) : '',
+      shellText('create_director_prepare_text'),
     ].filter(Boolean).join('\n');
     const videoTextState = isVideoType ? getVideoPreviewTextState(d, String(d.activePlatform || 'facebook')) : null;
     const nextText = isVideoType
-      ? String(videoTextState?.text || 'Сначала сгенерируйте структуру, затем соберите видео.')
+      ? String(videoTextState?.text || shellText('create_director_video_prepare_hint'))
       : resolveDirectorPostPreviewText({
         draft,
         draftMatchesSelection,
@@ -6928,7 +9434,7 @@ async function bindCreateDirector(path) {
     if (textEl) textEl.textContent = nextText;
     const toggleBtn = document.getElementById('cdPreviewToggleText');
     if (toggleBtn && isVideoType && videoTextState?.canExpand) {
-      toggleBtn.textContent = videoTextState.expanded ? 'Свернуть' : 'Открыть больше';
+      toggleBtn.textContent = videoTextState.expanded ? shellText('create_preview_collapse') : shellText('create_preview_open_more');
       toggleBtn.style.display = '';
     } else if (toggleBtn) {
       toggleBtn.style.display = 'none';
@@ -8325,7 +10831,7 @@ async function bindCreateDirector(path) {
     render();
     await generateContentFromCurrentSelection();
     if (schedule) {
-      state.notice = { type: 'ok', text: `День ${Number(item.day || 0)} подготовлен. Дата и время уже подставлены, можно нажать «Запланировать».` };
+      state.notice = { type: 'ok', text: shellTextFmt('create_director_day_ready_schedule', { day: Number(item.day || 0) }) };
       render();
     }
   };
@@ -8343,7 +10849,7 @@ async function bindCreateDirector(path) {
       const item = getPlanFlowItemByDay(day);
       if (!item) return;
       await openPlanDayForCreate(item, { schedule: false });
-      state.notice = { type: 'ok', text: `День ${day} открыт для ручной доработки в Create.` };
+      state.notice = { type: 'ok', text: shellTextFmt('create_director_day_opened', { day }) };
       render();
     };
   });
@@ -8846,11 +11352,11 @@ async function bindCreatePlanner(path) {
       const fallbackTags = (Array.isArray(d.selectedHashtags) ? d.selectedHashtags : []).slice(0, 5);
       const builtItems = slots.map((iso, idx) => {
         const entry = planEntries[idx] || {};
-        const entryTopic = String(entry.topic || '').trim() || `${topic}: ???? ${idx + 1}`;
-        const angle = String(entry.angle || '').trim() || '????? ???????????? ???';
-        const cta = String(entry.cta || d.selectedCta || '????????? ? ???????? ??????.').trim();
+        const entryTopic = String(entry.topic || '').trim() || `${topic}: ${shellTextFmt('planner_generated_topic_fallback', { index: idx + 1 })}`;
+        const angle = String(entry.angle || '').trim() || shellText('planner_generated_angle_fallback');
+        const cta = String(entry.cta || d.selectedCta || shellText('planner_generated_cta_fallback')).trim();
         const postDraft = String(entry.captionText || entry.postText || entry.caption || '').trim()
-          || `${entryTopic}. ???? ??????: ${angle}. ????? ???? ?????????? ???, ?????? ? ????? ??? ?????????.`;
+          || shellTextFmt('planner_generated_caption_fallback', { topic: entryTopic, angle });
         const hashTokens = (Array.isArray(entry.keywords) ? entry.keywords : fallbackTags)
           .map((x) => String(x || '').trim())
           .filter(Boolean)
@@ -8861,13 +11367,13 @@ async function bindCreatePlanner(path) {
           scheduled_at: iso,
           topic: entryTopic,
           angle,
-          format_hint: String(entry.contentFormat || entry.format || '').trim() || '????',
+          format_hint: String(entry.contentFormat || entry.format || '').trim() || '\u0422\u0435\u043c\u0430',
           content_shape: String(entry.contentShape || '').trim() || 'educational',
           caption_text: postDraft,
           post_text: postDraft,
           caption: postDraft,
           cta,
-          hashtags: hashTokens.join(' ') || '#??????? #????????? #smm',
+          hashtags: hashTokens.join(' ') || shellText('planner_generated_hashtags_fallback'),
           post_included: true,
         };
       });
@@ -9047,7 +11553,7 @@ async function bindCreatePlanner(path) {
     try {
       d.contentType = cfg.kind;
       try { localStorage.setItem(CREATE_DIRECTOR_TYPE_KEY, cfg.kind); } catch {}
-      history.pushState({}, '', `/create?type=${cfg.kind}`);
+      history.pushState({}, '', createStudioUrl(cfg.kind));
       await render();
     } finally {
       setPlanValue('Applying', false);
@@ -9509,7 +12015,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
         body: JSON.stringify({ project_id: payload.project_id, days: 7, limit: 20, platforms: payload.platforms }),
       });
       const queued = Number(warmup?.result?.created_posts || warmup?.created_posts || 0);
-      state.notice = { type: 'ok', text: queued > 0 ? `План на неделю готов: в очередь добавлено ${queued} пост(ов).` : 'На ближайшую неделю контент уже подготовлен.' };
+      state.notice = { type: 'ok', text: queued > 0 ? `${shellTextFmt('create_plan_ready_title', { title: shellText('create_plan_weekly_title') })}: ${queued}` : shellText('create_plan_ready_weekly') };
       nav('/history', { keepNotice: true });
     } catch (e) {
       state.notice = { type: 'error', text: e.message };
@@ -9555,7 +12061,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
         ? `Шаг 1: выберите тему или нажмите «Подобрать ${DIRECTOR_TOPIC_IDEA_COUNT} тем», затем сгенерируйте структуру видео.`
         : `Шаг 1: выберите тему или нажмите «Подобрать ${DIRECTOR_TOPIC_IDEA_COUNT} тем», затем сгенерируйте первый пост.`,
     };
-    nav('/create', { keepNotice: true });
+    nav(createStudioUrl(mode === 'video' ? 'video' : 'post'), { keepNotice: true });
   };
   const setDashboardQuickNiche = (value) => {
     ensureDashboardQuickStartState();
@@ -9653,7 +12159,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     query.set('quickAction', actionType);
     query.set('niche', nicheId);
     if (nextType === 'video') query.set('type', 'video');
-    nav(`/create?${query.toString()}`, { keepNotice: true });
+    nav(createStudioUrl(nextType, Object.fromEntries(query.entries())), { keepNotice: true });
   };
   const dashFirstPostBtn = document.getElementById('dashFirstPostBtn');
   if (dashFirstPostBtn) dashFirstPostBtn.onclick = () => openCreateFromDashboard('post');
@@ -9696,6 +12202,11 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       openDashboardQuickAction(String(btn.getAttribute('data-dash-quick-action') || '').trim());
     };
   });
+  document.querySelectorAll('[data-dash-open-create]').forEach((btn) => {
+    btn.onclick = () => {
+      openCreateFromDashboard(String(btn.getAttribute('data-dash-open-create') || '').trim() === 'video' ? 'video' : 'post');
+    };
+  });
   const dashOpenCalendarBtn = document.getElementById('dashOpenCalendarBtn');
   if (dashOpenCalendarBtn) dashOpenCalendarBtn.onclick = () => nav('/calendar');
   const dashAiBreakdownBtn = document.getElementById('dashAiBreakdownBtn');
@@ -9720,6 +12231,11 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     const insights = Array.isArray(state.dashboardMetrics?.insights) ? state.dashboardMetrics.insights : [];
     const bestFormat = insights.find((i) => String(i?.title || '').toLowerCase().includes('формат'));
     const bestDay = insights.find((i) => String(i?.title || '').toLowerCase().includes('день'));
+    const bestVideo = insights.find((i) => {
+      const hay = `${String(i?.title || '')} ${String(i?.text || '')}`.toLowerCase();
+      return hay.includes('video') || hay.includes('видео') || hay.includes('reel') || hay.includes('short');
+    });
+    const nextMode = bestVideo ? 'video' : 'post';
     state.createCampaign = {
       ...state.createCampaign,
       contentTone: 'friendly',
@@ -9727,8 +12243,8 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       topic: String(bestFormat?.text || bestDay?.text || state.createCampaign.topic || '').slice(0, 240),
       dirty: true,
     };
-    state.notice = { type: 'ok', text: 'Рекомендации применены. Параметры перенесены в Create.' };
-    nav('/create', { keepNotice: true });
+    state.notice = { type: 'ok', text: shellText('dashboard_insight_applied') };
+    nav(createStudioUrl(nextMode), { keepNotice: true });
   };
   const dashSyncMetricsBtn = document.getElementById('dashSyncMetricsBtn');
   if (dashSyncMetricsBtn) dashSyncMetricsBtn.onclick = async () => {
