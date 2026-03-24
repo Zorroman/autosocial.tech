@@ -451,6 +451,29 @@ const APP_SHELL_I18N = {
     create_planner_video30: 'Видео на 30 дней',
     create_planner_video30_subtitle: 'Месячный видеоплан для стабильной серии роликов.',
     create_post_studio_button: 'Студия постов',
+    create_post_studio_page_title: 'Создание контента',
+    create_post_studio_page_subtitle: 'AI подготовит недельный план публикаций: темы, тексты, CTA, хештеги и время публикации.',
+    create_post_studio_generate: 'Сгенерировать план',
+    create_post_studio_generate_30: 'Сформировать план на 30 дней',
+    create_post_studio_settings_title: 'Настройка',
+    create_post_studio_settings_note: 'AI использует эти данные, чтобы собрать релевантный контент-план под вашу нишу.',
+    create_post_studio_loading: 'AI генерирует контент...',
+    create_post_studio_days_title: 'План по дням',
+    create_post_studio_preview_title: 'Предпросмотр публикации',
+    create_post_studio_preview_empty: 'Выберите нишу и нажмите «Сгенерировать план», чтобы получить готовые публикации.',
+    create_post_studio_preview_hint: 'Справа появится готовый текст выбранного дня с CTA и хештегами.',
+    create_post_studio_auto_time: 'Автоматическое время публикации включено',
+    create_post_studio_manual_time_toggle: 'Изменить время вручную',
+    create_post_studio_manual_time_global: 'Общее время для всех публикаций',
+    create_post_studio_manual_time_item: 'Время для выбранного дня',
+    create_post_studio_publish_now: 'Опубликовать сейчас',
+    create_post_studio_schedule: 'Запланировать',
+    create_post_studio_day: 'День',
+    create_post_studio_plan_ready: 'План готов. Выберите день слева и сразу просмотрите готовый пост.',
+    create_post_studio_publish_ok: 'Публикация отправлена.',
+    create_post_studio_schedule_ok: 'Публикация запланирована.',
+    create_post_studio_publish_error: 'Не удалось отправить публикацию.',
+    create_post_studio_schedule_error: 'Не удалось запланировать публикацию.',
     create_video_studio_button: 'Студия видео',
     create_planner_button: 'Планировщик',
     create_youtube_studio_button: 'Студия YouTube',
@@ -680,6 +703,29 @@ const APP_SHELL_I18N = {
     create_planner_video30: 'Videos for 30 days',
     create_planner_video30_subtitle: 'A monthly video plan for a steady content series.',
     create_post_studio_button: 'Post Studio',
+    create_post_studio_page_title: 'Content creation',
+    create_post_studio_page_subtitle: 'AI prepares a weekly publishing plan with topics, post text, CTA, hashtags, and publish timing.',
+    create_post_studio_generate: 'Generate plan',
+    create_post_studio_generate_30: 'Build a 30-day plan',
+    create_post_studio_settings_title: 'Setup',
+    create_post_studio_settings_note: 'AI uses these inputs to build a relevant content plan for your niche.',
+    create_post_studio_loading: 'AI is generating content...',
+    create_post_studio_days_title: 'Plan by day',
+    create_post_studio_preview_title: 'Post preview',
+    create_post_studio_preview_empty: 'Choose a niche and click “Generate plan” to get ready-to-use posts.',
+    create_post_studio_preview_hint: 'The selected day will open here with full copy, CTA, and hashtags.',
+    create_post_studio_auto_time: 'Automatic publish time is enabled',
+    create_post_studio_manual_time_toggle: 'Adjust time manually',
+    create_post_studio_manual_time_global: 'Global time for all posts',
+    create_post_studio_manual_time_item: 'Time for selected day',
+    create_post_studio_publish_now: 'Publish now',
+    create_post_studio_schedule: 'Schedule',
+    create_post_studio_day: 'Day',
+    create_post_studio_plan_ready: 'Your plan is ready. Pick a day on the left to review the post instantly.',
+    create_post_studio_publish_ok: 'Publication was sent.',
+    create_post_studio_schedule_ok: 'Publication was scheduled.',
+    create_post_studio_publish_error: 'Could not publish this post.',
+    create_post_studio_schedule_error: 'Could not schedule this post.',
     create_video_studio_button: 'Video Studio',
     create_planner_button: 'Planner',
     create_youtube_studio_button: 'YouTube Studio',
@@ -6961,6 +7007,14 @@ function pageCreateDirector() {
   const selectedPlanDay = isPlanFlow
     ? (quickPlanItems.find((item) => Number(item.day || 0) === Number(d.planFlowSelectedDay || 1)) || quickPlanItems[0] || null)
     : null;
+  const isPostStudioFlow = !isVideo && !isPlanFlow && studioRoute?.mode === 'post';
+  const postStudioItems = isPostStudioFlow ? ((Array.isArray(d.planFlowItems) && d.planFlowItems.length) ? d.planFlowItems : []) : [];
+  const postStudioLoading = isPostStudioFlow && d.planFlowState === 'loading';
+  const postStudioError = isPostStudioFlow ? String(d.planFlowError || '').trim() : '';
+  const postStudioGenerated = isPostStudioFlow && d.planFlowState === 'generated' && postStudioItems.length > 0;
+  const selectedPostStudioItem = isPostStudioFlow
+    ? (postStudioItems.find((item) => Number(item.day || 0) === Number(d.planFlowSelectedDay || 1)) || postStudioItems[0] || null)
+    : null;
   const isHorizontalVideo = String(d.videoOrientation || 'vertical') === 'horizontal';
   const durationOptions = (isHorizontalVideo ? ['120', '180', '240', '300', '360', '420', '480'] : ['20', '30', '40', '60']).map((v) => ({ value: v, label: `${v} сек` }));
   const previewStateText = [
@@ -7538,6 +7592,148 @@ function pageCreateDirector() {
           </article>
           ${planSidebar}
         </div>
+      </section>
+    `);
+  }
+
+  if (isPostStudioFlow) {
+    const postStudioProgressSteps = ['create_plan_progress_1', 'create_plan_progress_2', 'create_plan_progress_3', 'create_plan_progress_4', 'create_plan_progress_5'].map((key) => shellText(key));
+    const postStudioCurrentProgressIdx = Math.max(0, Math.min(postStudioProgressSteps.length, Number(d.planFlowProgressStep || 0)));
+    const selectedPostStudioTime = (() => {
+      const iso = String(selectedPostStudioItem?.scheduled_at || '').trim();
+      if (!iso) return String(d.postStudioManualTimeValue || '12:00');
+      try {
+        return new Date(iso).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }).slice(0, 5);
+      } catch {
+        return String(d.postStudioManualTimeValue || '12:00');
+      }
+    })();
+    const postStudioHeroCard = `
+      <article class="card glass-card create-director-card plan-flow-hero-card">
+        <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
+        <h1 class="plan-flow-hero-title">${esc(shellText('create_post_studio_page_title'))}</h1>
+        <p class="plan-flow-hero-subtitle">${esc(shellText('create_post_studio_page_subtitle'))}</p>
+      </article>
+    `;
+    const postStudioSettingsCard = `
+      <article class="card glass-card create-director-card plan-flow-settings-card">
+        <div class="create-step-label">${esc(shellText('create_post_studio_settings_title'))}</div>
+        <div class="grid-2">
+          ${selectField('cdTopicPreset', shellText('planner_niche'), d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
+          ${selectField('cdGoal', shellText('common_goal') || 'Цель', d.goal || 'engagement', [{ value: 'awareness', label: shellText('common_goal_awareness') }, { value: 'engagement', label: shellText('common_goal_engagement') }, { value: 'lead', label: shellText('common_goal_sales') }, { value: 'sales', label: shellText('common_goal_sales') }])}
+          ${selectField('cdLang', shellText('planner_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
+          ${field('cdOffer', shellText('create_director_offer'), 'text', d.offer || '', shellText('create_director_offer_placeholder'))}
+        </div>
+        <label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> ${esc(shellText('create_director_custom_niche'))}</label>
+        ${d.customTopicMode ? field('cdTopic', shellText('create_director_custom_niche'), 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : ''}
+        <details class="create-pro-accordion" style="margin-top:12px;">
+          <summary>${esc(shellText('create_director_advanced'))}</summary>
+          <div class="grid-2" style="margin-top:12px;">
+            ${field('cdAudience', shellText('planner_topic_focus'), 'text', d.audienceSegment || '', 'Например: владельцы малого бизнеса')}
+            ${selectField('cdTone', shellText('planner_style'), d.tone || 'friendly', [{ value: 'friendly', label: 'Дружелюбный' }, { value: 'expert', label: 'Экспертный' }, { value: 'sales', label: 'Продающий' }, { value: 'neutral', label: 'Нейтральный' }])}
+          </div>
+        </details>
+        <p class="small create-plan-settings-note">${esc(shellText('create_post_studio_settings_note'))}</p>
+        <div class="cta-row plan-flow-primary-cta">
+          <button id="cdGeneratePostStudioPlan" class="btn btn-primary" type="button" ${postStudioLoading ? 'disabled' : ''}>${postStudioLoading ? esc(shellText('create_post_studio_loading')) : esc(shellText('create_post_studio_generate'))}</button>
+        </div>
+      </article>
+    `;
+    const postStudioProgressCard = postStudioLoading ? `
+      <article class="card glass-card create-director-card plan-flow-progress-card">
+        <h3 style="margin-top:0;">${esc(shellText('create_post_studio_loading'))}</h3>
+        <div class="plan-flow-progress-list">
+          ${postStudioProgressSteps.map((label, idx) => {
+            const stateCls = idx < postStudioCurrentProgressIdx ? 'done' : (idx === postStudioCurrentProgressIdx ? 'active' : '');
+            return `<div class="plan-flow-progress-item ${stateCls}"><span class="plan-flow-progress-dot"></span><span>${esc(label)}</span></div>`;
+          }).join('')}
+        </div>
+      </article>
+    ` : '';
+    const postStudioErrorCard = postStudioError ? `
+      <article class="card glass-card create-director-card plan-flow-error-card">
+        <h3 style="margin-top:0;">${esc(shellText('create_plan_error_title'))}</h3>
+        <p class="small">${esc(postStudioError)}</p>
+      </article>
+    ` : '';
+    const postStudioEmptyCard = (!postStudioGenerated && !postStudioLoading && !postStudioError) ? `
+      <article class="card glass-card create-director-card plan-flow-empty-card">
+        <h3 style="margin-top:0;">${esc(shellText('create_post_studio_preview_title'))}</h3>
+        <p class="small">${esc(shellText('create_post_studio_preview_empty'))}</p>
+      </article>
+    ` : '';
+    const postStudioResultsCard = postStudioGenerated ? `
+      <article class="card glass-card create-director-card plan-flow-results-card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="create-step-label">${esc(shellText('create_post_studio_days_title'))}</div>
+            <h3 style="margin:0 0 8px 0;">${esc(shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText('create_planner_post7') }) : shellText('create_planner_post7'))}</h3>
+            <p class="small" style="margin:0;">${esc(shellText('create_post_studio_plan_ready'))}</p>
+          </div>
+          <div class="cta-row">
+            <span class="pill active">${esc(shellText('create_post_studio_auto_time'))}</span>
+          </div>
+        </div>
+        <div class="post-studio-day-list">
+          ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
+            <div class="small">${esc(shellText('create_post_studio_day'))} ${Number(item.day || 0)}</div>
+            <strong>${esc(item.topic || '—')}</strong>
+            <p class="small truncate" style="margin:0;">${esc(String(item.angle || item.caption_text || item.post_text || '').trim() || '—')}</p>
+          </button>`).join('')}
+        </div>
+      </article>
+    ` : '';
+    const postStudioPreviewCard = `
+      <aside class="create-preview-col create-preview-col-static plan-flow-sidebar">
+        <article class="create-preview-card glass-card post-studio-preview-card">
+          <div class="create-step-label">${esc(shellText('create_post_studio_preview_title'))}</div>
+          ${selectedPostStudioItem
+            ? `
+              <h3 id="cdPostStudioPreviewTitle" style="margin-top:0;">${esc(selectedPostStudioItem.topic || '—')}</h3>
+              <p id="cdPostStudioPreviewState" class="small create-preview-state">${esc(planFormatLabel(selectedPostStudioItem.format_hint || selectedPostStudioItem.contentFormat || 'post'))}</p>
+              <p class="small" style="margin:0 0 10px 0;">${esc(shellText('create_post_studio_auto_time'))}</p>
+              <label class="create-toggle" style="margin-bottom:10px;"><input id="cdPostStudioManualTimeToggle" type="checkbox" ${d.postStudioManualTimeEnabled ? 'checked' : ''}/> ${esc(shellText('create_post_studio_manual_time_toggle'))}</label>
+              <div id="cdPostStudioManualTimeFields" style="display:block;opacity:${d.postStudioManualTimeEnabled ? '1' : '0.56'};">
+                <div class="field">
+                  <label for="cdPostStudioGlobalTime">${esc(shellText('create_post_studio_manual_time_global'))}</label>
+                  <input id="cdPostStudioGlobalTime" type="time" value="${esc(String(d.postStudioManualTimeValue || '12:00'))}" ${d.postStudioManualTimeEnabled ? '' : 'disabled'} />
+                </div>
+                <div class="field">
+                  <label for="cdPostStudioSelectedTime">${esc(shellText('create_post_studio_manual_time_item'))}</label>
+                  <input id="cdPostStudioSelectedTime" type="time" value="${esc(selectedPostStudioTime)}" ${d.postStudioManualTimeEnabled ? '' : 'disabled'} />
+                </div>
+              </div>
+              <p id="cdPostStudioPreviewText" class="create-preview-text" style="min-height:auto;white-space:pre-wrap;">${esc(String(selectedPostStudioItem.post_text || selectedPostStudioItem.caption_text || selectedPostStudioItem.caption || '').trim() || String(selectedPostStudioItem.angle || '').trim() || '—')}</p>
+              <div class="create-preview-meta-block">
+                <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> <span id="cdPostStudioPreviewCtaText">${esc(selectedPostStudioItem.cta || '—')}</span></p>
+                <div id="cdPostStudioPreviewTags" class="create-preview-tags">${String(selectedPostStudioItem.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || `<span class="small">—</span>`}</div>
+              </div>
+              <div id="cdPostStudioActions" class="cta-row" style="margin-top:12px;justify-content:flex-end;">
+                <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary">${esc(shellText('create_post_studio_publish_now'))}</button>
+                <button id="cdPostStudioSchedule" type="button" class="btn btn-primary">${esc(shellText('create_post_studio_schedule'))}</button>
+                <button id="cdPostStudioGenerate30" type="button" class="btn btn-ghost">${esc(shellText('create_post_studio_generate_30'))}</button>
+              </div>
+            `
+            : `
+              <h3 style="margin-top:0;">${esc(shellText('create_post_studio_preview_title'))}</h3>
+              <p class="small">${esc(shellText('create_post_studio_preview_empty'))}</p>
+              <p class="small create-preview-state">${esc(shellText('create_post_studio_preview_hint'))}</p>
+              ${postStudioLoading ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
+            `}
+        </article>
+      </aside>
+    `;
+    return appLayout('/create/post', shellText('page_create') || shellText('nav_create'), `
+      <section class="create-wizard-shell create-director-shell post-studio-shell">
+        <div class="create-main-col">
+          ${postStudioHeroCard}
+          ${postStudioSettingsCard}
+          ${postStudioProgressCard}
+          ${postStudioErrorCard}
+          ${postStudioEmptyCard}
+          ${postStudioResultsCard}
+        </div>
+        ${postStudioPreviewCard}
       </section>
     `);
   }
@@ -9203,6 +9399,8 @@ async function bindCreateDirector(path) {
   if (!Object.prototype.hasOwnProperty.call(d, 'topicPreset')) d.topicPreset = String(d.topic || DEFAULT_DIRECTOR_NICHE).trim() || DEFAULT_DIRECTOR_NICHE;
   if (!Object.prototype.hasOwnProperty.call(d, 'customTopicMode')) d.customTopicMode = false;
   if (!Object.prototype.hasOwnProperty.call(d, 'customBaseTopicInput')) d.customBaseTopicInput = String(d.topic || '').trim();
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeEnabled')) d.postStudioManualTimeEnabled = false;
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeValue')) d.postStudioManualTimeValue = '12:00';
   d.topicPreset = directorCurrentNicheId({ ...d, customTopicMode: false, topicPreset: d.topicPreset || DEFAULT_DIRECTOR_NICHE });
   if (!String(d.topicPreset || '').trim()) d.topicPreset = DEFAULT_DIRECTOR_NICHE;
   d.topic = directorBaseTopic(d, d.topic);
@@ -9508,6 +9706,13 @@ async function bindCreateDirector(path) {
     if (normalizeDirectorContentType(d.contentType || 'post') === 'video') {
       resetVideoGenerationState({ clearStructure: true });
     }
+  };
+  const resetPostStudioPlanState = () => {
+    d.planFlowState = 'idle';
+    d.planFlowItems = [];
+    d.planFlowError = '';
+    d.planFlowSelectedDay = 1;
+    d.planFlowProgressStep = 0;
   };
   const buildDirectorTopicPool = (seed = 0, incoming = []) => {
     const localPool = directorLocalTopicIdeas(d, DIRECTOR_TOPIC_IDEA_COUNT, seed);
@@ -10140,10 +10345,286 @@ async function bindCreateDirector(path) {
       render();
     }
   };
+  const buildPostStudioSlots = async (daysCount = 7) => {
+    const total = Math.max(1, Number(daysCount || 7) || 7);
+    const nextSlots = [];
+    const manualRaw = String(d.postStudioManualTimeValue || '12:00').trim() || '12:00';
+    const manualHour = Math.max(0, Math.min(23, Number(manualRaw.split(':')[0] || 12)));
+    const manualMinute = Math.max(0, Math.min(59, Number(manualRaw.split(':')[1] || 0)));
+    let aiHours = [];
+    if (!d.postStudioManualTimeEnabled && hasAdvancedAnalyticsAccess(state.billing?.plan || state.user?.plan || 'free')) {
+      try {
+        const preferredPlatform = d.platforms?.instagram ? 'instagram' : 'facebook';
+        const best = await api(`/api/ai/best-posting-times?days=90&platform=${encodeURIComponent(String(preferredPlatform).toLowerCase())}&horizon_days=${total}&posts_per_day=1`);
+        d.bestSlots = best || null;
+        aiHours = (Array.isArray(best?.best_hours) ? best.best_hours : [])
+          .map((h) => Math.max(0, Math.min(23, Number(h))))
+          .filter((h) => Number.isFinite(h));
+        const next = Array.isArray(best?.next_slots) ? best.next_slots.slice(0, total).filter(Boolean) : [];
+        if (next.length === total && !d.postStudioManualTimeEnabled) return next;
+      } catch {
+        d.bestSlots = null;
+      }
+    }
+    const now = new Date();
+    for (let day = 0; day < total; day += 1) {
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day, 0, 0, 0, 0);
+      const hour = aiHours[day % Math.max(1, aiHours.length)] ?? manualHour;
+      nextSlots.push(new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, manualMinute, 0, 0).toISOString());
+    }
+    return nextSlots;
+  };
+  const buildPostStudioPlan = async (daysCount = 7) => {
+    const base = collectPayloadBase();
+    if (!String(base.topic || '').trim()) {
+      d.planFlowError = 'Выберите нишу или укажите свою тему.';
+      d.planFlowState = 'error';
+      render();
+      return;
+    }
+    d.planFlowState = 'loading';
+    d.planFlowError = '';
+    d.planFlowItems = [];
+    d.planFlowProgressStep = 0;
+    state.notice = null;
+    render();
+    const advanceStep = async (idx, wait = 120) => {
+      d.planFlowProgressStep = idx;
+      render();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    };
+    try {
+      await advanceStep(0, 80);
+      const slots = await buildPostStudioSlots(daysCount);
+      await advanceStep(1, 80);
+      const suggestData = await fetchPlanAiSuggestions(daysCount);
+      await advanceStep(2, 80);
+      const builtItems = buildPlanFlowItemsFromAi({
+        count: daysCount,
+        topics: suggestData.topics,
+        angles: suggestData.angles,
+        ctaOptions: suggestData.ctaOptions,
+        hashtagSets: suggestData.hashtagSets,
+        slots,
+      }).map((item) => ({ ...item, format_hint: planFormatLabel(item.contentFormat || 'post') }));
+      const enrichedItems = [];
+      for (let idx = 0; idx < builtItems.length; idx += 1) {
+        const item = { ...builtItems[idx] };
+        try {
+          const draftsOut = await api('/api/ai/director/generate-drafts', {
+            method: 'POST',
+            body: JSON.stringify({
+              ...base,
+              topic: item.topic,
+              angle: item.angle,
+              variants: 1,
+              content_type: 'post',
+            }),
+            timeoutMs: 180000,
+          });
+          const incomingDrafts = normalizeDraftRowsForPreview(
+            Array.isArray(draftsOut?.data?.drafts) ? draftsOut.data.drafts : [],
+            item.topic,
+            item.angle,
+          );
+          const draft = incomingDrafts[0] || null;
+          if (draft) {
+            item.post_text = String(draft.post_text || '').trim();
+            item.caption_text = String(draft.post_text || '').trim();
+            item.caption = String(draft.post_text || '').trim();
+            item.cta = String(d.selectedCta || draft.cta || item.cta || '').trim();
+            item.hashtags = normalizeHashtagSet(Array.isArray(draft.hashtags) ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || ''))).join(' ');
+          }
+        } catch {
+          item.post_text = shellTextFmt('planner_generated_caption_fallback', { topic: item.topic, angle: item.angle || shellText('planner_generated_angle_fallback') });
+          item.caption_text = item.post_text;
+          item.caption = item.post_text;
+        }
+        enrichedItems.push(item);
+      }
+      await advanceStep(3, 80);
+      d.planFlowItems = enrichedItems;
+      d.planFlowState = 'generated';
+      d.planFlowSelectedDay = Number(enrichedItems[0]?.day || 1) || 1;
+      d.selectedCta = String(enrichedItems[0]?.cta || '').trim();
+      d.selectedHashtags = parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')).slice(0, 20);
+      await advanceStep(4, 0);
+      state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };
+    } catch (e) {
+      d.planFlowState = 'error';
+      d.planFlowItems = [];
+      d.planFlowError = e.message || 'Не удалось создать план. Попробуйте ещё раз.';
+    } finally {
+      d.planFlowProgressStep = 0;
+      render();
+    }
+  };
+  const getResolvedPostStudioItem = () => {
+    const list = Array.isArray(d.planFlowItems) ? d.planFlowItems : [];
+    if (!list.length) return null;
+    const selected = list.find((item) => Number(item.day || 0) === Number(d.planFlowSelectedDay || 1));
+    return selected || list[0] || null;
+  };
   const getPlanFlowItemByDay = (day) => {
     const dayNum = Number(day || 0) || 0;
     const list = Array.isArray(d.planFlowItems) ? d.planFlowItems : [];
     return list.find((item) => Number(item.day || 0) === dayNum) || null;
+  };
+  const decodePostStudioAttr = (value) => {
+    try { return decodeURIComponent(String(value || '')); } catch { return String(value || ''); }
+  };
+  const getResolvedPostStudioPreviewData = () => {
+    const selectedDay = Number(d.planFlowSelectedDay || 1) || 1;
+    const btn = document.querySelector(`[data-cd-poststudio-day="${selectedDay}"]`) || document.querySelector('[data-cd-poststudio-day]');
+    if (!btn) return null;
+    return {
+      day: Number(btn.getAttribute('data-cd-poststudio-day') || selectedDay) || selectedDay,
+      topic: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-topic')),
+      format_hint: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-format')) || 'post',
+      post_text: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-text')),
+      cta: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-cta')),
+      hashtags: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-tags')),
+      scheduled_at: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-scheduled')),
+    };
+  };
+  const getResolvedPostStudioActionItem = () => {
+    return getResolvedPostStudioPreviewData() || getPlanFlowItemByDay(d.planFlowSelectedDay);
+  };
+  const collectPostStudioItemsFromDom = () => {
+    return Array.from(document.querySelectorAll('[data-cd-poststudio-day]')).map((btn) => ({
+      day: Number(btn.getAttribute('data-cd-poststudio-day') || 0) || 0,
+      topic: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-topic')),
+      format_hint: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-format')) || 'post',
+      post_text: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-text')),
+      cta: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-cta')),
+      hashtags: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-tags')),
+      scheduled_at: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-scheduled')),
+    })).filter((item) => item.day > 0);
+  };
+  const syncPostStudioStateFromDom = () => {
+    const domItems = collectPostStudioItemsFromDom();
+    if (!domItems.length) return;
+    d.planFlowItems = domItems;
+    d.planFlowState = 'generated';
+    const activeBtn = document.querySelector('[data-cd-poststudio-day].is-selected');
+    const activeDay = Number(activeBtn?.getAttribute('data-cd-poststudio-day') || d.planFlowSelectedDay || domItems[0]?.day || 1) || 1;
+    d.planFlowSelectedDay = activeDay;
+  };
+  const updatePostStudioItemTime = (item, timeValue) => {
+    if (!item || !String(timeValue || '').trim()) return;
+    const dayNum = Number(item.day || 0) || 0;
+    if (!dayNum) return;
+    const list = Array.isArray(d.planFlowItems) ? d.planFlowItems.slice() : [];
+    const idx = list.findIndex((entry) => Number(entry.day || 0) === dayNum);
+    if (idx < 0) return;
+    const currentIso = String(list[idx].scheduled_at || '').trim();
+    const currentDate = currentIso ? new Date(currentIso) : new Date();
+    const nextHour = Math.max(0, Math.min(23, Number(String(timeValue || '12:00').split(':')[0] || 12)));
+    const nextMinute = Math.max(0, Math.min(59, Number(String(timeValue || '12:00').split(':')[1] || 0)));
+    currentDate.setHours(nextHour, nextMinute, 0, 0);
+    list[idx] = { ...list[idx], scheduled_at: currentDate.toISOString() };
+    d.planFlowItems = list;
+  };
+  const createStudioPostRecord = async (item, { schedule = false } = {}) => {
+    if (!item) throw new Error('Сначала выберите день плана.');
+    const payload = {
+      project_id: selectedProjectId() || undefined,
+      topic: String(item.topic || '').trim(),
+      category: directorBaseTopic(d, d.topic) || directorCurrentNicheMeta(d)?.label || null,
+      platform: d.platforms?.instagram && !d.platforms?.facebook ? 'instagram' : 'facebook',
+      language: d.language || 'ru',
+      tone: d.tone || 'friendly',
+      generated_text: String(item.post_text || item.caption_text || item.caption || '').trim(),
+      save_as_draft: true,
+    };
+    if (schedule) payload.schedule_at = String(item.scheduled_at || '').trim();
+    const created = await api('/api/posts', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 180000 });
+    const postId = Number(created?.id || 0) || 0;
+    if (!postId) throw new Error(schedule ? shellText('create_post_studio_schedule_error') : shellText('create_post_studio_publish_error'));
+    if (schedule) return created;
+    await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 });
+    return created;
+  };
+  const refreshPostStudioPreviewDom = (nextManualMode = null) => {
+    const item = getResolvedPostStudioPreviewData() || getResolvedPostStudioItem();
+    document.querySelectorAll('[data-cd-poststudio-day]').forEach((btn) => {
+      const day = Number(btn.getAttribute('data-cd-poststudio-day') || 0) || 0;
+      btn.classList.toggle('is-selected', !!item && Number(item.day || 0) === day);
+    });
+    const titleEl = document.getElementById('cdPostStudioPreviewTitle');
+    const stateEl = document.getElementById('cdPostStudioPreviewState');
+    const textEl = document.getElementById('cdPostStudioPreviewText');
+    const ctaEl = document.getElementById('cdPostStudioPreviewCtaText');
+    const tagsEl = document.getElementById('cdPostStudioPreviewTags');
+    const manualToggleEl = document.getElementById('cdPostStudioManualTimeToggle');
+    const manualWrapEl = document.getElementById('cdPostStudioManualTimeFields');
+    const globalTimeEl = document.getElementById('cdPostStudioGlobalTime');
+    const selectedTimeEl = document.getElementById('cdPostStudioSelectedTime');
+    const actionRowEl = document.getElementById('cdPostStudioActions');
+    const manualEnabled = nextManualMode == null
+      ? !!d.postStudioManualTimeEnabled
+      : !!nextManualMode;
+    d.postStudioManualTimeEnabled = manualEnabled;
+    if (!item) {
+      if (titleEl) titleEl.textContent = shellText('create_post_studio_preview_title');
+      if (stateEl) stateEl.textContent = shellText('create_post_studio_preview_hint');
+      if (textEl) textEl.textContent = shellText('create_post_studio_preview_empty');
+      if (ctaEl) ctaEl.textContent = '—';
+      if (tagsEl) tagsEl.innerHTML = '<span class="small">—</span>';
+      if (manualWrapEl) {
+        manualWrapEl.style.display = 'block';
+        manualWrapEl.style.visibility = 'visible';
+        manualWrapEl.style.opacity = '0.56';
+      }
+      if (globalTimeEl) {
+        globalTimeEl.disabled = true;
+        globalTimeEl.style.display = 'none';
+        globalTimeEl.style.visibility = 'visible';
+      }
+      if (selectedTimeEl) {
+        selectedTimeEl.disabled = true;
+        selectedTimeEl.style.display = 'none';
+        selectedTimeEl.style.visibility = 'visible';
+      }
+      if (actionRowEl) actionRowEl.style.display = 'none';
+      return;
+    }
+    if (titleEl) titleEl.textContent = String(item.topic || '—').trim() || '—';
+    if (stateEl) stateEl.textContent = planFormatLabel(item.format_hint || item.contentFormat || 'post');
+    if (textEl) textEl.textContent = String(item.post_text || item.caption_text || item.caption || item.angle || '—').trim() || '—';
+    if (ctaEl) ctaEl.textContent = String(item.cta || '—').trim() || '—';
+    if (tagsEl) {
+      const tags = String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10);
+      tagsEl.innerHTML = tags.length ? tags.map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') : '<span class="small">—</span>';
+    }
+    if (manualToggleEl) manualToggleEl.checked = manualEnabled;
+    if (manualWrapEl) {
+      manualWrapEl.style.display = 'block';
+      manualWrapEl.style.visibility = 'visible';
+      manualWrapEl.style.opacity = manualEnabled ? '1' : '0.56';
+    }
+    if (globalTimeEl) {
+      globalTimeEl.style.display = 'block';
+      globalTimeEl.style.visibility = 'visible';
+      globalTimeEl.value = String(d.postStudioManualTimeValue || '12:00');
+      globalTimeEl.disabled = !manualEnabled;
+      globalTimeEl.readOnly = !manualEnabled;
+    }
+    if (selectedTimeEl) {
+      selectedTimeEl.style.display = 'block';
+      selectedTimeEl.style.visibility = 'visible';
+      const iso = String(item.scheduled_at || '').trim();
+      if (iso) {
+        try {
+          selectedTimeEl.value = new Date(iso).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }).slice(0, 5);
+        } catch {}
+      } else {
+        selectedTimeEl.value = String(d.postStudioManualTimeValue || '12:00');
+      }
+      selectedTimeEl.disabled = !manualEnabled;
+      selectedTimeEl.readOnly = !manualEnabled;
+    }
+    if (actionRowEl) actionRowEl.style.display = '';
   };
   const applyPlanItemToDirector = (item) => {
     if (!item) return;
@@ -10514,6 +10995,14 @@ async function bindCreateDirector(path) {
     }
     generateDirector();
   };
+  const genPostStudioPlanBtn = document.getElementById('cdGeneratePostStudioPlan');
+  if (genPostStudioPlanBtn) genPostStudioPlanBtn.onclick = async () => {
+    await buildPostStudioPlan(7);
+  };
+  const genPostStudio30Btn = document.getElementById('cdPostStudioGenerate30');
+  if (genPostStudio30Btn) genPostStudio30Btn.onclick = async () => {
+    await buildPostStudioPlan(30);
+  };
   const generatePlanFlowBtn = document.getElementById('cdGeneratePlanFlow');
   if (generatePlanFlowBtn) generatePlanFlowBtn.onclick = async () => {
     await runPlanFlow();
@@ -10810,6 +11299,12 @@ async function bindCreateDirector(path) {
       render();
     };
   });
+  document.querySelectorAll('[data-cd-poststudio-day]').forEach((btn) => {
+    btn.onclick = () => {
+      d.planFlowSelectedDay = Number(btn.getAttribute('data-cd-poststudio-day') || 1) || 1;
+      refreshPostStudioPreviewDom();
+    };
+  });
   const openPlanDayForCreate = async (item, { schedule = false } = {}) => {
     if (!item) return;
     applyPlanItemToDirector(item);
@@ -10903,6 +11398,7 @@ async function bindCreateDirector(path) {
         if (id === 'cdTopicPreset') {
           d.topicPreset = String(el.value || DEFAULT_DIRECTOR_NICHE).trim() || DEFAULT_DIRECTOR_NICHE;
           resetDirectorTopicSelection({ keepManualInput: false });
+          if (studioRoute?.mode === 'post') resetPostStudioPlanState();
           d.topic = directorBaseTopic(d, d.topic);
           render();
           return;
@@ -10911,13 +11407,14 @@ async function bindCreateDirector(path) {
           d.customBaseTopicInput = el.value;
           if (d.customTopicMode) {
             resetDirectorTopicSelection({ keepManualInput: false });
+            if (studioRoute?.mode === 'post') resetPostStudioPlanState();
             d.topic = directorBaseTopic(d, d.topic);
           }
         }
         if (id === 'cdManualTopic') d.manualTopicInput = el.value;
-        if (id === 'cdOffer') d.offer = el.value;
-        if (id === 'cdGoal') d.goal = el.value;
-        if (id === 'cdLang') d.language = normalizeContentLanguage(el.value);
+        if (id === 'cdOffer') { d.offer = el.value; if (studioRoute?.mode === 'post') resetPostStudioPlanState(); }
+        if (id === 'cdGoal') { d.goal = el.value; if (studioRoute?.mode === 'post') resetPostStudioPlanState(); }
+        if (id === 'cdLang') { d.language = normalizeContentLanguage(el.value); if (studioRoute?.mode === 'post') resetPostStudioPlanState(); }
         if (id === 'cdTone') d.tone = el.value;
         if (id === 'cdVideoOrientation') d.videoOrientation = el.value;
         if (id === 'cdVideoShotSeconds') d.videoShotSeconds = Math.max(2, Math.min(12, Number(el.value || 4) || 4));
@@ -10956,7 +11453,107 @@ async function bindCreateDirector(path) {
     customTopicModeEl.onchange = () => {
       d.customTopicMode = !!customTopicModeEl.checked;
       resetDirectorTopicSelection({ keepManualInput: false });
+      if (studioRoute?.mode === 'post') resetPostStudioPlanState();
       d.topic = directorBaseTopic(d, d.topic);
+      render();
+    };
+  }
+  const postStudioManualToggleEl = document.getElementById('cdPostStudioManualTimeToggle');
+  if (postStudioManualToggleEl) {
+    const applyPostStudioManualToggle = (event) => {
+      const nextManualMode = !!(event?.currentTarget?.checked ?? document.getElementById('cdPostStudioManualTimeToggle')?.checked);
+      d.postStudioManualTimeEnabled = nextManualMode;
+      const manualWrapEl = document.getElementById('cdPostStudioManualTimeFields');
+      const globalTimeEl = document.getElementById('cdPostStudioGlobalTime');
+      const selectedTimeEl = document.getElementById('cdPostStudioSelectedTime');
+      if (manualWrapEl) {
+        manualWrapEl.style.display = 'block';
+        manualWrapEl.style.visibility = 'visible';
+        manualWrapEl.style.opacity = nextManualMode ? '1' : '0.56';
+      }
+      if (globalTimeEl) {
+        globalTimeEl.style.display = 'block';
+        globalTimeEl.style.visibility = 'visible';
+        globalTimeEl.disabled = !nextManualMode;
+        globalTimeEl.readOnly = !nextManualMode;
+      }
+      if (selectedTimeEl) {
+        selectedTimeEl.style.display = 'block';
+        selectedTimeEl.style.visibility = 'visible';
+        selectedTimeEl.disabled = !nextManualMode;
+        selectedTimeEl.readOnly = !nextManualMode;
+      }
+      refreshPostStudioPreviewDom(nextManualMode);
+    };
+    postStudioManualToggleEl.onclick = applyPostStudioManualToggle;
+    postStudioManualToggleEl.oninput = applyPostStudioManualToggle;
+    postStudioManualToggleEl.onchange = applyPostStudioManualToggle;
+  }
+  const postStudioGlobalTimeEl = document.getElementById('cdPostStudioGlobalTime');
+  if (postStudioGlobalTimeEl) {
+    postStudioGlobalTimeEl.oninput = () => {
+      d.postStudioManualTimeValue = String(postStudioGlobalTimeEl.value || '12:00');
+      d.planFlowItems = (Array.isArray(d.planFlowItems) ? d.planFlowItems : []).map((item) => {
+        const currentIso = String(item?.scheduled_at || '').trim();
+        const currentDate = currentIso ? new Date(currentIso) : new Date();
+        const nextHour = Math.max(0, Math.min(23, Number(String(d.postStudioManualTimeValue || '12:00').split(':')[0] || 12)));
+        const nextMinute = Math.max(0, Math.min(59, Number(String(d.postStudioManualTimeValue || '12:00').split(':')[1] || 0)));
+        currentDate.setHours(nextHour, nextMinute, 0, 0);
+        return { ...(item || {}), scheduled_at: currentDate.toISOString() };
+      });
+      document.querySelectorAll('[data-cd-poststudio-day]').forEach((btn) => {
+        const currentIso = decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-scheduled'));
+        const currentDate = currentIso ? new Date(currentIso) : new Date();
+        const nextHour = Math.max(0, Math.min(23, Number(String(d.postStudioManualTimeValue || '12:00').split(':')[0] || 12)));
+        const nextMinute = Math.max(0, Math.min(59, Number(String(d.postStudioManualTimeValue || '12:00').split(':')[1] || 0)));
+        currentDate.setHours(nextHour, nextMinute, 0, 0);
+        btn.setAttribute('data-cd-poststudio-scheduled', encodeURIComponent(currentDate.toISOString()));
+      });
+      refreshPostStudioPreviewDom();
+    };
+    postStudioGlobalTimeEl.onchange = postStudioGlobalTimeEl.oninput;
+  }
+  const postStudioSelectedTimeEl = document.getElementById('cdPostStudioSelectedTime');
+  if (postStudioSelectedTimeEl) {
+    postStudioSelectedTimeEl.oninput = () => {
+      const timeValue = String(postStudioSelectedTimeEl.value || '12:00');
+      updatePostStudioItemTime(getPlanFlowItemByDay(d.planFlowSelectedDay), timeValue);
+      const selectedBtn = document.querySelector(`[data-cd-poststudio-day="${Number(d.planFlowSelectedDay || 1) || 1}"]`);
+      if (selectedBtn) {
+        const currentIso = decodePostStudioAttr(selectedBtn.getAttribute('data-cd-poststudio-scheduled'));
+        const currentDate = currentIso ? new Date(currentIso) : new Date();
+        const nextHour = Math.max(0, Math.min(23, Number(String(timeValue || '12:00').split(':')[0] || 12)));
+        const nextMinute = Math.max(0, Math.min(59, Number(String(timeValue || '12:00').split(':')[1] || 0)));
+        currentDate.setHours(nextHour, nextMinute, 0, 0);
+        selectedBtn.setAttribute('data-cd-poststudio-scheduled', encodeURIComponent(currentDate.toISOString()));
+      }
+      refreshPostStudioPreviewDom();
+    };
+    postStudioSelectedTimeEl.onchange = postStudioSelectedTimeEl.oninput;
+  }
+  const postStudioPublishBtn = document.getElementById('cdPostStudioPublishNow');
+  if (postStudioPublishBtn) {
+    postStudioPublishBtn.onclick = async () => {
+      try {
+        await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: false });
+        state.notice = { type: 'ok', text: shellText('create_post_studio_publish_ok') };
+        syncPostStudioStateFromDom();
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_publish_error') };
+      }
+      render();
+    };
+  }
+  const postStudioScheduleBtn = document.getElementById('cdPostStudioSchedule');
+  if (postStudioScheduleBtn) {
+    postStudioScheduleBtn.onclick = async () => {
+      try {
+        await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: true });
+        state.notice = { type: 'ok', text: shellText('create_post_studio_schedule_ok') };
+        syncPostStudioStateFromDom();
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_schedule_error') };
+      }
       render();
     };
   }
