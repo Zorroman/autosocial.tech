@@ -451,17 +451,31 @@ const APP_SHELL_I18N = {
     create_planner_video30: 'Видео на 30 дней',
     create_planner_video30_subtitle: 'Месячный видеоплан для стабильной серии роликов.',
     create_post_studio_button: 'Студия постов',
-    create_post_studio_page_title: 'Создание контента',
-    create_post_studio_page_subtitle: 'AI подготовит недельный план публикаций: темы, тексты, CTA, хештеги и время публикации.',
-    create_post_studio_generate: 'Сгенерировать план',
+    create_post_studio_page_title: 'Создайте контент-план на 7 или 30 дней за 10 секунд',
+    create_post_studio_page_subtitle: 'AI автоматически создаст темы, тексты, CTA, хештеги и оптимальное время публикации для ваших соцсетей.',
+    create_post_studio_generate: 'Создать контент-план →',
+    create_post_studio_generate_7: 'Создать план на 7 дней →',
+    create_post_studio_generate_30_cta: 'Создать план на 30 дней →',
     create_post_studio_generate_30: 'Сформировать план на 30 дней',
     create_post_studio_settings_title: 'Настройка',
     create_post_studio_settings_note: 'AI использует эти данные, чтобы собрать релевантный контент-план под вашу нишу.',
     create_post_studio_loading: 'AI генерирует контент...',
+    create_post_studio_benefits_title: 'Что вы получите:',
+    create_post_studio_benefit_1: 'готовый план на 7 или 30 дней',
+    create_post_studio_benefit_2: 'тексты постов и призывы к действию',
+    create_post_studio_benefit_3: 'релевантные хештеги',
+    create_post_studio_benefit_4: 'оптимальное время публикации',
+    create_post_studio_length_label: 'Длина плана',
+    create_post_studio_length_7: '7 дней',
+    create_post_studio_length_30: '30 дней',
     create_post_studio_days_title: 'План по дням',
-    create_post_studio_preview_title: 'Предпросмотр публикации',
-    create_post_studio_preview_empty: 'Выберите нишу и нажмите «Сгенерировать план», чтобы получить готовые публикации.',
-    create_post_studio_preview_hint: 'Справа появится готовый текст выбранного дня с CTA и хештегами.',
+    create_post_studio_preview_title: 'Как будет выглядеть результат',
+    create_post_studio_preview_empty: 'После генерации слева появятся посты по дням, а справа — полный предпросмотр выбранной публикации.',
+    create_post_studio_preview_hint: 'Вы увидите тексты, управление временем публикации и действия для публикации или планирования.',
+    create_post_studio_preview_sample_day: 'Понедельник',
+    create_post_studio_preview_sample_title: '3 ошибки в SMM, которые мешают продажам...',
+    create_post_studio_preview_sample_cta: 'CTA: Напишите в сообщения',
+    create_post_studio_preview_sample_tags: '#smm #маркетинг',
     create_post_studio_auto_time: 'Автоматическое время публикации включено',
     create_post_studio_manual_time_toggle: 'Изменить время вручную',
     create_post_studio_manual_time_global: 'Общее время для всех публикаций',
@@ -703,17 +717,31 @@ const APP_SHELL_I18N = {
     create_planner_video30: 'Videos for 30 days',
     create_planner_video30_subtitle: 'A monthly video plan for a steady content series.',
     create_post_studio_button: 'Post Studio',
-    create_post_studio_page_title: 'Content creation',
-    create_post_studio_page_subtitle: 'AI prepares a weekly publishing plan with topics, post text, CTA, hashtags, and publish timing.',
-    create_post_studio_generate: 'Generate plan',
+    create_post_studio_page_title: 'Create a 7- or 30-day content plan in 10 seconds',
+    create_post_studio_page_subtitle: 'AI automatically creates topics, post copy, CTA, hashtags, and the best publish timing for your social channels.',
+    create_post_studio_generate: 'Create content plan →',
+    create_post_studio_generate_7: 'Create a 7-day plan →',
+    create_post_studio_generate_30_cta: 'Create a 30-day plan →',
     create_post_studio_generate_30: 'Build a 30-day plan',
     create_post_studio_settings_title: 'Setup',
     create_post_studio_settings_note: 'AI uses these inputs to build a relevant content plan for your niche.',
     create_post_studio_loading: 'AI is generating content...',
+    create_post_studio_benefits_title: 'What you get:',
+    create_post_studio_benefit_1: 'a ready plan for 7 or 30 days',
+    create_post_studio_benefit_2: 'post copy and calls to action',
+    create_post_studio_benefit_3: 'relevant hashtags',
+    create_post_studio_benefit_4: 'optimal publish timing',
+    create_post_studio_length_label: 'Plan length',
+    create_post_studio_length_7: '7 days',
+    create_post_studio_length_30: '30 days',
     create_post_studio_days_title: 'Plan by day',
-    create_post_studio_preview_title: 'Post preview',
-    create_post_studio_preview_empty: 'Choose a niche and click “Generate plan” to get ready-to-use posts.',
-    create_post_studio_preview_hint: 'The selected day will open here with full copy, CTA, and hashtags.',
+    create_post_studio_preview_title: 'How the result will look',
+    create_post_studio_preview_empty: 'After generation, you will see posts by day on the left and a full preview of the selected post on the right.',
+    create_post_studio_preview_hint: 'You will also get timing controls plus actions to publish or schedule the selected post.',
+    create_post_studio_preview_sample_day: 'Monday',
+    create_post_studio_preview_sample_title: '3 SMM mistakes that quietly block sales...',
+    create_post_studio_preview_sample_cta: 'CTA: Send us a message',
+    create_post_studio_preview_sample_tags: '#smm #marketing',
     create_post_studio_auto_time: 'Automatic publish time is enabled',
     create_post_studio_manual_time_toggle: 'Adjust time manually',
     create_post_studio_manual_time_global: 'Global time for all posts',
@@ -7599,6 +7627,9 @@ function pageCreateDirector() {
   if (isPostStudioFlow) {
     const postStudioProgressSteps = ['create_plan_progress_1', 'create_plan_progress_2', 'create_plan_progress_3', 'create_plan_progress_4', 'create_plan_progress_5'].map((key) => shellText(key));
     const postStudioCurrentProgressIdx = Math.max(0, Math.min(postStudioProgressSteps.length, Number(d.planFlowProgressStep || 0)));
+    const postStudioPlanDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
+    const postStudioPrimaryCta = postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7');
+    const postStudioResultTitleKey = postStudioItems.length >= 30 ? 'create_planner_post30' : 'create_planner_post7';
     const selectedPostStudioTime = (() => {
       const iso = String(selectedPostStudioItem?.scheduled_at || '').trim();
       if (!iso) return String(d.postStudioManualTimeValue || '12:00');
@@ -7613,11 +7644,27 @@ function pageCreateDirector() {
         <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
         <h1 class="plan-flow-hero-title">${esc(shellText('create_post_studio_page_title'))}</h1>
         <p class="plan-flow-hero-subtitle">${esc(shellText('create_post_studio_page_subtitle'))}</p>
+        <div class="post-studio-benefits">
+          <div class="small"><strong>${esc(shellText('create_post_studio_benefits_title'))}</strong></div>
+          <ul class="post-studio-benefits-list">
+            <li>${esc(shellText('create_post_studio_benefit_1'))}</li>
+            <li>${esc(shellText('create_post_studio_benefit_2'))}</li>
+            <li>${esc(shellText('create_post_studio_benefit_3'))}</li>
+            <li>${esc(shellText('create_post_studio_benefit_4'))}</li>
+          </ul>
+        </div>
       </article>
     `;
     const postStudioSettingsCard = `
       <article class="card glass-card create-director-card plan-flow-settings-card">
         <div class="create-step-label">${esc(shellText('create_post_studio_settings_title'))}</div>
+        <div class="field">
+          <label>${esc(shellText('create_post_studio_length_label'))}</label>
+          <div class="create-segmented-control post-studio-plan-toggle">
+            <button id="cdPostStudioDays7" type="button" class="pill pill-btn ${postStudioPlanDays === 7 ? 'active' : ''}">${esc(shellText('create_post_studio_length_7'))}</button>
+            <button id="cdPostStudioDays30" type="button" class="pill pill-btn ${postStudioPlanDays === 30 ? 'active' : ''}">${esc(shellText('create_post_studio_length_30'))}</button>
+          </div>
+        </div>
         <div class="grid-2">
           ${selectField('cdTopicPreset', shellText('planner_niche'), d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
           ${selectField('cdGoal', shellText('common_goal') || 'Цель', d.goal || 'engagement', [{ value: 'awareness', label: shellText('common_goal_awareness') }, { value: 'engagement', label: shellText('common_goal_engagement') }, { value: 'lead', label: shellText('common_goal_sales') }, { value: 'sales', label: shellText('common_goal_sales') }])}
@@ -7635,7 +7682,7 @@ function pageCreateDirector() {
         </details>
         <p class="small create-plan-settings-note">${esc(shellText('create_post_studio_settings_note'))}</p>
         <div class="cta-row plan-flow-primary-cta">
-          <button id="cdGeneratePostStudioPlan" class="btn btn-primary" type="button" ${postStudioLoading ? 'disabled' : ''}>${postStudioLoading ? esc(shellText('create_post_studio_loading')) : esc(shellText('create_post_studio_generate'))}</button>
+          <button id="cdGeneratePostStudioPlan" class="btn btn-primary" type="button" ${postStudioLoading ? 'disabled' : ''}>${postStudioLoading ? esc(shellText('create_post_studio_loading')) : esc(postStudioPrimaryCta)}</button>
         </div>
       </article>
     `;
@@ -7667,7 +7714,7 @@ function pageCreateDirector() {
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div>
             <div class="create-step-label">${esc(shellText('create_post_studio_days_title'))}</div>
-            <h3 style="margin:0 0 8px 0;">${esc(shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText('create_planner_post7') }) : shellText('create_planner_post7'))}</h3>
+            <h3 style="margin:0 0 8px 0;">${esc(shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText(postStudioResultTitleKey) }) : shellText(postStudioResultTitleKey))}</h3>
             <p class="small" style="margin:0;">${esc(shellText('create_post_studio_plan_ready'))}</p>
           </div>
           <div class="cta-row">
@@ -7718,6 +7765,14 @@ function pageCreateDirector() {
               <h3 style="margin-top:0;">${esc(shellText('create_post_studio_preview_title'))}</h3>
               <p class="small">${esc(shellText('create_post_studio_preview_empty'))}</p>
               <p class="small create-preview-state">${esc(shellText('create_post_studio_preview_hint'))}</p>
+              <div class="post-studio-sample-card">
+                <div class="small"><strong>${esc(shellText('create_post_studio_preview_sample_day'))}</strong></div>
+                <p class="post-studio-sample-title">${esc(shellText('create_post_studio_preview_sample_title'))}</p>
+                <p class="small">${esc(shellText('create_post_studio_preview_sample_cta'))}</p>
+                <div class="create-preview-tags">
+                  ${String(shellText('create_post_studio_preview_sample_tags')).split(/\s+/).filter(Boolean).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('')}
+                </div>
+              </div>
               ${postStudioLoading ? '<div class="create-skeleton-lines"><span></span><span></span><span></span></div>' : ''}
             `}
         </article>
@@ -9401,6 +9456,7 @@ async function bindCreateDirector(path) {
   if (!Object.prototype.hasOwnProperty.call(d, 'customBaseTopicInput')) d.customBaseTopicInput = String(d.topic || '').trim();
   if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeEnabled')) d.postStudioManualTimeEnabled = false;
   if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeValue')) d.postStudioManualTimeValue = '12:00';
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioPlanDays')) d.postStudioPlanDays = 7;
   d.topicPreset = directorCurrentNicheId({ ...d, customTopicMode: false, topicPreset: d.topicPreset || DEFAULT_DIRECTOR_NICHE });
   if (!String(d.topicPreset || '').trim()) d.topicPreset = DEFAULT_DIRECTOR_NICHE;
   d.topic = directorBaseTopic(d, d.topic);
@@ -10397,7 +10453,7 @@ async function bindCreateDirector(path) {
       await advanceStep(0, 80);
       const slots = await buildPostStudioSlots(daysCount);
       await advanceStep(1, 80);
-      const suggestData = await fetchPlanAiSuggestions(daysCount);
+      const suggestData = await fetchPlanAiSuggestions(Math.min(daysCount, DIRECTOR_TOPIC_IDEA_COUNT));
       await advanceStep(2, 80);
       const builtItems = buildPlanFlowItemsFromAi({
         count: daysCount,
@@ -10407,9 +10463,8 @@ async function bindCreateDirector(path) {
         hashtagSets: suggestData.hashtagSets,
         slots,
       }).map((item) => ({ ...item, format_hint: planFormatLabel(item.contentFormat || 'post') }));
-      const enrichedItems = [];
-      for (let idx = 0; idx < builtItems.length; idx += 1) {
-        const item = { ...builtItems[idx] };
+      const enrichPostStudioItem = async (seedItem) => {
+        const item = { ...seedItem };
         try {
           const draftsOut = await api('/api/ai/director/generate-drafts', {
             method: 'POST',
@@ -10440,7 +10495,14 @@ async function bindCreateDirector(path) {
           item.caption_text = item.post_text;
           item.caption = item.post_text;
         }
-        enrichedItems.push(item);
+        return item;
+      };
+      const enrichedItems = [];
+      const draftBatchSize = daysCount >= 30 ? 5 : 3;
+      for (let idx = 0; idx < builtItems.length; idx += draftBatchSize) {
+        const chunk = builtItems.slice(idx, idx + draftBatchSize);
+        const chunkItems = await Promise.all(chunk.map((item) => enrichPostStudioItem(item)));
+        enrichedItems.push(...chunkItems);
       }
       await advanceStep(3, 80);
       d.planFlowItems = enrichedItems;
@@ -10625,6 +10687,19 @@ async function bindCreateDirector(path) {
       selectedTimeEl.readOnly = !manualEnabled;
     }
     if (actionRowEl) actionRowEl.style.display = '';
+  };
+  const refreshPostStudioPlanDaysUi = () => {
+    const currentDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
+    const days7Btn = document.getElementById('cdPostStudioDays7');
+    const days30Btn = document.getElementById('cdPostStudioDays30');
+    const generateBtn = document.getElementById('cdGeneratePostStudioPlan');
+    if (days7Btn) days7Btn.classList.toggle('active', currentDays === 7);
+    if (days30Btn) days30Btn.classList.toggle('active', currentDays === 30);
+    if (generateBtn && d.planFlowState !== 'loading') {
+      generateBtn.textContent = currentDays === 30
+        ? shellText('create_post_studio_generate_30_cta')
+        : shellText('create_post_studio_generate_7');
+    }
   };
   const applyPlanItemToDirector = (item) => {
     if (!item) return;
@@ -10997,12 +11072,23 @@ async function bindCreateDirector(path) {
   };
   const genPostStudioPlanBtn = document.getElementById('cdGeneratePostStudioPlan');
   if (genPostStudioPlanBtn) genPostStudioPlanBtn.onclick = async () => {
-    await buildPostStudioPlan(7);
+    await buildPostStudioPlan(Number(d.postStudioPlanDays || 7) || 7);
   };
   const genPostStudio30Btn = document.getElementById('cdPostStudioGenerate30');
   if (genPostStudio30Btn) genPostStudio30Btn.onclick = async () => {
     await buildPostStudioPlan(30);
   };
+  const postStudioDays7Btn = document.getElementById('cdPostStudioDays7');
+  if (postStudioDays7Btn) postStudioDays7Btn.onclick = () => {
+    d.postStudioPlanDays = 7;
+    refreshPostStudioPlanDaysUi();
+  };
+  const postStudioDays30Btn = document.getElementById('cdPostStudioDays30');
+  if (postStudioDays30Btn) postStudioDays30Btn.onclick = () => {
+    d.postStudioPlanDays = 30;
+    refreshPostStudioPlanDaysUi();
+  };
+  refreshPostStudioPlanDaysUi();
   const generatePlanFlowBtn = document.getElementById('cdGeneratePlanFlow');
   if (generatePlanFlowBtn) generatePlanFlowBtn.onclick = async () => {
     await runPlanFlow();

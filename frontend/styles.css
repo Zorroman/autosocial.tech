@@ -687,8 +687,44 @@ th { color: var(--text-muted); font-weight: 600; }
   margin-top: 16px;
 }
 
+.post-studio-benefits {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklab, var(--brand-primary) 18%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--surface-2) 92%, transparent);
+}
+
+.post-studio-benefits-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
 .post-studio-preview-card .field {
   margin-top: 10px;
+}
+
+.post-studio-plan-toggle {
+  margin-top: 6px;
+}
+
+.post-studio-sample-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px dashed color-mix(in oklab, var(--brand-primary) 28%, var(--border));
+  background: color-mix(in oklab, var(--surface-2) 96%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.post-studio-sample-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .create-progress-badge {
