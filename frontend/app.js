@@ -485,15 +485,27 @@ const APP_SHELL_I18N = {
     create_post_studio_manual_time_toggle: 'Изменить время вручную',
     create_post_studio_manual_time_global: 'Общее время для всех публикаций',
     create_post_studio_manual_time_item: 'Время для выбранного дня',
+    create_post_studio_publish_targets_label: 'Куда публиковать',
+    create_post_studio_publish_targets_hint_single: 'Будет создана одна публикация для {targets}.',
+    create_post_studio_publish_targets_hint_multi: 'Будут созданы отдельные публикации для {targets}.',
+    create_post_studio_platform_required: 'Выберите хотя бы одну платформу.',
     create_post_studio_publish_now: 'Опубликовать сейчас',
     create_post_studio_schedule: 'Запланировать',
     create_post_studio_day: 'День',
     create_post_studio_plan_ready: 'План готов. Выберите день слева и сразу просмотрите готовый пост.',
+    create_post_studio_publish_pending_targets: 'Публикуем в {targets}...',
     create_post_studio_publish_pending_button: '⏳ Публикуем...',
     create_post_studio_publish_pending_inline: 'Отправляем публикацию...',
+    create_post_studio_publish_ok_targets: '✅ Опубликовано в {targets}',
+    create_post_studio_publish_error_targets: 'Не удалось опубликовать в {targets}. Попробуйте ещё раз.',
+    create_post_studio_publish_partial_targets: 'Не удалось опубликовать в {failed}. Успешно: {success}.',
+    create_post_studio_schedule_pending_targets: 'Планируем публикацию в {targets}...',
     create_post_studio_publish_ok: '✅ Пост отправлен в публикацию',
     create_post_studio_schedule_pending_button: '⏳ Планируем...',
     create_post_studio_schedule_pending_inline: 'Сохраняем время публикации...',
+    create_post_studio_schedule_ok_targets: '✅ Публикация запланирована для {targets}',
+    create_post_studio_schedule_error_targets: 'Не удалось запланировать в {targets}. Попробуйте ещё раз.',
+    create_post_studio_schedule_partial_targets: 'Не удалось запланировать в {failed}. Успешно: {success}.',
     create_post_studio_schedule_ok: '✅ Пост запланирован',
     create_post_studio_publish_error: 'Не удалось опубликовать пост. Попробуйте ещё раз.',
     create_post_studio_schedule_error: 'Не удалось запланировать пост. Попробуйте ещё раз.',
@@ -760,15 +772,27 @@ const APP_SHELL_I18N = {
     create_post_studio_manual_time_toggle: 'Adjust time manually',
     create_post_studio_manual_time_global: 'Global time for all posts',
     create_post_studio_manual_time_item: 'Time for selected day',
+    create_post_studio_publish_targets_label: 'Publish to',
+    create_post_studio_publish_targets_hint_single: 'One publication will be created for {targets}.',
+    create_post_studio_publish_targets_hint_multi: 'Separate publications will be created for {targets}.',
+    create_post_studio_platform_required: 'Select at least one platform.',
     create_post_studio_publish_now: 'Publish now',
     create_post_studio_schedule: 'Schedule',
     create_post_studio_day: 'Day',
     create_post_studio_plan_ready: 'Your plan is ready. Pick a day on the left to review the post instantly.',
+    create_post_studio_publish_pending_targets: 'Publishing to {targets}...',
     create_post_studio_publish_pending_button: '⏳ Publishing...',
     create_post_studio_publish_pending_inline: 'Sending the post for publishing...',
+    create_post_studio_publish_ok_targets: '✅ Published to {targets}',
+    create_post_studio_publish_error_targets: 'Could not publish to {targets}. Please try again.',
+    create_post_studio_publish_partial_targets: 'Could not publish to {failed}. Successful: {success}.',
+    create_post_studio_schedule_pending_targets: 'Scheduling publication for {targets}...',
     create_post_studio_publish_ok: '✅ Post was sent for publishing',
     create_post_studio_schedule_pending_button: '⏳ Scheduling...',
     create_post_studio_schedule_pending_inline: 'Saving the publish time...',
+    create_post_studio_schedule_ok_targets: '✅ Publication scheduled for {targets}',
+    create_post_studio_schedule_error_targets: 'Could not schedule for {targets}. Please try again.',
+    create_post_studio_schedule_partial_targets: 'Could not schedule for {failed}. Successful: {success}.',
     create_post_studio_schedule_ok: '✅ Post was scheduled',
     create_post_studio_publish_error: 'Could not publish this post. Please try again.',
     create_post_studio_schedule_error: 'Could not schedule this post. Please try again.',
@@ -3867,6 +3891,29 @@ function plannerUrl(kind = 'post', days = 7, extras = {}) {
     query.set(key, String(value));
   });
   return `/create/plan?${query.toString()}`;
+}
+function formatPublishTargetLabels(targets = [], lang = 'en') {
+  const labels = (Array.isArray(targets) ? targets : [])
+    .map((target) => {
+      const normalized = String(target || '').trim().toLowerCase();
+      if (normalized === 'instagram') return 'Instagram';
+      if (normalized === 'facebook') return 'Facebook';
+      return '';
+    })
+    .filter(Boolean);
+  if (!labels.length) return '';
+  try {
+    const locale = String(lang || 'en').trim().toLowerCase();
+    const listLocale = locale === 'ru' ? 'ru-RU'
+      : locale === 'uk' ? 'uk-UA'
+      : locale === 'de' ? 'de-DE'
+      : locale === 'fr' ? 'fr-FR'
+      : locale === 'es' ? 'es-ES'
+      : 'en-US';
+    return new Intl.ListFormat(listLocale, { style: 'long', type: 'conjunction' }).format(labels);
+  } catch {
+    return labels.join(' + ');
+  }
 }
 function getCreatePlannerRoute(path = location.pathname.replace(/\/$/, '') || '/') {
   if (path === '/create' || path === '/create/plan') {
@@ -7659,6 +7706,17 @@ function pageCreateDirector() {
     const postStudioActionFeedbackText = String(d.postStudioActionFeedbackText || '').trim();
     const postStudioGenerateFeedback = `<div id="cdPostStudioGenerateFeedback" class="post-studio-status ${postStudioGenerateFeedbackText ? `is-${esc(postStudioGenerateFeedbackType || 'pending')}` : 'is-hidden'}">${esc(postStudioGenerateFeedbackText || '')}</div>`;
     const postStudioActionFeedback = `<div id="cdPostStudioActionFeedback" class="post-studio-status post-studio-action-status ${postStudioActionFeedbackText ? `is-${esc(postStudioActionFeedbackType || 'pending')}` : 'is-hidden'}">${esc(postStudioActionFeedbackText || '')}</div>`;
+    const postStudioPublishTargets = ['facebook', 'instagram'].filter((platform) => !!d.platforms?.[platform]);
+    const postStudioPublishTargetsLabel = formatPublishTargetLabels(postStudioPublishTargets, state.lang || locale || 'en');
+    const postStudioPublishTargetsHint = postStudioPublishTargets.length
+      ? shellTextFmt(
+        postStudioPublishTargets.length > 1
+          ? 'create_post_studio_publish_targets_hint_multi'
+          : 'create_post_studio_publish_targets_hint_single',
+        { targets: postStudioPublishTargetsLabel },
+      )
+      : shellText('create_post_studio_platform_required');
+    const postStudioActionsDisabled = postStudioPreviewActionPending || !postStudioPublishTargets.length;
     const selectedPostStudioTime = (() => {
       const iso = String(selectedPostStudioItem?.scheduled_at || '').trim();
       if (!iso) return String(d.postStudioManualTimeValue || '12:00');
@@ -7785,10 +7843,24 @@ function pageCreateDirector() {
                 <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> <span id="cdPostStudioPreviewCtaText">${esc(selectedPostStudioItem.cta || '—')}</span></p>
                 <div id="cdPostStudioPreviewTags" class="create-preview-tags">${String(selectedPostStudioItem.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || `<span class="small">—</span>`}</div>
               </div>
+              <div id="cdPostStudioPlatformTargets" class="post-studio-platforms">
+                <div class="small post-studio-platforms-label">${esc(shellText('create_post_studio_publish_targets_label'))}</div>
+                <div class="post-studio-platforms-options">
+                  <label class="post-studio-platform-chip ${d.platforms?.facebook ? 'is-active' : ''}">
+                    <input id="cdPostStudioPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''} ${postStudioPreviewActionPending ? 'disabled' : ''}/>
+                    <span>Facebook</span>
+                  </label>
+                  <label class="post-studio-platform-chip ${d.platforms?.instagram ? 'is-active' : ''}">
+                    <input id="cdPostStudioPlatformInstagram" type="checkbox" ${d.platforms?.instagram ? 'checked' : ''} ${postStudioPreviewActionPending ? 'disabled' : ''}/>
+                    <span>Instagram</span>
+                  </label>
+                </div>
+                <p id="cdPostStudioPlatformTargetsHint" class="small post-studio-platforms-hint">${esc(postStudioPublishTargetsHint)}</p>
+              </div>
               ${postStudioActionFeedback}
               <div id="cdPostStudioActions" class="cta-row post-studio-action-row" style="margin-top:12px;justify-content:flex-end;">
-                <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary" ${postStudioPreviewActionPending ? 'disabled' : ''}>${esc(postStudioPendingAction === 'publish' ? shellText('create_post_studio_publish_pending_button') : shellText('create_post_studio_publish_now'))}</button>
-                <button id="cdPostStudioSchedule" type="button" class="btn btn-primary" ${postStudioPreviewActionPending ? 'disabled' : ''}>${esc(postStudioPendingAction === 'schedule' ? shellText('create_post_studio_schedule_pending_button') : shellText('create_post_studio_schedule'))}</button>
+                <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary" ${postStudioActionsDisabled ? 'disabled' : ''}>${esc(postStudioPendingAction === 'publish' ? shellText('create_post_studio_publish_pending_button') : shellText('create_post_studio_publish_now'))}</button>
+                <button id="cdPostStudioSchedule" type="button" class="btn btn-primary" ${postStudioActionsDisabled ? 'disabled' : ''}>${esc(postStudioPendingAction === 'schedule' ? shellText('create_post_studio_schedule_pending_button') : shellText('create_post_studio_schedule'))}</button>
                 <button id="cdPostStudioGenerate30" type="button" class="btn btn-ghost">${esc(shellText('create_post_studio_generate_30'))}</button>
               </div>
             `
@@ -10661,13 +10733,45 @@ async function bindCreateDirector(path) {
     list[idx] = { ...list[idx], scheduled_at: currentDate.toISOString() };
     d.planFlowItems = list;
   };
-  const createStudioPostRecord = async (item, { schedule = false } = {}) => {
+  const getPostStudioSelectedPublishTargets = ({ strict = true } = {}) => {
+    const targets = ['facebook', 'instagram'].filter((platform) => !!d.platforms?.[platform]);
+    if (!targets.length && strict) throw new Error(shellText('create_post_studio_platform_required'));
+    return targets;
+  };
+  const formatPostStudioTargetLabels = (targets) => formatPublishTargetLabels(targets, state.lang || 'en');
+  const syncPostStudioPlatformTargetsDom = () => {
+    const targets = getPostStudioSelectedPublishTargets({ strict: false });
+    const pendingAction = String(d.postStudioPendingAction || '').trim();
+    const pending = pendingAction === 'publish' || pendingAction === 'schedule';
+    const targetsHintEl = document.getElementById('cdPostStudioPlatformTargetsHint');
+    const facebookEl = document.getElementById('cdPostStudioPlatformFacebook');
+    const instagramEl = document.getElementById('cdPostStudioPlatformInstagram');
+    const nextHint = targets.length
+      ? shellTextFmt(
+        targets.length > 1
+          ? 'create_post_studio_publish_targets_hint_multi'
+          : 'create_post_studio_publish_targets_hint_single',
+        { targets: formatPostStudioTargetLabels(targets) },
+      )
+      : shellText('create_post_studio_platform_required');
+    [facebookEl, instagramEl].forEach((inputEl) => {
+      if (!inputEl) return;
+      const platform = inputEl.id === 'cdPostStudioPlatformInstagram' ? 'instagram' : 'facebook';
+      inputEl.checked = !!d.platforms?.[platform];
+      inputEl.disabled = pending;
+      inputEl.closest('.post-studio-platform-chip')?.classList.toggle('is-active', !!d.platforms?.[platform]);
+      inputEl.closest('.post-studio-platform-chip')?.classList.toggle('is-disabled', pending);
+    });
+    if (targetsHintEl) targetsHintEl.textContent = nextHint;
+  };
+  const createStudioPostRecord = async (item, { schedule = false, platformOverride = '' } = {}) => {
     if (!item) throw new Error('Сначала выберите день плана.');
+    const normalizedPlatform = String(platformOverride || '').trim().toLowerCase();
     const payload = {
       project_id: selectedProjectId() || undefined,
       topic: String(item.topic || '').trim(),
       category: directorBaseTopic(d, d.topic) || directorCurrentNicheMeta(d)?.label || null,
-      platform: d.platforms?.instagram && !d.platforms?.facebook ? 'instagram' : 'facebook',
+      platform: normalizedPlatform || (d.platforms?.instagram && !d.platforms?.facebook ? 'instagram' : 'facebook'),
       language: d.language || 'ru',
       tone: d.tone || 'friendly',
       generated_text: String(item.post_text || item.caption_text || item.caption || '').trim(),
@@ -10680,6 +10784,20 @@ async function bindCreateDirector(path) {
     if (schedule) return created;
     await api(`/api/posts/${postId}/publish`, { method: 'POST', body: '{}', timeoutMs: 180000 });
     return created;
+  };
+  const createStudioPostRecordsForTargets = async (item, { schedule = false } = {}) => {
+    const targets = getPostStudioSelectedPublishTargets({ strict: true });
+    const success = [];
+    const failed = [];
+    for (const target of targets) {
+      try {
+        const created = await createStudioPostRecord(item, { schedule, platformOverride: target });
+        success.push({ target, created });
+      } catch (error) {
+        failed.push({ target, error });
+      }
+    }
+    return { targets, success, failed };
   };
   const refreshPostStudioPreviewDom = (nextManualMode = null) => {
     const item = getResolvedPostStudioPreviewData() || getResolvedPostStudioItem();
@@ -10814,6 +10932,7 @@ async function bindCreateDirector(path) {
     const days30Btn = document.getElementById('cdPostStudioDays30');
     const publishBtn = document.getElementById('cdPostStudioPublishNow');
     const scheduleBtn = document.getElementById('cdPostStudioSchedule');
+    const hasTargets = getPostStudioSelectedPublishTargets({ strict: false }).length > 0;
     if (generateBtn) {
       generateBtn.disabled = pendingAction === 'generate' || d.planFlowState === 'loading';
       generateBtn.textContent = pendingAction === 'generate'
@@ -10823,17 +10942,18 @@ async function bindCreateDirector(path) {
     if (days7Btn) days7Btn.disabled = pendingAction === 'generate';
     if (days30Btn) days30Btn.disabled = pendingAction === 'generate';
     if (publishBtn) {
-      publishBtn.disabled = pendingAction === 'publish' || pendingAction === 'schedule';
+      publishBtn.disabled = !hasTargets || pendingAction === 'publish' || pendingAction === 'schedule';
       publishBtn.textContent = pendingAction === 'publish'
         ? shellText('create_post_studio_publish_pending_button')
         : shellText('create_post_studio_publish_now');
     }
     if (scheduleBtn) {
-      scheduleBtn.disabled = pendingAction === 'publish' || pendingAction === 'schedule';
+      scheduleBtn.disabled = !hasTargets || pendingAction === 'publish' || pendingAction === 'schedule';
       scheduleBtn.textContent = pendingAction === 'schedule'
         ? shellText('create_post_studio_schedule_pending_button')
         : shellText('create_post_studio_schedule');
     }
+    syncPostStudioPlatformTargetsDom();
     syncPostStudioStatusNode('cdPostStudioGenerateFeedback', d.postStudioGenerateFeedbackType, d.postStudioGenerateFeedbackText);
     syncPostStudioStatusNode('cdPostStudioActionFeedback', d.postStudioActionFeedbackType, d.postStudioActionFeedbackText);
   };
@@ -11787,24 +11907,72 @@ async function bindCreateDirector(path) {
     };
     postStudioSelectedTimeEl.onchange = postStudioSelectedTimeEl.oninput;
   }
+  const bindPostStudioPlatformToggle = (inputId, platformKey) => {
+    const inputEl = document.getElementById(inputId);
+    if (!inputEl) return;
+    inputEl.onchange = () => {
+      const nextChecked = !!inputEl.checked;
+      d.platforms[platformKey] = nextChecked;
+      if (String(d.activePlatform || '').trim() === platformKey && !nextChecked) {
+        d.activePlatform = d.platforms?.facebook ? 'facebook' : (d.platforms?.instagram ? 'instagram' : '');
+      }
+      if (!String(d.activePlatform || '').trim() || !d.platforms?.[d.activePlatform]) {
+        d.activePlatform = d.platforms?.facebook ? 'facebook' : (d.platforms?.instagram ? 'instagram' : '');
+      }
+      if (!getPostStudioSelectedPublishTargets({ strict: false }).length) {
+        setPostStudioActionFeedback('error', shellText('create_post_studio_platform_required'));
+      } else {
+        clearPostStudioActionFeedback();
+      }
+      syncPostStudioAsyncUiDom();
+    };
+  };
+  bindPostStudioPlatformToggle('cdPostStudioPlatformFacebook', 'facebook');
+  bindPostStudioPlatformToggle('cdPostStudioPlatformInstagram', 'instagram');
   const postStudioPublishBtn = document.getElementById('cdPostStudioPublishNow');
   if (postStudioPublishBtn) {
     postStudioPublishBtn.onclick = async () => {
       if (String(d.postStudioPendingAction || '').trim()) return;
+      let targets = [];
+      let targetsLabel = '';
+      try {
+        targets = getPostStudioSelectedPublishTargets({ strict: true });
+        targetsLabel = formatPostStudioTargetLabels(targets);
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_platform_required') };
+        setPostStudioActionFeedback('error', e.message || shellText('create_post_studio_platform_required'));
+        syncPostStudioAsyncUiDom();
+        render();
+        return;
+      }
       setPostStudioPendingAction('publish');
       clearPostStudioGenerateFeedback();
-      setPostStudioActionFeedback('pending', shellText('create_post_studio_publish_pending_inline'));
+      setPostStudioActionFeedback('pending', shellTextFmt('create_post_studio_publish_pending_targets', { targets: targetsLabel }));
       state.notice = null;
       syncPostStudioAsyncUiDom();
       render();
       try {
-        await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: false });
-        state.notice = { type: 'ok', text: shellText('create_post_studio_publish_ok') };
+        const result = await createStudioPostRecordsForTargets(getResolvedPostStudioActionItem(), { schedule: false });
         syncPostStudioStateFromDom();
-        setPostStudioActionFeedback('success', shellText('create_post_studio_publish_ok'));
+        if (result.failed.length && result.success.length) {
+          const successText = formatPostStudioTargetLabels(result.success.map((item) => item.target));
+          const failedText = formatPostStudioTargetLabels(result.failed.map((item) => item.target));
+          const partialText = shellTextFmt('create_post_studio_publish_partial_targets', { success: successText, failed: failedText });
+          state.notice = { type: 'error', text: partialText };
+          setPostStudioActionFeedback('error', partialText);
+        } else if (result.failed.length) {
+          const errorText = shellTextFmt('create_post_studio_publish_error_targets', { targets: formatPostStudioTargetLabels(result.failed.map((item) => item.target)) || targetsLabel });
+          state.notice = { type: 'error', text: errorText };
+          setPostStudioActionFeedback('error', errorText);
+        } else {
+          const okText = shellTextFmt('create_post_studio_publish_ok_targets', { targets: targetsLabel });
+          state.notice = { type: 'ok', text: okText };
+          setPostStudioActionFeedback('success', okText);
+        }
       } catch (e) {
-        state.notice = { type: 'error', text: shellText('create_post_studio_publish_error') };
-        setPostStudioActionFeedback('error', shellText('create_post_studio_publish_error'));
+        const errorText = shellTextFmt('create_post_studio_publish_error_targets', { targets: targetsLabel || formatPostStudioTargetLabels(getPostStudioSelectedPublishTargets({ strict: false })) || 'Facebook' });
+        state.notice = { type: 'error', text: errorText };
+        setPostStudioActionFeedback('error', errorText);
       } finally {
         setPostStudioPendingAction('');
       }
@@ -11815,20 +11983,46 @@ async function bindCreateDirector(path) {
   if (postStudioScheduleBtn) {
     postStudioScheduleBtn.onclick = async () => {
       if (String(d.postStudioPendingAction || '').trim()) return;
+      let targets = [];
+      let targetsLabel = '';
+      try {
+        targets = getPostStudioSelectedPublishTargets({ strict: true });
+        targetsLabel = formatPostStudioTargetLabels(targets);
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_platform_required') };
+        setPostStudioActionFeedback('error', e.message || shellText('create_post_studio_platform_required'));
+        syncPostStudioAsyncUiDom();
+        render();
+        return;
+      }
       setPostStudioPendingAction('schedule');
       clearPostStudioGenerateFeedback();
-      setPostStudioActionFeedback('pending', shellText('create_post_studio_schedule_pending_inline'));
+      setPostStudioActionFeedback('pending', shellTextFmt('create_post_studio_schedule_pending_targets', { targets: targetsLabel }));
       state.notice = null;
       syncPostStudioAsyncUiDom();
       render();
       try {
-        await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: true });
-        state.notice = { type: 'ok', text: shellText('create_post_studio_schedule_ok') };
+        const result = await createStudioPostRecordsForTargets(getResolvedPostStudioActionItem(), { schedule: true });
         syncPostStudioStateFromDom();
-        setPostStudioActionFeedback('success', shellText('create_post_studio_schedule_ok'));
+        if (result.failed.length && result.success.length) {
+          const successText = formatPostStudioTargetLabels(result.success.map((item) => item.target));
+          const failedText = formatPostStudioTargetLabels(result.failed.map((item) => item.target));
+          const partialText = shellTextFmt('create_post_studio_schedule_partial_targets', { success: successText, failed: failedText });
+          state.notice = { type: 'error', text: partialText };
+          setPostStudioActionFeedback('error', partialText);
+        } else if (result.failed.length) {
+          const errorText = shellTextFmt('create_post_studio_schedule_error_targets', { targets: formatPostStudioTargetLabels(result.failed.map((item) => item.target)) || targetsLabel });
+          state.notice = { type: 'error', text: errorText };
+          setPostStudioActionFeedback('error', errorText);
+        } else {
+          const okText = shellTextFmt('create_post_studio_schedule_ok_targets', { targets: targetsLabel });
+          state.notice = { type: 'ok', text: okText };
+          setPostStudioActionFeedback('success', okText);
+        }
       } catch (e) {
-        state.notice = { type: 'error', text: shellText('create_post_studio_schedule_error') };
-        setPostStudioActionFeedback('error', shellText('create_post_studio_schedule_error'));
+        const errorText = shellTextFmt('create_post_studio_schedule_error_targets', { targets: targetsLabel || formatPostStudioTargetLabels(getPostStudioSelectedPublishTargets({ strict: false })) || 'Facebook' });
+        state.notice = { type: 'error', text: errorText };
+        setPostStudioActionFeedback('error', errorText);
       } finally {
         setPostStudioPendingAction('');
       }

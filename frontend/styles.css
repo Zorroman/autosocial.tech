@@ -711,6 +711,59 @@ th { color: var(--text-muted); font-weight: 600; }
   margin-top: 6px;
 }
 
+.post-studio-platforms {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--surface-2) 95%, transparent);
+}
+
+.post-studio-platforms-label {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.post-studio-platforms-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.post-studio-platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, transform .16s ease;
+}
+
+.post-studio-platform-chip input {
+  margin: 0;
+}
+
+.post-studio-platform-chip.is-active {
+  border-color: color-mix(in oklab, var(--brand-primary) 34%, var(--border));
+  background: color-mix(in oklab, var(--brand-primary) 11%, var(--surface));
+}
+
+.post-studio-platform-chip.is-disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.post-studio-platforms-hint {
+  margin: 8px 0 0;
+}
+
 .post-studio-sample-card {
   margin-top: 14px;
   padding: 14px;
