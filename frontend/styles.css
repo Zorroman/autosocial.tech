@@ -727,6 +727,49 @@ th { color: var(--text-muted); font-weight: 600; }
   line-height: 1.45;
 }
 
+.post-studio-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--border) 78%, transparent);
+  background: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.post-studio-status.is-hidden {
+  display: none;
+}
+
+.post-studio-status.is-pending {
+  border-color: color-mix(in oklab, var(--brand-primary) 26%, var(--border));
+  background: color-mix(in oklab, var(--brand-primary) 10%, var(--surface));
+}
+
+.post-studio-status.is-success {
+  border-color: color-mix(in oklab, var(--success) 26%, var(--border));
+  background: color-mix(in oklab, var(--success) 12%, var(--surface));
+}
+
+.post-studio-status.is-error {
+  border-color: color-mix(in oklab, var(--danger) 26%, var(--border));
+  background: color-mix(in oklab, var(--danger) 10%, var(--surface));
+}
+
+.post-studio-action-status {
+  margin: 0 0 12px;
+}
+
+.post-studio-action-row .btn[disabled],
+.plan-flow-primary-cta .btn[disabled] {
+  cursor: wait;
+  opacity: 0.78;
+}
+
 .create-progress-badge {
   display: inline-flex;
   align-items: center;

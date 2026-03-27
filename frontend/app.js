@@ -457,6 +457,11 @@ const APP_SHELL_I18N = {
     create_post_studio_generate_7: 'Создать план на 7 дней →',
     create_post_studio_generate_30_cta: 'Создать план на 30 дней →',
     create_post_studio_generate_30: 'Сформировать план на 30 дней',
+    create_post_studio_generate_pending_7: '⏳ Генерируем план на 7 дней...',
+    create_post_studio_generate_pending_30: '⏳ Генерируем план на 30 дней...',
+    create_post_studio_generate_pending_inline: 'AI собирает структуру, тексты и время публикации...',
+    create_post_studio_generate_success: '✅ Контент-план готов',
+    create_post_studio_generate_error: 'Не удалось сформировать план. Попробуйте ещё раз.',
     create_post_studio_settings_title: 'Настройка',
     create_post_studio_settings_note: 'AI использует эти данные, чтобы собрать релевантный контент-план под вашу нишу.',
     create_post_studio_loading: 'AI генерирует контент...',
@@ -484,10 +489,14 @@ const APP_SHELL_I18N = {
     create_post_studio_schedule: 'Запланировать',
     create_post_studio_day: 'День',
     create_post_studio_plan_ready: 'План готов. Выберите день слева и сразу просмотрите готовый пост.',
-    create_post_studio_publish_ok: 'Публикация отправлена.',
-    create_post_studio_schedule_ok: 'Публикация запланирована.',
-    create_post_studio_publish_error: 'Не удалось отправить публикацию.',
-    create_post_studio_schedule_error: 'Не удалось запланировать публикацию.',
+    create_post_studio_publish_pending_button: '⏳ Публикуем...',
+    create_post_studio_publish_pending_inline: 'Отправляем публикацию...',
+    create_post_studio_publish_ok: '✅ Пост отправлен в публикацию',
+    create_post_studio_schedule_pending_button: '⏳ Планируем...',
+    create_post_studio_schedule_pending_inline: 'Сохраняем время публикации...',
+    create_post_studio_schedule_ok: '✅ Пост запланирован',
+    create_post_studio_publish_error: 'Не удалось опубликовать пост. Попробуйте ещё раз.',
+    create_post_studio_schedule_error: 'Не удалось запланировать пост. Попробуйте ещё раз.',
     create_video_studio_button: 'Студия видео',
     create_planner_button: 'Планировщик',
     create_youtube_studio_button: 'Студия YouTube',
@@ -723,6 +732,11 @@ const APP_SHELL_I18N = {
     create_post_studio_generate_7: 'Create a 7-day plan →',
     create_post_studio_generate_30_cta: 'Create a 30-day plan →',
     create_post_studio_generate_30: 'Build a 30-day plan',
+    create_post_studio_generate_pending_7: '⏳ Generating a 7-day plan...',
+    create_post_studio_generate_pending_30: '⏳ Generating a 30-day plan...',
+    create_post_studio_generate_pending_inline: 'AI is building the structure, post copy, and publish timing...',
+    create_post_studio_generate_success: '✅ Content plan is ready',
+    create_post_studio_generate_error: 'Could not build the content plan. Please try again.',
     create_post_studio_settings_title: 'Setup',
     create_post_studio_settings_note: 'AI uses these inputs to build a relevant content plan for your niche.',
     create_post_studio_loading: 'AI is generating content...',
@@ -750,10 +764,14 @@ const APP_SHELL_I18N = {
     create_post_studio_schedule: 'Schedule',
     create_post_studio_day: 'Day',
     create_post_studio_plan_ready: 'Your plan is ready. Pick a day on the left to review the post instantly.',
-    create_post_studio_publish_ok: 'Publication was sent.',
-    create_post_studio_schedule_ok: 'Publication was scheduled.',
-    create_post_studio_publish_error: 'Could not publish this post.',
-    create_post_studio_schedule_error: 'Could not schedule this post.',
+    create_post_studio_publish_pending_button: '⏳ Publishing...',
+    create_post_studio_publish_pending_inline: 'Sending the post for publishing...',
+    create_post_studio_publish_ok: '✅ Post was sent for publishing',
+    create_post_studio_schedule_pending_button: '⏳ Scheduling...',
+    create_post_studio_schedule_pending_inline: 'Saving the publish time...',
+    create_post_studio_schedule_ok: '✅ Post was scheduled',
+    create_post_studio_publish_error: 'Could not publish this post. Please try again.',
+    create_post_studio_schedule_error: 'Could not schedule this post. Please try again.',
     create_video_studio_button: 'Video Studio',
     create_planner_button: 'Planner',
     create_youtube_studio_button: 'YouTube Studio',
@@ -7628,8 +7646,19 @@ function pageCreateDirector() {
     const postStudioProgressSteps = ['create_plan_progress_1', 'create_plan_progress_2', 'create_plan_progress_3', 'create_plan_progress_4', 'create_plan_progress_5'].map((key) => shellText(key));
     const postStudioCurrentProgressIdx = Math.max(0, Math.min(postStudioProgressSteps.length, Number(d.planFlowProgressStep || 0)));
     const postStudioPlanDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
-    const postStudioPrimaryCta = postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7');
+    const postStudioPendingAction = String(d.postStudioPendingAction || '').trim();
+    const postStudioGeneratePending = postStudioPendingAction === 'generate';
+    const postStudioPreviewActionPending = postStudioPendingAction === 'publish' || postStudioPendingAction === 'schedule';
+    const postStudioPrimaryCta = postStudioGeneratePending
+      ? (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7'))
+      : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
     const postStudioResultTitleKey = postStudioItems.length >= 30 ? 'create_planner_post30' : 'create_planner_post7';
+    const postStudioGenerateFeedbackType = String(d.postStudioGenerateFeedbackType || '').trim();
+    const postStudioGenerateFeedbackText = String(d.postStudioGenerateFeedbackText || '').trim();
+    const postStudioActionFeedbackType = String(d.postStudioActionFeedbackType || '').trim();
+    const postStudioActionFeedbackText = String(d.postStudioActionFeedbackText || '').trim();
+    const postStudioGenerateFeedback = `<div id="cdPostStudioGenerateFeedback" class="post-studio-status ${postStudioGenerateFeedbackText ? `is-${esc(postStudioGenerateFeedbackType || 'pending')}` : 'is-hidden'}">${esc(postStudioGenerateFeedbackText || '')}</div>`;
+    const postStudioActionFeedback = `<div id="cdPostStudioActionFeedback" class="post-studio-status post-studio-action-status ${postStudioActionFeedbackText ? `is-${esc(postStudioActionFeedbackType || 'pending')}` : 'is-hidden'}">${esc(postStudioActionFeedbackText || '')}</div>`;
     const selectedPostStudioTime = (() => {
       const iso = String(selectedPostStudioItem?.scheduled_at || '').trim();
       if (!iso) return String(d.postStudioManualTimeValue || '12:00');
@@ -7661,8 +7690,8 @@ function pageCreateDirector() {
         <div class="field">
           <label>${esc(shellText('create_post_studio_length_label'))}</label>
           <div class="create-segmented-control post-studio-plan-toggle">
-            <button id="cdPostStudioDays7" type="button" class="pill pill-btn ${postStudioPlanDays === 7 ? 'active' : ''}">${esc(shellText('create_post_studio_length_7'))}</button>
-            <button id="cdPostStudioDays30" type="button" class="pill pill-btn ${postStudioPlanDays === 30 ? 'active' : ''}">${esc(shellText('create_post_studio_length_30'))}</button>
+            <button id="cdPostStudioDays7" type="button" class="pill pill-btn ${postStudioPlanDays === 7 ? 'active' : ''}" ${postStudioGeneratePending ? 'disabled' : ''}>${esc(shellText('create_post_studio_length_7'))}</button>
+            <button id="cdPostStudioDays30" type="button" class="pill pill-btn ${postStudioPlanDays === 30 ? 'active' : ''}" ${postStudioGeneratePending ? 'disabled' : ''}>${esc(shellText('create_post_studio_length_30'))}</button>
           </div>
         </div>
         <div class="grid-2">
@@ -7682,8 +7711,9 @@ function pageCreateDirector() {
         </details>
         <p class="small create-plan-settings-note">${esc(shellText('create_post_studio_settings_note'))}</p>
         <div class="cta-row plan-flow-primary-cta">
-          <button id="cdGeneratePostStudioPlan" class="btn btn-primary" type="button" ${postStudioLoading ? 'disabled' : ''}>${postStudioLoading ? esc(shellText('create_post_studio_loading')) : esc(postStudioPrimaryCta)}</button>
+          <button id="cdGeneratePostStudioPlan" class="btn btn-primary" type="button" ${(postStudioLoading || postStudioGeneratePending) ? 'disabled' : ''}>${esc(postStudioPrimaryCta)}</button>
         </div>
+        ${postStudioGenerateFeedback}
       </article>
     `;
     const postStudioProgressCard = postStudioLoading ? `
@@ -7755,9 +7785,10 @@ function pageCreateDirector() {
                 <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> <span id="cdPostStudioPreviewCtaText">${esc(selectedPostStudioItem.cta || '—')}</span></p>
                 <div id="cdPostStudioPreviewTags" class="create-preview-tags">${String(selectedPostStudioItem.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || `<span class="small">—</span>`}</div>
               </div>
-              <div id="cdPostStudioActions" class="cta-row" style="margin-top:12px;justify-content:flex-end;">
-                <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary">${esc(shellText('create_post_studio_publish_now'))}</button>
-                <button id="cdPostStudioSchedule" type="button" class="btn btn-primary">${esc(shellText('create_post_studio_schedule'))}</button>
+              ${postStudioActionFeedback}
+              <div id="cdPostStudioActions" class="cta-row post-studio-action-row" style="margin-top:12px;justify-content:flex-end;">
+                <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary" ${postStudioPreviewActionPending ? 'disabled' : ''}>${esc(postStudioPendingAction === 'publish' ? shellText('create_post_studio_publish_pending_button') : shellText('create_post_studio_publish_now'))}</button>
+                <button id="cdPostStudioSchedule" type="button" class="btn btn-primary" ${postStudioPreviewActionPending ? 'disabled' : ''}>${esc(postStudioPendingAction === 'schedule' ? shellText('create_post_studio_schedule_pending_button') : shellText('create_post_studio_schedule'))}</button>
                 <button id="cdPostStudioGenerate30" type="button" class="btn btn-ghost">${esc(shellText('create_post_studio_generate_30'))}</button>
               </div>
             `
@@ -9457,6 +9488,11 @@ async function bindCreateDirector(path) {
   if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeEnabled')) d.postStudioManualTimeEnabled = false;
   if (!Object.prototype.hasOwnProperty.call(d, 'postStudioManualTimeValue')) d.postStudioManualTimeValue = '12:00';
   if (!Object.prototype.hasOwnProperty.call(d, 'postStudioPlanDays')) d.postStudioPlanDays = 7;
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioPendingAction')) d.postStudioPendingAction = '';
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioGenerateFeedbackType')) d.postStudioGenerateFeedbackType = '';
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioGenerateFeedbackText')) d.postStudioGenerateFeedbackText = '';
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioActionFeedbackType')) d.postStudioActionFeedbackType = '';
+  if (!Object.prototype.hasOwnProperty.call(d, 'postStudioActionFeedbackText')) d.postStudioActionFeedbackText = '';
   d.topicPreset = directorCurrentNicheId({ ...d, customTopicMode: false, topicPreset: d.topicPreset || DEFAULT_DIRECTOR_NICHE });
   if (!String(d.topicPreset || '').trim()) d.topicPreset = DEFAULT_DIRECTOR_NICHE;
   d.topic = directorBaseTopic(d, d.topic);
@@ -9525,6 +9561,38 @@ async function bindCreateDirector(path) {
     }
     if (!d.customTopicMode) d.topicPreset = normalizedNicheId;
   };
+  function applyPostStudioPlanDays(nextDays, { resetGeneratedMismatch = false } = {}) {
+    const resolvedDays = nextDays === 30 ? 30 : 7;
+    const currentDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
+    d.postStudioPlanDays = resolvedDays;
+    if (!resetGeneratedMismatch || currentDays === resolvedDays) return;
+    if (!(Array.isArray(d.planFlowItems) && d.planFlowItems.length && d.planFlowState === 'generated' && d.planFlowItems.length !== resolvedDays)) return;
+    d.planFlowState = 'idle';
+    d.planFlowItems = [];
+    d.planFlowError = '';
+    d.planFlowSelectedDay = 1;
+    d.planFlowProgressStep = 0;
+    d.postStudioPendingAction = '';
+    d.postStudioGenerateFeedbackType = '';
+    d.postStudioGenerateFeedbackText = '';
+    d.postStudioActionFeedbackType = '';
+    d.postStudioActionFeedbackText = '';
+  }
+  const hydratePostStudioModeFromLocation = () => {
+    if (path !== '/create/post') return;
+    let mode = '';
+    let days = 7;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      mode = String(params.get('mode') || '').trim().toLowerCase();
+      days = normalizePlannerDays(params.get('days') || 7);
+    } catch {
+      mode = '';
+      days = 7;
+    }
+    if (mode !== 'plan') return;
+    applyPostStudioPlanDays(days === 30 ? 30 : 7, { resetGeneratedMismatch: true });
+  };
   const ensureVideoDefaults = () => {
     if (!d.videoOrientation || !['vertical', 'horizontal'].includes(String(d.videoOrientation))) d.videoOrientation = 'vertical';
     const allowed = String(d.videoOrientation || 'vertical') === 'horizontal'
@@ -9575,6 +9643,7 @@ async function bindCreateDirector(path) {
   };
   hydrateContentType();
   hydrateQuickActionFromLocation();
+  hydratePostStudioModeFromLocation();
   ensureVideoDefaults();
   setDefaultsFromConnections();
   ensureContentTypePlatforms();
@@ -9769,6 +9838,11 @@ async function bindCreateDirector(path) {
     d.planFlowError = '';
     d.planFlowSelectedDay = 1;
     d.planFlowProgressStep = 0;
+    d.postStudioPendingAction = '';
+    d.postStudioGenerateFeedbackType = '';
+    d.postStudioGenerateFeedbackText = '';
+    d.postStudioActionFeedbackType = '';
+    d.postStudioActionFeedbackText = '';
   };
   const buildDirectorTopicPool = (seed = 0, incoming = []) => {
     const localPool = directorLocalTopicIdeas(d, DIRECTOR_TOPIC_IDEA_COUNT, seed);
@@ -10693,13 +10767,75 @@ async function bindCreateDirector(path) {
     const days7Btn = document.getElementById('cdPostStudioDays7');
     const days30Btn = document.getElementById('cdPostStudioDays30');
     const generateBtn = document.getElementById('cdGeneratePostStudioPlan');
+    const pendingAction = String(d.postStudioPendingAction || '').trim();
     if (days7Btn) days7Btn.classList.toggle('active', currentDays === 7);
     if (days30Btn) days30Btn.classList.toggle('active', currentDays === 30);
-    if (generateBtn && d.planFlowState !== 'loading') {
+    if (days7Btn) days7Btn.disabled = pendingAction === 'generate';
+    if (days30Btn) days30Btn.disabled = pendingAction === 'generate';
+    if (generateBtn) generateBtn.disabled = pendingAction === 'generate' || d.planFlowState === 'loading';
+    if (generateBtn && d.planFlowState !== 'loading' && pendingAction !== 'generate') {
       generateBtn.textContent = currentDays === 30
         ? shellText('create_post_studio_generate_30_cta')
         : shellText('create_post_studio_generate_7');
     }
+  };
+  const clearPostStudioGenerateFeedback = () => {
+    d.postStudioGenerateFeedbackType = '';
+    d.postStudioGenerateFeedbackText = '';
+  };
+  const clearPostStudioActionFeedback = () => {
+    d.postStudioActionFeedbackType = '';
+    d.postStudioActionFeedbackText = '';
+  };
+  const setPostStudioGenerateFeedback = (type, text) => {
+    d.postStudioGenerateFeedbackType = String(type || '').trim();
+    d.postStudioGenerateFeedbackText = String(text || '').trim();
+  };
+  const setPostStudioActionFeedback = (type, text) => {
+    d.postStudioActionFeedbackType = String(type || '').trim();
+    d.postStudioActionFeedbackText = String(text || '').trim();
+  };
+  const setPostStudioPendingAction = (action = '') => {
+    d.postStudioPendingAction = String(action || '').trim();
+  };
+  const syncPostStudioStatusNode = (nodeId, type, text) => {
+    const el = document.getElementById(nodeId);
+    if (!el) return;
+    const nextType = String(type || '').trim();
+    const nextText = String(text || '').trim();
+    el.className = `post-studio-status${nodeId === 'cdPostStudioActionFeedback' ? ' post-studio-action-status' : ''}${nextText ? ` is-${nextType || 'pending'}` : ' is-hidden'}`;
+    el.textContent = nextText;
+  };
+  const syncPostStudioAsyncUiDom = () => {
+    const pendingAction = String(d.postStudioPendingAction || '').trim();
+    const currentDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
+    const generateBtn = document.getElementById('cdGeneratePostStudioPlan');
+    const days7Btn = document.getElementById('cdPostStudioDays7');
+    const days30Btn = document.getElementById('cdPostStudioDays30');
+    const publishBtn = document.getElementById('cdPostStudioPublishNow');
+    const scheduleBtn = document.getElementById('cdPostStudioSchedule');
+    if (generateBtn) {
+      generateBtn.disabled = pendingAction === 'generate' || d.planFlowState === 'loading';
+      generateBtn.textContent = pendingAction === 'generate'
+        ? (currentDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7'))
+        : (currentDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
+    }
+    if (days7Btn) days7Btn.disabled = pendingAction === 'generate';
+    if (days30Btn) days30Btn.disabled = pendingAction === 'generate';
+    if (publishBtn) {
+      publishBtn.disabled = pendingAction === 'publish' || pendingAction === 'schedule';
+      publishBtn.textContent = pendingAction === 'publish'
+        ? shellText('create_post_studio_publish_pending_button')
+        : shellText('create_post_studio_publish_now');
+    }
+    if (scheduleBtn) {
+      scheduleBtn.disabled = pendingAction === 'publish' || pendingAction === 'schedule';
+      scheduleBtn.textContent = pendingAction === 'schedule'
+        ? shellText('create_post_studio_schedule_pending_button')
+        : shellText('create_post_studio_schedule');
+    }
+    syncPostStudioStatusNode('cdPostStudioGenerateFeedback', d.postStudioGenerateFeedbackType, d.postStudioGenerateFeedbackText);
+    syncPostStudioStatusNode('cdPostStudioActionFeedback', d.postStudioActionFeedbackType, d.postStudioActionFeedbackText);
   };
   const applyPlanItemToDirector = (item) => {
     if (!item) return;
@@ -11072,20 +11208,54 @@ async function bindCreateDirector(path) {
   };
   const genPostStudioPlanBtn = document.getElementById('cdGeneratePostStudioPlan');
   if (genPostStudioPlanBtn) genPostStudioPlanBtn.onclick = async () => {
-    await buildPostStudioPlan(Number(d.postStudioPlanDays || 7) || 7);
+    if (String(d.postStudioPendingAction || '').trim() === 'generate') return;
+    const daysCount = Number(d.postStudioPlanDays || 7) || 7;
+    setPostStudioPendingAction('generate');
+    clearPostStudioActionFeedback();
+    setPostStudioGenerateFeedback('pending', shellText('create_post_studio_generate_pending_inline'));
+    state.notice = null;
+    syncPostStudioAsyncUiDom();
+    render();
+    await buildPostStudioPlan(daysCount);
+    setPostStudioPendingAction('');
+    if (d.planFlowState === 'generated' && Array.isArray(d.planFlowItems) && d.planFlowItems.length) {
+      setPostStudioGenerateFeedback('success', shellText('create_post_studio_generate_success'));
+      state.notice = { type: 'ok', text: shellText('create_post_studio_generate_success') };
+    } else {
+      setPostStudioGenerateFeedback('error', shellText('create_post_studio_generate_error'));
+      state.notice = { type: 'error', text: shellText('create_post_studio_generate_error') };
+    }
+    render();
   };
   const genPostStudio30Btn = document.getElementById('cdPostStudioGenerate30');
   if (genPostStudio30Btn) genPostStudio30Btn.onclick = async () => {
+    if (String(d.postStudioPendingAction || '').trim() === 'generate') return;
+    applyPostStudioPlanDays(30);
+    setPostStudioPendingAction('generate');
+    clearPostStudioActionFeedback();
+    setPostStudioGenerateFeedback('pending', shellText('create_post_studio_generate_pending_inline'));
+    state.notice = null;
+    syncPostStudioAsyncUiDom();
+    render();
     await buildPostStudioPlan(30);
+    setPostStudioPendingAction('');
+    if (d.planFlowState === 'generated' && Array.isArray(d.planFlowItems) && d.planFlowItems.length) {
+      setPostStudioGenerateFeedback('success', shellText('create_post_studio_generate_success'));
+      state.notice = { type: 'ok', text: shellText('create_post_studio_generate_success') };
+    } else {
+      setPostStudioGenerateFeedback('error', shellText('create_post_studio_generate_error'));
+      state.notice = { type: 'error', text: shellText('create_post_studio_generate_error') };
+    }
+    render();
   };
   const postStudioDays7Btn = document.getElementById('cdPostStudioDays7');
   if (postStudioDays7Btn) postStudioDays7Btn.onclick = () => {
-    d.postStudioPlanDays = 7;
+    applyPostStudioPlanDays(7);
     refreshPostStudioPlanDaysUi();
   };
   const postStudioDays30Btn = document.getElementById('cdPostStudioDays30');
   if (postStudioDays30Btn) postStudioDays30Btn.onclick = () => {
-    d.postStudioPlanDays = 30;
+    applyPostStudioPlanDays(30);
     refreshPostStudioPlanDaysUi();
   };
   refreshPostStudioPlanDaysUi();
@@ -11620,12 +11790,23 @@ async function bindCreateDirector(path) {
   const postStudioPublishBtn = document.getElementById('cdPostStudioPublishNow');
   if (postStudioPublishBtn) {
     postStudioPublishBtn.onclick = async () => {
+      if (String(d.postStudioPendingAction || '').trim()) return;
+      setPostStudioPendingAction('publish');
+      clearPostStudioGenerateFeedback();
+      setPostStudioActionFeedback('pending', shellText('create_post_studio_publish_pending_inline'));
+      state.notice = null;
+      syncPostStudioAsyncUiDom();
+      render();
       try {
         await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: false });
         state.notice = { type: 'ok', text: shellText('create_post_studio_publish_ok') };
         syncPostStudioStateFromDom();
+        setPostStudioActionFeedback('success', shellText('create_post_studio_publish_ok'));
       } catch (e) {
-        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_publish_error') };
+        state.notice = { type: 'error', text: shellText('create_post_studio_publish_error') };
+        setPostStudioActionFeedback('error', shellText('create_post_studio_publish_error'));
+      } finally {
+        setPostStudioPendingAction('');
       }
       render();
     };
@@ -11633,12 +11814,23 @@ async function bindCreateDirector(path) {
   const postStudioScheduleBtn = document.getElementById('cdPostStudioSchedule');
   if (postStudioScheduleBtn) {
     postStudioScheduleBtn.onclick = async () => {
+      if (String(d.postStudioPendingAction || '').trim()) return;
+      setPostStudioPendingAction('schedule');
+      clearPostStudioGenerateFeedback();
+      setPostStudioActionFeedback('pending', shellText('create_post_studio_schedule_pending_inline'));
+      state.notice = null;
+      syncPostStudioAsyncUiDom();
+      render();
       try {
         await createStudioPostRecord(getResolvedPostStudioActionItem(), { schedule: true });
         state.notice = { type: 'ok', text: shellText('create_post_studio_schedule_ok') };
         syncPostStudioStateFromDom();
+        setPostStudioActionFeedback('success', shellText('create_post_studio_schedule_ok'));
       } catch (e) {
-        state.notice = { type: 'error', text: e.message || shellText('create_post_studio_schedule_error') };
+        state.notice = { type: 'error', text: shellText('create_post_studio_schedule_error') };
+        setPostStudioActionFeedback('error', shellText('create_post_studio_schedule_error'));
+      } finally {
+        setPostStudioPendingAction('');
       }
       render();
     };
@@ -12796,7 +12988,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
           : { postWeekItems: [], postWeekSelectedDate: '' }),
       };
       state.notice = { type: 'ok', text: isMonthPlan ? 'Открыт контент-план постов на 30 дней по выбранной нише.' : 'Открыт контент-план постов на 7 дней по выбранной нише.' };
-      nav(plannerUrl('post', isMonthPlan ? 30 : 7), { keepNotice: true });
+      nav(createStudioUrl('post', { mode: 'plan', days: isMonthPlan ? 30 : 7 }), { keepNotice: true });
       return;
     }
     if (actionType === 'video_week_plan' || actionType === 'video_month_plan') {
