@@ -521,13 +521,13 @@ def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | N
     ).strip()
 
 def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_index: int, topic: str, niche_label: str | None, language: str, goal: str, offer: str | None) -> dict:
+    no_offer = not _has_explicit_offer(offer)
+    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language)
     body_text = _format_core_for_platform(str(source_row.get("post_text") or "").strip(), platform)
     if not body_text or _contains_meta_marketing_advice(body_text):
-        body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
-    elif not _has_explicit_offer(offer) and (
-        _looks_service_framed_no_offer(body_text) or _looks_hard_sell_cta(body_text)
-    ):
-        body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
+        body_text = _format_core_for_platform(safe_core_text, platform)
+    elif no_offer:
+        body_text = _format_core_for_platform(safe_core_text, platform)
     cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
     generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
@@ -535,11 +535,10 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
         hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=5, max_count=12)
     else:
         hashtags = generated_tags
-    if not _has_explicit_offer(offer):
-        if _looks_hard_sell_cta(cta_text):
-            cta_text = _cta_defaults(language, "soft")[0]
-        hashtags = [tag for tag in hashtags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
-        hashtags = _sanitize_hashtag_list(hashtags or generated_tags, min_count=5, max_count=12 if platform != "instagram" else 15)
+    if no_offer:
+        cta_text = _cta_defaults(language, "soft")[0]
+        hashtags = [tag for tag in generated_tags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
+        hashtags = _sanitize_hashtag_list(hashtags, min_count=5, max_count=12 if platform != "instagram" else 15)
     if platform == "instagram":
         hashtags = hashtags[:15]
         prev_len = -1
