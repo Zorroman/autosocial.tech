@@ -1,4 +1,4 @@
-import json
+﻿import json
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -15,9 +15,27 @@ META_MARKETING_TERMS = (
     "reach",
     "engagement",
     "content strategy",
-    "контент-стратег",
-    "охват",
-    "вовлечение",
+    "РєРѕРЅС‚РµРЅС‚-СЃС‚СЂР°С‚РµРі",
+    "РѕС…РІР°С‚",
+    "РІРѕРІР»РµС‡РµРЅРёРµ",
+)
+
+HARD_SELL_CTA_TERMS = (
+    "приходите",
+    "приходи",
+    "запишитесь",
+    "записывайтесь",
+    "напишите в сообщения",
+    "напишите в директ",
+    "оставьте заявку",
+    "мы подскажем",
+    "забронируйте",
+    "book now",
+    "dm us",
+    "send a dm",
+    "book a call",
+    "nachricht",
+    "termin buchen",
 )
 
 
@@ -81,22 +99,22 @@ def _normalize_strategy_payload(payload: dict) -> None:
     payload["key_points"] = _pad_list(
         [str(x).strip() for x in (payload.get("key_points") or []) if str(x).strip()],
         3,
-        lambda i: f"РљР»СЋС‡РµРІРѕР№ С‚РµР·РёСЃ {i + 1}",
+        lambda i: f"Р С™Р В»РЎР‹РЎвЂЎР ВµР Р†Р С•Р в„– РЎвЂљР ВµР В·Р С‘РЎРѓ {i + 1}",
     )
     payload["hook_ideas"] = _pad_list(
         [str(x).strip() for x in (payload.get("hook_ideas") or []) if str(x).strip()],
         5,
-        lambda i: f"РҐСѓРє {i + 1}: РїСЂР°РєС‚РёС‡РµСЃРєРёР№ РёРЅСЃР°Р№С‚ РїРѕ С‚РµРјРµ",
+        lambda i: f"Р ТђРЎС“Р С” {i + 1}: Р С—РЎР‚Р В°Р С”РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘Р в„– Р С‘Р Р…РЎРѓР В°Р в„–РЎвЂљ Р С—Р С• РЎвЂљР ВµР СР Вµ",
     )
     payload["cta_variants"] = _pad_list(
         [str(x).strip() for x in (payload.get("cta_variants") or []) if str(x).strip()],
         3,
-        lambda i: f"CTA {i + 1}: РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚, РїРѕРґР±РµСЂРµРј СЂРµС€РµРЅРёРµ РїРѕРґ РІР°С€Сѓ Р·Р°РґР°С‡Сѓ.",
+        lambda i: f"CTA {i + 1}: Р СњР В°Р С—Р С‘РЎв‚¬Р С‘РЎвЂљР Вµ Р Р† Р Т‘Р С‘РЎР‚Р ВµР С”РЎвЂљ, Р С—Р С•Р Т‘Р В±Р ВµРЎР‚Р ВµР С РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р Т‘ Р Р†Р В°РЎв‚¬РЎС“ Р В·Р В°Р Т‘Р В°РЎвЂЎРЎС“.",
     )
     payload["visual_ideas"] = _pad_list(
         [str(x).strip() for x in (payload.get("visual_ideas") or []) if str(x).strip()],
         5,
-        lambda i: f"Р’РёР·СѓР°Р» {i + 1}: СЂРµР°Р»РёСЃС‚РёС‡РЅС‹Р№ Р±РёР·РЅРµСЃ-СЃСЋР¶РµС‚ Р±РµР· С‚РµРєСЃС‚Р° РЅР° РёР·РѕР±СЂР°Р¶РµРЅРёРё.",
+        lambda i: f"Р вЂ™Р С‘Р В·РЎС“Р В°Р В» {i + 1}: РЎР‚Р ВµР В°Р В»Р С‘РЎРѓРЎвЂљР С‘РЎвЂЎР Р…РЎвЂ№Р в„– Р В±Р С‘Р В·Р Р…Р ВµРЎРѓ-РЎРѓРЎР‹Р В¶Р ВµРЎвЂљ Р В±Р ВµР В· РЎвЂљР ВµР С”РЎРѓРЎвЂљР В° Р Р…Р В° Р С‘Р В·Р С•Р В±РЎР‚Р В°Р В¶Р ВµР Р…Р С‘Р С‘.",
     )
 
     raw_objections = payload.get("objections_answers") or []
@@ -113,8 +131,8 @@ def _normalize_strategy_payload(payload: dict) -> None:
         normalized_objections,
         3,
         lambda i: {
-            "objection": f"Р’РѕР·СЂР°Р¶РµРЅРёРµ {i + 1}: СЌС‚Рѕ СЃР»РѕР¶РЅРѕ РІРЅРµРґСЂРёС‚СЊ",
-            "answer": "Р Р°Р·Р±РёРІР°РµРј РІРЅРµРґСЂРµРЅРёРµ РЅР° 2-3 РєРѕСЂРѕС‚РєРёС… С€Р°РіР° Рё Р·Р°РїСѓСЃРєР°РµРј Р±РµР· РїРµСЂРµРіСЂСѓР·Р° РєРѕРјР°РЅРґС‹.",
+            "objection": f"Р вЂ™Р С•Р В·РЎР‚Р В°Р В¶Р ВµР Р…Р С‘Р Вµ {i + 1}: РЎРЊРЎвЂљР С• РЎРѓР В»Р С•Р В¶Р Р…Р С• Р Р†Р Р…Р ВµР Т‘РЎР‚Р С‘РЎвЂљРЎРЉ",
+            "answer": "Р В Р В°Р В·Р В±Р С‘Р Р†Р В°Р ВµР С Р Р†Р Р…Р ВµР Т‘РЎР‚Р ВµР Р…Р С‘Р Вµ Р Р…Р В° 2-3 Р С”Р С•РЎР‚Р С•РЎвЂљР С”Р С‘РЎвЂ¦ РЎв‚¬Р В°Р С–Р В° Р С‘ Р В·Р В°Р С—РЎС“РЎРѓР С”Р В°Р ВµР С Р В±Р ВµР В· Р С—Р ВµРЎР‚Р ВµР С–РЎР‚РЎС“Р В·Р В° Р С”Р С•Р СР В°Р Р…Р Т‘РЎвЂ№.",
         },
     )
     payload["objections_answers"] = normalized_objections
@@ -130,9 +148,9 @@ def _normalize_strategy_payload(payload: dict) -> None:
     hashtag_sets_norm = _pad_list(
         hashtag_sets_norm,
         2,
-        lambda _: ["#РєРѕРЅС‚РµРЅС‚", "#РјР°СЂРєРµС‚РёРЅРі", "#Р±РёР·РЅРµСЃ"],
+        lambda _: ["#Р С”Р С•Р Р…РЎвЂљР ВµР Р…РЎвЂљ", "#Р СР В°РЎР‚Р С”Р ВµРЎвЂљР С‘Р Р…Р С–", "#Р В±Р С‘Р В·Р Р…Р ВµРЎРѓ"],
     )
-    payload["hashtag_sets"] = [s if len(s) >= 3 else _pad_list(s, 3, lambda __: "#РєРѕРЅС‚РµРЅС‚") for s in hashtag_sets_norm]
+    payload["hashtag_sets"] = [s if len(s) >= 3 else _pad_list(s, 3, lambda __: "#Р С”Р С•Р Р…РЎвЂљР ВµР Р…РЎвЂљ") for s in hashtag_sets_norm]
 
 
 def validate_strategy_payload(payload: dict) -> None:
@@ -196,11 +214,11 @@ def validate_draft_payload(payload: dict) -> None:
 
 def _strategy_system_prompt() -> str:
     return (
-        "You are a local business content strategist. "
-        "Always write from the business perspective to end customers. "
+        "You are a niche-aware social content strategist. "
+        "Always write value-first content for real people and keep the meaning useful, clear and credible. "
         "Never output marketing-advice language for marketers. "
-        "Never mention: reach, engagement, content strategy, охват, вовлечение, контент-стратегия. "
-        "Never invent specific product facts if offer is empty. "
+        "Never mention: reach, engagement, content strategy, РѕС…РІР°С‚, РІРѕРІР»РµС‡РµРЅРёРµ, РєРѕРЅС‚РµРЅС‚-СЃС‚СЂР°С‚РµРіРёСЏ. "
+        "Never invent specific product facts if offer is empty. When offer is empty, do not force sales CTA. "
         "Generate clean, realistic social media hashtags. Do not use random characters. "
         "Do not transliterate incorrectly. No punctuation. "
         "Visual ideas must be image concepts without text on image. "
@@ -242,18 +260,229 @@ def _strategy_user_prompt(*, topic: str, offer: str | None, language: str, tone:
 
 def _draft_system_prompt() -> str:
     return (
-        "You are a senior copywriter for local businesses. "
-        "Write customer-facing content from business perspective. "
-        "Audience is end customers, not marketers. "
-        "Never mention: reach, engagement, content strategy, охват, вовлечение, контент-стратегия. "
+        "You are a senior niche-aware social copywriter. "
+        "Write useful, credible social content for real people, not marketers. "
+        "Start with one useful idea, one practical point or one meaningful observation. "
+        "Do not default to local-service sales language unless the offer is explicit. "
+        "When offer is empty, keep CTA soft, reflective or optional. "
+        "Never mention: reach, engagement, content strategy, РѕС…РІР°С‚, РІРѕРІР»РµС‡РµРЅРёРµ, РєРѕРЅС‚РµРЅС‚-СЃС‚СЂР°С‚РµРіРёСЏ. "
         "Never write marketing advice about algorithms or content systems. "
-        "Transform theme into a client hook; never reuse the theme verbatim as headline. "
+        "Transform theme into a human hook; never reuse the theme verbatim as headline. "
         "Generate clean, realistic social media hashtags. Do not use random characters. "
         "Do not transliterate incorrectly. No punctuation. "
         "Write practical, readable social content. "
-        "No fake product facts. If offer is empty keep messaging universal. "
+        "No fake product facts. If offer is empty keep messaging universal and non-promotional. "
         "Return JSON only."
     )
+
+
+def _has_explicit_offer(offer: str | None) -> bool:
+    return bool(str(offer or "").strip())
+
+
+def _cta_mode(goal: str, offer: str | None) -> str:
+    goal_mode = _normalize_goal_for_business(goal)
+    if goal_mode == "lead" and _has_explicit_offer(offer):
+        return "service"
+    if goal_mode == "trust":
+        return "discussion"
+    return "soft"
+
+
+def _cta_defaults(language: str, mode: str) -> list[str]:
+    lang = str(language or "ru").strip().lower()
+    if lang == "de":
+        soft = [
+            "Speichern Sie den Beitrag, wenn Sie den Gedanken spaeter noch einmal brauchen.",
+            "Worauf achten Sie in so einer Situation zuerst?",
+            "Welche dieser Fehler sehen Sie am haeufigsten?",
+        ]
+        discussion = [
+            "Haben Sie so etwas schon einmal bemerkt?",
+            "Welche Variante wirkt fuer Sie realistischer?",
+            "Woran wuerde man das bei Ihnen zuerst erkennen?",
+        ]
+        service = [
+            "Wenn Sie dazu ein konkretes Angebot wollen, schreiben Sie uns kurz.",
+            "Wenn Sie genau fuer Ihre Situation eine Empfehlung brauchen, schicken Sie uns eine Nachricht.",
+            "Wenn Sie das Thema mit einem klaren naechsten Schritt loesen wollen, schreiben Sie uns.",
+        ]
+    elif lang == "en":
+        soft = [
+            "Save this post if you want to come back to the idea later.",
+            "What do you usually notice first in a situation like this?",
+            "Which of these mistakes feels the most common to you?",
+        ]
+        discussion = [
+            "Have you noticed something similar before?",
+            "Which option feels more realistic to you?",
+            "What would you check first in this situation?",
+        ]
+        service = [
+            "If you want a tailored option for your situation, send us a message.",
+            "If you need a concrete recommendation based on your case, message us.",
+            "If you want help turning this into a clear next step, write to us.",
+        ]
+    else:
+        soft = [
+            "Сохраните пост, если хотите вернуться к этой мысли позже.",
+            "А вы замечали что-то похожее?",
+            "Какая из этих ошибок кажется самой частой?",
+        ]
+        discussion = [
+            "Было ли у вас что-то похожее?",
+            "Какой вариант вам ближе?",
+            "На что вы обычно обращаете внимание в такой ситуации?",
+        ]
+        service = [
+            "Если вам нужно подобрать вариант под свою ситуацию, напишите нам.",
+            "Если хотите понятную рекомендацию под ваш запрос, напишите в сообщения.",
+            "Если нужен следующий шаг именно для вашей ситуации, напишите нам.",
+        ]
+    if mode == "service":
+        return service
+    if mode == "discussion":
+        return discussion
+    return soft
+
+
+def _looks_hard_sell_cta(text: str) -> bool:
+    low = str(text or "").strip().lower()
+    return any(term in low for term in HARD_SELL_CTA_TERMS)
+
+
+def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred: str | None = None) -> str:
+    preferred_text = str(preferred or "").strip()
+    mode = _cta_mode(goal, offer)
+    if preferred_text:
+        if mode != "service" and _looks_hard_sell_cta(preferred_text):
+            preferred_text = ""
+        elif not _contains_meta_marketing_advice(preferred_text):
+            return preferred_text
+    return _cta_defaults(language, mode)[0]
+
+
+def _default_cta_options(goal: str, offer: str | None, language: str, niche_cta_templates: list[str] | None = None) -> list[str]:
+    mode = _cta_mode(goal, offer)
+    templates = [str(x).strip() for x in (niche_cta_templates or []) if str(x).strip()]
+    if mode != "service":
+        templates = [x for x in templates if not _looks_hard_sell_cta(x)]
+    pool = templates + _cta_defaults(language, mode)
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in pool:
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+        if len(out) >= 3:
+            break
+    defaults = _cta_defaults(language, mode)
+    while len(out) < 3:
+        out.append(defaults[len(out) % len(defaults)])
+    return out[:3]
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", str(text or "").strip())
+    return [str(x).strip() for x in parts if str(x).strip()]
+
+
+def _format_core_for_platform(core_text: str, platform: str) -> str:
+    text = str(core_text or "").strip()
+    if not text:
+        return ""
+    lines = [str(x).strip() for x in text.splitlines() if str(x).strip()]
+    bullet_like = [line for line in lines if re.match(r"^(\d+[).:-]|[-*•])\s*", line)]
+    if bullet_like:
+        intro = [line for line in lines if line not in bullet_like]
+        intro_text = "\n\n".join(intro[:2]).strip()
+        bullets = bullet_like[:4 if platform == "instagram" else 5]
+        return "\n\n".join(([intro_text] if intro_text else []) + bullets).strip()
+    sentences = _split_sentences(text)
+    if not sentences:
+        return text
+    if platform == "instagram":
+        return "\n\n".join(sentences[: min(len(sentences), 5)]).strip()
+    if platform == "facebook":
+        chunks = []
+        current = []
+        for sentence in sentences[: min(len(sentences), 6)]:
+            current.append(sentence)
+            if len(current) >= 2:
+                chunks.append(" ".join(current).strip())
+                current = []
+        if current:
+            chunks.append(" ".join(current).strip())
+        return "\n\n".join(chunks).strip()
+    return text
+
+
+def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | None, language: str) -> str:
+    lang = str(language or "ru").strip().lower()
+    angle_text = _repair_mojibake_text(str(angle or "").strip())
+    topic_text = _repair_mojibake_text(str(topic or "").strip())
+    if lang == "de":
+        intro = f"{topic_text}. {angle_text}".strip(". ")
+        close = "Wenn es dazu ein klares Angebot gibt, kann daraus ein naechster Schritt werden." if _has_explicit_offer(offer) else "Der naechste Schritt darf ruhig klein und realistisch sein."
+        return (
+            f"{intro}.\n\n"
+            "Nennen Sie zuerst ein konkretes Muster oder einen typischen Fehler, den man wirklich wiedererkennt.\n\n"
+            "Geben Sie danach einen einfachen, brauchbaren Hinweis, den man sofort fuer die eigene Situation pruefen kann.\n\n"
+            f"{close}"
+        ).strip()
+    if lang == "en":
+        intro = f"{topic_text}. {angle_text}".strip(". ")
+        close = "If there is a real offer behind it, the next step can be explicit." if _has_explicit_offer(offer) else "The next step should stay light and useful, not pushy."
+        return (
+            f"{intro}.\n\n"
+            "Start with one recognizable mistake, signal or situation the audience will instantly understand.\n\n"
+            "Then add one practical takeaway they can use right away in real life.\n\n"
+            f"{close}"
+        ).strip()
+    intro = f"{topic_text}. {angle_text}".strip(". ")
+    close = "Если за темой стоит конкретное предложение, его можно упомянуть мягко и по делу." if _has_explicit_offer(offer) else "Следующий шаг здесь должен оставаться мягким и полезным, а не давящим."
+    return (
+        f"{intro}.\n\n"
+        "Сначала покажите один узнаваемый сигнал, ошибку или ситуацию, с которой человек действительно сталкивается.\n\n"
+        "Затем дайте одну практическую мысль или шаг, который можно применить без лишней теории.\n\n"
+        f"{close}"
+    ).strip()
+
+def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_index: int, topic: str, niche_label: str | None, language: str, goal: str, offer: str | None) -> dict:
+    body_text = _format_core_for_platform(str(source_row.get("post_text") or "").strip(), platform)
+    if not body_text or _contains_meta_marketing_advice(body_text):
+        body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
+    cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
+    hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
+    generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
+    if hashtags:
+        hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=5, max_count=12)
+    else:
+        hashtags = generated_tags
+    if platform == "instagram":
+        hashtags = hashtags[:15]
+        prev_len = -1
+        while len(hashtags) < 8 and len(hashtags) != prev_len:
+            prev_len = len(hashtags)
+            hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=8, max_count=15)
+    elif platform == "facebook":
+        hashtags = hashtags[:8] or generated_tags[:8]
+    elif platform == "youtube":
+        hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=3, max_count=10)[:3]
+    row = {
+        "platform": platform,
+        "variant_index": variant_index,
+        "post_text": body_text,
+        "title": source_row.get("title"),
+        "description": source_row.get("description"),
+        "hashtags": hashtags,
+        "cta": cta_text,
+        "asset_ideas": source_row.get("asset_ideas") or [],
+        "pinned_comment_text": source_row.get("pinned_comment_text"),
+    }
+    return _ensure_platform_draft_shape(row, platform=platform, variant_index=variant_index)
 
 
 def _draft_constraints(platform: str) -> str:
@@ -396,21 +625,21 @@ def _mock_draft(*, platform: str, variant_index: int, topic: str, strategy: dict
 
 def _goal_label(goal: str) -> str:
     mapping = {
-        "sales": "РїСЂРѕРґР°Р¶Р°",
-        "lead": "Р»РёРґ",
-        "engagement": "РІРѕРІР»РµС‡РµРЅРёРµ",
-        "awareness": "СѓР·РЅР°РІР°РµРјРѕСЃС‚СЊ",
-        "trust": "доверие",
+        "sales": "продажа",
+        "lead": "лиды",
+        "engagement": "вовлечение",
+        "awareness": "охват",
+        "trust": "РґРѕРІРµСЂРёРµ",
     }
-    return mapping.get(str(goal or "").strip().lower(), "РІРѕРІР»РµС‡РµРЅРёРµ")
+    return mapping.get(str(goal or "").strip().lower(), "вовлечение")
 
 
 def _fallback_strategy(topic: str, offer: str | None, goal: str) -> dict:
     strategy = _mock_strategy(topic=topic, offer=offer, goal=goal)
-    strategy["angle"] = f"РџСЂР°РєС‚РёС‡РµСЃРєРёР№ СЂР°Р·Р±РѕСЂ С‚РµРјС‹ В«{topic}В» РїРѕРґ С†РµР»СЊ: {_goal_label(goal)}"
+    strategy["angle"] = f"Р СџРЎР‚Р В°Р С”РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘Р в„– РЎР‚Р В°Р В·Р В±Р С•РЎР‚ РЎвЂљР ВµР СРЎвЂ№ Р’В«{topic}Р’В» Р С—Р С•Р Т‘ РЎвЂ Р ВµР В»РЎРЉ: {_goal_label(goal)}"
     strategy["context"] = (
-        f"РђСѓРґРёС‚РѕСЂРёРё РЅСѓР¶РµРЅ РїРѕРЅСЏС‚РЅС‹Р№ СЃС†РµРЅР°СЂРёР№ РґРµР№СЃС‚РІРёР№ РїРѕ С‚РµРјРµ В«{topic}В»."
-        + (f" РћС„С„РµСЂ: {offer}." if offer else "")
+        f"Р С’РЎС“Р Т‘Р С‘РЎвЂљР С•РЎР‚Р С‘Р С‘ Р Р…РЎС“Р В¶Р ВµР Р… Р С—Р С•Р Р…РЎРЏРЎвЂљР Р…РЎвЂ№Р в„– РЎРѓРЎвЂ Р ВµР Р…Р В°РЎР‚Р С‘Р в„– Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„– Р С—Р С• РЎвЂљР ВµР СР Вµ Р’В«{topic}Р’В»."
+        + (f" Р С›РЎвЂћРЎвЂћР ВµРЎР‚: {offer}." if offer else "")
     )
     _normalize_strategy_payload(strategy)
     return strategy
@@ -426,7 +655,7 @@ def _extract_hashtags_from_text(text: str, *, limit: int = 12) -> list[str]:
         if len(tags) >= limit:
             break
     if not tags:
-        tags = ["#локальныйбизнес", "#услуги", "#сервис", "#рекомендуем", "#актуально"]
+        tags = ["#полезно", "#совет", "#практика", "#разбор", "#соцсети"]
     return _sanitize_hashtag_list(tags, min_count=min(5, limit), max_count=min(12, limit))
 
 
@@ -443,7 +672,11 @@ def _sanitize_hashtag_token(token: str, *, max_len: int = 29) -> str:
     raw = str(token or "").strip().lower()
     if raw.startswith("#"):
         raw = raw[1:]
-    cleaned = "".join(ch for ch in raw if ch.isalnum())
+    cleaned_chars = []
+    for ch in raw:
+        if ("a" <= ch <= "z") or ("0" <= ch <= "9") or ("\u0430" <= ch <= "\u044f") or ch in {"ё"}:
+            cleaned_chars.append(ch)
+    cleaned = "".join(cleaned_chars)
     cleaned = cleaned[:max_len].strip()
     return f"#{cleaned}" if cleaned else ""
 
@@ -455,7 +688,7 @@ def _sanitize_hashtag_list(tags: list[str], *, min_count: int = 5, max_count: in
         safe = _sanitize_hashtag_token(tag)
         if not safe:
             continue
-        if "," in safe or "'" in safe or "’" in safe:
+        if "," in safe or "'" in safe or "вЂ™" in safe:
             continue
         if len(safe) >= 30:
             safe = safe[:29]
@@ -467,7 +700,7 @@ def _sanitize_hashtag_list(tags: list[str], *, min_count: int = 5, max_count: in
         if len(out) >= max_count:
             break
     if len(out) < min_count:
-        filler = ["#локальныйбизнес", "#услуги", "#вашгород", "#рекомендуем", "#актуально"]
+        filler = ["#полезно", "#совет", "#разбор", "#практика", "#соцсети"]
         for tag in filler:
             safe = _sanitize_hashtag_token(tag)
             if safe and safe not in seen:
@@ -489,7 +722,7 @@ def generateHashtags(niche: str, city: str | None, language: str, goal: str) -> 
             "barbershop": {
                 "niche": ["#барбершоп", "#барбер"],
                 "service": ["#мужскаястрижка", "#борода"],
-                "engagement": ["#стильмужчины", "#мужскойстиль"],
+                "engagement": ["#мужскойстиль", "#уход"],
             }
         },
         "de": {
@@ -510,11 +743,11 @@ def generateHashtags(niche: str, city: str | None, language: str, goal: str) -> 
 
     def _detect_niche_key() -> str:
         checks = (
-            ("barbershop", ["barber", "barbershop", "барбер", "барбершоп"]),
-            ("beauty", ["beauty", "салон", "красот"]),
-            ("auto", ["auto", "авто", "service", "сервис"]),
-            ("restaurant", ["restaurant", "ресторан"]),
-            ("cafe", ["cafe", "кафе", "coffee"]),
+            ("barbershop", ["barber", "barbershop", "Р±Р°СЂР±РµСЂ", "Р±Р°СЂР±РµСЂС€РѕРї"]),
+            ("beauty", ["beauty", "СЃР°Р»РѕРЅ", "РєСЂР°СЃРѕС‚"]),
+            ("auto", ["auto", "Р°РІС‚Рѕ", "service", "СЃРµСЂРІРёСЃ"]),
+            ("restaurant", ["restaurant", "СЂРµСЃС‚РѕСЂР°РЅ"]),
+            ("cafe", ["cafe", "РєР°С„Рµ", "coffee"]),
         )
         for key, needles in checks:
             if any(n in niche_raw for n in needles):
@@ -529,12 +762,12 @@ def generateHashtags(niche: str, city: str | None, language: str, goal: str) -> 
         engagement_tags = spec["engagement"][:2]
     else:
         if lang == "ru":
-            niche_tags = [f"#{re.sub(r'[^0-9a-zа-я]+', '', niche_raw, flags=re.I) or 'локальныйбизнес'}", "#услуги"]
-            service_tags = ["#качество", "#сервис"]
-            engagement_tags = ["#рекомендуем", "#актуально"]
+            niche_tags = [f"#{re.sub(r'[^0-9a-zа-я]+', '', niche_raw, flags=re.I) or 'ниша'}", "#практика"]
+            service_tags = ["#разбор", "#польза"]
+            engagement_tags = ["#совет", "#полезно"]
         elif lang == "de":
-            niche_tags = [f"#{re.sub(r'[^0-9a-zäöüß]+', '', niche_raw, flags=re.I) or 'lokal'}", "#dienstleistung"]
-            service_tags = ["#qualität", "#service"]
+            niche_tags = [f"#{re.sub(r'[^0-9a-zГ¤Г¶ГјГџ]+', '', niche_raw, flags=re.I) or 'lokal'}", "#dienstleistung"]
+            service_tags = ["#qualitГ¤t", "#service"]
             engagement_tags = ["#empfehlung", "#regional"]
         else:
             niche_tags = [f"#{re.sub(r'[^0-9a-z]+', '', niche_raw, flags=re.I) or 'localbusiness'}", "#service"]
@@ -542,8 +775,8 @@ def generateHashtags(niche: str, city: str | None, language: str, goal: str) -> 
             engagement_tags = ["#recommended", "#local"]
 
     goal_service_overrides = {
-        "lead": {"ru": ["#запись", "#акция"], "de": ["#termin", "#angebot"], "en": ["#booknow", "#offer"]},
-        "trust": {"ru": ["#отзывы", "#результат"], "de": ["#kundenstimmen", "#ergebnis"], "en": ["#testimonial", "#results"]},
+        "lead": {"ru": ["#решение", "#помощь"], "de": ["#termin", "#angebot"], "en": ["#booknow", "#offer"]},
+        "trust": {"ru": ["#опыт", "#результат"], "de": ["#kundenstimmen", "#ergebnis"], "en": ["#testimonial", "#results"]},
         "awareness": {"ru": ["#совет", "#полезно"], "de": ["#tipp", "#wissen"], "en": ["#tips", "#insight"]},
     }
     if (not spec) and goal_mode in goal_service_overrides:
@@ -569,36 +802,36 @@ def _extract_cta_from_text(text: str) -> str:
     lines = [str(x).strip() for x in str(text or "").splitlines() if str(x).strip()]
     for line in reversed(lines):
         low = line.lower()
-        if any(k in low for k in ["РЅР°РїРёС€РёС‚Рµ", "РѕСЃС‚Р°РІСЊС‚Рµ", "РїРµСЂРµР№РґРёС‚Рµ", "Р·Р°РїРёС€РёС‚РµСЃСЊ", "РєСѓРїРёС‚Рµ", "РїРѕРґРїРёС€РёС‚РµСЃСЊ"]):
+        if any(k in low for k in ["напишите", "оставьте", "перейдите", "запишитесь", "купите", "подпишитесь"]):
             return line
-    return "РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚, С‡С‚РѕР±С‹ РїРѕР»СѓС‡РёС‚СЊ РґРµС‚Р°Р»Рё."
+    return "Сохраните пост, если хотите вернуться к этой мысли позже."
 
 
 def _ensure_platform_draft_shape(draft: dict, *, platform: str, variant_index: int) -> dict:
     out = dict(draft or {})
     out["platform"] = platform
     out["variant_index"] = int(variant_index or 1)
-    out["post_text"] = str(out.get("post_text") or "").strip()
-    out["cta"] = str(out.get("cta") or "").strip()
-    out["hashtags"] = [str(x).strip() for x in (out.get("hashtags") or []) if str(x).strip()]
-    out["asset_ideas"] = [str(x).strip() for x in (out.get("asset_ideas") or []) if str(x).strip()]
+    out["post_text"] = _repair_mojibake_text(str(out.get("post_text") or "").strip())
+    out["cta"] = _repair_mojibake_text(str(out.get("cta") or "").strip())
+    out["hashtags"] = _repair_mojibake_list([str(x).strip() for x in (out.get("hashtags") or []) if str(x).strip()])
+    out["asset_ideas"] = _repair_mojibake_list([str(x).strip() for x in (out.get("asset_ideas") or []) if str(x).strip()])
     if not out["post_text"]:
-        out["post_text"] = f"{platform.title()}: {variant_index}. {out.get('title') or 'РџСЂР°РєС‚РёС‡РµСЃРєРёР№ РїРѕСЃС‚ РїРѕ С‚РµРјРµ.'}"
+        out["post_text"] = f"{platform.title()}: {variant_index}. {out.get('title') or 'Практический пост по теме.'}"
     if not out["cta"]:
         out["cta"] = _extract_cta_from_text(out["post_text"])
     if not out["hashtags"]:
         out["hashtags"] = _extract_hashtags_from_text(out["post_text"])
     if len(out["asset_ideas"]) < 3:
         while len(out["asset_ideas"]) < 3:
-            out["asset_ideas"].append("Р РµР°Р»РёСЃС‚РёС‡РЅС‹Р№ РєР°РґСЂ РїРѕ С‚РµРјРµ Р±РµР· С‚РµРєСЃС‚Р° РЅР° РёР·РѕР±СЂР°Р¶РµРЅРёРё.")
+            out["asset_ideas"].append("Реалистичный кадр по теме без текста на изображении.")
     if platform == "youtube":
-        out["title"] = str(out.get("title") or "").strip() or "РџСЂР°РєС‚РёС‡РµСЃРєРёР№ СЂР°Р·Р±РѕСЂ С‚РµРјС‹"
-        out["description"] = str(out.get("description") or "").strip() or out["post_text"]
-        out["pinned_comment_text"] = str(out.get("pinned_comment_text") or "").strip() or "РљР°РєРѕР№ С€Р°Рі РІС‹ РІРЅРµРґСЂРёС‚Рµ РїРµСЂРІС‹Рј?"
+        out["title"] = _repair_mojibake_text(str(out.get("title") or "").strip()) or "Практический разбор темы"
+        out["description"] = _repair_mojibake_text(str(out.get("description") or "").strip()) or out["post_text"]
+        out["pinned_comment_text"] = _repair_mojibake_text(str(out.get("pinned_comment_text") or "").strip()) or "Какая мысль здесь откликается сильнее всего?"
         out["hashtags"] = out["hashtags"][:3]
     else:
-        out["title"] = out.get("title") or None
-        out["description"] = out.get("description") or None
+        out["title"] = _repair_mojibake_text(str(out.get("title") or "").strip()) or None
+        out["description"] = _repair_mojibake_text(str(out.get("description") or "").strip()) or None
         out["pinned_comment_text"] = None
     return out
 
@@ -612,6 +845,7 @@ def _generate_simplified_draft(
     goal: str,
     platform: str,
     variant_index: int,
+    angle: str | None = None,
 ) -> tuple[dict, int, int]:
     goal_mode = _normalize_goal_for_business(goal)
     playbook = _goal_playbook(goal_mode)
@@ -633,10 +867,13 @@ def _generate_simplified_draft(
             raise ValueError("hashtags must be list")
 
     system = (
-        "You are a local business copywriter. Return compact JSON only. "
-        "Write from business perspective for end customers. "
+        "You create one shared semantic core for a social post. Return compact JSON only. "
+        "Write useful niche-aware content for real people. "
+        "The post must contain one clear idea, one useful point and one believable takeaway. "
+        "Do not default to local-service sales language unless the offer is explicit. "
+        "When offer is empty, keep CTA soft, reflective or optional. "
         "Never write marketing advice for marketers. "
-        "Never mention: reach, engagement, content strategy, охват, вовлечение, контент-стратегия. "
+        "Never mention: reach, engagement, content strategy, content marketing metrics or creator strategy language. "
         "No extra keys."
     )
     user = (
@@ -646,9 +883,10 @@ def _generate_simplified_draft(
         f"tone: {tone}\n"
         f"goal: {goal}\n"
         f"goal_playbook: {', '.join(playbook['content_types'])}\n"
-        f"platform: {platform}\n"
         f"variant: {variant_index}\n"
-        "theme must be transformed to client hook, not copied verbatim as headline.\n"
+        "Create a platform-neutral core first. Facebook and Instagram will be adapted later from the same meaning.\n"
+        "Theme must be transformed into a human hook, not copied verbatim as headline.\n"
+        "Content must feel useful, calm, category-native and not falsely promotional by default.\n"
         f"schema: {json.dumps(schema_hint, ensure_ascii=False)}"
     )
     res = generate_json_with_retry(
@@ -666,19 +904,18 @@ def _generate_simplified_draft(
             "title": payload_get(res.payload, "title"),
             "description": payload_get(res.payload, "description"),
             "hashtags": res.payload.get("hashtags") or [],
-            "cta": payload_get(res.payload, "cta"),
+            "cta": _pick_default_cta(goal, offer, language, preferred=payload_get(res.payload, "cta")),
             "asset_ideas": [
-                "РљСЂСѓРїРЅС‹Р№ РїР»Р°РЅ РїСЂРѕРґСѓРєС‚Р°/СѓСЃР»СѓРіРё Р±РµР· С‚РµРєСЃС‚Р°",
-                "РЎС†РµРЅР° РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ РІ СЂРµР°Р»СЊРЅРѕР№ СЃСЂРµРґРµ",
-                "Р”Рѕ/РїРѕСЃР»Рµ РёР»Рё РїСЂРѕС†РµСЃСЃ РІ 3 С€Р°РіР°С…",
+                "Крупный план детали или процесса без текста на кадре",
+                "Обычная рабочая ситуация или деталь из реальной среды",
+                "Наглядное сравнение, понятный визуальный акцент или процесс по шагам",
             ],
-            "pinned_comment_text": "РќР°РїРёС€РёС‚Рµ РІР°С€ РІРѕРїСЂРѕСЃ РІ РєРѕРјРјРµРЅС‚Р°СЂРёСЏС….",
+            "pinned_comment_text": "Какая мысль здесь откликается сильнее всего?",
         },
         platform=platform,
         variant_index=variant_index,
     )
     return payload, res.input_tokens, res.output_tokens
-
 
 def payload_get(payload: dict, key: str) -> str:
     return str((payload or {}).get(key) or "").strip()
@@ -691,40 +928,26 @@ def _generate_free_text_fallback_draft(
     topic: str,
     offer: str | None,
     goal: str,
+    angle: str | None = None,
 ) -> dict:
     goal_mode = _normalize_goal_for_business(goal)
     hook = _topic_to_client_hook(topic, goal_mode)
-    goal_part = {
-        "lead": "Сделайте акцент на оффере, ограничении по времени и понятной записи.",
-        "trust": "Покажите реальный кейс клиента, отзыв и формат «до/после».",
-        "awareness": "Дайте полезный совет, разберите миф и предложите простое решение.",
-    }.get(goal_mode, "Покажите практическую ценность для клиента.")
-    text = (
-        f"{hook}\n\n"
-        f"{goal_part}\n"
-        f"{('Предложение: ' + offer) if offer else ''}\n\n"
-        "1) Какая проблема у клиента.\n"
-        "2) Как вы решаете ее на практике.\n"
-        "3) Что клиент получает в итоге.\n"
-        "4) CTA: напишите в сообщения для записи."
-    ).strip()
-    if _contains_meta_marketing_advice(text):
-        text = f"{hook}\n\nПокажите клиенту понятную пользу и завершите призывом к записи."
+    body = _shared_core_fallback_text(topic, str(angle or hook).strip(), goal, offer, "ru")
     return _ensure_platform_draft_shape(
         {
             "platform": platform,
             "variant_index": variant_index,
-            "post_text": text,
+            "post_text": _format_core_for_platform(body, platform),
             "title": f"{hook}: практический разбор" if platform == "youtube" else None,
-            "description": text if platform == "youtube" else None,
-            "hashtags": _extract_hashtags_from_text(text),
-            "cta": "Напишите в сообщения, чтобы забронировать удобное время.",
+            "description": body if platform == "youtube" else None,
+            "hashtags": _extract_hashtags_from_text(body),
+            "cta": _pick_default_cta(goal, offer, "ru"),
             "asset_ideas": [
-                "Р РµР°Р»РёСЃС‚РёС‡РЅР°СЏ СЃС†РµРЅР° РїРѕ С‚РµРјРµ Р±РµР· С‚РµРєСЃС‚Р°",
-                "РџСЂРѕС†РµСЃСЃ/workflow РІ СЂР°Р±РѕС‡РµРј РѕРєСЂСѓР¶РµРЅРёРё",
-                "РљСЂСѓРїРЅС‹Р№ РїР»Р°РЅ РєР»СЋС‡РµРІРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РѕС„С„РµСЂР°",
+                "Реалистичный кадр по теме без текста на изображении",
+                "Процесс, деталь или рабочая ситуация из реальной среды",
+                "До/после, сравнение или понятный визуальный акцент по теме",
             ],
-            "pinned_comment_text": "РљР°РєРѕР№ С€Р°Рі РІС‹ РїРѕРїСЂРѕР±СѓРµС‚Рµ РїРµСЂРІС‹Рј?" if platform == "youtube" else None,
+            "pinned_comment_text": "Какой вариант вам ближе?" if platform == "youtube" else None,
         },
         platform=platform,
         variant_index=variant_index,
@@ -745,16 +968,16 @@ def generate_quick_suggestions(
         base = str(topic).strip()
         return {
             "status": "ok",
-            "hook": f"{base}: С‡С‚Рѕ РІР°Р¶РЅРѕ РїСЂРѕРІРµСЂРёС‚СЊ РґРѕ СЃС‚Р°СЂС‚Р°?",
+            "hook": f"{base}: РЎвЂЎРЎвЂљР С• Р Р†Р В°Р В¶Р Р…Р С• Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С‘РЎвЂљРЎРЉ Р Т‘Р С• РЎРѓРЎвЂљР В°РЎР‚РЎвЂљР В°?",
             "angles": [
-                f"3 С‡Р°СЃС‚С‹Рµ РѕС€РёР±РєРё РІ С‚РµРјРµ В«{base}В»",
-                f"Р§РµРє-Р»РёСЃС‚ РІРЅРµРґСЂРµРЅРёСЏ В«{base}В» Р·Р° 1 РґРµРЅСЊ",
-                f"РљРµР№СЃ: РєР°Рє РїСЂРёРјРµРЅРёР»Рё В«{base}В» Рё РїРѕР»СѓС‡РёР»Рё СЂРµР·СѓР»СЊС‚Р°С‚",
+                f"3 РЎвЂЎР В°РЎРѓРЎвЂљРЎвЂ№Р Вµ Р С•РЎв‚¬Р С‘Р В±Р С”Р С‘ Р Р† РЎвЂљР ВµР СР Вµ Р’В«{base}Р’В»",
+                f"Р В§Р ВµР С”-Р В»Р С‘РЎРѓРЎвЂљ Р Р†Р Р…Р ВµР Т‘РЎР‚Р ВµР Р…Р С‘РЎРЏ Р’В«{base}Р’В» Р В·Р В° 1 Р Т‘Р ВµР Р…РЎРЉ",
+                f"Р С™Р ВµР в„–РЎРѓ: Р С”Р В°Р С” Р С—РЎР‚Р С‘Р СР ВµР Р…Р С‘Р В»Р С‘ Р’В«{base}Р’В» Р С‘ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘Р В»Р С‘ РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљ",
             ],
             "cta_variants": [
-                "РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚ вЂ” РѕС‚РїСЂР°РІРёРј С‡РµРє-Р»РёСЃС‚.",
-                "РћСЃС‚Р°РІСЊС‚Рµ В«РџР›РђРќВ» РІ РєРѕРјРјРµРЅС‚Р°СЂРёСЏС… вЂ” РїСЂРёС€Р»С‘Рј С€Р°РіРё.",
-                "РЎРѕС…СЂР°РЅРёС‚Рµ РїРѕСЃС‚ Рё РІРЅРµРґСЂРёС‚Рµ РїРµСЂРІС‹Р№ С€Р°Рі СЃРµРіРѕРґРЅСЏ.",
+                "Р СњР В°Р С—Р С‘РЎв‚¬Р С‘РЎвЂљР Вµ Р Р† Р Т‘Р С‘РЎР‚Р ВµР С”РЎвЂљ РІР‚вЂќ Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р С‘Р С РЎвЂЎР ВµР С”-Р В»Р С‘РЎРѓРЎвЂљ.",
+                "Р С›РЎРѓРЎвЂљР В°Р Р†РЎРЉРЎвЂљР Вµ Р’В«Р СџР вЂєР С’Р СњР’В» Р Р† Р С”Р С•Р СР СР ВµР Р…РЎвЂљР В°РЎР‚Р С‘РЎРЏРЎвЂ¦ РІР‚вЂќ Р С—РЎР‚Р С‘РЎв‚¬Р В»РЎвЂР С РЎв‚¬Р В°Р С–Р С‘.",
+                "Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљР Вµ Р С—Р С•РЎРѓРЎвЂљ Р С‘ Р Р†Р Р…Р ВµР Т‘РЎР‚Р С‘РЎвЂљР Вµ Р С—Р ВµРЎР‚Р Р†РЎвЂ№Р в„– РЎв‚¬Р В°Р С– РЎРѓР ВµР С–Р С•Р Т‘Р Р…РЎРЏ.",
             ],
             "warnings": [],
             "debug_code": "mock",
@@ -799,16 +1022,16 @@ def generate_quick_suggestions(
     except Exception:
         return {
             "status": "partial",
-            "hook": f"{topic}: С‡С‚Рѕ РїСЂРѕРІРµСЂРёС‚СЊ РїРµСЂРµРґ Р·Р°РїСѓСЃРєРѕРј?",
+            "hook": f"{topic}: РЎвЂЎРЎвЂљР С• Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С‘РЎвЂљРЎРЉ Р С—Р ВµРЎР‚Р ВµР Т‘ Р В·Р В°Р С—РЎС“РЎРѓР С”Р С•Р С?",
             "angles": [
-                f"РџРѕС€Р°РіРѕРІС‹Р№ СЂР°Р·Р±РѕСЂ В«{topic}В»",
-                f"РўРёРїРёС‡РЅС‹Рµ РѕС€РёР±РєРё РІ В«{topic}В»",
-                f"РџСЂР°РєС‚РёС‡РµСЃРєРёР№ РєРµР№СЃ РїРѕ В«{topic}В»",
+                f"Р СџР С•РЎв‚¬Р В°Р С–Р С•Р Р†РЎвЂ№Р в„– РЎР‚Р В°Р В·Р В±Р С•РЎР‚ Р’В«{topic}Р’В»",
+                f"Р СћР С‘Р С—Р С‘РЎвЂЎР Р…РЎвЂ№Р Вµ Р С•РЎв‚¬Р С‘Р В±Р С”Р С‘ Р Р† Р’В«{topic}Р’В»",
+                f"Р СџРЎР‚Р В°Р С”РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘Р в„– Р С”Р ВµР в„–РЎРѓ Р С—Р С• Р’В«{topic}Р’В»",
             ],
             "cta_variants": [
-                "РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚, РїРѕРґР±РµСЂРµРј СЂРµС€РµРЅРёРµ РїРѕРґ Р·Р°РґР°С‡Сѓ.",
-                "РћСЃС‚Р°РІСЊС‚Рµ РєРѕРјРјРµРЅС‚Р°СЂРёР№ Рё РїРѕР»СѓС‡РёС‚Рµ С€Р°Р±Р»РѕРЅ.",
-                "РЎРѕС…СЂР°РЅРёС‚Рµ РїРѕСЃС‚ Рё РІРЅРµРґСЂРёС‚Рµ РїРµСЂРІС‹Р№ С€Р°Рі СЃРµРіРѕРґРЅСЏ.",
+                "Р СњР В°Р С—Р С‘РЎв‚¬Р С‘РЎвЂљР Вµ Р Р† Р Т‘Р С‘РЎР‚Р ВµР С”РЎвЂљ, Р С—Р С•Р Т‘Р В±Р ВµРЎР‚Р ВµР С РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р Т‘ Р В·Р В°Р Т‘Р В°РЎвЂЎРЎС“.",
+                "Р С›РЎРѓРЎвЂљР В°Р Р†РЎРЉРЎвЂљР Вµ Р С”Р С•Р СР СР ВµР Р…РЎвЂљР В°РЎР‚Р С‘Р в„– Р С‘ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљР Вµ РЎв‚¬Р В°Р В±Р В»Р С•Р Р….",
+                "Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљР Вµ Р С—Р С•РЎРѓРЎвЂљ Р С‘ Р Р†Р Р…Р ВµР Т‘РЎР‚Р С‘РЎвЂљР Вµ Р С—Р ВµРЎР‚Р Р†РЎвЂ№Р в„– РЎв‚¬Р В°Р С– РЎРѓР ВµР С–Р С•Р Т‘Р Р…РЎРЏ.",
             ],
             "warnings": ["AI suggestions fallback"],
             "debug_code": "suggest_fallback",
@@ -888,17 +1111,17 @@ def rewrite_caption_safe(
 def _local_rewrite(text: str, instruction: str) -> str:
     value = str(text or "").strip()
     key = str(instruction or "").strip().lower()
-    if key in {"РєРѕСЂРѕС‡Рµ", "shorter"}:
+    if key in {"Р С”Р С•РЎР‚Р С•РЎвЂЎР Вµ", "shorter"}:
         sentences = re.split(r"(?<=[.!?])\s+", value)
         return " ".join(sentences[: max(1, min(3, len(sentences)))])
-    if key in {"РґР»РёРЅРЅРµРµ", "longer"}:
-        return f"{value}\n\nР”РѕР±Р°РІСЊС‚Рµ РєРѕРЅРєСЂРµС‚РЅС‹Р№ РїСЂРёРјРµСЂ РІРЅРµРґСЂРµРЅРёСЏ Рё РѕР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ РІ С†РёС„СЂР°С…."
-    if "РїСЂРѕРґР°" in key:
-        return f"{value}\n\nР•СЃР»Рё С…РѕС‚РёС‚Рµ С‚Р°РєРѕР№ Р¶Рµ СЂРµР·СѓР»СЊС‚Р°С‚, РЅР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚ вЂ” РїРѕРґР±РµСЂРµРј СЂРµС€РµРЅРёРµ РїРѕРґ РІР°С€Сѓ Р·Р°РґР°С‡Сѓ."
-    if "СЌРєСЃРїРµСЂС‚" in key:
-        return f"{value}\n\nРџСЂР°РєС‚РёС‡РµСЃРєРёР№ СЃРѕРІРµС‚: РЅР°С‡РЅРёС‚Рµ СЃ РјРёРЅРёРјР°Р»СЊРЅРѕРіРѕ С‚РµСЃС‚Р° Рё РёР·РјРµСЂСЊС‚Рµ СЂРµР·СѓР»СЊС‚Р°С‚ С‡РµСЂРµР· 7 РґРЅРµР№."
-    if "СЌРјРѕС†" in key:
-        return f"{value}\n\nР­С‚Рѕ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ РјРѕР¶РµС‚ СЃРЅСЏС‚СЊ С…Р°РѕСЃ РІ РєРѕРЅС‚РµРЅС‚Рµ Рё РІРµСЂРЅСѓС‚СЊ СѓРІРµСЂРµРЅРЅРѕСЃС‚СЊ РІ СЂРµР·СѓР»СЊС‚Р°С‚Рµ."
+    if key in {"Р Т‘Р В»Р С‘Р Р…Р Р…Р ВµР Вµ", "longer"}:
+        return f"{value}\n\nР вЂќР С•Р В±Р В°Р Р†РЎРЉРЎвЂљР Вµ Р С”Р С•Р Р…Р С”РЎР‚Р ВµРЎвЂљР Р…РЎвЂ№Р в„– Р С—РЎР‚Р С‘Р СР ВµРЎР‚ Р Р†Р Р…Р ВµР Т‘РЎР‚Р ВµР Р…Р С‘РЎРЏ Р С‘ Р С•Р В¶Р С‘Р Т‘Р В°Р ВµР СРЎвЂ№Р в„– РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљ Р Р† РЎвЂ Р С‘РЎвЂћРЎР‚Р В°РЎвЂ¦."
+    if "Р С—РЎР‚Р С•Р Т‘Р В°" in key:
+        return f"{value}\n\nР вЂўРЎРѓР В»Р С‘ РЎвЂ¦Р С•РЎвЂљР С‘РЎвЂљР Вµ РЎвЂљР В°Р С”Р С•Р в„– Р В¶Р Вµ РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљ, Р Р…Р В°Р С—Р С‘РЎв‚¬Р С‘РЎвЂљР Вµ Р Р† Р Т‘Р С‘РЎР‚Р ВµР С”РЎвЂљ РІР‚вЂќ Р С—Р С•Р Т‘Р В±Р ВµРЎР‚Р ВµР С РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р Т‘ Р Р†Р В°РЎв‚¬РЎС“ Р В·Р В°Р Т‘Р В°РЎвЂЎРЎС“."
+    if "РЎРЊР С”РЎРѓР С—Р ВµРЎР‚РЎвЂљ" in key:
+        return f"{value}\n\nР СџРЎР‚Р В°Р С”РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С‘Р в„– РЎРѓР С•Р Р†Р ВµРЎвЂљ: Р Р…Р В°РЎвЂЎР Р…Р С‘РЎвЂљР Вµ РЎРѓ Р СР С‘Р Р…Р С‘Р СР В°Р В»РЎРЉР Р…Р С•Р С–Р С• РЎвЂљР ВµРЎРѓРЎвЂљР В° Р С‘ Р С‘Р В·Р СР ВµРЎР‚РЎРЉРЎвЂљР Вµ РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљ РЎвЂЎР ВµРЎР‚Р ВµР В· 7 Р Т‘Р Р…Р ВµР в„–."
+    if "РЎРЊР СР С•РЎвЂ " in key:
+        return f"{value}\n\nР В­РЎвЂљР С• Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎвЂљР ВµР В»РЎРЉР Р…Р С• Р СР С•Р В¶Р ВµРЎвЂљ РЎРѓР Р…РЎРЏРЎвЂљРЎРЉ РЎвЂ¦Р В°Р С•РЎРѓ Р Р† Р С”Р С•Р Р…РЎвЂљР ВµР Р…РЎвЂљР Вµ Р С‘ Р Р†Р ВµРЎР‚Р Р…РЎС“РЎвЂљРЎРЉ РЎС“Р Р†Р ВµРЎР‚Р ВµР Р…Р Р…Р С•РЎРѓРЎвЂљРЎРЉ Р Р† РЎР‚Р ВµР В·РЎС“Р В»РЎРЉРЎвЂљР В°РЎвЂљР Вµ."
     return value
 
 
@@ -965,7 +1188,7 @@ def generate_strategy_and_drafts(
         total_out += strategy_res.output_tokens
     except Exception:
         strategy = _fallback_strategy(topic=topic, offer=offer, goal=goal)
-        warnings.append("РЎС‚СЂР°С‚РµРіРёСЏ С‡Р°СЃС‚РёС‡РЅРѕ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅР° fallback-Р»РѕРіРёРєРѕР№.")
+        warnings.append("Р РЋРЎвЂљРЎР‚Р В°РЎвЂљР ВµР С–Р С‘РЎРЏ РЎвЂЎР В°РЎРѓРЎвЂљР С‘РЎвЂЎР Р…Р С• Р Р†Р С•РЎРѓРЎРѓРЎвЂљР В°Р Р…Р С•Р Р†Р В»Р ВµР Р…Р В° fallback-Р В»Р С•Р С–Р С‘Р С”Р С•Р в„–.")
         debug_code = "strategy_fallback"
 
     drafts: list[dict] = []
@@ -993,7 +1216,7 @@ def generate_strategy_and_drafts(
                 drafts.append(_ensure_platform_draft_shape(draft_res.payload, platform=platform, variant_index=idx))
                 continue
             except Exception:
-                warnings.append(f"{platform} v{idx}: full-schema РЅРµ РїСЂРѕС€Р»Р°, РїСЂРёРјРµРЅРµРЅ simplified fallback.")
+                warnings.append(f"{platform} v{idx}: full-schema Р Р…Р Вµ Р С—РЎР‚Р С•РЎв‚¬Р В»Р В°, Р С—РЎР‚Р С‘Р СР ВµР Р…Р ВµР Р… simplified fallback.")
                 debug_code = (debug_code + "|draft_schema_fallback").strip("|")
 
             try:
@@ -1011,7 +1234,7 @@ def generate_strategy_and_drafts(
                 drafts.append(fallback_draft)
                 continue
             except Exception:
-                warnings.append(f"{platform} v{idx}: simplified РЅРµ РїСЂРѕС€РµР», РїСЂРёРјРµРЅРµРЅ free-text fallback.")
+                warnings.append(f"{platform} v{idx}: simplified Р Р…Р Вµ Р С—РЎР‚Р С•РЎв‚¬Р ВµР В», Р С—РЎР‚Р С‘Р СР ВµР Р…Р ВµР Р… free-text fallback.")
                 debug_code = (debug_code + "|draft_text_fallback").strip("|")
 
             drafts.append(
@@ -1069,13 +1292,13 @@ def _normalize_goal_for_business(goal: str) -> str:
     key = str(goal or "").strip().lower()
     mapping = {
         "awareness": "awareness",
-        "охват": "awareness",
+        "РѕС…РІР°С‚": "awareness",
         "engagement": "awareness",
         "lead": "lead",
         "leads": "lead",
-        "лиды": "lead",
+        "Р»РёРґС‹": "lead",
         "sales": "lead",
-        "доверие": "trust",
+        "РґРѕРІРµСЂРёРµ": "trust",
         "trust": "trust",
     }
     return mapping.get(key, "awareness")
@@ -1086,21 +1309,52 @@ def _contains_meta_marketing_advice(text: str) -> bool:
     return any(term in low for term in META_MARKETING_TERMS)
 
 
+def _mojibake_score(text: str) -> int:
+    s = str(text or "")
+    return sum(s.count(ch) for ch in ("Р", "С", "Ð", "Ñ", "Â", "Ã"))
+
+
+def _cyrillic_score(text: str) -> int:
+    s = str(text or "")
+    return sum(1 for ch in s if "\u0400" <= ch <= "\u04ff")
+
+
+def _repair_mojibake_text(text: str) -> str:
+    s = str(text or "")
+    if not s:
+        return s
+    if _mojibake_score(s) < 2:
+        return s
+    try:
+        candidate = s.encode("cp1251", errors="strict").decode("utf-8", errors="strict")
+    except Exception:
+        return s
+    if not candidate or candidate == s:
+        return s
+    if _mojibake_score(candidate) < _mojibake_score(s) and _cyrillic_score(candidate) >= _cyrillic_score(s):
+        return candidate
+    return s
+
+
+def _repair_mojibake_list(values: list[str]) -> list[str]:
+    return [_repair_mojibake_text(v) for v in (values or [])]
+
+
 def _goal_playbook(goal: str) -> dict:
     normalized = _normalize_goal_for_business(goal)
     if normalized == "lead":
         return {
-            "content_types": ["offer", "limited time", "booking cta", "urgency"],
-            "instruction": "Focus on concrete offer, limited-time reason, booking CTA and urgency.",
+            "content_types": ["useful angle", "clear value", "offer only if explicit", "next step without pressure"],
+            "instruction": "Lead intent may support a commercial CTA only when the offer is explicit. Otherwise keep the post useful first and the CTA low-pressure.",
         }
     if normalized == "trust":
         return {
-            "content_types": ["case result", "testimonial style", "before/after"],
-            "instruction": "Focus on case result, testimonial style and before/after credibility proof.",
+            "content_types": ["case insight", "specific observation", "before/after logic", "credibility without hype"],
+            "instruction": "Focus on specific observations, believable proof and calm credibility instead of sales pressure.",
         }
     return {
-        "content_types": ["educational tip", "myth busting", "pain + solution", "list post", "trend"],
-        "instruction": "Focus on educational tip, myth busting, pain+solution, list format and practical trend.",
+        "content_types": ["educational tip", "common mistake", "myth vs reality", "practical checklist", "useful observation"],
+        "instruction": "Focus on useful content first: one concrete point, one practical takeaway, one recognizable pattern or one simple next step.",
     }
 
 
@@ -1109,48 +1363,47 @@ def _topic_to_client_hook(topic: str, goal: str) -> str:
     normalized = _normalize_goal_for_business(goal)
     templates = {
         "awareness": [
-            "Что важно знать клиенту перед визитом",
-            "3 ошибки клиента и как их избежать",
-            "Как получить лучший результат без лишних трат",
+            "\u0427\u0442\u043e \u0432\u0430\u0436\u043d\u043e \u0437\u043d\u0430\u0442\u044c \u043f\u0435\u0440\u0435\u0434 \u0432\u044b\u0431\u043e\u0440\u043e\u043c \u0440\u0435\u0448\u0435\u043d\u0438\u044f",
+            "3 \u043e\u0448\u0438\u0431\u043a\u0438, \u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u044e\u0442\u0441\u044f \u0447\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043e",
+            "\u041a\u0430\u043a \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 \u043f\u043e\u043b\u044c\u0437\u044b \u0431\u0435\u0437 \u043b\u0438\u0448\u043d\u0438\u0445 \u0448\u0430\u0433\u043e\u0432",
         ],
         "lead": [
-            "Свободные окна на этой неделе: как записаться быстрее",
-            "Спец-предложение для новых клиентов",
-            "Почему лучше бронировать заранее",
+            "\u0421 \u0447\u0435\u0433\u043e \u043d\u0430\u0447\u0430\u0442\u044c, \u0435\u0441\u043b\u0438 \u0445\u043e\u0447\u0435\u0442\u0441\u044f \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0431\u0435\u0437 \u0441\u0443\u0435\u0442\u044b",
+            "\u041a\u0430\u043a \u043f\u043e\u043d\u044f\u0442\u044c, \u0447\u0442\u043e \u043f\u043e\u0440\u0430 \u043f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u043c\u0443 \u0448\u0430\u0433\u0443",
+            "\u041a\u0430\u043a\u043e\u0439 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043c\u043e\u0436\u043d\u043e \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043f\u0440\u0438 \u043f\u043e\u043d\u044f\u0442\u043d\u043e\u043c \u043f\u043e\u0434\u0445\u043e\u0434\u0435",
         ],
         "trust": [
-            "История клиента: было/стало за один визит",
-            "Реальный кейс с понятным результатом",
-            "Что говорит клиент после услуги",
+            "\u0418\u0441\u0442\u043e\u0440\u0438\u044f, \u0432 \u043a\u043e\u0442\u043e\u0440\u043e\u0439 \u0440\u0435\u0448\u0438\u043b\u0438 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0443 \u0431\u0435\u0437 \u043b\u0438\u0448\u043d\u0435\u0433\u043e \u0448\u0443\u043c\u0430",
+            "\u0420\u0435\u0430\u043b\u044c\u043d\u044b\u0439 \u043a\u0435\u0439\u0441 \u0441 \u043f\u043e\u043d\u044f\u0442\u043d\u044b\u043c \u0438\u0442\u043e\u0433\u043e\u043c",
+            "\u0427\u0442\u043e \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u0432\u0430\u0436\u043d\u0435\u0435 \u0432\u0441\u0435\u0433\u043e \u043d\u0430 \u043f\u0440\u0430\u043a\u0442\u0438\u043a\u0435",
         ],
     }
     base = templates.get(normalized, templates["awareness"])[0]
-    # do not reuse user theme verbatim as headline
     if base.strip().lower() == str(topic or "").strip().lower():
         base = templates.get(normalized, templates["awareness"])[1]
-    return f"{base} ({seed})"
-
+    return base if not seed else f"{base} ({seed})"
 
 def _director_topic_seed(topic: str, *, max_words: int = 5) -> str:
-    text = re.sub(r"[\"'В«В»]+", " ", str(topic or ""))
+    text = _repair_mojibake_text(str(topic or ""))
+    text = re.sub(r"[\"'«»]+", " ", text)
     text = re.sub(r"[\n\r\t]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
-        return "РєРѕРЅС‚РµРЅС‚ РІ СЃРѕС†СЃРµС‚СЏС…"
+        return "контент в соцсетях"
     words: list[str] = []
     for raw in text.split(" "):
         tok = re.sub(r"[^\w\-]+", "", raw, flags=re.U).strip("-_")
         if tok:
             words.append(tok)
     stop = {
-        "РґР»СЏ",
-        "РєР°Рє",
-        "С‡С‚Рѕ",
-        "СЌС‚Рѕ",
-        "Рё",
-        "РІ",
-        "РЅР°",
-        "РїРѕ",
+        "для",
+        "как",
+        "что",
+        "это",
+        "и",
+        "в",
+        "на",
+        "по",
         "the",
         "and",
         "for",
@@ -1184,39 +1437,39 @@ def _director_goal_topic_templates(seed: str, goal: str, offer: str | None) -> l
     offer_short = re.sub(r"\s+", " ", str(offer or "").strip())[:56]
     if normalized == "lead":
         return [
-            f"Свободные окна на этой неделе: {seed}",
-            f"{seed}: предложение с записью в 1 клик",
-            f"Почему сейчас лучшее время записаться на {seed}",
-            f"Ограниченное предложение: {offer_short or 'услуга по спец-цене'}",
-            f"Что входит в услугу {seed} и как забронировать время",
-            f"Быстрая запись: как получить услугу без ожидания",
-            f"3 причины записаться сегодня на {seed}",
-            f"{seed}: бонус для новых клиентов до конца недели",
+            f"РЎРІРѕР±РѕРґРЅС‹Рµ РѕРєРЅР° РЅР° СЌС‚РѕР№ РЅРµРґРµР»Рµ: {seed}",
+            f"{seed}: РїСЂРµРґР»РѕР¶РµРЅРёРµ СЃ Р·Р°РїРёСЃСЊСЋ РІ 1 РєР»РёРє",
+            f"РџРѕС‡РµРјСѓ СЃРµР№С‡Р°СЃ Р»СѓС‡С€РµРµ РІСЂРµРјСЏ Р·Р°РїРёСЃР°С‚СЊСЃСЏ РЅР° {seed}",
+            f"РћРіСЂР°РЅРёС‡РµРЅРЅРѕРµ РїСЂРµРґР»РѕР¶РµРЅРёРµ: {offer_short or 'СѓСЃР»СѓРіР° РїРѕ СЃРїРµС†-С†РµРЅРµ'}",
+            f"Р§С‚Рѕ РІС…РѕРґРёС‚ РІ СѓСЃР»СѓРіСѓ {seed} Рё РєР°Рє Р·Р°Р±СЂРѕРЅРёСЂРѕРІР°С‚СЊ РІСЂРµРјСЏ",
+            f"Р‘С‹СЃС‚СЂР°СЏ Р·Р°РїРёСЃСЊ: РєР°Рє РїРѕР»СѓС‡РёС‚СЊ СѓСЃР»СѓРіСѓ Р±РµР· РѕР¶РёРґР°РЅРёСЏ",
+            f"3 РїСЂРёС‡РёРЅС‹ Р·Р°РїРёСЃР°С‚СЊСЃСЏ СЃРµРіРѕРґРЅСЏ РЅР° {seed}",
+            f"{seed}: Р±РѕРЅСѓСЃ РґР»СЏ РЅРѕРІС‹С… РєР»РёРµРЅС‚РѕРІ РґРѕ РєРѕРЅС†Р° РЅРµРґРµР»Рё",
         ]
     if normalized == "trust":
         return [
-            f"История клиента: было/стало после {seed}",
-            f"Реальный результат клиента за один визит",
-            f"До и после: как проходит {seed} по шагам",
-            f"Отзыв клиента: почему он выбрал нас",
-            f"Кейс недели: аккуратная работа и понятный результат",
-            f"Как мы работаем: процесс {seed} без сюрпризов",
-            f"Что говорят клиенты после {seed}",
-            f"Почему нам доверяют: факты и реальные примеры",
+            f"РСЃС‚РѕСЂРёСЏ РєР»РёРµРЅС‚Р°: Р±С‹Р»Рѕ/СЃС‚Р°Р»Рѕ РїРѕСЃР»Рµ {seed}",
+            f"Р РµР°Р»СЊРЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ РєР»РёРµРЅС‚Р° Р·Р° РѕРґРёРЅ РІРёР·РёС‚",
+            f"Р”Рѕ Рё РїРѕСЃР»Рµ: РєР°Рє РїСЂРѕС…РѕРґРёС‚ {seed} РїРѕ С€Р°РіР°Рј",
+            f"РћС‚Р·С‹РІ РєР»РёРµРЅС‚Р°: РїРѕС‡РµРјСѓ РѕРЅ РІС‹Р±СЂР°Р» РЅР°СЃ",
+            f"РљРµР№СЃ РЅРµРґРµР»Рё: Р°РєРєСѓСЂР°С‚РЅР°СЏ СЂР°Р±РѕС‚Р° Рё РїРѕРЅСЏС‚РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚",
+            f"РљР°Рє РјС‹ СЂР°Р±РѕС‚Р°РµРј: РїСЂРѕС†РµСЃСЃ {seed} Р±РµР· СЃСЋСЂРїСЂРёР·РѕРІ",
+            f"Р§С‚Рѕ РіРѕРІРѕСЂСЏС‚ РєР»РёРµРЅС‚С‹ РїРѕСЃР»Рµ {seed}",
+            f"РџРѕС‡РµРјСѓ РЅР°Рј РґРѕРІРµСЂСЏСЋС‚: С„Р°РєС‚С‹ Рё СЂРµР°Р»СЊРЅС‹Рµ РїСЂРёРјРµСЂС‹",
         ]
     # awareness-like playbook
     base = [
-        f"3 ошибки клиента перед услугой {seed}",
-        f"Миф и правда о {seed}",
-        f"Проблема и решение: как выбрать {seed} без переплаты",
-        f"5 практичных советов клиенту по теме {seed}",
-        f"Тренд сезона в теме {seed}: что реально работает",
-        f"Что важно знать перед записью на {seed}",
-        f"Пошаговый чек-лист клиента: подготовка к {seed}",
-        f"Частые вопросы клиентов о {seed} простыми словами",
+        f"3 РѕС€РёР±РєРё РєР»РёРµРЅС‚Р° РїРµСЂРµРґ СѓСЃР»СѓРіРѕР№ {seed}",
+        f"РњРёС„ Рё РїСЂР°РІРґР° Рѕ {seed}",
+        f"РџСЂРѕР±Р»РµРјР° Рё СЂРµС€РµРЅРёРµ: РєР°Рє РІС‹Р±СЂР°С‚СЊ {seed} Р±РµР· РїРµСЂРµРїР»Р°С‚С‹",
+        f"5 РїСЂР°РєС‚РёС‡РЅС‹С… СЃРѕРІРµС‚РѕРІ РєР»РёРµРЅС‚Сѓ РїРѕ С‚РµРјРµ {seed}",
+        f"РўСЂРµРЅРґ СЃРµР·РѕРЅР° РІ С‚РµРјРµ {seed}: С‡С‚Рѕ СЂРµР°Р»СЊРЅРѕ СЂР°Р±РѕС‚Р°РµС‚",
+        f"Р§С‚Рѕ РІР°Р¶РЅРѕ Р·РЅР°С‚СЊ РїРµСЂРµРґ Р·Р°РїРёСЃСЊСЋ РЅР° {seed}",
+        f"РџРѕС€Р°РіРѕРІС‹Р№ С‡РµРє-Р»РёСЃС‚ РєР»РёРµРЅС‚Р°: РїРѕРґРіРѕС‚РѕРІРєР° Рє {seed}",
+        f"Р§Р°СЃС‚С‹Рµ РІРѕРїСЂРѕСЃС‹ РєР»РёРµРЅС‚РѕРІ Рѕ {seed} РїСЂРѕСЃС‚С‹РјРё СЃР»РѕРІР°РјРё",
     ]
     if offer_short:
-        base[4] = f"Тренд сезона + {offer_short}: как получить пользу уже сейчас"
+        base[4] = f"РўСЂРµРЅРґ СЃРµР·РѕРЅР° + {offer_short}: РєР°Рє РїРѕР»СѓС‡РёС‚СЊ РїРѕР»СЊР·Сѓ СѓР¶Рµ СЃРµР№С‡Р°СЃ"
     return base
 
 
@@ -1226,6 +1479,7 @@ def _director_default_payload(
     goal: str,
     platforms: list[str],
     tone: str,
+    language: str = "ru",
     niche_label: str | None = None,
     niche_context: dict | None = None,
     variation_seed: int = 0,
@@ -1240,7 +1494,7 @@ def _director_default_payload(
     niche_audience = str(niche_context.get("audience") or "").strip()
     goal_mode = _normalize_goal_for_business(goal)
     base = _director_topic_seed(topic)
-    offer_part = f" РћС„С„РµСЂ: {offer}." if offer else ""
+    offer_part = f" Р С›РЎвЂћРЎвЂћР ВµРЎР‚: {offer}." if offer else ""
     topic_templates = niche_topic_templates or _director_goal_topic_templates(base, goal, offer)
     shift = abs(int(variation_seed or 0))
     topics_pool = topic_templates[:]
@@ -1255,32 +1509,34 @@ def _director_default_payload(
     if niche_content_angles:
         angle_pool = []
         for angle in niche_content_angles:
-            angle_pool.append(f"Через {angle}: что это значит для клиента на практике")
+            clean_angle = _repair_mojibake_text(angle)
+            angle_pool.append(f"Через {clean_angle}: что это значит для человека на практике")
         for angle in niche_content_angles:
-            angle_pool.append(f"Через {angle}: как применить это в реальной жизни")
+            clean_angle = _repair_mojibake_text(angle)
+            angle_pool.append(f"Через {clean_angle}: как это применить в реальной жизни")
     elif goal_mode == "lead":
         angle_pool = [
-            "Через выгоду: что получает клиент уже в день обращения",
-            "Через срочность: почему лучше записаться сейчас",
-            "Через оффер: что входит в предложение и как забронировать",
-            "Через FAQ: закрываем частые возражения перед записью",
-            "Через результат: понятный итог услуги без лишних слов",
+            "Через пользу: что человек получает уже в первый день",
+            "Через срочность: почему лучше не откладывать следующий шаг",
+            "Через оффер: что входит в предложение и кому это подходит",
+            "Через FAQ: закрываем частые сомнения перед обращением",
+            "Через результат: понятный итог без лишних обещаний",
         ]
     elif goal_mode == "trust":
         angle_pool = [
-            "Через кейс клиента: было/стало и детали процесса",
-            "Через отзыв: реальный опыт и аргументы клиента",
-            "Через прозрачный процесс: что делаем на каждом этапе",
-            "Через до/после: визуальное доказательство результата",
+            "Через кейс: что изменилось и за счёт чего",
+            "Через отзыв: реальный опыт и аргументы без шума",
+            "Через прозрачный процесс: что происходит на каждом этапе",
+            "Через до/после: наглядное доказательство результата",
             "Через экспертность: объясняем простыми словами и по делу",
         ]
     else:
         angle_pool = [
-            "Через полезный совет: что клиент может применить сразу",
-            "Через миф и факт: развеиваем частые заблуждения",
-            "Через проблему и решение: как избежать типичных ошибок",
+            "Через полезный совет: что можно применить сразу",
+            "Через миф и факт: разбираем частое заблуждение",
+            "Через проблему и решение: как избежать типичной ошибки",
             "Через список: 3-5 конкретных рекомендаций",
-            "Через тренд: что нового и как это использовать клиенту",
+            "Через тренд: что нового и как это использовать с пользой",
         ]
     if shift and angle_pool:
         angle_shift = shift % len(angle_pool)
@@ -1290,21 +1546,16 @@ def _director_default_payload(
         3,
         lambda i: angle_pool[i],
     )
-    cta_source = niche_cta_templates or [
-        "Напишите «ХОЧУ» в директ и мы подберем удобное время.",
-        "Оставьте заявку в сообщениях, ответим и забронируем слот.",
-        "Сохраните пост и отправьте его другу, кому это сейчас нужно.",
-    ]
-    cta_options = _pad_strings([], 3, lambda i: cta_source[i % len(cta_source)])
+    cta_options = _default_cta_options(goal, offer, language, niche_cta_templates)
     goal_tag_map = {
-        "awareness": ["#советы", "#мифыифакты", "#полезно", "#локальныйбизнес", "#клиенты"],
-        "lead": ["#запись", "#акция", "#спецпредложение", "#бронируйте", "#услуги"],
-        "trust": ["#кейс", "#отзывы", "#доипосле", "#реальныйрезультат", "#доверие"],
+        "awareness": ["#советы", "#мифыифакты", "#полезно", "#разбор", "#практика"],
+        "lead": ["#решение", "#помощь", "#предложение", "#следующийшаг", "#услуги"],
+        "trust": ["#кейс", "#отзывы", "#доипосле", "#результат", "#доверие"],
     }
     tag_seed_source = niche_label or base
     seed_tags = [f"#{w.lower()}" for w in re.findall(r"\w+", tag_seed_source or "", flags=re.U)[:3] if len(w) > 2]
     keyword_tags = [f"#{w.lower()}" for w in niche_keywords[:4] if len(w) > 2]
-    core_tags = goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#сервис", "#вашгород"] + seed_tags
+    core_tags = goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#практика", "#разбор"] + seed_tags
     # unique + stable order
     uniq = []
     seen_tags = set()
@@ -1326,16 +1577,16 @@ def _director_default_payload(
     ]
     return {
         "audience": {
-            "who": niche_audience or "Люди рядом с бизнесом, которые выбирают услугу для себя или семьи",
-            "pain": (niche_pain_points[0] if niche_pain_points else "Сложно выбрать исполнителя, есть страх переплаты и некачественного результата"),
-            "desire": f"Получить понятную пользу, прозрачную цену и уверенность перед записью.{offer_part}",
+            "who": _repair_mojibake_text(niche_audience) or "Люди, которым нужен понятный и полезный контент по теме",
+            "pain": _repair_mojibake_text(niche_pain_points[0] if niche_pain_points else "") or "Сложно понять, что действительно важно и как избежать типичных ошибок",
+            "desire": f"Получить понятную пользу, реальную ясность и уверенность перед следующим шагом.{offer_part}",
         },
         "topics": topics,
-        "angles": angles,
+        "angles": _repair_mojibake_list(angles),
         "recommended": _director_recommendation(platforms, goal=goal, tone=tone),
-        "cta_options": cta_options,
-        "hashtag_sets": tags,
-        "reason": f"Темы подобраны под нишу «{niche_label or topic}» и ориентированы на конечных клиентов.",
+        "cta_options": _repair_mojibake_list(cta_options),
+        "hashtag_sets": [_repair_mojibake_list(row) for row in tags],
+        "reason": f"Темы подобраны под нишу «{_repair_mojibake_text(niche_label or topic)}» и ориентированы на полезный, понятный контент для людей.",
     }
 
 
@@ -1351,7 +1602,7 @@ def _director_soft_normalize(
     niche_context: dict | None = None,
     variation_seed: int = 0,
 ) -> dict:
-    default = _director_default_payload(topic, offer, goal, platforms, tone, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
+    default = _director_default_payload(topic, offer, goal, platforms, tone, language=language, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
     if not isinstance(payload, dict):
         return default
     audience = payload.get("audience")
@@ -1388,8 +1639,11 @@ def _director_soft_normalize(
         lambda i: default["angles"][i],
     )
     angles = [str(x).strip()[:80] for x in angles]
+    raw_cta_options = _as_clean_list(payload.get("cta_options"), limit=8)
+    if _cta_mode(goal, offer) != "service":
+        raw_cta_options = [x for x in raw_cta_options if not _looks_hard_sell_cta(x)]
     cta_options = _pad_strings(
-        _as_clean_list(payload.get("cta_options"), limit=8),
+        raw_cta_options,
         3,
         lambda i: default["cta_options"][i],
     )
@@ -1446,7 +1700,7 @@ def _parse_director_text_fallback(
     niche_context: dict | None = None,
     variation_seed: int = 0,
 ) -> dict:
-    lines = [x.strip("-вЂў \t") for x in str(text or "").splitlines() if x.strip()]
+    lines = [x.strip("-РІР‚Сћ \t") for x in str(text or "").splitlines() if x.strip()]
     topics = [x for x in lines if len(x) > 18][:10]
     angles = [x for x in lines if len(x) > 10][:3]
     return _director_soft_normalize(
@@ -1454,7 +1708,7 @@ def _parse_director_text_fallback(
             "topics": topics,
             "angles": angles,
             "cta_options": lines[:3],
-            "reason": "РћС‚РІРµС‚ РЅРѕСЂРјР°Р»РёР·РѕРІР°РЅ РёР· С‚РµРєСЃС‚РѕРІРѕРіРѕ fallback.",
+            "reason": "Р С›РЎвЂљР Р†Р ВµРЎвЂљ Р Р…Р С•РЎР‚Р СР В°Р В»Р С‘Р В·Р С•Р Р†Р В°Р Р… Р С‘Р В· РЎвЂљР ВµР С”РЎРѓРЎвЂљР С•Р Р†Р С•Р С–Р С• fallback.",
         },
         topic=topic,
         offer=offer,
@@ -1493,7 +1747,7 @@ def director_suggest(
         goal = "engagement"
     goal = _normalize_goal_for_business(goal)
     platforms = _normalize_director_platforms(platforms)
-    default_payload = _director_default_payload(topic, offer, goal, platforms, tone, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
+    default_payload = _director_default_payload(topic, offer, goal, platforms, tone, language=language, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
     if not is_openai_enabled():
         return {"status": "ok", "data": default_payload, "warnings": [], "debug_code": "mock"}
 
@@ -1520,11 +1774,11 @@ def director_suggest(
     try:
         res = generate_json_with_retry(
             system_prompt=(
-                "You are an AI Content Director for local businesses. Return JSON only. "
-                "Always write from business perspective to end customers. "
+                "You are an AI Content Director for niche-aware social content. Return JSON only. "
+                "Always write value-first ideas for real people. "
                 "Never provide marketing advice for marketers. "
-                "Never mention: reach, engagement, content strategy, охват, вовлечение, контент-стратегия. "
-                "Do not copy user topic verbatim as headlines. Keep suggestions short, practical and client-facing."
+                "Never mention: reach, engagement, content strategy, РѕС…РІР°С‚, РІРѕРІР»РµС‡РµРЅРёРµ, РєРѕРЅС‚РµРЅС‚-СЃС‚СЂР°С‚РµРіРёСЏ. "
+                "Do not copy user topic verbatim as headlines. Keep suggestions short, practical, useful and not falsely promotional by default."
             ),
             user_prompt=(
                 f"topic: {topic}\noffer: {offer or ''}\nlanguage: {language}\ntone: {tone}\ngoal: {goal}\n"
@@ -1535,7 +1789,7 @@ def director_suggest(
                 f"avoid_cross_niche_words: {', '.join((niche_context or {}).get('bannedCrossNicheWords') or [])}\n"
                 f"platforms: {', '.join(platforms)}\n"
                 f"goal interpretation: {_goal_playbook(goal)['instruction']}\n"
-                "constraints: return exactly 10 topics max 96 chars, angles max 80 chars, customer-facing wording only.\n"
+                "constraints: return exactly 10 topics max 96 chars, angles max 80 chars, useful and niche-native wording only.\n"
                 f"schema: {json.dumps(schema, ensure_ascii=False)}"
             ),
             validator=_soft_validator,
@@ -1658,146 +1912,127 @@ def director_generate_drafts(
     drafts: list[dict] = []
     client_hook_seed = _topic_to_client_hook(topic, goal)
     niche_label = str(niche_label or (niche_context or {}).get("label") or "").strip()
+    core_rows: dict[int, dict] = {}
+    primary_platform = platforms[0] if platforms else "facebook"
+    core_topic = str(topic or "").strip()
 
     if not is_openai_enabled():
+        for idx in range(1, variants + 1):
+            core_rows[idx] = _generate_free_text_fallback_draft(
+                platform=primary_platform,
+                variant_index=idx,
+                topic=core_topic,
+                offer=offer,
+                goal=goal,
+                angle=angle,
+            )
         for platform in platforms:
             for idx in range(1, variants + 1):
-                body = (
-                    f"{client_hook_seed}\n\n"
-                    f"{angle}\n"
-                    "Покажите клиенту конкретную пользу, простой шаг и ожидаемый результат.\n"
-                    "Добавьте понятные условия услуги и завершите призывом к записи."
-                ).strip()
-                if goal == "lead":
-                    body += "\n\nТолько на этой неделе действуют специальные условия при записи."
-                elif goal == "trust":
-                    body += "\n\nДобавьте короткий кейс клиента в формате «было/стало»."
-                else:
-                    body += "\n\nРазберите миф, дайте практический совет и список из 3 пунктов."
+                row = _adapt_core_row_for_platform(
+                    core_rows[idx],
+                    platform=platform,
+                    variant_index=idx,
+                    topic=topic,
+                    niche_label=niche_label,
+                    language=language,
+                    goal=goal,
+                    offer=offer,
+                )
                 drafts.append(
                     {
                         "platform": platform,
                         "variant": idx,
-                        "hook": client_hook_seed,
-                        "body_text": body,
-                        "cta": "Напишите в сообщения и мы подберем удобное время.",
-                        "hashtags": ["#локальныйбизнес", "#услуги", "#вашгород"],
+                        "hook": client_hook_seed[:180],
+                        "body_text": row["post_text"],
+                        "cta": row["cta"],
+                        "hashtags": row["hashtags"],
                         "warnings": [],
                     }
                 )
         return {"status": "ok", "data": {"drafts": drafts, "strategy": {}}, "warnings": [], "debug_code": "mock"}
 
-    for platform in platforms:
-        for idx in range(1, variants + 1):
-            row = None
+    for idx in range(1, variants + 1):
+        row = None
+        try:
+            row, _, _ = _generate_simplified_draft(
+                topic=core_topic,
+                offer=offer,
+                language=language,
+                tone=tone,
+                goal=goal,
+                platform=primary_platform,
+                variant_index=idx,
+            )
+        except Exception:
+            warnings.append(f"core v{idx}: simplified_failed")
+            debug_code = (debug_code + "|director_fast_simplified_failed").strip("|")
             try:
-                row, _, _ = _generate_simplified_draft(
-                    topic=f"{client_hook_seed}. Ниша: {niche_label or topic}. Подход: {angle}",
-                    offer=offer,
-                    language=language,
-                    tone=tone,
-                    goal=goal,
-                    platform=platform,
+                row = _generate_free_text_fallback_draft(
+                    platform=primary_platform,
                     variant_index=idx,
+                    topic=core_topic,
+                    offer=offer,
+                    goal=goal,
+                    angle=angle,
                 )
             except Exception:
-                warnings.append(f"{platform} v{idx}: simplified_failed")
-                debug_code = (debug_code + "|director_fast_simplified_failed").strip("|")
-                try:
-                    row = _generate_free_text_fallback_draft(
-                        platform=platform,
-                        variant_index=idx,
-                        topic=f"{client_hook_seed}. Ниша: {niche_label or topic}. Подход: {angle}",
-                        offer=offer,
-                        goal=goal,
-                    )
-                except Exception:
-                    row = None
+                row = None
+        if row:
+            core_rows[idx] = row
 
-            if not row:
+    for platform in platforms:
+        for idx in range(1, variants + 1):
+            source_row = core_rows.get(idx)
+            if not source_row:
                 continue
-
-            body_text = str(row.get("post_text") or "").strip()
-            cta_text = str(row.get("cta") or "").strip() or "Напишите в сообщения и мы подберем удобное время."
-            hashtags = [str(x).strip() for x in (row.get("hashtags") or []) if str(x).strip()]
-            generated_tags = generateHashtags(
-                niche=niche_label or topic,
-                city=None,
+            row = _adapt_core_row_for_platform(
+                source_row,
+                platform=platform,
+                variant_index=idx,
+                topic=topic,
+                niche_label=niche_label,
                 language=language,
                 goal=goal,
+                offer=offer,
             )
-            if hashtags:
-                hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=5, max_count=12)
-            else:
-                hashtags = generated_tags
-
-            # Make structure explicit for quality-check in fast mode.
-            has_newline = "\n" in body_text
-            sentence_count = len(re.findall(r"[.!?](?:\s|$)", body_text))
-            if (not has_newline and sentence_count < 3) or len(body_text) < 180:
-                body_text = (
-                    f"{body_text}\n\n"
-                    "1) Ключевая проблема аудитории.\n"
-                    "2) Практический шаг, который можно сделать сегодня.\n"
-                    "3) Ожидаемый результат и следующий шаг."
-                ).strip()
-            if _contains_meta_marketing_advice(body_text):
-                body_text = (
-                    f"{client_hook_seed}\n\n"
-                    "Сфокусируйтесь на клиентской выгоде: что человек получит после услуги, "
-                    "как проходит процесс и почему результат предсказуем."
-                )
-            if _contains_meta_marketing_advice(cta_text):
-                cta_text = "Напишите в сообщения и получите персональную рекомендацию."
-
-            # Keep hashtag ranges closer to platform best-practice.
-            if platform == "instagram":
-                base_pool = hashtags + generated_tags
-                uniq = []
-                seen = set()
-                for t in base_pool:
-                    key = t.lower()
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    uniq.append(t if t.startswith("#") else f"#{t}")
-                hashtags = uniq[:15]
-                while len(hashtags) < 8:
-                    hashtags.append(f"#сервис{len(hashtags)+1}")
-            elif platform == "facebook":
-                hashtags = hashtags[:8]
-                if not hashtags:
-                    hashtags = generated_tags[:8]
-            elif platform == "youtube":
-                hashtags = hashtags[:10]
-                if len(hashtags) < 3:
-                    hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=3, max_count=10)[:3]
-
             drafts.append(
                 {
-                    "platform": str(row.get("platform") or platform).strip().lower(),
-                    "variant": int(row.get("variant_index") or idx),
+                    "platform": platform,
+                    "variant": idx,
                     "hook": client_hook_seed[:180],
-                    "body_text": body_text,
-                    "cta": cta_text,
-                    "hashtags": hashtags,
+                    "body_text": row["post_text"],
+                    "cta": row["cta"],
+                    "hashtags": row["hashtags"],
                     "warnings": [],
                 }
             )
 
     if not drafts:
+        fallback_row = _adapt_core_row_for_platform(
+            _generate_free_text_fallback_draft(
+                platform=primary_platform,
+                variant_index=1,
+                topic=core_topic,
+                offer=offer,
+                goal=goal,
+                angle=angle,
+            ),
+            platform=primary_platform,
+            variant_index=1,
+            topic=topic,
+            niche_label=niche_label,
+            language=language,
+            goal=goal,
+            offer=offer,
+        )
         drafts = [
             {
-                "platform": platforms[0],
+                "platform": primary_platform,
                 "variant": 1,
                 "hook": client_hook_seed,
-                "body_text": (
-                    f"{client_hook_seed}\n\n"
-                    f"{angle}\n\n"
-                    "Покажите клиенту конкретную пользу услуги, добавьте понятные условия и завершите записью."
-                ),
-                "cta": "Напишите в сообщения и получите свободные слоты на ближайшие дни.",
-                "hashtags": ["#локальныйбизнес", "#услуги", "#вашгород"],
+                "body_text": fallback_row["post_text"],
+                "cta": fallback_row["cta"],
+                "hashtags": fallback_row["hashtags"],
                 "warnings": ["hard_fallback_default"],
             }
         ]
@@ -1827,4 +2062,8 @@ __all__ = [
     "generateHashtags",
     "generate_hashtags",
 ]
+
+
+
+
 
