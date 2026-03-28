@@ -25,10 +25,16 @@ HARD_SELL_CTA_TERMS = (
     "приходи",
     "запишитесь",
     "записывайтесь",
+    "запишитесь на",
     "напишите в сообщения",
     "напишите в директ",
+    "напишите нам",
     "оставьте заявку",
     "мы подскажем",
+    "узнайте больше",
+    "присоединяйтесь к нам",
+    "консультац",
+    "бесплатное пробное занятие",
     "забронируйте",
     "book now",
     "dm us",
@@ -351,6 +357,58 @@ def _looks_hard_sell_cta(text: str) -> bool:
     return any(term in low for term in HARD_SELL_CTA_TERMS)
 
 
+NO_OFFER_SERVICE_FRAMING_TERMS = (
+    "перед визит",
+    "первым визит",
+    "визитом в",
+    "визитом к",
+    "наш центр",
+    "нашего центра",
+    "к нам",
+    "к психологу",
+    "в фитнес-клуб",
+    "на консультац",
+    "консультац",
+    "обратиться к нам",
+    "присоединяйтесь к нам",
+    "запишитесь",
+    "подрядчику",
+)
+
+
+NO_OFFER_SERVICE_TAGS = {
+    "#услуги",
+    "#запись",
+    "#акция",
+    "#service",
+    "#angebot",
+    "#booknow",
+}
+
+
+def _looks_service_framed_no_offer(text: str) -> bool:
+    low = str(text or "").strip().lower()
+    if not low:
+        return False
+    return any(term in low for term in NO_OFFER_SERVICE_FRAMING_TERMS)
+
+
+def _looks_service_framed_topic_no_offer(text: str) -> bool:
+    low = str(text or "").strip().lower()
+    if not low:
+        return False
+    topic_terms = (
+        "клиента перед услугой",
+        "перед услугой",
+        "услугой",
+        "перед выбором решения",
+        "свободные окна",
+        "визитом",
+        "консультац",
+    )
+    return any(term in low for term in topic_terms)
+
+
 def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred: str | None = None) -> str:
     preferred_text = str(preferred or "").strip()
     mode = _cta_mode(goal, offer)
@@ -454,6 +512,8 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
     body_text = _format_core_for_platform(str(source_row.get("post_text") or "").strip(), platform)
     if not body_text or _contains_meta_marketing_advice(body_text):
         body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
+    elif not _has_explicit_offer(offer) and _looks_service_framed_no_offer(body_text):
+        body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
     cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
     generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
@@ -461,6 +521,9 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
         hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=5, max_count=12)
     else:
         hashtags = generated_tags
+    if not _has_explicit_offer(offer):
+        hashtags = [tag for tag in hashtags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
+        hashtags = _sanitize_hashtag_list(hashtags or generated_tags, min_count=5, max_count=12 if platform != "instagram" else 15)
     if platform == "instagram":
         hashtags = hashtags[:15]
         prev_len = -1
@@ -669,7 +732,7 @@ def _normalize_hashtag_language(language: str) -> str:
 
 
 def _sanitize_hashtag_token(token: str, *, max_len: int = 29) -> str:
-    raw = str(token or "").strip().lower()
+    raw = _repair_mojibake_text(str(token or "")).strip().lower()
     if raw.startswith("#"):
         raw = raw[1:]
     cleaned_chars = []
@@ -1325,14 +1388,17 @@ def _repair_mojibake_text(text: str) -> str:
         return s
     if _mojibake_score(s) < 2:
         return s
-    try:
-        candidate = s.encode("cp1251", errors="strict").decode("utf-8", errors="strict")
-    except Exception:
-        return s
-    if not candidate or candidate == s:
-        return s
-    if _mojibake_score(candidate) < _mojibake_score(s) and _cyrillic_score(candidate) >= _cyrillic_score(s):
-        return candidate
+    candidates = []
+    for src_enc in ("cp1251", "latin1"):
+        try:
+            candidate = s.encode(src_enc, errors="strict").decode("utf-8", errors="strict")
+        except Exception:
+            continue
+        if candidate and candidate != s:
+            candidates.append(candidate)
+    for candidate in candidates:
+        if _mojibake_score(candidate) < _mojibake_score(s) and _cyrillic_score(candidate) >= _cyrillic_score(s):
+            return candidate
     return s
 
 
@@ -1363,7 +1429,7 @@ def _topic_to_client_hook(topic: str, goal: str) -> str:
     normalized = _normalize_goal_for_business(goal)
     templates = {
         "awareness": [
-            "\u0427\u0442\u043e \u0432\u0430\u0436\u043d\u043e \u0437\u043d\u0430\u0442\u044c \u043f\u0435\u0440\u0435\u0434 \u0432\u044b\u0431\u043e\u0440\u043e\u043c \u0440\u0435\u0448\u0435\u043d\u0438\u044f",
+            "\u041e \u0447\u0451\u043c \u0441\u0442\u043e\u0438\u0442 \u043f\u043e\u043c\u043d\u0438\u0442\u044c \u0432 \u0442\u0430\u043a\u043e\u0439 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u0438",
             "3 \u043e\u0448\u0438\u0431\u043a\u0438, \u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u044e\u0442\u0441\u044f \u0447\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043e",
             "\u041a\u0430\u043a \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 \u043f\u043e\u043b\u044c\u0437\u044b \u0431\u0435\u0437 \u043b\u0438\u0448\u043d\u0438\u0445 \u0448\u0430\u0433\u043e\u0432",
         ],
@@ -1381,7 +1447,7 @@ def _topic_to_client_hook(topic: str, goal: str) -> str:
     base = templates.get(normalized, templates["awareness"])[0]
     if base.strip().lower() == str(topic or "").strip().lower():
         base = templates.get(normalized, templates["awareness"])[1]
-    return base if not seed else f"{base} ({seed})"
+    return base if not seed else f"{base}: {seed}"
 
 def _director_topic_seed(topic: str, *, max_words: int = 5) -> str:
     text = _repair_mojibake_text(str(topic or ""))
@@ -1437,39 +1503,39 @@ def _director_goal_topic_templates(seed: str, goal: str, offer: str | None) -> l
     offer_short = re.sub(r"\s+", " ", str(offer or "").strip())[:56]
     if normalized == "lead":
         return [
-            f"РЎРІРѕР±РѕРґРЅС‹Рµ РѕРєРЅР° РЅР° СЌС‚РѕР№ РЅРµРґРµР»Рµ: {seed}",
-            f"{seed}: РїСЂРµРґР»РѕР¶РµРЅРёРµ СЃ Р·Р°РїРёСЃСЊСЋ РІ 1 РєР»РёРє",
-            f"РџРѕС‡РµРјСѓ СЃРµР№С‡Р°СЃ Р»СѓС‡С€РµРµ РІСЂРµРјСЏ Р·Р°РїРёСЃР°С‚СЊСЃСЏ РЅР° {seed}",
-            f"РћРіСЂР°РЅРёС‡РµРЅРЅРѕРµ РїСЂРµРґР»РѕР¶РµРЅРёРµ: {offer_short or 'СѓСЃР»СѓРіР° РїРѕ СЃРїРµС†-С†РµРЅРµ'}",
-            f"Р§С‚Рѕ РІС…РѕРґРёС‚ РІ СѓСЃР»СѓРіСѓ {seed} Рё РєР°Рє Р·Р°Р±СЂРѕРЅРёСЂРѕРІР°С‚СЊ РІСЂРµРјСЏ",
-            f"Р‘С‹СЃС‚СЂР°СЏ Р·Р°РїРёСЃСЊ: РєР°Рє РїРѕР»СѓС‡РёС‚СЊ СѓСЃР»СѓРіСѓ Р±РµР· РѕР¶РёРґР°РЅРёСЏ",
-            f"3 РїСЂРёС‡РёРЅС‹ Р·Р°РїРёСЃР°С‚СЊСЃСЏ СЃРµРіРѕРґРЅСЏ РЅР° {seed}",
-            f"{seed}: Р±РѕРЅСѓСЃ РґР»СЏ РЅРѕРІС‹С… РєР»РёРµРЅС‚РѕРІ РґРѕ РєРѕРЅС†Р° РЅРµРґРµР»Рё",
+            f"С чего начать, если вам нужен понятный результат по теме {seed}",
+            f"{seed}: что входит в предложение и кому это подходит",
+            f"Почему сейчас подходящий момент заняться темой {seed}",
+            f"Что вы получите, если выбрать {offer_short or seed}",
+            f"Какие вопросы стоит задать перед выбором решения по теме {seed}",
+            f"Как понять, что вам подходит именно такой формат помощи",
+            f"3 причины не откладывать следующий шаг по теме {seed}",
+            f"{seed}: как получить пользу уже на первом этапе",
         ]
     if normalized == "trust":
         return [
-            f"РСЃС‚РѕСЂРёСЏ РєР»РёРµРЅС‚Р°: Р±С‹Р»Рѕ/СЃС‚Р°Р»Рѕ РїРѕСЃР»Рµ {seed}",
-            f"Р РµР°Р»СЊРЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ РєР»РёРµРЅС‚Р° Р·Р° РѕРґРёРЅ РІРёР·РёС‚",
-            f"Р”Рѕ Рё РїРѕСЃР»Рµ: РєР°Рє РїСЂРѕС…РѕРґРёС‚ {seed} РїРѕ С€Р°РіР°Рј",
-            f"РћС‚Р·С‹РІ РєР»РёРµРЅС‚Р°: РїРѕС‡РµРјСѓ РѕРЅ РІС‹Р±СЂР°Р» РЅР°СЃ",
-            f"РљРµР№СЃ РЅРµРґРµР»Рё: Р°РєРєСѓСЂР°С‚РЅР°СЏ СЂР°Р±РѕС‚Р° Рё РїРѕРЅСЏС‚РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚",
-            f"РљР°Рє РјС‹ СЂР°Р±РѕС‚Р°РµРј: РїСЂРѕС†РµСЃСЃ {seed} Р±РµР· СЃСЋСЂРїСЂРёР·РѕРІ",
-            f"Р§С‚Рѕ РіРѕРІРѕСЂСЏС‚ РєР»РёРµРЅС‚С‹ РїРѕСЃР»Рµ {seed}",
-            f"РџРѕС‡РµРјСѓ РЅР°Рј РґРѕРІРµСЂСЏСЋС‚: С„Р°РєС‚С‹ Рё СЂРµР°Р»СЊРЅС‹Рµ РїСЂРёРјРµСЂС‹",
+            f"История, в которой результат по теме {seed} стал заметен без лишнего шума",
+            f"Реальный пример: что меняется, когда подход к теме {seed} становится понятным",
+            f"До и после: как выглядит путь по теме {seed} по шагам",
+            f"Что обычно оказывается самым важным в теме {seed} на практике",
+            f"Кейс недели: аккуратный процесс и понятный результат",
+            f"Как обычно проходит работа по теме {seed} без сюрпризов",
+            f"Что люди чаще всего отмечают после такого опыта",
+            f"Почему доверие к теме {seed} строится на понятных фактах, а не обещаниях",
         ]
     # awareness-like playbook
     base = [
-        f"3 РѕС€РёР±РєРё РєР»РёРµРЅС‚Р° РїРµСЂРµРґ СѓСЃР»СѓРіРѕР№ {seed}",
-        f"РњРёС„ Рё РїСЂР°РІРґР° Рѕ {seed}",
-        f"РџСЂРѕР±Р»РµРјР° Рё СЂРµС€РµРЅРёРµ: РєР°Рє РІС‹Р±СЂР°С‚СЊ {seed} Р±РµР· РїРµСЂРµРїР»Р°С‚С‹",
-        f"5 РїСЂР°РєС‚РёС‡РЅС‹С… СЃРѕРІРµС‚РѕРІ РєР»РёРµРЅС‚Сѓ РїРѕ С‚РµРјРµ {seed}",
-        f"РўСЂРµРЅРґ СЃРµР·РѕРЅР° РІ С‚РµРјРµ {seed}: С‡С‚Рѕ СЂРµР°Р»СЊРЅРѕ СЂР°Р±РѕС‚Р°РµС‚",
-        f"Р§С‚Рѕ РІР°Р¶РЅРѕ Р·РЅР°С‚СЊ РїРµСЂРµРґ Р·Р°РїРёСЃСЊСЋ РЅР° {seed}",
-        f"РџРѕС€Р°РіРѕРІС‹Р№ С‡РµРє-Р»РёСЃС‚ РєР»РёРµРЅС‚Р°: РїРѕРґРіРѕС‚РѕРІРєР° Рє {seed}",
-        f"Р§Р°СЃС‚С‹Рµ РІРѕРїСЂРѕСЃС‹ РєР»РёРµРЅС‚РѕРІ Рѕ {seed} РїСЂРѕСЃС‚С‹РјРё СЃР»РѕРІР°РјРё",
+        f"3 ошибки, которые часто мешают в теме {seed}",
+        f"Миф и правда о теме {seed}",
+        f"Почему люди часто сталкиваются с трудностями в теме {seed}",
+        f"5 практических наблюдений по теме {seed}",
+        f"О чём стоит помнить, если вас касается тема {seed}",
+        f"Что важно понять до того, как делать следующий шаг в теме {seed}",
+        f"Простой чек-лист по теме {seed} без лишней теории",
+        f"Частые вопросы по теме {seed} простыми словами",
     ]
     if offer_short:
-        base[4] = f"РўСЂРµРЅРґ СЃРµР·РѕРЅР° + {offer_short}: РєР°Рє РїРѕР»СѓС‡РёС‚СЊ РїРѕР»СЊР·Сѓ СѓР¶Рµ СЃРµР№С‡Р°СЃ"
+        base[4] = f"Как получить пользу уже сейчас, если вам подходит {offer_short}"
     return base
 
 
@@ -1553,7 +1619,13 @@ def _director_default_payload(
         "trust": ["#кейс", "#отзывы", "#доипосле", "#результат", "#доверие"],
     }
     tag_seed_source = niche_label or base
-    seed_tags = [f"#{w.lower()}" for w in re.findall(r"\w+", tag_seed_source or "", flags=re.U)[:3] if len(w) > 2]
+    seed_tags = []
+    for raw_word in re.findall(r"\w+", tag_seed_source or "", flags=re.U)[:6]:
+        safe_tag = _sanitize_hashtag_token(raw_word)
+        if safe_tag and len(safe_tag) > 3 and safe_tag not in seed_tags:
+            seed_tags.append(safe_tag)
+        if len(seed_tags) >= 3:
+            break
     keyword_tags = [f"#{w.lower()}" for w in niche_keywords[:4] if len(w) > 2]
     core_tags = goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#практика", "#разбор"] + seed_tags
     # unique + stable order
@@ -1617,10 +1689,12 @@ def _director_soft_normalize(
     cleaned_topics = []
     original_topic_low = str(topic or "").strip().lower()
     for item in source_topics:
-        t = str(item).strip()
+        t = _repair_mojibake_text(str(item).strip())
         if not t:
             continue
         if _contains_meta_marketing_advice(t):
+            continue
+        if not _has_explicit_offer(offer) and _looks_service_framed_topic_no_offer(t):
             continue
         if t.lower() == original_topic_low:
             t = _topic_to_client_hook(topic, goal)
@@ -1665,6 +1739,7 @@ def _director_soft_normalize(
         for idx, row in enumerate(hashtag_sets):
             row_tags = [str(x).strip() for x in (row if isinstance(row, list) else []) if str(x).strip()]
             if row_tags:
+                row_tags = _sanitize_hashtag_list(row_tags, min_count=min(3, max(1, len(row_tags))), max_count=15)
                 if len(row_tags) < 3:
                     fallback_row = default["hashtag_sets"][idx % len(default["hashtag_sets"])]
                     for tag in fallback_row:
@@ -1672,6 +1747,7 @@ def _director_soft_normalize(
                             break
                         if tag not in row_tags:
                             row_tags.append(tag)
+                row_tags = _sanitize_hashtag_list(row_tags, min_count=3, max_count=15)
                 tags_norm.append(row_tags[:15])
     while len(tags_norm) < 3:
         tags_norm.append(default["hashtag_sets"][len(tags_norm)])
