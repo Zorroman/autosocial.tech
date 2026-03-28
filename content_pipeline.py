@@ -405,6 +405,50 @@ def _looks_service_framed_no_offer(text: str) -> bool:
     return any(term in low for term in NO_OFFER_SERVICE_FRAMING_TERMS)
 
 
+def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str | None, language: str, goal: str) -> list[str]:
+    cleaned = [
+        str(tag).strip()
+        for tag in (tags or [])
+        if str(tag).strip() and str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS
+    ]
+    cleaned = _sanitize_hashtag_list(cleaned, min_count=1, max_count=15) if cleaned else []
+    generated = [
+        tag for tag in generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
+        if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS
+    ]
+    merged = _sanitize_hashtag_list(cleaned + generated, min_count=5, max_count=15)
+    return merged
+
+
+def _enforce_no_offer_output_policy(
+    row: dict,
+    *,
+    topic: str,
+    niche_label: str | None,
+    language: str,
+    goal: str,
+    offer: str | None,
+) -> dict:
+    if _has_explicit_offer(offer):
+        return row
+    safe_row = dict(row or {})
+    platform = str(safe_row.get("platform") or "facebook").strip().lower() or "facebook"
+    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language)
+    body_text = _repair_mojibake_text(str(safe_row.get("post_text") or "").strip())
+    if not body_text or _looks_service_framed_no_offer(body_text) or _contains_meta_marketing_advice(body_text):
+        body_text = _format_core_for_platform(safe_core_text, platform)
+    safe_row["post_text"] = body_text
+    safe_row["cta"] = _cta_defaults(language, "soft")[0]
+    safe_row["hashtags"] = _filter_no_offer_hashtags(
+        [str(x).strip() for x in (safe_row.get("hashtags") or []) if str(x).strip()],
+        topic=topic,
+        niche_label=niche_label,
+        language=language,
+        goal=goal,
+    )
+    return safe_row
+
+
 def _looks_service_framed_topic_no_offer(text: str) -> bool:
     low = str(text or "").strip().lower()
     if not low:
@@ -537,7 +581,7 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
         hashtags = generated_tags
     if no_offer:
         cta_text = _cta_defaults(language, "soft")[0]
-        hashtags = [tag for tag in generated_tags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
+        hashtags = _filter_no_offer_hashtags(hashtags + generated_tags, topic=topic, niche_label=niche_label, language=language, goal=goal)
         hashtags = _sanitize_hashtag_list(hashtags, min_count=5, max_count=12 if platform != "instagram" else 15)
     if platform == "instagram":
         hashtags = hashtags[:15]
@@ -1731,6 +1775,7 @@ def _director_soft_normalize(
     raw_cta_options = _as_clean_list(payload.get("cta_options"), limit=8)
     if _cta_mode(goal, offer) != "service":
         raw_cta_options = [x for x in raw_cta_options if not _looks_hard_sell_cta(x)]
+        raw_cta_options = [x for x in raw_cta_options if not _looks_service_framed_no_offer(x)]
     cta_options = _pad_strings(
         raw_cta_options,
         3,
@@ -1754,6 +1799,8 @@ def _director_soft_normalize(
         for idx, row in enumerate(hashtag_sets):
             row_tags = [str(x).strip() for x in (row if isinstance(row, list) else []) if str(x).strip()]
             if row_tags:
+                if not _has_explicit_offer(offer):
+                    row_tags = [tag for tag in row_tags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
                 row_tags = _sanitize_hashtag_list(row_tags, min_count=min(3, max(1, len(row_tags))), max_count=15)
                 if len(row_tags) < 3:
                     fallback_row = default["hashtag_sets"][idx % len(default["hashtag_sets"])]
@@ -2029,6 +2076,14 @@ def director_generate_drafts(
                     goal=goal,
                     offer=offer,
                 )
+                row = _enforce_no_offer_output_policy(
+                    row,
+                    topic=topic,
+                    niche_label=niche_label,
+                    language=language,
+                    goal=goal,
+                    offer=offer,
+                )
                 drafts.append(
                     {
                         "platform": platform,
@@ -2086,6 +2141,14 @@ def director_generate_drafts(
                 goal=goal,
                 offer=offer,
             )
+            row = _enforce_no_offer_output_policy(
+                row,
+                topic=topic,
+                niche_label=niche_label,
+                language=language,
+                goal=goal,
+                offer=offer,
+            )
             drafts.append(
                 {
                     "platform": platform,
@@ -2110,6 +2173,14 @@ def director_generate_drafts(
             ),
             platform=primary_platform,
             variant_index=1,
+            topic=topic,
+            niche_label=niche_label,
+            language=language,
+            goal=goal,
+            offer=offer,
+        )
+        fallback_row = _enforce_no_offer_output_policy(
+            fallback_row,
             topic=topic,
             niche_label=niche_label,
             language=language,
