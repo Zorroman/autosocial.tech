@@ -22,15 +22,18 @@ META_MARKETING_TERMS = (
 
 HARD_SELL_CTA_TERMS = (
     "приходите",
+    "приходите к нам",
     "приходи",
     "запишитесь",
     "записывайтесь",
     "запишитесь на",
+    "пробное занятие",
     "напишите в сообщения",
     "напишите в директ",
     "напишите нам",
     "оставьте заявку",
     "мы подскажем",
+    "подскажем лучший вариант",
     "узнайте больше",
     "присоединяйтесь к нам",
     "консультац",
@@ -362,17 +365,22 @@ NO_OFFER_SERVICE_FRAMING_TERMS = (
     "первым визит",
     "визитом в",
     "визитом к",
+    "посетить наш центр",
     "наш центр",
     "нашего центра",
     "к нам",
     "к психологу",
     "в фитнес-клуб",
+    "в фитнес-зал",
     "на консультац",
     "консультац",
     "обратиться к нам",
     "присоединяйтесь к нам",
     "запишитесь",
     "подрядчику",
+    "подскажем лучший вариант",
+    "напишите в сообщения",
+    "напишите в директ",
 )
 
 
@@ -380,6 +388,10 @@ NO_OFFER_SERVICE_TAGS = {
     "#услуги",
     "#запись",
     "#акция",
+    "#рекомендуем",
+    "#recommended",
+    "#local",
+    "#localbusiness",
     "#service",
     "#angebot",
     "#booknow",
@@ -512,7 +524,9 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
     body_text = _format_core_for_platform(str(source_row.get("post_text") or "").strip(), platform)
     if not body_text or _contains_meta_marketing_advice(body_text):
         body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
-    elif not _has_explicit_offer(offer) and _looks_service_framed_no_offer(body_text):
+    elif not _has_explicit_offer(offer) and (
+        _looks_service_framed_no_offer(body_text) or _looks_hard_sell_cta(body_text)
+    ):
         body_text = _format_core_for_platform(_shared_core_fallback_text(topic, "", goal, offer, language), platform)
     cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
@@ -522,6 +536,8 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
     else:
         hashtags = generated_tags
     if not _has_explicit_offer(offer):
+        if _looks_hard_sell_cta(cta_text):
+            cta_text = _cta_defaults(language, "soft")[0]
         hashtags = [tag for tag in hashtags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
         hashtags = _sanitize_hashtag_list(hashtags or generated_tags, min_count=5, max_count=12 if platform != "instagram" else 15)
     if platform == "instagram":

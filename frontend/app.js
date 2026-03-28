@@ -10121,7 +10121,7 @@ async function bindCreateDirector(path) {
     });
     return out;
   };
-  const normalizeDraftTextForTopic = (text, topic, angle, platform) => {
+  const normalizeDraftTextForTopic = (text, topic, angle) => {
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
     const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
     const seen = new Set();
@@ -10145,15 +10145,7 @@ async function bindCreateDirector(path) {
       body = `${String(topic).trim()}. ${body}`.trim();
     }
     if (!body) {
-      body = `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Что важно клиенту.\n2) Что вы предлагаете.\n3) Как записаться.`;
-    }
-    const platformHint = platform === 'instagram'
-      ? 'Сохраните пост и напишите в директ для деталей.'
-      : (platform === 'facebook'
-        ? 'Напишите в сообщения — подскажем лучший вариант для вас.'
-        : 'Смотрите до конца и переходите по ссылке в описании.');
-    if (!body.toLowerCase().includes(platformHint.toLowerCase())) {
-      body = `${body}\n\n${platformHint}`.trim();
+      body = `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Один важный сигнал или ошибка.\n2) Одна полезная мысль по теме.\n3) Один спокойный следующий шаг без давления.`;
     }
     return body;
   };
@@ -10161,7 +10153,7 @@ async function bindCreateDirector(path) {
     const list = Array.isArray(rows) ? rows : [];
     return list.map((row, idx) => {
       const platform = String(row?.platform || 'facebook').trim().toLowerCase();
-      const normalizedText = normalizeDraftTextForTopic(row?.post_text || row?.body_text || '', topic, angle, platform);
+      const normalizedText = normalizeDraftTextForTopic(row?.post_text || row?.body_text || '', topic, angle);
       return {
         ...(row || {}),
         platform,
