@@ -3570,6 +3570,34 @@ const POST_STUDIO_NO_OFFER_TEXT_TERMS = [
   'напишите в сообщения',
   'напишите в директ',
 ];
+const POST_STUDIO_GENERIC_HELPER_TERMS = {
+  fitness: [
+    'перед тем как начать тренироваться',
+    'не обязательно сразу же перегружать себя',
+    'небольшие шаги могут привести к большим результатам',
+    'как правильно начать тренировки',
+    'как начать тренироваться',
+  ],
+  apartment_renovation: [
+    'перед тем как начать ремонт квартиры',
+    'правильно составить смету',
+    'неприятных сюрпризов',
+    'контролировать бюджет на каждом этапе',
+    'в нашей статье',
+    'пошаговое руководство',
+  ],
+};
+const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
+  fitness: [
+    'узнайте больше о том, как правильно начать тренировки',
+    'узнайте больше о тренировках',
+  ],
+  apartment_renovation: [
+    'узнайте больше о том, как составить смету',
+    'в нашей статье',
+    'узнайте больше о каждом этапе ремонта',
+  ],
+};
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
   'Сохраните пост, чтобы вернуться к нему позже.',
   'Напишите в комментариях, если тема вам откликается.',
@@ -3584,16 +3612,28 @@ function postStudioLooksServiceFramed(text) {
   if (!low) return false;
   return POST_STUDIO_NO_OFFER_TEXT_TERMS.some((term) => low.includes(term));
 }
+function postStudioLooksGenericHelperTone(text, nicheId) {
+  const low = String(text || '').trim().toLowerCase();
+  if (!low) return false;
+  const terms = POST_STUDIO_GENERIC_HELPER_TERMS[String(nicheId || '').trim()] || [];
+  return terms.some((term) => low.includes(term));
+}
+function postStudioLooksGenericHelperCta(text, nicheId) {
+  const low = String(text || '').trim().toLowerCase();
+  if (!low) return false;
+  const terms = POST_STUDIO_GENERIC_HELPER_CTA_TERMS[String(nicheId || '').trim()] || [];
+  return terms.some((term) => low.includes(term));
+}
 function postStudioNeutralCta(topic, angle) {
   const seed = `${String(topic || '').trim()}|${String(angle || '').trim()}`;
   let sum = 0;
   for (const ch of seed) sum += ch.charCodeAt(0);
   return POST_STUDIO_NO_OFFER_CTA_POOL[sum % POST_STUDIO_NO_OFFER_CTA_POOL.length];
 }
-function sanitizePostStudioCta(text, topic, angle, { allowService = false } = {}) {
+function sanitizePostStudioCta(text, topic, angle, { allowService = false, nicheId = '' } = {}) {
   const raw = String(text || '').trim();
   if (allowService) return raw;
-  if (raw && !postStudioLooksServiceFramed(raw)) return raw;
+  if (raw && !postStudioLooksServiceFramed(raw) && !postStudioLooksGenericHelperCta(raw, nicheId)) return raw;
   return postStudioNeutralCta(topic, angle);
 }
 function sanitizePostStudioHashtags(d, rawSet, { allowService = false } = {}) {
@@ -10261,10 +10301,10 @@ async function bindCreateDirector(path) {
     return body;
   };
   const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false, nicheId = '' } = {}) => {
-    const body = normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService });
-    if (allowService || !postStudioLooksServiceFramed(body)) return body;
-    return postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
-  };
+  const body = normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService });
+  if (allowService || (!postStudioLooksServiceFramed(body) && !postStudioLooksGenericHelperTone(body, nicheId))) return body;
+  return postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
+};
   const normalizeDraftRowsForPreview = (rows, topic, angle, nicheId, { allowService = false } = {}) => {
     const list = Array.isArray(rows) ? rows : [];
     return list.map((row, idx) => {
@@ -10385,7 +10425,7 @@ async function bindCreateDirector(path) {
     return Array.from({ length: total }, (_, idx) => {
       const topic = topicList[idx % topicList.length];
       const angle = angleList[idx % Math.max(1, angleList.length)] || '';
-      const cta = sanitizePostStudioCta(ctaList[idx % Math.max(1, ctaList.length)] || '', topic, angle, { allowService });
+      const cta = sanitizePostStudioCta(ctaList[idx % Math.max(1, ctaList.length)] || '', topic, angle, { allowService, nicheId });
       const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService }).join(' ');
       return {
         day: idx + 1,
@@ -10634,7 +10674,7 @@ async function bindCreateDirector(path) {
       }
       const allowService = postStudioHasExplicitOffer(base.offer);
       d.selectedHashtags = sanitizePostStudioHashtags(d, suggestData.hashtagSets[0], { allowService });
-      d.selectedCta = sanitizePostStudioCta(String(suggestData.ctaOptions[0] || '').trim(), String(suggestData.topics[0] || base.topic || '').trim(), String(suggestData.angles[0] || '').trim(), { allowService });
+      d.selectedCta = sanitizePostStudioCta(String(suggestData.ctaOptions[0] || '').trim(), String(suggestData.topics[0] || base.topic || '').trim(), String(suggestData.angles[0] || '').trim(), { allowService, nicheId: directorCurrentNicheId(d) });
       await advanceStep(2, 120);
       d.planFlowItems = buildPlanFlowItemsFromAi({
         count: planCount,
@@ -10751,7 +10791,7 @@ async function bindCreateDirector(path) {
             item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
             item.caption_text = item.post_text;
             item.caption = item.post_text;
-            item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService });
+            item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
             item.hashtags = sanitizePostStudioHashtags(
               d,
               Array.isArray(draft.hashtags) && draft.hashtags.length ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || '')),
@@ -10767,7 +10807,7 @@ async function bindCreateDirector(path) {
           );
           item.caption_text = item.post_text;
           item.caption = item.post_text;
-          item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService });
+          item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
           item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService }).join(' ');
         }
         return item;
@@ -10783,7 +10823,7 @@ async function bindCreateDirector(path) {
       d.planFlowItems = enrichedItems;
       d.planFlowState = 'generated';
       d.planFlowSelectedDay = Number(enrichedItems[0]?.day || 1) || 1;
-      d.selectedCta = sanitizePostStudioCta(String(enrichedItems[0]?.cta || '').trim(), String(enrichedItems[0]?.topic || base.topic || '').trim(), String(enrichedItems[0]?.angle || '').trim(), { allowService });
+      d.selectedCta = sanitizePostStudioCta(String(enrichedItems[0]?.cta || '').trim(), String(enrichedItems[0]?.topic || base.topic || '').trim(), String(enrichedItems[0]?.angle || '').trim(), { allowService, nicheId: enrichedItems[0]?.nicheId || directorCurrentNicheId(d) });
       d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')), { allowService }).slice(0, 20);
       await advanceStep(4, 0);
       state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };

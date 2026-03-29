@@ -728,11 +728,60 @@ NO_OFFER_SERVICE_TAGS = {
 }
 
 
+GENERIC_HELPER_NO_OFFER_TERMS_BY_PERSONA = {
+    "fitness": (
+        "перед тем как начать тренироваться",
+        "не обязательно сразу же перегружать себя",
+        "небольшие шаги могут привести к большим результатам",
+        "как правильно начать тренировки",
+        "как начать тренироваться",
+    ),
+    "apartment_renovation": (
+        "перед тем как начать ремонт квартиры",
+        "правильно составить смету",
+        "неприятных сюрпризов",
+        "контролировать бюджет на каждом этапе",
+        "в нашей статье",
+        "пошаговое руководство",
+    ),
+}
+
+GENERIC_HELPER_CTA_TERMS_BY_PERSONA = {
+    "fitness": (
+        "узнайте больше о том, как правильно начать тренировки",
+        "узнайте больше о тренировках",
+    ),
+    "apartment_renovation": (
+        "узнайте больше о том, как составить смету",
+        "в нашей статье",
+        "узнайте больше о каждом этапе ремонта",
+    ),
+}
+
+
 def _looks_service_framed_no_offer(text: str) -> bool:
     low = str(text or "").strip().lower()
     if not low:
         return False
     return any(term in low for term in NO_OFFER_SERVICE_FRAMING_TERMS)
+
+
+def _looks_generic_helper_no_offer(text: str, persona: dict | None = None) -> bool:
+    low = str(text or "").strip().lower()
+    if not low or not persona:
+        return False
+    key = str(persona.get("persona_key") or "").strip().lower()
+    terms = GENERIC_HELPER_NO_OFFER_TERMS_BY_PERSONA.get(key) or ()
+    return any(term in low for term in terms)
+
+
+def _looks_generic_helper_cta_no_offer(text: str, persona: dict | None = None) -> bool:
+    low = str(text or "").strip().lower()
+    if not low or not persona:
+        return False
+    key = str(persona.get("persona_key") or "").strip().lower()
+    terms = GENERIC_HELPER_CTA_TERMS_BY_PERSONA.get(key) or ()
+    return any(term in low for term in terms)
 
 
 def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str | None, language: str, goal: str, persona: dict | None = None) -> list[str]:
@@ -768,7 +817,12 @@ def _enforce_no_offer_output_policy(
     persona = persona or _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=None)
     safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language, persona=persona)
     body_text = _repair_mojibake_text(str(safe_row.get("post_text") or "").strip())
-    if not body_text or _looks_service_framed_no_offer(body_text) or _contains_meta_marketing_advice(body_text):
+    if (
+        not body_text
+        or _looks_service_framed_no_offer(body_text)
+        or _looks_generic_helper_no_offer(body_text, persona)
+        or _contains_meta_marketing_advice(body_text)
+    ):
         body_text = _format_core_for_platform(safe_core_text, platform)
     safe_row["post_text"] = body_text
     safe_row["cta"] = _pick_default_cta(goal, offer, language, persona=persona)
@@ -804,7 +858,11 @@ def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred:
     mode = _cta_mode(goal, offer)
     persona_defaults = _persona_cta_pool(persona, offer=offer)
     if preferred_text:
-        if mode != "service" and (_looks_hard_sell_cta(preferred_text) or _looks_service_framed_no_offer(preferred_text)):
+        if mode != "service" and (
+            _looks_hard_sell_cta(preferred_text)
+            or _looks_service_framed_no_offer(preferred_text)
+            or _looks_generic_helper_cta_no_offer(preferred_text, persona)
+        ):
             preferred_text = ""
         elif not _contains_meta_marketing_advice(preferred_text):
             return preferred_text
