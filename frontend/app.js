@@ -10180,7 +10180,59 @@ async function bindCreateDirector(path) {
     });
     return out;
   };
-  const normalizeDraftTextForTopic = (text, topic, angle) => {
+  const postStudioPersonaBodyFallback = (nicheId, topic, angle, { allowService = false } = {}) => {
+    const safeTopic = String(topic || 'Тема').trim() || 'Тема';
+    const safeAngle = String(angle || '').trim();
+    const lead = safeAngle || safeTopic;
+    const explicitClose = (text) => (allowService ? text : '');
+    switch (String(nicheId || '').trim()) {
+      case 'esoterica':
+        return [
+          `${lead}. В таких темах важнее не редкий «особый знак», а повторяющийся узор, который человек обычно замечает слишком поздно.`,
+          'Сначала полезно посмотреть, что именно повторяется: ситуация, чувство, образ или один и тот же внутренний вопрос. Смысл открывается не в эффектном символе, а в связи между этим сигналом и вашей реальностью.',
+          explicitClose('Если хотите разобрать такой повторяющийся сюжет глубже, это уже можно делать в личной работе без громких обещаний.') || 'Полезнее не искать сенсацию, а спокойно понаблюдать, где этот знак уже повторяется в вашей жизни.',
+        ].filter(Boolean).join('\n\n');
+      case 'psychology':
+        return [
+          `${lead}. В психологической работе состояние редко меняется от одной правильной мысли. Сначала важно заметить повторяющийся паттерн, который запускает привычную реакцию.`,
+          'Чаще всего человек видит уже последствия: усталость, раздражение, тревогу или ощущение, что сил нет. Но рабочая точка находится раньше, там, где эта реакция только начинает собираться.',
+          explicitClose('Если хочется разобрать такую реакцию глубже, это уже повод для индивидуальной работы без спешки и громких обещаний.') || 'Обычно помогает начать с простого наблюдения: в какой момент включается напряжение, что вы при этом думаете и что стараетесь выдержать в одиночку.',
+        ].filter(Boolean).join('\n\n');
+      case 'fitness':
+        return [
+          `${lead}. В фитнесе люди чаще срываются не потому, что «ленятся», а потому что стартуют слишком резко и быстро упираются в усталость.`,
+          'Обычно проблема выглядит приземлённо: слишком большой объём, неудобный график, отсутствие восстановления или попытка сразу тренироваться как более продвинутый человек.',
+          explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || 'В тренировках лучше работает не рывок на мотивации, а схема, которую вы сможете повторить без отката через неделю.',
+        ].filter(Boolean).join('\n\n');
+      case 'apartment_renovation':
+        return [
+          `${lead}. В ремонте проблемы начинаются не с финишной отделки, а гораздо раньше: когда смета собрана кусками, этапы не увязаны, а решения принимаются уже на объекте.`,
+          'На практике это быстро вылезает в переделки, простои и лишние расходы. Один неуточнённый узел тянет за собой следующий: электрика, выравнивание, чистовая отделка, сроки поставки материалов.',
+          explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || 'До старта работ полезнее всего отдельно проверить смету, порядок этапов, сроки закупки и то, какие решения нельзя оставлять на потом.',
+        ].filter(Boolean).join('\n\n');
+      case 'autoservice':
+        return [
+          `${lead}. В автосервисе сначала смотрят не на страшный сценарий, а на конкретный симптом: что изменилось в звуке, тяге, вибрации или поведении машины.`,
+          'Один и тот же шум может означать разный уровень риска. Поэтому важны условия, при которых он проявляется, и то, стало ли это повторяться чаще, чем раньше.',
+          explicitClose('Если по симптомам уже нужен осмотр, дальше лучше не гадать по звуку, а проверить машину вживую.') || 'Если сигнал повторяется, полезно отметить, когда он появляется: на холодную, под нагрузкой, на скорости или при торможении.',
+        ].filter(Boolean).join('\n\n');
+      case 'cosmetology':
+        return [
+          `${lead}. В косметологии ориентиром служит не название процедуры, а текущее состояние кожи: чувствительность, обезвоженность, реактивность и то, как работает барьер.`,
+          'Когда уход подбирают под тренд, кожа нередко отвечает раздражением. Гораздо полезнее сначала понять, чего ей сейчас действительно не хватает и что уже даёт перегруз.',
+          explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || 'Чаще всего коже помогает не новый актив, а более спокойный уход, который не перегружает её ещё сильнее.',
+        ].filter(Boolean).join('\n\n');
+      case 'smm_marketing':
+        return [
+          `${lead}. В SMM проблема редко в том, что контента слишком мало. Обычно ломается логика: тема есть, а сообщение, аудитория и следующий шаг не стыкуются между собой.`,
+          'Когда посты выходят без одной опорной роли, человек может читать их по отдельности, но так и не понимать, зачем оставаться с вами дальше и что делать следующим шагом.',
+          explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала полезно проверить, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
+        ].filter(Boolean).join('\n\n');
+      default:
+        return `${safeTopic}\n\n${safeAngle || 'Практический подход'}\n\nОдин понятный пример из практики.\n\nОдин рабочий вывод без лишнего давления.`;
+    }
+  };
+  const normalizeDraftTextForTopic = (text, topic, angle, nicheId, { allowService = false } = {}) => {
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
     const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
     const seen = new Set();
@@ -10204,20 +10256,20 @@ async function bindCreateDirector(path) {
       body = `${String(topic).trim()}. ${body}`.trim();
     }
     if (!body) {
-      body = `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Один важный сигнал или ошибка.\n2) Одна полезная мысль по теме.\n3) Один спокойный следующий шаг без давления.`;
+      body = postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
     }
     return body;
   };
-  const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false } = {}) => {
-    const body = normalizeDraftTextForTopic(text, topic, angle);
+  const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false, nicheId = '' } = {}) => {
+    const body = normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService });
     if (allowService || !postStudioLooksServiceFramed(body)) return body;
-    return `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Один узнаваемый сигнал или ошибка.\n2) Одна полезная мысль по теме.\n3) Один спокойный следующий шаг без давления.`;
+    return postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
   };
-  const normalizeDraftRowsForPreview = (rows, topic, angle) => {
+  const normalizeDraftRowsForPreview = (rows, topic, angle, nicheId, { allowService = false } = {}) => {
     const list = Array.isArray(rows) ? rows : [];
     return list.map((row, idx) => {
       const platform = String(row?.platform || 'facebook').trim().toLowerCase();
-      const normalizedText = normalizeDraftTextForTopic(row?.post_text || row?.body_text || '', topic, angle);
+      const normalizedText = normalizeDraftTextForTopic(row?.post_text || row?.body_text || '', topic, angle, nicheId, { allowService });
       return {
         ...(row || {}),
         platform,
@@ -10323,6 +10375,7 @@ async function bindCreateDirector(path) {
   const buildPlanFlowItemsFromAi = ({ count, topics, angles, ctaOptions, hashtagSets, slots, offer }) => {
     const total = Math.max(1, Number(count || 0) || 0);
     const allowService = postStudioHasExplicitOffer(offer);
+    const nicheId = directorCurrentNicheId(d);
     const topicList = mergeUniquePlanStrings([], topics || [], Math.max(total, 8));
     if (!topicList.length) throw new Error('AI не вернул темы для плана.');
     const angleList = mergeUniquePlanStrings([], angles || [], 24);
@@ -10336,6 +10389,7 @@ async function bindCreateDirector(path) {
       const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService }).join(' ');
       return {
         day: idx + 1,
+        nicheId,
         topic,
         angle,
         cta,
@@ -10688,11 +10742,13 @@ async function bindCreateDirector(path) {
             Array.isArray(draftsOut?.data?.drafts) ? draftsOut.data.drafts : [],
             item.topic,
             item.angle,
+            item.nicheId || directorCurrentNicheId(d),
+            { allowService },
           );
           const draft = incomingDrafts[0] || null;
           if (draft) {
             const mergedText = String(draft.post_text || item.post_text || '').trim();
-            item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService });
+            item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
             item.caption_text = item.post_text;
             item.caption = item.post_text;
             item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService });
@@ -10707,7 +10763,7 @@ async function bindCreateDirector(path) {
             shellTextFmt('planner_generated_caption_fallback', { topic: item.topic, angle: item.angle || shellText('planner_generated_angle_fallback') }),
             item.topic,
             item.angle,
-            { allowService },
+            { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) },
           );
           item.caption_text = item.post_text;
           item.caption = item.post_text;
