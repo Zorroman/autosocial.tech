@@ -743,14 +743,21 @@ GENERIC_HELPER_NO_OFFER_TERMS_BY_PERSONA = {
         "контролировать бюджет на каждом этапе",
         "в нашей статье",
         "пошаговое руководство",
+        "этапы ремонта",
+        "от идеи до завершения",
+        "полезные советы",
     ),
 }
 
 GENERIC_HELPER_TOPIC_TERMS_BY_PERSONA = {
     "apartment_renovation": (
         "как начать ремонт",
+        "как выбрать подрядчика",
         "первые шаги",
         "без стресса",
+        "для ремонта квартиры",
+        "этапы ремонта",
+        "от идеи до завершения",
         "пошаговое руководство",
         "советы по ремонту",
     ),
@@ -770,7 +777,7 @@ GENERIC_HELPER_CTA_TERMS_BY_PERSONA = {
 }
 
 GENERIC_WEAK_NO_OFFER_TAGS_BY_PERSONA = {
-    "apartment_renovation": {"#совет", "#советы", "#планирование"},
+    "apartment_renovation": {"#совет", "#советы", "#планирование", "#полезно", "#советыпоремонту"},
 }
 
 
@@ -2041,6 +2048,8 @@ def _persona_specific_fallback_text(
             ]
         ).strip()
     if key == "apartment_renovation":
+        if _looks_generic_helper_topic_no_offer(lead, persona) or _looks_generic_helper_no_offer(lead, persona):
+            lead = "Где в ремонте квартиры чаще всего появляются скрытые перерасходы"
         close = (
             "Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост."
             if offer_mode

@@ -3587,13 +3587,20 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
     'контролировать бюджет на каждом этапе',
     'в нашей статье',
     'пошаговое руководство',
+    'этапы ремонта',
+    'от идеи до завершения',
+    'полезные советы',
   ],
 };
 const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
   apartment_renovation: [
     'как начать ремонт',
+    'как выбрать подрядчика',
     'первые шаги',
     'без стресса',
+    'для ремонта квартиры',
+    'этапы ремонта',
+    'от идеи до завершения',
     'пошаговое руководство',
     'советы по ремонту',
   ],
@@ -3611,7 +3618,7 @@ const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
   ],
 };
 const POST_STUDIO_WEAK_NO_OFFER_TAGS = {
-  apartment_renovation: new Set(['#совет', '#советы', '#планирование']),
+  apartment_renovation: new Set(['#совет', '#советы', '#планирование', '#полезно', '#советыпоремонту']),
 };
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
   'Сохраните пост, чтобы вернуться к нему позже.',
@@ -3652,10 +3659,10 @@ function postStudioPersonaTopicFallback(topic, angle, nicheId) {
   for (const ch of seed) sum += ch.charCodeAt(0);
   if (key === 'apartment_renovation') {
     const pool = [
-      'С чего в ремонте начинаются лишние расходы ещё до старта работ',
-      'Какие решения по смете чаще всего приводят к переделкам в квартире',
-      'Что важно проверить до начала черновых работ, чтобы не переделывать отделку',
-      'Какие этапы ремонта нельзя планировать «по ходу дела», если нужен внятный бюджет',
+      'Какие ошибки подрядчика чаще всего приводят к переделкам в квартире',
+      'На каком этапе ремонта чаще всего теряют деньги без точной сметы',
+      'Почему выбор подрядчика без прозрачной сметы заканчивается конфликтами',
+      'Где в ремонте квартиры чаще всего появляются скрытые перерасходы',
     ];
     return pool[sum % pool.length];
   }
@@ -10279,7 +10286,7 @@ async function bindCreateDirector(path) {
   const postStudioPersonaBodyFallback = (nicheId, topic, angle, { allowService = false } = {}) => {
     const safeTopic = String(topic || 'Тема').trim() || 'Тема';
     const safeAngle = String(angle || '').trim();
-    const lead = safeAngle || safeTopic;
+    let lead = safeAngle || safeTopic;
     const explicitClose = (text) => (allowService ? text : '');
     switch (String(nicheId || '').trim()) {
       case 'esoterica':
@@ -10301,6 +10308,9 @@ async function bindCreateDirector(path) {
           explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || 'В тренировках лучше работает не рывок на мотивации, а схема, которую вы сможете повторить без отката через неделю.',
         ].filter(Boolean).join('\n\n');
       case 'apartment_renovation':
+        if (postStudioLooksGenericHelperTopic(lead, nicheId) || postStudioLooksGenericHelperTone(lead, nicheId)) {
+          lead = 'Где в ремонте квартиры чаще всего появляются скрытые перерасходы';
+        }
         return [
           `${lead}. В ремонте проблемы начинаются не с финишной отделки, а гораздо раньше: когда смета собрана кусками, этапы не увязаны, а решения принимаются уже на объекте.`,
           'На практике это быстро вылезает в переделки, простои и лишние расходы. Один неуточнённый узел тянет за собой следующий: электрика, выравнивание, чистовая отделка, сроки поставки материалов.',
