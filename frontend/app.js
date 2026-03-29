@@ -3553,6 +3553,64 @@ function directorPreferNicheHashtags(d, rawSet, limit = 8) {
   if (!hasNicheMatch) return nicheFallback.slice(0, Math.min(limit, nicheFallback.length));
   return normalizeHashtagSet([...nicheFallback, ...normalized], nicheFallback).slice(0, limit);
 }
+const POST_STUDIO_NO_OFFER_TAGS = new Set(['#услуги', '#рекомендуем']);
+const POST_STUDIO_NO_OFFER_TEXT_TERMS = [
+  'перед визит',
+  'первым визит',
+  'посетить наш',
+  'наш центр',
+  'консультац',
+  'запишитесь',
+  'к психологу',
+  'к специалисту',
+  'в фитнес-клуб',
+  'в фитнес-зал',
+  'мы готовы помочь',
+  'подскажем лучший вариант',
+  'напишите в сообщения',
+  'напишите в директ',
+];
+const POST_STUDIO_NO_OFFER_CTA_POOL = [
+  'Сохраните пост, чтобы вернуться к нему позже.',
+  'Напишите в комментариях, если тема вам откликается.',
+  'Поделитесь мнением в комментариях.',
+  'Сохраните, если хотите применить это позже.',
+];
+function postStudioHasExplicitOffer(value) {
+  return !!String(value || '').trim();
+}
+function postStudioLooksServiceFramed(text) {
+  const low = String(text || '').trim().toLowerCase();
+  if (!low) return false;
+  return POST_STUDIO_NO_OFFER_TEXT_TERMS.some((term) => low.includes(term));
+}
+function postStudioNeutralCta(topic, angle) {
+  const seed = `${String(topic || '').trim()}|${String(angle || '').trim()}`;
+  let sum = 0;
+  for (const ch of seed) sum += ch.charCodeAt(0);
+  return POST_STUDIO_NO_OFFER_CTA_POOL[sum % POST_STUDIO_NO_OFFER_CTA_POOL.length];
+}
+function sanitizePostStudioCta(text, topic, angle, { allowService = false } = {}) {
+  const raw = String(text || '').trim();
+  if (allowService) return raw;
+  if (raw && !postStudioLooksServiceFramed(raw)) return raw;
+  return postStudioNeutralCta(topic, angle);
+}
+function sanitizePostStudioHashtags(d, rawSet, { allowService = false } = {}) {
+  const nicheFallback = directorNicheHashtagFallback(d, 5);
+  const normalized = normalizeHashtagSet(rawSet, nicheFallback);
+  if (allowService) return directorPreferNicheHashtags(d, normalized, 8);
+  const filtered = normalized.filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()));
+  const preferred = directorPreferNicheHashtags(d, filtered, 8)
+    .filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()));
+  if (preferred.length) return preferred.slice(0, 8);
+  return normalizeHashtagSet(
+    nicheFallback.filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase())),
+    ['#полезно', '#разбор', '#практика'],
+  )
+    .filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()))
+    .slice(0, 8);
+}
 function directorNicheAiContext(d) {
   if (!d || d.customTopicMode) return null;
   if (typeof DIRECTOR_NICHE_ENGINE.buildNicheAiContext === 'function') {
@@ -9551,6 +9609,7 @@ async function bindCreateDirector(path) {
     window.__campaignDeliveriesPoller = null;
   }
   const d = state.createDirector;
+  const studioRoute = getCreateStudioRoute();
   if (!Object.prototype.hasOwnProperty.call(d, 'manualTopicInput')) d.manualTopicInput = String(d.manualTopic || '').trim();
   if (!Object.prototype.hasOwnProperty.call(d, 'appliedManualTopic')) d.appliedManualTopic = String(d.manualTopic || '').trim();
   if (!Object.prototype.hasOwnProperty.call(d, 'selectedSuggestedTopic')) d.selectedSuggestedTopic = String(d.selectedTopic || '').trim();
@@ -10149,6 +10208,11 @@ async function bindCreateDirector(path) {
     }
     return body;
   };
+  const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false } = {}) => {
+    const body = normalizeDraftTextForTopic(text, topic, angle);
+    if (allowService || !postStudioLooksServiceFramed(body)) return body;
+    return `${String(topic || 'Тема').trim()}\n\n${String(angle || 'Практический подход').trim()}\n\n1) Один узнаваемый сигнал или ошибка.\n2) Одна полезная мысль по теме.\n3) Один спокойный следующий шаг без давления.`;
+  };
   const normalizeDraftRowsForPreview = (rows, topic, angle) => {
     const list = Array.isArray(rows) ? rows : [];
     return list.map((row, idx) => {
@@ -10256,8 +10320,9 @@ async function bindCreateDirector(path) {
     (Array.isArray(incoming) ? incoming : []).forEach(push);
     return out.slice(0, limit);
   };
-  const buildPlanFlowItemsFromAi = ({ count, topics, angles, ctaOptions, hashtagSets, slots }) => {
+  const buildPlanFlowItemsFromAi = ({ count, topics, angles, ctaOptions, hashtagSets, slots, offer }) => {
     const total = Math.max(1, Number(count || 0) || 0);
+    const allowService = postStudioHasExplicitOffer(offer);
     const topicList = mergeUniquePlanStrings([], topics || [], Math.max(total, 8));
     if (!topicList.length) throw new Error('AI не вернул темы для плана.');
     const angleList = mergeUniquePlanStrings([], angles || [], 24);
@@ -10267,8 +10332,8 @@ async function bindCreateDirector(path) {
     return Array.from({ length: total }, (_, idx) => {
       const topic = topicList[idx % topicList.length];
       const angle = angleList[idx % Math.max(1, angleList.length)] || '';
-      const cta = ctaList[idx % Math.max(1, ctaList.length)] || '';
-      const hashtags = directorPreferNicheHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], 8).join(' ');
+      const cta = sanitizePostStudioCta(ctaList[idx % Math.max(1, ctaList.length)] || '', topic, angle, { allowService });
+      const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService }).join(' ');
       return {
         day: idx + 1,
         topic,
@@ -10513,8 +10578,9 @@ async function bindCreateDirector(path) {
       if (!String(d.selectedAngle || '').trim()) {
         d.selectedAngle = String(suggestData.angles[0] || '').trim();
       }
-      d.selectedHashtags = directorPreferNicheHashtags(d, suggestData.hashtagSets[0], 8);
-      d.selectedCta = String(suggestData.ctaOptions[0] || '').trim();
+      const allowService = postStudioHasExplicitOffer(base.offer);
+      d.selectedHashtags = sanitizePostStudioHashtags(d, suggestData.hashtagSets[0], { allowService });
+      d.selectedCta = sanitizePostStudioCta(String(suggestData.ctaOptions[0] || '').trim(), String(suggestData.topics[0] || base.topic || '').trim(), String(suggestData.angles[0] || '').trim(), { allowService });
       await advanceStep(2, 120);
       d.planFlowItems = buildPlanFlowItemsFromAi({
         count: planCount,
@@ -10523,6 +10589,7 @@ async function bindCreateDirector(path) {
         ctaOptions: suggestData.ctaOptions,
         hashtagSets: suggestData.hashtagSets,
         slots: Array.isArray(bestOut?.next_slots) ? bestOut.next_slots.slice(0, planCount) : [],
+        offer: base.offer,
       });
       await advanceStep(3, 120);
       await advanceStep(4, 0);
@@ -10593,6 +10660,7 @@ async function bindCreateDirector(path) {
       await advanceStep(1, 80);
       const suggestData = await fetchPlanAiSuggestions(Math.min(daysCount, DIRECTOR_TOPIC_IDEA_COUNT));
       await advanceStep(2, 80);
+      const allowService = postStudioHasExplicitOffer(base.offer);
       const builtItems = buildPlanFlowItemsFromAi({
         count: daysCount,
         topics: suggestData.topics,
@@ -10600,6 +10668,7 @@ async function bindCreateDirector(path) {
         ctaOptions: suggestData.ctaOptions,
         hashtagSets: suggestData.hashtagSets,
         slots,
+        offer: base.offer,
       }).map((item) => ({ ...item, format_hint: planFormatLabel(item.contentFormat || 'post') }));
       const enrichPostStudioItem = async (seedItem) => {
         const item = { ...seedItem };
@@ -10622,16 +10691,28 @@ async function bindCreateDirector(path) {
           );
           const draft = incomingDrafts[0] || null;
           if (draft) {
-            item.post_text = String(draft.post_text || '').trim();
-            item.caption_text = String(draft.post_text || '').trim();
-            item.caption = String(draft.post_text || '').trim();
-            item.cta = String(draft.cta || item.cta || d.selectedCta || '').trim();
-            item.hashtags = normalizeHashtagSet(Array.isArray(draft.hashtags) ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || ''))).join(' ');
+            const mergedText = String(draft.post_text || item.post_text || '').trim();
+            item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService });
+            item.caption_text = item.post_text;
+            item.caption = item.post_text;
+            item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService });
+            item.hashtags = sanitizePostStudioHashtags(
+              d,
+              Array.isArray(draft.hashtags) && draft.hashtags.length ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || '')),
+              { allowService },
+            ).join(' ');
           }
         } catch {
-          item.post_text = shellTextFmt('planner_generated_caption_fallback', { topic: item.topic, angle: item.angle || shellText('planner_generated_angle_fallback') });
+          item.post_text = sanitizePostStudioPreviewText(
+            shellTextFmt('planner_generated_caption_fallback', { topic: item.topic, angle: item.angle || shellText('planner_generated_angle_fallback') }),
+            item.topic,
+            item.angle,
+            { allowService },
+          );
           item.caption_text = item.post_text;
           item.caption = item.post_text;
+          item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService });
+          item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService }).join(' ');
         }
         return item;
       };
@@ -10646,8 +10727,8 @@ async function bindCreateDirector(path) {
       d.planFlowItems = enrichedItems;
       d.planFlowState = 'generated';
       d.planFlowSelectedDay = Number(enrichedItems[0]?.day || 1) || 1;
-      d.selectedCta = String(enrichedItems[0]?.cta || '').trim();
-      d.selectedHashtags = parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')).slice(0, 20);
+      d.selectedCta = sanitizePostStudioCta(String(enrichedItems[0]?.cta || '').trim(), String(enrichedItems[0]?.topic || base.topic || '').trim(), String(enrichedItems[0]?.angle || '').trim(), { allowService });
+      d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')), { allowService }).slice(0, 20);
       await advanceStep(4, 0);
       state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };
     } catch (e) {
