@@ -35,9 +35,11 @@ HARD_SELL_CTA_TERMS = (
     "мы подскажем",
     "подскажем лучший вариант",
     "узнайте больше",
+    "хотите узнать больше",
     "присоединяйтесь к нам",
     "консультац",
     "бесплатное пробное занятие",
+    "первую тренировку",
     "забронируйте",
     "book now",
     "dm us",
@@ -366,14 +368,22 @@ NO_OFFER_SERVICE_FRAMING_TERMS = (
     "визитом в",
     "визитом к",
     "посетить наш центр",
+    "посетить наш",
     "наш центр",
     "нашего центра",
+    "эзотерическ",
     "к нам",
     "к психологу",
+    "к специалисту",
+    "специалисту",
     "в фитнес-клуб",
     "в фитнес-зал",
     "на консультац",
     "консультац",
+    "подготовиться к встрече",
+    "извлечь максимальную пользу",
+    "мы готовы помочь",
+    "помочь вам разобраться",
     "обратиться к нам",
     "присоединяйтесь к нам",
     "запишитесь",
@@ -469,7 +479,7 @@ def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred:
     preferred_text = str(preferred or "").strip()
     mode = _cta_mode(goal, offer)
     if preferred_text:
-        if mode != "service" and _looks_hard_sell_cta(preferred_text):
+        if mode != "service" and (_looks_hard_sell_cta(preferred_text) or _looks_service_framed_no_offer(preferred_text)):
             preferred_text = ""
         elif not _contains_meta_marketing_advice(preferred_text):
             return preferred_text
@@ -480,7 +490,7 @@ def _default_cta_options(goal: str, offer: str | None, language: str, niche_cta_
     mode = _cta_mode(goal, offer)
     templates = [str(x).strip() for x in (niche_cta_templates or []) if str(x).strip()]
     if mode != "service":
-        templates = [x for x in templates if not _looks_hard_sell_cta(x)]
+        templates = [x for x in templates if not _looks_hard_sell_cta(x) and not _looks_service_framed_no_offer(x)]
     pool = templates + _cta_defaults(language, mode)
     out: list[str] = []
     seen: set[str] = set()
@@ -575,6 +585,8 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
     cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
     generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
+    if no_offer:
+        generated_tags = [tag for tag in generated_tags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
     if hashtags:
         hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=5, max_count=12)
     else:
@@ -589,6 +601,9 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
         while len(hashtags) < 8 and len(hashtags) != prev_len:
             prev_len = len(hashtags)
             hashtags = _sanitize_hashtag_list(hashtags + generated_tags, min_count=8, max_count=15)
+        if no_offer:
+            hashtags = [tag for tag in hashtags if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
+            hashtags = _sanitize_hashtag_list(hashtags, min_count=5, max_count=15)
     elif platform == "facebook":
         hashtags = hashtags[:8] or generated_tags[:8]
     elif platform == "youtube":
