@@ -3555,6 +3555,8 @@ function directorPreferNicheHashtags(d, rawSet, limit = 8) {
 }
 const POST_STUDIO_NO_OFFER_TAGS = new Set(['#услуги', '#рекомендуем']);
 const POST_STUDIO_NO_OFFER_TEXT_TERMS = [
+  'приходите к нам',
+  'приходите',
   'перед визит',
   'первым визит',
   'посетить наш',
@@ -3593,6 +3595,7 @@ const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
     'узнайте больше о тренировках',
   ],
   apartment_renovation: [
+    'узнайте больше о том, как составить идеальную смету',
     'узнайте больше о том, как составить смету',
     'в нашей статье',
     'узнайте больше о каждом этапе ремонта',
