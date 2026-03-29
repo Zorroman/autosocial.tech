@@ -11,6 +11,317 @@ SUPPORTED_TONES = {"neutral", "friendly", "expert", "sales"}
 SUPPORTED_GOALS = {"awareness", "engagement", "lead", "sales", "trust"}
 SUPPORTED_PLATFORMS = {"facebook", "instagram", "youtube"}
 
+SPECIALIST_PERSONAS = {
+    "esoterica": {
+        "role_identity": "Практикующий проводник в теме эзотерики и символических наблюдений",
+        "tone": "спокойный, наблюдательный, бережный, без цирковой мистики",
+        "vocabulary": ["знаки", "интуиция", "ритм", "состояние", "символ", "внутренний отклик"],
+        "sentence_style": ["мягкие формулировки", "спокойные наблюдения", "без крика и сенсаций"],
+        "allowed_cta_styles": ["бережный вопрос", "сохранить", "поделиться наблюдением"],
+        "forbidden_phrases": ["магия за 1 день", "наш центр", "секретный ритуал", "100% откроет поток"],
+        "content_structure": ["наблюдение", "значение сигнала", "один спокойный следующий шаг"],
+        "good_post_voice": [
+            "Если один и тот же сюжет повторяется, чаще всего он указывает не на наказание, а на незавершённое понимание.",
+            "Интуиция редко говорит громко. Чаще она повторяет один и тот же сигнал, пока человек не замечает связь."
+        ],
+        "bad_filler_voice": [
+            "Наш центр эзотерики откроет вам тайны судьбы.",
+            "Запишитесь и измените жизнь уже сегодня."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, если хотите вернуться к этой мысли позже.",
+            "Напишите в комментариях, какие сигналы вы замечаете у себя чаще всего.",
+            "Поделитесь, откликается ли вам такой взгляд на ситуацию."
+        ],
+        "service_cta_pool": [
+            "Если хотите разобрать вашу ситуацию глубже, напишите нам.",
+            "Если вам нужен бережный разбор под вашу историю, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Почему один и тот же жизненный урок может повторяться снова и снова",
+                "О чём обычно говорит повторяющийся знак, если смотреть без драматизации",
+                "3 сигнала, что интуиция уже подсказывает вам следующий шаг",
+                "Как отличить внутренний отклик от тревожной фантазии",
+                "Почему символы работают тише, чем мы привыкли ожидать"
+            ],
+            "trust": [
+                "Что практик замечает первым, когда человек игнорирует повторяющиеся сигналы",
+                "Как меняется восприятие, когда человек начинает вести наблюдение за символами спокойно"
+            ],
+            "lead": [
+                "С чего начать, если вы хотите понять свои повторяющиеся сигналы без мистификации",
+                "Как понять, нужен ли вам бережный личный разбор по теме знаков и интуиции"
+            ],
+        },
+        "hashtag_seeds": ["#эзотерика", "#интуиция", "#осознанность", "#знаки", "#внутреннийотклик"],
+    },
+    "psychology": {
+        "role_identity": "Практикующий психолог, который объясняет сложные состояния простым и уважительным языком",
+        "tone": "спокойный, наблюдательный, объясняющий, без дешёвой мотивации",
+        "vocabulary": ["состояние", "тревога", "границы", "паттерн", "напряжение", "самонаблюдение"],
+        "sentence_style": ["короткие объяснения", "мягкие выводы", "без обвиняющего тона"],
+        "allowed_cta_styles": ["сохранить", "наблюдать", "поделиться опытом"],
+        "forbidden_phrases": ["встань и иди", "стань лучшей версией себя", "мыслите позитивно", "волшебная трансформация"],
+        "content_structure": ["сигнал состояния", "объяснение механизма", "бережная практика"],
+        "good_post_voice": [
+            "Тревога редко появляется внезапно. Обычно ей предшествует длинный период внутреннего напряжения, которое человек привык не замечать.",
+            "Границы нарушаются не только в конфликтах. Иногда это выглядит как привычка соглашаться раньше, чем вы успели понять своё желание."
+        ],
+        "bad_filler_voice": [
+            "Просто начните любить себя сегодня.",
+            "Запишитесь на консультацию и ваша жизнь изменится."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, если хотите вернуться к нему в спокойный момент.",
+            "Напишите, какой из сигналов вы у себя замечали чаще всего.",
+            "Поделитесь, откликается ли вам такое объяснение."
+        ],
+        "service_cta_pool": [
+            "Если хотите бережно разобрать свою ситуацию, напишите нам.",
+            "Если вам нужен индивидуальный формат поддержки, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Как понять, что тревога уже влияет на повседневную жизнь",
+                "Почему одни и те же болезненные сценарии могут повторяться в отношениях",
+                "3 признака, что ваши личные границы регулярно нарушаются",
+                "Как заметить первые сигналы внутреннего перегруза",
+                "Почему отдых не помогает, если нервная система всё ещё в напряжении"
+            ],
+            "trust": [
+                "Что психолог обычно замечает первым, когда человек живёт в постоянном внутреннем напряжении",
+                "Как меняется состояние, когда человек начинает замечать свои эмоциональные паттерны вовремя"
+            ],
+            "lead": [
+                "С чего начать, если хочется лучше понимать свои реакции без резких шагов",
+                "Как понять, что вам подойдёт спокойный формат психологической поддержки"
+            ],
+        },
+        "hashtag_seeds": ["#психология", "#тревога", "#границы", "#самонаблюдение", "#эмоции"],
+    },
+    "fitness": {
+        "role_identity": "Практичный тренер, который помогает выстроить устойчивый режим без лозунгов и культа тела",
+        "tone": "приземлённый, энергичный, конкретный, без телесных лозунгов",
+        "vocabulary": ["нагрузка", "режим", "восстановление", "техника", "прогресс", "привычка"],
+        "sentence_style": ["короткие конкретные фразы", "один совет за раз", "без пафоса"],
+        "allowed_cta_styles": ["сохранить", "попробовать совет", "ответить, что мешает"],
+        "forbidden_phrases": ["тело мечты", "идеальная форма", "сожги жир быстро", "стань новой версией себя"],
+        "content_structure": ["частая ошибка", "почему она мешает", "что делать вместо этого"],
+        "good_post_voice": [
+            "Новички часто устают не от тренировок, а от слишком резкого старта без запаса на восстановление.",
+            "Прогресс держится не на мотивации, а на режиме, который вы правда можете повторять."
+        ],
+        "bad_filler_voice": [
+            "Пора построить тело мечты уже к лету.",
+            "Запишитесь и трансформируйте себя за 30 дней."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, чтобы проверить этот совет на следующей тренировке.",
+            "Напишите, какая ошибка мешает вам держать режим дольше всего.",
+            "Поделитесь, что для вас сложнее всего: старт, техника или восстановление."
+        ],
+        "service_cta_pool": [
+            "Если нужен план тренировок под ваш режим, напишите нам.",
+            "Если хотите подобрать формат без перегруза, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "3 ошибки новичков, из-за которых прогресс быстро останавливается",
+                "Как начать тренироваться без перегруза и резкого отката",
+                "Почему мотивация заканчивается быстрее, чем результаты становятся заметны",
+                "Как понять, что вам не хватает восстановления, а не дисциплины",
+                "Что чаще всего мешает держать режим дольше двух недель"
+            ],
+            "trust": [
+                "Что тренер обычно замечает первым, когда человек слишком быстро выгорает от тренировок",
+                "Как выглядит устойчивый прогресс, если не гнаться за быстрым результатом"
+            ],
+            "lead": [
+                "С чего начать, если вам нужен рабочий режим тренировок без перегруза",
+                "Как понять, какой формат тренировок подойдёт именно вашему графику"
+            ],
+        },
+        "hashtag_seeds": ["#фитнес", "#тренировки", "#восстановление", "#режим", "#прогресс"],
+    },
+    "apartment_renovation": {
+        "role_identity": "Опытный специалист по ремонту квартир, который говорит конкретно и по-бытовому",
+        "tone": "спокойный, конкретный, бытовой, без глянцевой мечты",
+        "vocabulary": ["смета", "этап", "черновые работы", "переплата", "переделка", "подрядчик"],
+        "sentence_style": ["по делу", "без лишних украшений", "с понятными бытовыми примерами"],
+        "allowed_cta_styles": ["сохранить", "свериться с чек-листом", "задать вопрос по этапу"],
+        "forbidden_phrases": ["пространство вашей мечты", "идеальный интерьер навсегда", "ремонт без стресса за неделю"],
+        "content_structure": ["ошибка на старте", "к чему она приводит", "что проверить заранее"],
+        "good_post_voice": [
+            "Ремонт дорожает не из-за одной большой ошибки, а из-за серии мелких решений без плана.",
+            "Если смета собирается по кускам, почти всегда будут сюрпризы уже на втором этапе."
+        ],
+        "bad_filler_voice": [
+            "Создайте интерьер мечты уже сейчас.",
+            "Наши мастера воплотят любые желания."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, чтобы свериться с ним перед стартом работ.",
+            "Напишите, на каком этапе ремонта у вас больше всего вопросов.",
+            "Поделитесь, что в ремонте кажется самым непредсказуемым."
+        ],
+        "service_cta_pool": [
+            "Если нужен разбор сметы под вашу квартиру, напишите нам.",
+            "Если хотите спокойно разложить ремонт по этапам, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Какие ошибки в ремонте чаще всего приводят к переделкам",
+                "С чего начать ремонт квартиры, чтобы не потерять деньги на старте",
+                "Как заранее понять реальный бюджет ремонта без самообмана",
+                "Что стоит обсудить с подрядчиком до начала работ",
+                "Почему экономия на отдельных этапах потом почти всегда выходит дороже"
+            ],
+            "trust": [
+                "Что специалист по ремонту замечает первым в проекте, который почти точно выйдет за бюджет",
+                "Как выглядит спокойный ремонт, когда этапы и смета собраны заранее"
+            ],
+            "lead": [
+                "С чего начать, если вам нужен понятный план ремонта без хаоса",
+                "Как понять, нужен ли вам подробный разбор сметы и этапов под ваш объект"
+            ],
+        },
+        "hashtag_seeds": ["#ремонтквартир", "#смета", "#отделка", "#черновыеработы", "#ремонтбезхаоса"],
+    },
+    "autoservice": {
+        "role_identity": "Компетентный технический мастер-приёмщик, который объясняет симптомы и логику обслуживания без нагнетания",
+        "tone": "спокойный, технический, конкретный, без лишнего давления",
+        "vocabulary": ["симптом", "диагностика", "узел", "обслуживание", "шум", "износ"],
+        "sentence_style": ["короткие технические объяснения", "без паники", "с практическим выводом"],
+        "allowed_cta_styles": ["проверить симптом", "сохранить чек-лист", "приехать на диагностику только при явном оффере"],
+        "forbidden_phrases": ["ваша машина в опасности прямо сейчас", "срочно приезжайте", "не ждите ни минуты"],
+        "content_structure": ["симптом", "что он может значить", "когда уже не стоит откладывать"],
+        "good_post_voice": [
+            "Странный звук сам по себе не говорит о серьёзной поломке, но он почти всегда указывает, что один из узлов уже работает нештатно.",
+            "Диагностика нужна не ради списка работ, а чтобы отделить срочное от того, что можно спланировать."
+        ],
+        "bad_filler_voice": [
+            "Успейте записаться по суперцене прямо сейчас.",
+            "Лучший сервис в городе ждёт вас сегодня."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, чтобы свериться с этим списком симптомов позже.",
+            "Напишите, какой сигнал автомобиля вы чаще всего откладываете проверить.",
+            "Поделитесь, какой вопрос по обслуживанию вызывает у вас больше всего сомнений."
+        ],
+        "service_cta_pool": [
+            "Запишитесь на диагностику без очереди.",
+            "Если хотите быстро проверить симптомы на вашей машине, напишите нам."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Какие сигналы автомобиля чаще всего нельзя игнорировать слишком долго",
+                "Почему небольшую поломку почти всегда дешевле поймать на раннем этапе",
+                "Как понять, когда звук или вибрация уже требуют диагностики",
+                "Что важно проверить в машине до смены сезона",
+                "На чём нельзя экономить, если вы хотите сохранить ресурс автомобиля"
+            ],
+            "trust": [
+                "Что мастер обычно замечает первым, когда машину привозят слишком поздно",
+                "Как выглядит честная диагностика, когда важно отделить срочное от планового"
+            ],
+            "lead": [
+                "С чего начать, если вам нужна понятная диагностика без очереди",
+                "Как понять, что машине уже нужен осмотр, а не просто наблюдение"
+            ],
+        },
+        "hashtag_seeds": ["#автосервис", "#диагностика", "#обслуживание", "#ремонтавто", "#симптомыполомки"],
+    },
+    "cosmetology": {
+        "role_identity": "Внимательный косметолог, который объясняет состояние кожи и процедуры без пустых beauty-слоганов",
+        "tone": "деликатный, профессиональный, процедурный, без пустой красоты",
+        "vocabulary": ["состояние кожи", "барьер", "восстановление", "процедура", "реакция", "уход"],
+        "sentence_style": ["мягкие профессиональные формулировки", "без обещаний чудес", "с опорой на состояние кожи"],
+        "allowed_cta_styles": ["сохранить", "свериться перед уходом", "задать вопрос по состоянию кожи"],
+        "forbidden_phrases": ["идеальная кожа навсегда", "минус 10 лет за процедуру", "сияйте мгновенно"],
+        "content_structure": ["сигнал кожи", "что он означает", "какой уход уместен дальше"],
+        "good_post_voice": [
+            "Не каждой коже нужен новый актив. Иногда ей прежде всего нужно восстановить барьер и убрать перегруз.",
+            "Процедура работает лучше всего тогда, когда она назначена под состояние кожи, а не под модный тренд."
+        ],
+        "bad_filler_voice": [
+            "Станьте безупречно красивой уже сегодня.",
+            "Запишитесь и получите вау-эффект с первого касания."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост, чтобы свериться с ним перед выбором ухода.",
+            "Напишите, какой сигнал кожи у вас вызывает больше всего вопросов.",
+            "Поделитесь, какие мифы об уходе вы слышите чаще всего."
+        ],
+        "service_cta_pool": [
+            "Если хотите подобрать уход под состояние кожи, напишите нам.",
+            "Если нужен понятный план процедур под вашу кожу, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Как понять, какая процедура действительно нужна вашей коже",
+                "3 ошибки в домашнем уходе, которые мешают коже восстанавливаться",
+                "Почему чувствительная кожа требует другого подхода, а не более сильных средств",
+                "Что важно учитывать перед первой процедурой у косметолога",
+                "Как понять, что коже сейчас не хватает восстановления, а не нового актива"
+            ],
+            "trust": [
+                "Что косметолог замечает первым, когда коже не подходит текущий уход",
+                "Как выглядит грамотный подбор процедур, если ориентироваться на состояние кожи, а не на моду"
+            ],
+            "lead": [
+                "С чего начать, если вы хотите подобрать уход без лишних процедур",
+                "Как понять, нужен ли вам персональный план ухода и процедур"
+            ],
+        },
+        "hashtag_seeds": ["#косметология", "#уходзакожей", "#состояниекожи", "#восстановлениебарьера", "#процедуры"],
+    },
+    "smm_marketing": {
+        "role_identity": "Стратег и оператор контента, который говорит про аудиторию, сообщения и механику без пустого бизнес-жаргона",
+        "tone": "деловой, конкретный, аналитичный, без buzzword-смога",
+        "vocabulary": ["аудитория", "сообщение", "контент-план", "сценарий", "заявка", "воронка"],
+        "sentence_style": ["чёткие выводы", "короткие разборы", "без пустых англицизмов ради вида"],
+        "allowed_cta_styles": ["сохранить чек-лист", "сравнить со своей системой", "обсудить механику"],
+        "forbidden_phrases": ["масштабируйся x10", "взрывай охваты", "контент, который продаёт без усилий", "секретные связки"],
+        "content_structure": ["ошибка в системе", "почему она ломает результат", "что исправить сначала"],
+        "good_post_voice": [
+            "Если контент выходит регулярно, но не двигает человека к следующему шагу, проблема обычно не в частоте, а в логике сообщений.",
+            "Хаос в темах почти всегда отражает хаос в приоритетах: аудитория не понимает, зачем читать дальше."
+        ],
+        "bad_filler_voice": [
+            "Мы взорвём ваши охваты и конверсии.",
+            "Запишитесь и получите секретную систему продаж из контента."
+        ],
+        "no_offer_cta_pool": [
+            "Сохраните пост и проверьте, есть ли эта ошибка в вашей системе контента.",
+            "Напишите, какой участок контент-плана буксует у вас чаще всего.",
+            "Поделитесь, что сложнее: темы, структура или путь к заявке."
+        ],
+        "service_cta_pool": [
+            "Если хотите разобрать контент под ваш бизнес, напишите нам.",
+            "Если нужен аудит контент-системы под ваш запрос, напишите в сообщения."
+        ],
+        "topic_templates": {
+            "awareness": [
+                "Почему контент-план не работает без одной ключевой логики",
+                "3 ошибки в SMM, из-за которых подписчики не становятся заявками",
+                "Как публиковаться регулярно без хаоса и ручного аврала",
+                "Что писать в соцсетях, когда кажется, что темы закончились",
+                "Как превратить экспертный контент в понятный путь к заявке"
+            ],
+            "trust": [
+                "Что стратег замечает первым в контенте, который даёт лайки, но не даёт заявки",
+                "Как выглядит рабочая контент-система, когда каждый пост ведёт к следующему шагу"
+            ],
+            "lead": [
+                "С чего начать, если вам нужен понятный поток контента и заявок",
+                "Как понять, нужен ли вам аудит контента или сборка новой системы публикаций"
+            ],
+        },
+        "hashtag_seeds": ["#маркетинг", "#smm", "#контентплан", "#контентстратегия", "#заявки"],
+    },
+}
+
 META_MARKETING_TERMS = (
     "reach",
     "engagement",
@@ -223,7 +534,10 @@ def validate_draft_payload(payload: dict) -> None:
             raise ValueError("youtube pinned_comment_text is required")
 
 
-def _strategy_system_prompt() -> str:
+def _strategy_system_prompt(persona: dict | None = None) -> str:
+    persona_line = ""
+    if persona:
+        persona_line = f" Write as {persona['role_identity'].lower()}. Keep the voice {persona['tone']}."
     return (
         "You are a niche-aware social content strategist. "
         "Always write value-first content for real people and keep the meaning useful, clear and credible. "
@@ -233,11 +547,12 @@ def _strategy_system_prompt() -> str:
         "Generate clean, realistic social media hashtags. Do not use random characters. "
         "Do not transliterate incorrectly. No punctuation. "
         "Visual ideas must be image concepts without text on image. "
+        f"{persona_line}"
         "Return JSON only."
     )
 
 
-def _strategy_user_prompt(*, topic: str, offer: str | None, language: str, tone: str, goal: str, platforms: list[str]) -> str:
+def _strategy_user_prompt(*, topic: str, offer: str | None, language: str, tone: str, goal: str, platforms: list[str], persona: dict | None = None) -> str:
     playbook = _goal_playbook(goal)
     schema_hint = {
         "audience": "string",
@@ -264,12 +579,16 @@ def _strategy_user_prompt(*, topic: str, offer: str | None, language: str, tone:
         f"- goal playbook: {', '.join(playbook['content_types'])}\n"
         "- transform topic into customer-facing hooks; do not copy topic verbatim as headline.\n"
         "- Expand topic with context, angle and structure.\n"
+        f"{_persona_prompt_block(persona, offer=offer)}"
         "- Return strict JSON with this schema:\n"
         f"{json.dumps(schema_hint, ensure_ascii=False)}"
     )
 
 
-def _draft_system_prompt() -> str:
+def _draft_system_prompt(persona: dict | None = None) -> str:
+    persona_line = ""
+    if persona:
+        persona_line = f" Write as {persona['role_identity'].lower()}. Keep the voice {persona['tone']} and avoid filler that breaks niche credibility."
     return (
         "You are a senior niche-aware social copywriter. "
         "Write useful, credible social content for real people, not marketers. "
@@ -283,6 +602,7 @@ def _draft_system_prompt() -> str:
         "Do not transliterate incorrectly. No punctuation. "
         "Write practical, readable social content. "
         "No fake product facts. If offer is empty keep messaging universal and non-promotional. "
+        f"{persona_line}"
         "Return JSON only."
     )
 
@@ -415,14 +735,15 @@ def _looks_service_framed_no_offer(text: str) -> bool:
     return any(term in low for term in NO_OFFER_SERVICE_FRAMING_TERMS)
 
 
-def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str | None, language: str, goal: str) -> list[str]:
+def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str | None, language: str, goal: str, persona: dict | None = None) -> list[str]:
     cleaned = [
         str(tag).strip()
         for tag in (tags or [])
         if str(tag).strip() and str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS
     ]
     cleaned = _sanitize_hashtag_list(cleaned, min_count=1, max_count=15) if cleaned else []
-    generated = [
+    persona_generated = [tag for tag in _persona_hashtag_seeds(persona) if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS]
+    generated = persona_generated + [
         tag for tag in generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
         if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS
     ]
@@ -438,23 +759,26 @@ def _enforce_no_offer_output_policy(
     language: str,
     goal: str,
     offer: str | None,
+    persona: dict | None = None,
 ) -> dict:
     if _has_explicit_offer(offer):
         return row
     safe_row = dict(row or {})
     platform = str(safe_row.get("platform") or "facebook").strip().lower() or "facebook"
-    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language)
+    persona = persona or _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=None)
+    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language, persona=persona)
     body_text = _repair_mojibake_text(str(safe_row.get("post_text") or "").strip())
     if not body_text or _looks_service_framed_no_offer(body_text) or _contains_meta_marketing_advice(body_text):
         body_text = _format_core_for_platform(safe_core_text, platform)
     safe_row["post_text"] = body_text
-    safe_row["cta"] = _cta_defaults(language, "soft")[0]
+    safe_row["cta"] = _pick_default_cta(goal, offer, language, persona=persona)
     safe_row["hashtags"] = _filter_no_offer_hashtags(
         [str(x).strip() for x in (safe_row.get("hashtags") or []) if str(x).strip()],
         topic=topic,
         niche_label=niche_label,
         language=language,
         goal=goal,
+        persona=persona,
     )
     return safe_row
 
@@ -475,20 +799,22 @@ def _looks_service_framed_topic_no_offer(text: str) -> bool:
     return any(term in low for term in topic_terms)
 
 
-def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred: str | None = None) -> str:
+def _pick_default_cta(goal: str, offer: str | None, language: str, *, preferred: str | None = None, persona: dict | None = None) -> str:
     preferred_text = str(preferred or "").strip()
     mode = _cta_mode(goal, offer)
+    persona_defaults = _persona_cta_pool(persona, offer=offer)
     if preferred_text:
         if mode != "service" and (_looks_hard_sell_cta(preferred_text) or _looks_service_framed_no_offer(preferred_text)):
             preferred_text = ""
         elif not _contains_meta_marketing_advice(preferred_text):
             return preferred_text
-    return _cta_defaults(language, mode)[0]
+    return (persona_defaults + _cta_defaults(language, mode))[0]
 
 
-def _default_cta_options(goal: str, offer: str | None, language: str, niche_cta_templates: list[str] | None = None) -> list[str]:
+def _default_cta_options(goal: str, offer: str | None, language: str, niche_cta_templates: list[str] | None = None, persona: dict | None = None) -> list[str]:
     mode = _cta_mode(goal, offer)
     templates = [str(x).strip() for x in (niche_cta_templates or []) if str(x).strip()]
+    templates = _persona_cta_pool(persona, offer=offer) + templates
     if mode != "service":
         templates = [x for x in templates if not _looks_hard_sell_cta(x) and not _looks_service_framed_no_offer(x)]
     pool = templates + _cta_defaults(language, mode)
@@ -543,10 +869,12 @@ def _format_core_for_platform(core_text: str, platform: str) -> str:
     return text
 
 
-def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | None, language: str) -> str:
+def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | None, language: str, *, persona: dict | None = None) -> str:
     lang = str(language or "ru").strip().lower()
     angle_text = _repair_mojibake_text(str(angle or "").strip())
     topic_text = _repair_mojibake_text(str(topic or "").strip())
+    examples = _persona_voice_examples(persona)
+    structure = persona.get("content_structure") if persona else []
     if lang == "de":
         intro = f"{topic_text}. {angle_text}".strip(". ")
         close = "Wenn es dazu ein klares Angebot gibt, kann daraus ein naechster Schritt werden." if _has_explicit_offer(offer) else "Der naechste Schritt darf ruhig klein und realistisch sein."
@@ -565,6 +893,26 @@ def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | N
             "Then add one practical takeaway they can use right away in real life.\n\n"
             f"{close}"
         ).strip()
+    if persona and examples:
+        intro = examples[0].rstrip(".") + "."
+        explanation = examples[1].rstrip(".") + "." if len(examples) > 1 else (
+            f"В теме «{topic_text}» чаще всего важен не общий совет, а один узнаваемый сигнал, который человек может заметить у себя."
+        )
+        if angle_text:
+            practice = f"{angle_text}. На практике полезно выбрать один конкретный ориентир и проверить его в своей ситуации без спешки."
+        elif structure:
+            practice = (
+                f"Обычно здесь работает простой ход: сначала {structure[0]}, затем {structure[1] if len(structure) > 1 else 'спокойное объяснение'}, "
+                f"а в конце {structure[2] if len(structure) > 2 else 'небольшой следующий шаг'}."
+            )
+        else:
+            practice = "Лучше всего такой пост работает через один понятный пример и один вывод, который можно проверить в реальной жизни."
+        close = (
+            "Если за темой стоит конкретное предложение, его можно назвать прямо, но без лишнего давления и обещаний."
+            if _has_explicit_offer(offer)
+            else "Здесь важнее ясность и применимость, чем давление, драматизация или рекламный тон."
+        )
+        return "\n\n".join([intro, explanation, practice, close]).strip()
     intro = f"{topic_text}. {angle_text}".strip(". ")
     close = "Если за темой стоит конкретное предложение, его можно упомянуть мягко и по делу." if _has_explicit_offer(offer) else "Следующий шаг здесь должен оставаться мягким и полезным, а не давящим."
     return (
@@ -574,15 +922,15 @@ def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | N
         f"{close}"
     ).strip()
 
-def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_index: int, topic: str, niche_label: str | None, language: str, goal: str, offer: str | None) -> dict:
+def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_index: int, topic: str, niche_label: str | None, language: str, goal: str, offer: str | None, persona: dict | None = None) -> dict:
     no_offer = not _has_explicit_offer(offer)
-    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language)
+    safe_core_text = _shared_core_fallback_text(topic, "", goal, offer, language, persona=persona)
     body_text = _format_core_for_platform(str(source_row.get("post_text") or "").strip(), platform)
     if not body_text or _contains_meta_marketing_advice(body_text):
         body_text = _format_core_for_platform(safe_core_text, platform)
     elif no_offer:
         body_text = _format_core_for_platform(safe_core_text, platform)
-    cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip())
+    cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip(), persona=persona)
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
     generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
     if no_offer:
@@ -592,8 +940,8 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
     else:
         hashtags = generated_tags
     if no_offer:
-        cta_text = _cta_defaults(language, "soft")[0]
-        hashtags = _filter_no_offer_hashtags(hashtags + generated_tags, topic=topic, niche_label=niche_label, language=language, goal=goal)
+        cta_text = _pick_default_cta(goal, offer, language, persona=persona)
+        hashtags = _filter_no_offer_hashtags(hashtags + generated_tags, topic=topic, niche_label=niche_label, language=language, goal=goal, persona=persona)
         hashtags = _sanitize_hashtag_list(hashtags, min_count=5, max_count=12 if platform != "instagram" else 15)
     if platform == "instagram":
         hashtags = hashtags[:15]
@@ -643,9 +991,10 @@ def _draft_user_prompt(
     goal: str,
     platform: str,
     variant_index: int,
+    persona: dict | None = None,
 ) -> str:
     playbook = _goal_playbook(goal)
-    hook_hint = _topic_to_client_hook(topic, goal)
+    hook_hint = _topic_to_client_hook(topic, goal, persona=persona)
     schema_hint = {
         "platform": platform,
         "variant_index": variant_index,
@@ -669,6 +1018,7 @@ def _draft_user_prompt(
         f"- constraints: {_draft_constraints(platform)}\n\n"
         f"- goal playbook: {', '.join(playbook['content_types'])}\n"
         f"- hook example (not verbatim topic): {hook_hint}\n"
+        f"{_persona_prompt_block(persona, offer=offer)}"
         f"Strategy JSON:\n{json.dumps(strategy, ensure_ascii=False)}\n\n"
         "Return strict JSON with this schema:\n"
         f"{json.dumps(schema_hint, ensure_ascii=False)}"
@@ -853,6 +1203,19 @@ def generateHashtags(niche: str, city: str | None, language: str, goal: str) -> 
     goal_mode = _normalize_goal_for_business(goal)
     niche_raw = str(niche or "").strip().lower()
     city_raw = str(city or "").strip()
+    persona = _resolve_specialist_persona(topic=niche, niche_label=niche, niche_context=None)
+
+    if persona and lang == "ru":
+        base_tags = _persona_hashtag_seeds(persona)
+        goal_tags = {
+            "lead": ["#решение", "#следующийшаг"],
+            "trust": ["#практика", "#разборслучая"],
+            "awareness": ["#совет", "#полезно"],
+        }.get(goal_mode, ["#совет", "#полезно"])
+        geo_tags: list[str] = []
+        if city_raw:
+            geo_tags.append(_sanitize_hashtag_token(city_raw))
+        return _sanitize_hashtag_list(base_tags + goal_tags + geo_tags, min_count=5, max_count=12)
 
     niche_templates = {
         "ru": {
@@ -983,9 +1346,12 @@ def _generate_simplified_draft(
     platform: str,
     variant_index: int,
     angle: str | None = None,
+    niche_label: str | None = None,
+    niche_context: dict | None = None,
 ) -> tuple[dict, int, int]:
     goal_mode = _normalize_goal_for_business(goal)
     playbook = _goal_playbook(goal_mode)
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     schema_hint = {
         "post_text": "string",
         "cta": "string",
@@ -1011,6 +1377,7 @@ def _generate_simplified_draft(
         "When offer is empty, keep CTA soft, reflective or optional. "
         "Never write marketing advice for marketers. "
         "Never mention: reach, engagement, content strategy, content marketing metrics or creator strategy language. "
+        f"{(' Write as ' + persona['role_identity'].lower() + '. Keep the voice ' + persona['tone'] + '.') if persona else ''} "
         "No extra keys."
     )
     user = (
@@ -1024,6 +1391,7 @@ def _generate_simplified_draft(
         "Create a platform-neutral core first. Facebook and Instagram will be adapted later from the same meaning.\n"
         "Theme must be transformed into a human hook, not copied verbatim as headline.\n"
         "Content must feel useful, calm, category-native and not falsely promotional by default.\n"
+        f"{_persona_prompt_block(persona, offer=offer)}"
         f"schema: {json.dumps(schema_hint, ensure_ascii=False)}"
     )
     res = generate_json_with_retry(
@@ -1041,7 +1409,7 @@ def _generate_simplified_draft(
             "title": payload_get(res.payload, "title"),
             "description": payload_get(res.payload, "description"),
             "hashtags": res.payload.get("hashtags") or [],
-            "cta": _pick_default_cta(goal, offer, language, preferred=payload_get(res.payload, "cta")),
+            "cta": _pick_default_cta(goal, offer, language, preferred=payload_get(res.payload, "cta"), persona=persona),
             "asset_ideas": [
                 "Крупный план детали или процесса без текста на кадре",
                 "Обычная рабочая ситуация или деталь из реальной среды",
@@ -1066,10 +1434,13 @@ def _generate_free_text_fallback_draft(
     offer: str | None,
     goal: str,
     angle: str | None = None,
+    niche_label: str | None = None,
+    niche_context: dict | None = None,
 ) -> dict:
     goal_mode = _normalize_goal_for_business(goal)
-    hook = _topic_to_client_hook(topic, goal_mode)
-    body = _shared_core_fallback_text(topic, str(angle or hook).strip(), goal, offer, "ru")
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
+    hook = _topic_to_client_hook(topic, goal_mode, persona=persona)
+    body = _shared_core_fallback_text(topic, str(angle or hook).strip(), goal, offer, "ru", persona=persona)
     return _ensure_platform_draft_shape(
         {
             "platform": platform,
@@ -1078,7 +1449,7 @@ def _generate_free_text_fallback_draft(
             "title": f"{hook}: практический разбор" if platform == "youtube" else None,
             "description": body if platform == "youtube" else None,
             "hashtags": _extract_hashtags_from_text(body),
-            "cta": _pick_default_cta(goal, offer, "ru"),
+            "cta": _pick_default_cta(goal, offer, "ru", persona=persona),
             "asset_ideas": [
                 "Реалистичный кадр по теме без текста на изображении",
                 "Процесс, деталь или рабочая ситуация из реальной среды",
@@ -1441,6 +1812,92 @@ def _normalize_goal_for_business(goal: str) -> str:
     return mapping.get(key, "awareness")
 
 
+def _normalize_niche_key(value: str) -> str:
+    text = _repair_mojibake_text(str(value or "")).strip().lower()
+    text = text.replace("ё", "е")
+    text = re.sub(r"[^a-z0-9а-я]+", " ", text, flags=re.I)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _resolve_specialist_persona(
+    *,
+    topic: str,
+    niche_label: str | None = None,
+    niche_context: dict | None = None,
+) -> dict | None:
+    niche_context = niche_context if isinstance(niche_context, dict) else {}
+    candidates = [
+        niche_context.get("id"),
+        niche_label,
+        niche_context.get("label"),
+        topic,
+    ]
+    alias_map = {
+        "esoterica": ["esoterica", "эзотерика", "эзотерик", "интуици", "знаки"],
+        "psychology": ["psychology", "психология", "психолог", "тревог", "границ"],
+        "fitness": ["fitness", "фитнес", "трениров", "зал", "нагруз"],
+        "apartment_renovation": ["apartment renovation", "apartment_renovation", "ремонт квартир", "ремонт", "отделк", "смет"],
+        "autoservice": ["autoservice", "автосервис", "сто", "диагностик", "ремонт авто"],
+        "cosmetology": ["cosmetology", "косметология", "косметолог", "кожа", "уход"],
+        "smm_marketing": ["smm_marketing", "smm marketing", "smm", "маркетинг", "контент", "соцсет"],
+    }
+    for candidate in candidates:
+        norm = _normalize_niche_key(candidate)
+        if not norm:
+            continue
+        for key, aliases in alias_map.items():
+            if norm == key or any(alias in norm for alias in aliases):
+                return SPECIALIST_PERSONAS.get(key)
+    return None
+
+
+def _persona_prompt_block(persona: dict | None, *, offer: str | None) -> str:
+    if not persona:
+        return ""
+    mode = "explicit-offer commercial mode" if _has_explicit_offer(offer) else "no-offer expert mode"
+    return (
+        f"Specialist persona:\n"
+        f"- role identity: {persona['role_identity']}\n"
+        f"- tone: {persona['tone']}\n"
+        f"- vocabulary: {', '.join(persona.get('vocabulary') or [])}\n"
+        f"- sentence style: {', '.join(persona.get('sentence_style') or [])}\n"
+        f"- allowed CTA styles: {', '.join(persona.get('allowed_cta_styles') or [])}\n"
+        f"- forbidden phrases: {', '.join(persona.get('forbidden_phrases') or [])}\n"
+        f"- content structure: {' -> '.join(persona.get('content_structure') or [])}\n"
+        f"- good voice examples: {' | '.join(persona.get('good_post_voice') or [])}\n"
+        f"- bad filler voice: {' | '.join(persona.get('bad_filler_voice') or [])}\n"
+        f"- mode: {mode}\n"
+    )
+
+
+def _persona_goal_topic_templates(persona: dict | None, goal: str) -> list[str]:
+    if not persona:
+        return []
+    goal_mode = _normalize_goal_for_business(goal)
+    templates = persona.get("topic_templates") or {}
+    selected = templates.get(goal_mode) or templates.get("awareness") or []
+    return [str(x).strip() for x in selected if str(x).strip()]
+
+
+def _persona_cta_pool(persona: dict | None, *, offer: str | None) -> list[str]:
+    if not persona:
+        return []
+    key = "service_cta_pool" if _has_explicit_offer(offer) else "no_offer_cta_pool"
+    return [str(x).strip() for x in (persona.get(key) or []) if str(x).strip()]
+
+
+def _persona_hashtag_seeds(persona: dict | None) -> list[str]:
+    if not persona:
+        return []
+    return [str(x).strip() for x in (persona.get("hashtag_seeds") or []) if str(x).strip()]
+
+
+def _persona_voice_examples(persona: dict | None) -> list[str]:
+    if not persona:
+        return []
+    return [str(x).strip() for x in (persona.get("good_post_voice") or []) if str(x).strip()]
+
+
 def _contains_meta_marketing_advice(text: str) -> bool:
     low = str(text or "").lower()
     return any(term in low for term in META_MARKETING_TERMS)
@@ -1498,9 +1955,15 @@ def _goal_playbook(goal: str) -> dict:
     }
 
 
-def _topic_to_client_hook(topic: str, goal: str) -> str:
+def _topic_to_client_hook(topic: str, goal: str, *, persona: dict | None = None) -> str:
     seed = _director_topic_seed(topic, max_words=4)
     normalized = _normalize_goal_for_business(goal)
+    persona_templates = _persona_goal_topic_templates(persona, normalized)
+    if persona_templates:
+        base = persona_templates[0]
+        if base.strip().lower() == str(topic or "").strip().lower() and len(persona_templates) > 1:
+            base = persona_templates[1]
+        return base if not seed else base
     templates = {
         "awareness": [
             "\u041e \u0447\u0451\u043c \u0441\u0442\u043e\u0438\u0442 \u043f\u043e\u043c\u043d\u0438\u0442\u044c \u0432 \u0442\u0430\u043a\u043e\u0439 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u0438",
@@ -1572,7 +2035,10 @@ def _director_recommendation(platforms: list[str], goal: str, tone: str) -> dict
     return {"platform": platform, "format": fmt, "tone": tone if tone in SUPPORTED_TONES else "friendly"}
 
 
-def _director_goal_topic_templates(seed: str, goal: str, offer: str | None) -> list[str]:
+def _director_goal_topic_templates(seed: str, goal: str, offer: str | None, *, persona: dict | None = None) -> list[str]:
+    persona_templates = _persona_goal_topic_templates(persona, goal)
+    if persona_templates:
+        return persona_templates
     normalized = _normalize_goal_for_business(goal)
     offer_short = re.sub(r"\s+", " ", str(offer or "").strip())[:56]
     if normalized == "lead":
@@ -1626,6 +2092,7 @@ def _director_default_payload(
 ) -> dict:
     niche_context = niche_context if isinstance(niche_context, dict) else {}
     niche_label = str(niche_label or niche_context.get("label") or topic or "").strip()
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     niche_keywords = [str(x).strip() for x in (niche_context.get("keywords") or []) if str(x).strip()]
     niche_pain_points = [str(x).strip() for x in (niche_context.get("painPoints") or []) if str(x).strip()]
     niche_content_angles = [str(x).strip() for x in (niche_context.get("contentAngles") or []) if str(x).strip()]
@@ -1635,7 +2102,7 @@ def _director_default_payload(
     goal_mode = _normalize_goal_for_business(goal)
     base = _director_topic_seed(topic)
     offer_part = f" Р С›РЎвЂћРЎвЂћР ВµРЎР‚: {offer}." if offer else ""
-    topic_templates = niche_topic_templates or _director_goal_topic_templates(base, goal, offer)
+    topic_templates = niche_topic_templates or _director_goal_topic_templates(base, goal, offer, persona=persona)
     shift = abs(int(variation_seed or 0))
     topics_pool = topic_templates[:]
     if shift and topics_pool:
@@ -1686,7 +2153,7 @@ def _director_default_payload(
         3,
         lambda i: angle_pool[i],
     )
-    cta_options = _default_cta_options(goal, offer, language, niche_cta_templates)
+    cta_options = _default_cta_options(goal, offer, language, niche_cta_templates, persona=persona)
     goal_tag_map = {
         "awareness": ["#советы", "#мифыифакты", "#полезно", "#разбор", "#практика"],
         "lead": ["#решение", "#помощь", "#предложение", "#следующийшаг", "#услуги"],
@@ -1701,7 +2168,7 @@ def _director_default_payload(
         if len(seed_tags) >= 3:
             break
     keyword_tags = [f"#{w.lower()}" for w in niche_keywords[:4] if len(w) > 2]
-    core_tags = goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#практика", "#разбор"] + seed_tags
+    core_tags = _persona_hashtag_seeds(persona) + goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#практика", "#разбор"] + seed_tags
     # unique + stable order
     uniq = []
     seen_tags = set()
@@ -1732,7 +2199,11 @@ def _director_default_payload(
         "recommended": _director_recommendation(platforms, goal=goal, tone=tone),
         "cta_options": _repair_mojibake_list(cta_options),
         "hashtag_sets": [_repair_mojibake_list(row) for row in tags],
-        "reason": f"Темы подобраны под нишу «{_repair_mojibake_text(niche_label or topic)}» и ориентированы на полезный, понятный контент для людей.",
+        "reason": (
+            f"Темы подобраны под нишу «{_repair_mojibake_text(niche_label or topic)}»"
+            + (f" и голос специалиста «{persona['role_identity']}»." if persona else ".")
+            + " Контент должен звучать полезно, конкретно и по-нишевому."
+        ),
     }
 
 
@@ -1749,6 +2220,7 @@ def _director_soft_normalize(
     variation_seed: int = 0,
 ) -> dict:
     default = _director_default_payload(topic, offer, goal, platforms, tone, language=language, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     if not isinstance(payload, dict):
         return default
     audience = payload.get("audience")
@@ -1771,7 +2243,7 @@ def _director_soft_normalize(
         if not _has_explicit_offer(offer) and _looks_service_framed_topic_no_offer(t):
             continue
         if t.lower() == original_topic_low:
-            t = _topic_to_client_hook(topic, goal)
+            t = _topic_to_client_hook(topic, goal, persona=persona)
         cleaned_topics.append(t)
     topics = _pad_strings(
         cleaned_topics,
@@ -1900,6 +2372,7 @@ def director_suggest(
         goal = "engagement"
     goal = _normalize_goal_for_business(goal)
     platforms = _normalize_director_platforms(platforms)
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     default_payload = _director_default_payload(topic, offer, goal, platforms, tone, language=language, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
     if not is_openai_enabled():
         return {"status": "ok", "data": default_payload, "warnings": [], "debug_code": "mock"}
@@ -1932,6 +2405,7 @@ def director_suggest(
                 "Never provide marketing advice for marketers. "
                 "Never mention: reach, engagement, content strategy, РѕС…РІР°С‚, РІРѕРІР»РµС‡РµРЅРёРµ, РєРѕРЅС‚РµРЅС‚-СЃС‚СЂР°С‚РµРіРёСЏ. "
                 "Do not copy user topic verbatim as headlines. Keep suggestions short, practical, useful and not falsely promotional by default."
+                + (f" Write as {persona['role_identity'].lower()} and keep the voice {persona['tone']}." if persona else "")
             ),
             user_prompt=(
                 f"topic: {topic}\noffer: {offer or ''}\nlanguage: {language}\ntone: {tone}\ngoal: {goal}\n"
@@ -1942,6 +2416,7 @@ def director_suggest(
                 f"avoid_cross_niche_words: {', '.join((niche_context or {}).get('bannedCrossNicheWords') or [])}\n"
                 f"platforms: {', '.join(platforms)}\n"
                 f"goal interpretation: {_goal_playbook(goal)['instruction']}\n"
+                f"{_persona_prompt_block(persona, offer=offer)}"
                 "constraints: return exactly 10 topics max 96 chars, angles max 80 chars, useful and niche-native wording only.\n"
                 f"schema: {json.dumps(schema, ensure_ascii=False)}"
             ),
@@ -2063,8 +2538,9 @@ def director_generate_drafts(
     warnings: list[str] = []
     debug_code = ""
     drafts: list[dict] = []
-    client_hook_seed = _topic_to_client_hook(topic, goal)
     niche_label = str(niche_label or (niche_context or {}).get("label") or "").strip()
+    persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
+    client_hook_seed = _topic_to_client_hook(topic, goal, persona=persona)
     core_rows: dict[int, dict] = {}
     primary_platform = platforms[0] if platforms else "facebook"
     core_topic = str(topic or "").strip()
@@ -2078,6 +2554,8 @@ def director_generate_drafts(
                 offer=offer,
                 goal=goal,
                 angle=angle,
+                niche_label=niche_label,
+                niche_context=niche_context,
             )
         for platform in platforms:
             for idx in range(1, variants + 1):
@@ -2090,6 +2568,7 @@ def director_generate_drafts(
                     language=language,
                     goal=goal,
                     offer=offer,
+                    persona=persona,
                 )
                 row = _enforce_no_offer_output_policy(
                     row,
@@ -2098,6 +2577,7 @@ def director_generate_drafts(
                     language=language,
                     goal=goal,
                     offer=offer,
+                    persona=persona,
                 )
                 drafts.append(
                     {
@@ -2123,6 +2603,8 @@ def director_generate_drafts(
                 goal=goal,
                 platform=primary_platform,
                 variant_index=idx,
+                niche_label=niche_label,
+                niche_context=niche_context,
             )
         except Exception:
             warnings.append(f"core v{idx}: simplified_failed")
@@ -2135,6 +2617,8 @@ def director_generate_drafts(
                     offer=offer,
                     goal=goal,
                     angle=angle,
+                    niche_label=niche_label,
+                    niche_context=niche_context,
                 )
             except Exception:
                 row = None
@@ -2155,6 +2639,7 @@ def director_generate_drafts(
                 language=language,
                 goal=goal,
                 offer=offer,
+                persona=persona,
             )
             row = _enforce_no_offer_output_policy(
                 row,
@@ -2163,6 +2648,7 @@ def director_generate_drafts(
                 language=language,
                 goal=goal,
                 offer=offer,
+                persona=persona,
             )
             drafts.append(
                 {
@@ -2185,6 +2671,8 @@ def director_generate_drafts(
                 offer=offer,
                 goal=goal,
                 angle=angle,
+                niche_label=niche_label,
+                niche_context=niche_context,
             ),
             platform=primary_platform,
             variant_index=1,
@@ -2193,6 +2681,7 @@ def director_generate_drafts(
             language=language,
             goal=goal,
             offer=offer,
+            persona=persona,
         )
         fallback_row = _enforce_no_offer_output_policy(
             fallback_row,
@@ -2201,6 +2690,7 @@ def director_generate_drafts(
             language=language,
             goal=goal,
             offer=offer,
+            persona=persona,
         )
         drafts = [
             {
