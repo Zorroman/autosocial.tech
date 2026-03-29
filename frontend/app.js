@@ -10625,7 +10625,7 @@ async function bindCreateDirector(path) {
             item.post_text = String(draft.post_text || '').trim();
             item.caption_text = String(draft.post_text || '').trim();
             item.caption = String(draft.post_text || '').trim();
-            item.cta = String(d.selectedCta || draft.cta || item.cta || '').trim();
+            item.cta = String(draft.cta || item.cta || d.selectedCta || '').trim();
             item.hashtags = normalizeHashtagSet(Array.isArray(draft.hashtags) ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || ''))).join(' ');
           }
         } catch {
