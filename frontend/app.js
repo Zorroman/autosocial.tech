@@ -3589,6 +3589,15 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
     'пошаговое руководство',
   ],
 };
+const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
+  apartment_renovation: [
+    'как начать ремонт',
+    'первые шаги',
+    'без стресса',
+    'пошаговое руководство',
+    'советы по ремонту',
+  ],
+};
 const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
   fitness: [
     'узнайте больше о том, как правильно начать тренировки',
@@ -3600,6 +3609,9 @@ const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
     'в нашей статье',
     'узнайте больше о каждом этапе ремонта',
   ],
+};
+const POST_STUDIO_WEAK_NO_OFFER_TAGS = {
+  apartment_renovation: new Set(['#совет', '#советы', '#планирование']),
 };
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
   'Сохраните пост, чтобы вернуться к нему позже.',
@@ -3621,11 +3633,33 @@ function postStudioLooksGenericHelperTone(text, nicheId) {
   const terms = POST_STUDIO_GENERIC_HELPER_TERMS[String(nicheId || '').trim()] || [];
   return terms.some((term) => low.includes(term));
 }
+function postStudioLooksGenericHelperTopic(text, nicheId) {
+  const low = String(text || '').trim().toLowerCase();
+  if (!low) return false;
+  const terms = POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS[String(nicheId || '').trim()] || [];
+  return terms.some((term) => low.includes(term));
+}
 function postStudioLooksGenericHelperCta(text, nicheId) {
   const low = String(text || '').trim().toLowerCase();
   if (!low) return false;
   const terms = POST_STUDIO_GENERIC_HELPER_CTA_TERMS[String(nicheId || '').trim()] || [];
   return terms.some((term) => low.includes(term));
+}
+function postStudioPersonaTopicFallback(topic, angle, nicheId) {
+  const key = String(nicheId || '').trim();
+  const seed = `${String(topic || '').trim()}|${String(angle || '').trim()}|${key}`;
+  let sum = 0;
+  for (const ch of seed) sum += ch.charCodeAt(0);
+  if (key === 'apartment_renovation') {
+    const pool = [
+      'С чего в ремонте начинаются лишние расходы ещё до старта работ',
+      'Какие решения по смете чаще всего приводят к переделкам в квартире',
+      'Что важно проверить до начала черновых работ, чтобы не переделывать отделку',
+      'Какие этапы ремонта нельзя планировать «по ходу дела», если нужен внятный бюджет',
+    ];
+    return pool[sum % pool.length];
+  }
+  return String(topic || '').trim();
 }
 function postStudioNeutralCta(topic, angle) {
   const seed = `${String(topic || '').trim()}|${String(angle || '').trim()}`;
@@ -3633,25 +3667,44 @@ function postStudioNeutralCta(topic, angle) {
   for (const ch of seed) sum += ch.charCodeAt(0);
   return POST_STUDIO_NO_OFFER_CTA_POOL[sum % POST_STUDIO_NO_OFFER_CTA_POOL.length];
 }
+function sanitizePostStudioTopic(topic, angle, { allowService = false, nicheId = '' } = {}) {
+  const raw = String(topic || '').trim();
+  if (!raw) return postStudioPersonaTopicFallback(topic, angle, nicheId);
+  if (allowService || !postStudioLooksGenericHelperTopic(raw, nicheId)) return raw;
+  return postStudioPersonaTopicFallback(raw, angle, nicheId);
+}
 function sanitizePostStudioCta(text, topic, angle, { allowService = false, nicheId = '' } = {}) {
   const raw = String(text || '').trim();
   if (allowService) return raw;
   if (raw && !postStudioLooksServiceFramed(raw) && !postStudioLooksGenericHelperCta(raw, nicheId)) return raw;
   return postStudioNeutralCta(topic, angle);
 }
-function sanitizePostStudioHashtags(d, rawSet, { allowService = false } = {}) {
+function sanitizePostStudioHashtags(d, rawSet, { allowService = false, nicheId = '' } = {}) {
   const nicheFallback = directorNicheHashtagFallback(d, 5);
   const normalized = normalizeHashtagSet(rawSet, nicheFallback);
   if (allowService) return directorPreferNicheHashtags(d, normalized, 8);
-  const filtered = normalized.filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()));
+  const weakTags = POST_STUDIO_WEAK_NO_OFFER_TAGS[String(nicheId || '').trim()] || new Set();
+  const filtered = normalized.filter((tag) => {
+    const low = String(tag || '').trim().toLowerCase();
+    return !POST_STUDIO_NO_OFFER_TAGS.has(low) && !weakTags.has(low);
+  });
   const preferred = directorPreferNicheHashtags(d, filtered, 8)
-    .filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()));
+    .filter((tag) => {
+      const low = String(tag || '').trim().toLowerCase();
+      return !POST_STUDIO_NO_OFFER_TAGS.has(low) && !weakTags.has(low);
+    });
   if (preferred.length) return preferred.slice(0, 8);
   return normalizeHashtagSet(
-    nicheFallback.filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase())),
+    nicheFallback.filter((tag) => {
+      const low = String(tag || '').trim().toLowerCase();
+      return !POST_STUDIO_NO_OFFER_TAGS.has(low) && !weakTags.has(low);
+    }),
     ['#полезно', '#разбор', '#практика'],
   )
-    .filter((tag) => !POST_STUDIO_NO_OFFER_TAGS.has(String(tag || '').trim().toLowerCase()))
+    .filter((tag) => {
+      const low = String(tag || '').trim().toLowerCase();
+      return !POST_STUDIO_NO_OFFER_TAGS.has(low) && !weakTags.has(low);
+    })
     .slice(0, 8);
 }
 function directorNicheAiContext(d) {
@@ -10426,10 +10479,11 @@ async function bindCreateDirector(path) {
     const tagSets = (Array.isArray(hashtagSets) ? hashtagSets : []).map((set) => normalizeHashtagSet(set)).filter((set) => Array.isArray(set) && set.length);
     const formatPool = ['expert_post', 'checklist_post', 'story_post', 'carousel', 'sales_post', 'tutorial_post', 'comparison_post'];
     return Array.from({ length: total }, (_, idx) => {
-      const topic = topicList[idx % topicList.length];
+      const rawTopic = topicList[idx % topicList.length];
       const angle = angleList[idx % Math.max(1, angleList.length)] || '';
+      const topic = sanitizePostStudioTopic(rawTopic, angle, { allowService, nicheId });
       const cta = sanitizePostStudioCta(ctaList[idx % Math.max(1, ctaList.length)] || '', topic, angle, { allowService, nicheId });
-      const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService }).join(' ');
+      const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService, nicheId }).join(' ');
       return {
         day: idx + 1,
         nicheId,
@@ -10519,7 +10573,7 @@ async function bindCreateDirector(path) {
         const localAngles = directorLocalAngles(d);
         d.selectedAngle = String((suggestData.angles || [])[0] || localAngles[0] || 'Практический подход: шаги и сроки').trim();
       }
-      d.selectedHashtags = directorPreferNicheHashtags(d, suggestData.hashtag_sets?.[0], 8);
+      d.selectedHashtags = sanitizePostStudioHashtags(d, suggestData.hashtag_sets?.[0], { allowService: postStudioHasExplicitOffer(base.offer), nicheId: directorCurrentNicheId(d) });
       d.selectedCta = String((suggestData.cta_options || [])[0] || '').trim();
       d.warnings = out?.warnings || [];
       d.debugCode = out?.debug_code || '';
@@ -10798,7 +10852,7 @@ async function bindCreateDirector(path) {
             item.hashtags = sanitizePostStudioHashtags(
               d,
               Array.isArray(draft.hashtags) && draft.hashtags.length ? draft.hashtags : parseCampaignHashtags(String(item.hashtags || '')),
-              { allowService },
+              { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) },
             ).join(' ');
           }
         } catch {
@@ -10811,7 +10865,7 @@ async function bindCreateDirector(path) {
           item.caption_text = item.post_text;
           item.caption = item.post_text;
           item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
-          item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService }).join(' ');
+          item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) }).join(' ');
         }
         return item;
       };
@@ -10827,7 +10881,7 @@ async function bindCreateDirector(path) {
       d.planFlowState = 'generated';
       d.planFlowSelectedDay = Number(enrichedItems[0]?.day || 1) || 1;
       d.selectedCta = sanitizePostStudioCta(String(enrichedItems[0]?.cta || '').trim(), String(enrichedItems[0]?.topic || base.topic || '').trim(), String(enrichedItems[0]?.angle || '').trim(), { allowService, nicheId: enrichedItems[0]?.nicheId || directorCurrentNicheId(d) });
-      d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')), { allowService }).slice(0, 20);
+      d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
       await advanceStep(4, 0);
       state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };
     } catch (e) {

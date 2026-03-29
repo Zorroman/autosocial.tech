@@ -746,6 +746,16 @@ GENERIC_HELPER_NO_OFFER_TERMS_BY_PERSONA = {
     ),
 }
 
+GENERIC_HELPER_TOPIC_TERMS_BY_PERSONA = {
+    "apartment_renovation": (
+        "как начать ремонт",
+        "первые шаги",
+        "без стресса",
+        "пошаговое руководство",
+        "советы по ремонту",
+    ),
+}
+
 GENERIC_HELPER_CTA_TERMS_BY_PERSONA = {
     "fitness": (
         "узнайте больше о том, как правильно начать тренировки",
@@ -757,6 +767,10 @@ GENERIC_HELPER_CTA_TERMS_BY_PERSONA = {
         "в нашей статье",
         "узнайте больше о каждом этапе ремонта",
     ),
+}
+
+GENERIC_WEAK_NO_OFFER_TAGS_BY_PERSONA = {
+    "apartment_renovation": {"#совет", "#советы", "#планирование"},
 }
 
 
@@ -785,6 +799,15 @@ def _looks_generic_helper_cta_no_offer(text: str, persona: dict | None = None) -
     return any(term in low for term in terms)
 
 
+def _looks_generic_helper_topic_no_offer(text: str, persona: dict | None = None) -> bool:
+    low = str(text or "").strip().lower()
+    if not low or not persona:
+        return False
+    key = str(persona.get("persona_key") or "").strip().lower()
+    terms = GENERIC_HELPER_TOPIC_TERMS_BY_PERSONA.get(key) or ()
+    return any(term in low for term in terms)
+
+
 def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str | None, language: str, goal: str, persona: dict | None = None) -> list[str]:
     cleaned = [
         str(tag).strip()
@@ -798,6 +821,11 @@ def _filter_no_offer_hashtags(tags: list[str], *, topic: str, niche_label: str |
         if str(tag).strip().lower() not in NO_OFFER_SERVICE_TAGS
     ]
     merged = _sanitize_hashtag_list(cleaned + generated, min_count=5, max_count=15)
+    persona_key = str((persona or {}).get("persona_key") or "").strip().lower()
+    weak_tags = GENERIC_WEAK_NO_OFFER_TAGS_BY_PERSONA.get(persona_key) or set()
+    if weak_tags:
+        merged = [tag for tag in merged if str(tag).strip().lower() not in weak_tags]
+        merged = _sanitize_hashtag_list(merged + persona_generated, min_count=5, max_count=15)
     return merged
 
 
@@ -2338,6 +2366,7 @@ def _director_default_payload(
             break
     keyword_tags = [f"#{w.lower()}" for w in niche_keywords[:4] if len(w) > 2]
     core_tags = _persona_hashtag_seeds(persona) + goal_tag_map.get(goal_mode, goal_tag_map["awareness"]) + keyword_tags + ["#практика", "#разбор"] + seed_tags
+    weak_tags = GENERIC_WEAK_NO_OFFER_TAGS_BY_PERSONA.get(str((persona or {}).get("persona_key") or "").strip().lower()) or set()
     # unique + stable order
     uniq = []
     seen_tags = set()
@@ -2345,6 +2374,8 @@ def _director_default_payload(
         tt = str(t).strip().lower()
         if not tt.startswith("#"):
             tt = f"#{tt}"
+        if tt in weak_tags and not _has_explicit_offer(offer):
+            continue
         if tt in seen_tags:
             continue
         seen_tags.add(tt)
@@ -2409,7 +2440,10 @@ def _director_soft_normalize(
             continue
         if _contains_meta_marketing_advice(t):
             continue
-        if not _has_explicit_offer(offer) and _looks_service_framed_topic_no_offer(t):
+        if not _has_explicit_offer(offer) and (
+            _looks_service_framed_topic_no_offer(t)
+            or _looks_generic_helper_topic_no_offer(t, persona)
+        ):
             continue
         if t.lower() == original_topic_low:
             t = _topic_to_client_hook(topic, goal, persona=persona)
