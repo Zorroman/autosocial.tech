@@ -769,8 +769,12 @@ GENERIC_HELPER_CTA_TERMS_BY_PERSONA = {
         "узнайте больше о тренировках",
     ),
     "apartment_renovation": (
+        "узнайте больше",
         "узнайте больше о том, как составить идеальную смету",
         "узнайте больше о том, как составить смету",
+        "узнайте больше о том, как правильно подготовиться",
+        "подготовиться к ремонту",
+        "избежать переплат",
         "в нашей статье",
         "узнайте больше о каждом этапе ремонта",
     ),
@@ -910,7 +914,12 @@ def _default_cta_options(goal: str, offer: str | None, language: str, niche_cta_
     templates = [str(x).strip() for x in (niche_cta_templates or []) if str(x).strip()]
     templates = _persona_cta_pool(persona, offer=offer) + templates
     if mode != "service":
-        templates = [x for x in templates if not _looks_hard_sell_cta(x) and not _looks_service_framed_no_offer(x)]
+        templates = [
+            x for x in templates
+            if not _looks_hard_sell_cta(x)
+            and not _looks_service_framed_no_offer(x)
+            and not _looks_generic_helper_cta_no_offer(x, persona)
+        ]
     pool = templates + _cta_defaults(language, mode)
     out: list[str] = []
     seen: set[str] = set()
