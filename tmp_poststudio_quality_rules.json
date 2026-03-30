@@ -1,0 +1,326 @@
+{
+  "route": "http://127.0.0.1:4173/create/post",
+  "days": 7,
+  "generic_patterns": [
+    "в таких темах важнее",
+    "перед тем как",
+    "полезно помнить",
+    "сначала стоит понять",
+    "часто люди сталкиваются",
+    "важно понимать",
+    "стоит обратить внимание",
+    "это помогает",
+    "это может быть полезно",
+    "на практике это быстро",
+    "до старта работ полезнее всего"
+  ],
+  "service_leak_terms": [
+    "запишитесь",
+    "консультац",
+    "наш центр",
+    "наш сервис",
+    "мы поможем",
+    "напишите нам",
+    "в директ",
+    "в сообщения",
+    "посетить",
+    "визит",
+    "без очереди"
+  ],
+  "cases": [
+    {
+      "case_id": "esoterica_no_offer",
+      "preset": "esoterica",
+      "label": "Эзотерика",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "знак",
+        "интуиция",
+        "цикл",
+        "внутрен",
+        "сюжет",
+        "ритуал",
+        "наблюд"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "запишитесь",
+        "мы поможем",
+        "консультац",
+        "визит"
+      ]
+    },
+    {
+      "case_id": "renovation_no_offer",
+      "preset": "apartment_renovation",
+      "label": "Ремонт квартир",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "смет",
+        "этап",
+        "чернов",
+        "подряд",
+        "перерасход",
+        "узел",
+        "передел"
+      ],
+      "forbidden_phrases": [
+        "ремонт мечты",
+        "полезные советы",
+        "уют",
+        "вдохнов",
+        "lifestyle"
+      ]
+    },
+    {
+      "case_id": "psychology_no_offer",
+      "preset": "psychology",
+      "label": "Психология",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "границ",
+        "тревог",
+        "реакц",
+        "эмоци",
+        "паттерн",
+        "устал"
+      ],
+      "forbidden_phrases": [
+        "запишитесь",
+        "наш центр",
+        "интуиция",
+        "ритуал",
+        "нагрузка"
+      ]
+    },
+    {
+      "case_id": "fitness_no_offer",
+      "preset": "fitness",
+      "label": "Фитнес",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "нагруз",
+        "восстанов",
+        "техник",
+        "прогресс",
+        "регуляр"
+      ],
+      "forbidden_phrases": [
+        "магическ",
+        "карма",
+        "ритуал",
+        "терап",
+        "консультац"
+      ]
+    },
+    {
+      "case_id": "autoservice_no_offer",
+      "preset": "autoservice",
+      "label": "Автосервис",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "диагност",
+        "признак",
+        "износ",
+        "обслуж",
+        "узел",
+        "ошибк"
+      ],
+      "forbidden_phrases": [
+        "запишитесь",
+        "без очереди",
+        "наш сервис",
+        "консультац"
+      ]
+    },
+    {
+      "case_id": "autoservice_offer",
+      "preset": "autoservice",
+      "label": "Автосервис",
+      "offer": "Диагностика и запись на диагностику без очереди",
+      "goal": "sales",
+      "mode": "explicit-offer",
+      "expected_keywords": [
+        "диагност",
+        "обслуж",
+        "износ",
+        "узел",
+        "ошибк"
+      ],
+      "forbidden_phrases": []
+    },
+    {
+      "case_id": "cosmetology_no_offer",
+      "preset": "cosmetology",
+      "label": "Косметология",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "кож",
+        "барьер",
+        "чувств",
+        "уход",
+        "реакц",
+        "обезвож"
+      ],
+      "forbidden_phrases": [
+        "запишитесь",
+        "наш салон",
+        "наш центр",
+        "магическ"
+      ]
+    },
+    {
+      "case_id": "cosmetology_offer",
+      "preset": "cosmetology",
+      "label": "Косметология",
+      "offer": "Чистка лица и подбор ухода",
+      "goal": "sales",
+      "mode": "explicit-offer",
+      "expected_keywords": [
+        "кож",
+        "уход",
+        "чистк",
+        "барьер",
+        "чувств"
+      ],
+      "forbidden_phrases": []
+    },
+    {
+      "case_id": "smm_marketing_no_offer",
+      "preset": "smm_marketing",
+      "label": "SMM и маркетинг",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "аудитор",
+        "контент",
+        "воронк",
+        "заявк",
+        "рубр",
+        "сообщен",
+        "соцсет"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "консультац",
+        "карма",
+        "магическ",
+        "ритуал",
+        "секретн стратег"
+      ]
+    },
+    {
+      "case_id": "barbershop_no_offer",
+      "preset": "barbershop",
+      "label": "Барбершоп",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "стрижк",
+        "бород",
+        "контур",
+        "форма",
+        "уклад",
+        "щетин",
+        "барбер"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "визит",
+        "идеальная внешность",
+        "кожа лица",
+        "мы поможем",
+        "консультац"
+      ]
+    },
+    {
+      "case_id": "detailing_no_offer",
+      "preset": "detailing",
+      "label": "Детейлинг",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "кузов",
+        "покрыт",
+        "салон",
+        "полиров",
+        "ppf",
+        "защит",
+        "керамик"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "визит",
+        "кожа лица",
+        "ремонт мечты",
+        "волшебный блеск",
+        "консультац"
+      ]
+    },
+    {
+      "case_id": "consulting_no_offer",
+      "preset": "consulting",
+      "label": "Консалтинг",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "стратег",
+        "процесс",
+        "рост",
+        "узкое место",
+        "решени",
+        "команд",
+        "метрик"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "визит",
+        "интуици",
+        "борода",
+        "мы поможем",
+        "консультац"
+      ]
+    },
+    {
+      "case_id": "online_courses_no_offer",
+      "preset": "online_courses",
+      "label": "Онлайн-курсы",
+      "offer": "",
+      "goal": "engagement",
+      "mode": "no-offer",
+      "expected_keywords": [
+        "курс",
+        "урок",
+        "модул",
+        "практик",
+        "настав",
+        "результат",
+        "обучен"
+      ],
+      "forbidden_phrases": [
+        "наш центр",
+        "визит",
+        "волшебная трансформация",
+        "запишитесь",
+        "борода",
+        "консультац"
+      ]
+    }
+  ]
+}
