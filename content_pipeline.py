@@ -2372,10 +2372,11 @@ def _director_default_payload(
     if shift and angle_pool:
         angle_shift = shift % len(angle_pool)
         angle_pool = angle_pool[angle_shift:] + angle_pool[:angle_shift]
+    angle_target = max(10, min(len(topics), 12))
     angles = _pad_strings(
         [],
-        3,
-        lambda i: angle_pool[i],
+        angle_target,
+        lambda i: angle_pool[i % len(angle_pool)] if angle_pool else "",
     )
     cta_options = _default_cta_options(goal, offer, language, niche_cta_templates, persona=persona)
     goal_tag_map = {
@@ -2612,7 +2613,7 @@ def director_suggest(
     schema = {
         "audience": {"who": "string", "pain": "string", "desire": "string"},
         "topics": ["string", "string", "string", "string", "string", "string", "string", "string", "string", "string"],
-        "angles": ["string", "string", "string"],
+        "angles": ["string", "string", "string", "string", "string", "string", "string", "string", "string", "string"],
         "recommended": {"platform": "facebook", "format": "post", "tone": "friendly"},
         "cta_options": ["string", "string", "string"],
         "hashtag_sets": [["#one", "#two", "#three"], ["#four", "#five", "#six"], ["#seven", "#eight", "#nine"]],
@@ -2647,7 +2648,7 @@ def director_suggest(
                 f"platforms: {', '.join(platforms)}\n"
                 f"goal interpretation: {_goal_playbook(goal)['instruction']}\n"
                 f"{_persona_prompt_block(persona, offer=offer)}"
-                "constraints: return exactly 10 topics max 96 chars, angles max 80 chars, useful and niche-native wording only.\n"
+                "constraints: return exactly 10 topics max 96 chars, return 10 angle lines max 80 chars, useful and niche-native wording only.\n"
                 f"schema: {json.dumps(schema, ensure_ascii=False)}"
             ),
             validator=_soft_validator,
@@ -2681,7 +2682,7 @@ def director_suggest(
         # simplified schema fallback
         res = generate_json_with_retry(
             system_prompt="Return only JSON with arrays topics/angles/cta_options.",
-            user_prompt=f"topic: {topic}\nneed 10 topics, 3 angles, 3 cta\nschema: {{\"topics\":[\"\"],\"angles\":[\"\"],\"cta_options\":[\"\"]}}",
+            user_prompt=f"topic: {topic}\nneed 10 topics, 10 angles, 3 cta\nschema: {{\"topics\":[\"\"],\"angles\":[\"\"],\"cta_options\":[\"\"]}}",
             validator=lambda p: None if isinstance(p, dict) else (_ for _ in ()).throw(ValueError("bad")),
             max_output_tokens=500,
             temperature=0.45,

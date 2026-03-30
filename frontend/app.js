@@ -3727,6 +3727,39 @@ function sanitizePostStudioHashtags(d, rawSet, { allowService = false, nicheId =
     })
     .slice(0, 8);
 }
+function normalizePostStudioCardLine(text) {
+  return String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+function cropPostStudioCardLine(text, maxLen = 88) {
+  const raw = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!raw) return '';
+  if (raw.length <= maxLen) return raw;
+  return `${raw.slice(0, Math.max(0, maxLen - 1)).trim()}…`;
+}
+function derivePostStudioCardSubline(item) {
+  const topicLine = normalizePostStudioCardLine(item?.topic);
+  const angleLine = normalizePostStudioCardLine(item?.angle);
+  const textPool = [item?.caption_text, item?.post_text, item?.caption]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+  for (const text of textPool) {
+    const parts = text
+      .split(/\n+/)
+      .flatMap((chunk) => String(chunk || '').split(/(?<=[.!?])\s+/))
+      .map((chunk) => cropPostStudioCardLine(chunk))
+      .filter(Boolean);
+    for (const part of parts) {
+      const normalized = normalizePostStudioCardLine(part);
+      if (!normalized) continue;
+      if (topicLine && normalized === topicLine) continue;
+      if (angleLine && normalized === angleLine) continue;
+      if (topicLine && normalized.includes(topicLine)) continue;
+      if (angleLine && normalized.includes(angleLine)) continue;
+      return part;
+    }
+  }
+  return cropPostStudioCardLine(String(item?.angle || '').trim()) || '—';
+}
 function directorNicheAiContext(d) {
   if (!d || d.customTopicMode) return null;
   if (typeof DIRECTOR_NICHE_ENGINE.buildNicheAiContext === 'function') {
@@ -7987,7 +8020,7 @@ function pageCreateDirector() {
           ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
             <div class="small">${esc(shellText('create_post_studio_day'))} ${Number(item.day || 0)}</div>
             <strong>${esc(item.topic || '—')}</strong>
-            <p class="small truncate" style="margin:0;">${esc(String(item.angle || item.caption_text || item.post_text || '').trim() || '—')}</p>
+            <p class="small truncate" style="margin:0;">${esc(derivePostStudioCardSubline(item))}</p>
           </button>`).join('')}
         </div>
       </article>
