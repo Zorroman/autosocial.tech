@@ -3581,6 +3581,9 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
   esoterica: [
     'перед тем как посетить сеанс',
     'перед тем как посетить нас',
+    'перед вашим визитом',
+    'в мир эзотерики',
+    'не упустите возможность',
     'узнайте, как правильно интерпретировать',
     'сделать свой визит более осознанным',
   ],
@@ -3594,6 +3597,8 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
   apartment_renovation: [
     'перед тем как начать',
     'перед тем как начать ремонт квартиры',
+    'в первую очередь определите',
+    'выделите дополнительные средства',
     'как правильно',
     'правильно составить смету',
     'учитывайте все этапы',
@@ -3609,6 +3614,8 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
     'этапы ремонта',
     'от идеи до завершения',
     'полезные советы',
+    'качественный ремонт требует времени и усилий',
+    'ремонт без стресса',
   ],
   barbershop: [
     'перед тем как отправиться в наш барбершоп',
@@ -3620,6 +3627,8 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
 };
 const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
   apartment_renovation: [
+    '5 шагов',
+    '5 основных этапов',
     'как правильно',
     'как начать ремонт',
     'как выбрать подрядчика',
@@ -3631,6 +3640,8 @@ const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
     'пошаговое руководство',
     'пошаговый план ремонта',
     'непонятно, с чего начать',
+    'как выбрать материалы без лишних трат',
+    'контролю бюджета на ремонт квартиры',
     'советы по ремонту',
   ],
 };
@@ -3651,7 +3662,16 @@ const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
   ],
 };
 const POST_STUDIO_WEAK_NO_OFFER_TAGS = {
-  apartment_renovation: new Set(['#совет', '#советы', '#планирование', '#полезно', '#советыпоремонту']),
+  apartment_renovation: new Set(['#совет', '#советы', '#планирование', '#полезно', '#советыпоремонту', '#советыклиентам']),
+};
+const POST_STUDIO_GENERIC_CARD_SUBLINE_TERMS = {
+  esoterica: [
+    'понимание внутреннего состояния через интуицию',
+    'как очищение пространства влияет на вашу энергию',
+  ],
+  apartment_renovation: [
+    'где в ремонте квартиры чаще всего появляются скрытые перерасходы',
+  ],
 };
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
   'Сохраните пост, чтобы вернуться к нему позже.',
@@ -4114,9 +4134,16 @@ function postStudioCardLineLooksGeneric(text, topic = '', angle = '') {
   ];
   return genericStarts.some((part) => normalized.startsWith(part));
 }
+function postStudioCardLineLooksGenericForNiche(text, nicheId = '') {
+  const normalized = normalizePostStudioCardLine(text);
+  if (!normalized) return false;
+  const terms = POST_STUDIO_GENERIC_CARD_SUBLINE_TERMS[String(nicheId || '').trim()] || [];
+  return terms.some((term) => normalized.startsWith(normalizePostStudioCardLine(term)));
+}
 function derivePostStudioCardSubline(item) {
   const topicLine = normalizePostStudioCardLine(item?.topic);
   const angleLine = normalizePostStudioCardLine(item?.angle);
+  const nicheId = String(item?.nicheId || '').trim();
   const textPool = [item?.caption_text, item?.post_text, item?.caption]
     .map((value) => String(value || '').trim())
     .filter(Boolean);
@@ -4132,7 +4159,7 @@ function derivePostStudioCardSubline(item) {
       const cropped = cropPostStudioCardLine(part);
       const normalized = normalizePostStudioCardLine(cropped);
       if (!normalized) continue;
-      if (postStudioCardLineLooksGeneric(cropped, topicLine, angleLine)) {
+      if (postStudioCardLineLooksGeneric(cropped, topicLine, angleLine) || postStudioCardLineLooksGenericForNiche(cropped, nicheId)) {
         fallback.push(cropped);
         continue;
       }
