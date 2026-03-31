@@ -3559,20 +3559,31 @@ const POST_STUDIO_NO_OFFER_TEXT_TERMS = [
   'приходите',
   'перед визит',
   'первым визит',
+  'посетить нас',
   'посетить наш',
+  'отправиться в наш',
   'наш центр',
+  'наш барбершоп',
   'консультац',
   'запишитесь',
   'к психологу',
   'к специалисту',
   'в фитнес-клуб',
   'в фитнес-зал',
+  'сделать свой визит',
   'мы готовы помочь',
+  'мы расскажем',
   'подскажем лучший вариант',
   'напишите в сообщения',
   'напишите в директ',
 ];
 const POST_STUDIO_GENERIC_HELPER_TERMS = {
+  esoterica: [
+    'перед тем как посетить сеанс',
+    'перед тем как посетить нас',
+    'узнайте, как правильно интерпретировать',
+    'сделать свой визит более осознанным',
+  ],
   fitness: [
     'перед тем как начать тренироваться',
     'не обязательно сразу же перегружать себя',
@@ -3599,6 +3610,13 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
     'от идеи до завершения',
     'полезные советы',
   ],
+  barbershop: [
+    'перед тем как отправиться в наш барбершоп',
+    'перед тем как взять ножницы',
+    'мы расскажем',
+    'как правильно ухаживать',
+    'на высшем уровне',
+  ],
 };
 const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
   apartment_renovation: [
@@ -3611,6 +3629,8 @@ const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
     'этапы ремонта',
     'от идеи до завершения',
     'пошаговое руководство',
+    'пошаговый план ремонта',
+    'непонятно, с чего начать',
     'советы по ремонту',
   ],
 };
@@ -4042,13 +4062,20 @@ function sanitizePostStudioHashtags(d, rawSet, { allowService = false, nicheId =
     .slice(0, 8);
 }
 function normalizePostStudioCardLine(text) {
-  return String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return String(text || '')
+    .trim()
+    .replace(/[«»"'`.,!?;:()\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 function cropPostStudioCardLine(text, maxLen = 88) {
   const raw = String(text || '').trim().replace(/\s+/g, ' ');
   if (!raw) return '';
   if (raw.length <= maxLen) return raw;
   return `${raw.slice(0, Math.max(0, maxLen - 1)).trim()}…`;
+}
+function postStudioCardLineWordCount(text) {
+  return normalizePostStudioCardLine(text).split(/\s+/).filter(Boolean).length;
 }
 function postStudioCardLineLooksGeneric(text, topic = '', angle = '') {
   const normalized = normalizePostStudioCardLine(text);
@@ -4057,15 +4084,33 @@ function postStudioCardLineLooksGeneric(text, topic = '', angle = '') {
   const angleLine = normalizePostStudioCardLine(angle);
   if (topicLine && normalized === topicLine) return true;
   if (angleLine && normalized === angleLine) return true;
+  if (topicLine && normalized.length <= topicLine.length && topicLine.includes(normalized)) return true;
+  if (angleLine && normalized.length <= angleLine.length && angleLine.includes(normalized)) return true;
+  if (postStudioCardLineWordCount(text) <= 4 && !String(text || '').includes(':')) return true;
   const genericStarts = [
     'в таких темах важнее',
     'в ремонте проблемы начинаются',
     'перед тем как посетить',
+    'перед тем как отправиться',
     'перед тем как начать',
+    'перед тем как взять ножницы',
     'перед ремонтом квартиры важно',
     'до старта работ полезнее всего',
     'на практике это быстро',
     'сначала полезно',
+    'мы расскажем',
+    'узнайте как',
+    'избегайте распространенных ошибок',
+    'энергия и интуиция',
+    'духовные практики',
+    'очищение пространства',
+    'ошибки на старте',
+    'контроль бюджета',
+    'выбор формы стрижки',
+    'уход за бородой',
+    'ошибки управления',
+    'ускорение решений',
+    'практичные изменения',
   ];
   return genericStarts.some((part) => normalized.startsWith(part));
 }
@@ -4094,7 +4139,10 @@ function derivePostStudioCardSubline(item) {
       preferred.push(cropped);
     }
     if (preferred.length) return preferred[0];
-    if (fallback.length > 1) return fallback[1];
+    const longestFallback = fallback
+      .filter((line) => !postStudioLooksServiceFramed(line))
+      .sort((a, b) => b.length - a.length)[0];
+    if (longestFallback) return longestFallback;
     if (fallback.length) return fallback[0];
   }
   return cropPostStudioCardLine(String(item?.angle || '').trim()) || '—';
