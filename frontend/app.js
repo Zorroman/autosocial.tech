@@ -3624,6 +3624,12 @@ const POST_STUDIO_GENERIC_HELPER_TERMS = {
     'как правильно ухаживать',
     'на высшем уровне',
   ],
+  consulting: [
+    'вы когда-нибудь задумывались',
+    'узнайте, как избежать распространенных ловушек',
+    'мы поможем вам на этом пути',
+    'вот решение',
+  ],
 };
 const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
   apartment_renovation: [
@@ -3643,6 +3649,12 @@ const POST_STUDIO_GENERIC_HELPER_TOPIC_TERMS = {
     'как выбрать материалы без лишних трат',
     'контролю бюджета на ремонт квартиры',
     'советы по ремонту',
+  ],
+  consulting: [
+    'устали от разрозненных действий',
+    'вот решение',
+    'почему внешняя перспектива важна',
+    'практичные изменения для вашего бизнеса',
   ],
 };
 const POST_STUDIO_GENERIC_HELPER_CTA_TERMS = {
@@ -3671,6 +3683,10 @@ const POST_STUDIO_GENERIC_CARD_SUBLINE_TERMS = {
   ],
   apartment_renovation: [
     'где в ремонте квартиры чаще всего появляются скрытые перерасходы',
+  ],
+  consulting: [
+    'как ускорить принятие решений в команде',
+    'типовые узкие места как их избежать',
   ],
 };
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
