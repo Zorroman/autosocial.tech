@@ -1096,6 +1096,76 @@ GENERIC_WEAK_NO_OFFER_TAGS_BY_PERSONA = {
     "apartment_renovation": {"#совет", "#советы", "#планирование", "#полезно", "#советыпоремонту", "#советыклиентам"},
 }
 
+GENERIC_HELPER_CLASS_PREFIXES = (
+    "перед тем как",
+    "перед вашим визитом",
+    "перед вашей первой",
+    "важно знать",
+    "несколько ключевых",
+    "полезные советы",
+    "что важно знать",
+    "что нужно знать",
+    "мы расскажем",
+    "мы поделимся",
+    "мы поможем",
+    "это поможет вам",
+    "узнайте как",
+    "узнайте больше",
+    "подготовка к визиту",
+    "как проходит обучение",
+)
+
+GENERIC_LISTICLE_CLASS_PREFIXES = (
+    "топ",
+    "пошаговое",
+    "пошаговый",
+    "практический шаг",
+    "частые вопросы",
+    "ответы на популярные вопросы",
+    "мифы и факты",
+    "советы по",
+)
+
+GENERIC_PROMO_CTA_CLASS_TERMS = (
+    "узнайте больше",
+    "посетите",
+    "запишитесь",
+    "приходите",
+    "начните",
+    "выберите",
+    "запланируйте",
+    "исследуйте",
+    "изменит вашу жизнь",
+    "уже сегодня",
+)
+
+
+def _normalize_policy_text(text: str) -> str:
+    low = _repair_mojibake_text(str(text or "").strip()).lower()
+    low = re.sub(r"[«»\"'`.,!?;:()\-]+", " ", low)
+    low = re.sub(r"\b\d+[).:-]?\s*", " ", low)
+    return re.sub(r"\s+", " ", low).strip()
+
+
+def _looks_generic_helper_pattern_no_offer(text: str) -> bool:
+    low = _normalize_policy_text(text)
+    if not low:
+        return False
+    if any(low.startswith(term) for term in GENERIC_HELPER_CLASS_PREFIXES):
+        return True
+    if any(low.startswith(term) for term in GENERIC_LISTICLE_CLASS_PREFIXES):
+        return True
+    return bool(re.search(r"\b(мы\s+(расскажем|поделимся|поможем)|это поможет вам|узнайте|подготов(ь|и)тесь|важно знать)\b", low))
+
+
+def _looks_generic_promo_cta_pattern_no_offer(text: str) -> bool:
+    low = _normalize_policy_text(text)
+    if not low:
+        return False
+    if any(term in low for term in GENERIC_PROMO_CTA_CLASS_TERMS):
+        return True
+    return bool(re.search(r"^(посетите|запишитесь|приходите|начните|выберите|запланируйте|исследуйте)\b", low))
+
 
 def _looks_service_framed_no_offer(text: str) -> bool:
     low = str(text or "").strip().lower()
@@ -1106,7 +1176,11 @@ def _looks_service_framed_no_offer(text: str) -> bool:
 
 def _looks_generic_helper_no_offer(text: str, persona: dict | None = None) -> bool:
     low = str(text or "").strip().lower()
-    if not low or not persona:
+    if not low:
+        return False
+    if _looks_generic_helper_pattern_no_offer(low):
+        return True
+    if not persona:
         return False
     key = str(persona.get("persona_key") or "").strip().lower()
     terms = GENERIC_HELPER_NO_OFFER_TERMS_BY_PERSONA.get(key) or ()
@@ -1115,7 +1189,11 @@ def _looks_generic_helper_no_offer(text: str, persona: dict | None = None) -> bo
 
 def _looks_generic_helper_cta_no_offer(text: str, persona: dict | None = None) -> bool:
     low = str(text or "").strip().lower()
-    if not low or not persona:
+    if not low:
+        return False
+    if _looks_generic_promo_cta_pattern_no_offer(low):
+        return True
+    if not persona:
         return False
     key = str(persona.get("persona_key") or "").strip().lower()
     terms = GENERIC_HELPER_CTA_TERMS_BY_PERSONA.get(key) or ()
@@ -1124,7 +1202,11 @@ def _looks_generic_helper_cta_no_offer(text: str, persona: dict | None = None) -
 
 def _looks_generic_helper_topic_no_offer(text: str, persona: dict | None = None) -> bool:
     low = str(text or "").strip().lower()
-    if not low or not persona:
+    if not low:
+        return False
+    if _looks_generic_helper_pattern_no_offer(low):
+        return True
+    if not persona:
         return False
     key = str(persona.get("persona_key") or "").strip().lower()
     terms = GENERIC_HELPER_TOPIC_TERMS_BY_PERSONA.get(key) or ()

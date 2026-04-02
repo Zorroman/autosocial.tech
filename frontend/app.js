@@ -3834,6 +3834,53 @@ const POST_STUDIO_GENERIC_CARD_SUBLINE_TERMS = {
     'перед тем как записаться на онлайн курс важно знать несколько ключевых моментов',
   ],
 };
+const POST_STUDIO_GENERIC_HELPER_CLASS_PREFIXES = [
+  'перед тем как',
+  'перед вашим визитом',
+  'перед вашей первой',
+  'важно знать',
+  'несколько ключевых',
+  'полезные советы',
+  'что важно знать',
+  'что нужно знать',
+  'мы расскажем',
+  'мы поделимся',
+  'мы поможем',
+  'это поможет вам',
+  'узнайте как',
+  'узнайте больше',
+  'подготовка к визиту',
+  'как проходит обучение',
+];
+const POST_STUDIO_LISTICLE_CLASS_PREFIXES = [
+  'топ',
+  'пошаговое',
+  'пошаговый',
+  'практический шаг',
+  'частые вопросы',
+  'ответы на популярные вопросы',
+  'мифы и факты',
+  'советы по',
+];
+const POST_STUDIO_PROMO_CTA_CLASS_TERMS = [
+  'узнайте больше',
+  'посетите',
+  'запишитесь',
+  'приходите',
+  'начните',
+  'выберите',
+  'запланируйте',
+  'исследуйте',
+  'изменит вашу жизнь',
+  'уже сегодня',
+];
+const POST_STUDIO_SUBLINE_SKELETON_STOPWORDS = new Set([
+  'по', 'в', 'на', 'для', 'как', 'что', 'это', 'эта', 'этот', 'эти', 'или', 'без', 'под', 'над', 'при', 'про',
+  'уже', 'ещё', 'еще', 'его', 'ее', 'её', 'их', 'ваш', 'ваша', 'ваше', 'ваши', 'наш', 'наша', 'наше', 'наши',
+  'тем', 'этом', 'этой', 'эту', 'того', 'когда', 'почему', 'который', 'которая', 'которые',
+  'нужно', 'важно', 'можно', 'стоит', 'нельзя', 'просто', 'реально', 'сегодня', 'позже', 'сразу',
+  'теме', 'тема', 'день', 'дня', 'дней', 'между', 'всего',
+]);
 const POST_STUDIO_NO_OFFER_CTA_POOL = [
   'Сохраните пост, чтобы вернуться к нему позже.',
   'Напишите в комментариях, если тема вам откликается.',
@@ -3851,6 +3898,13 @@ function postStudioLooksServiceFramed(text) {
 function postStudioLooksGenericHelperTone(text, nicheId) {
   const low = String(text || '').trim().toLowerCase();
   if (!low) return false;
+  const normalized = normalizePostStudioCardLine(low);
+  if (
+    POST_STUDIO_GENERIC_HELPER_CLASS_PREFIXES.some((term) => normalized.startsWith(term))
+    || /\b(мы\s+(расскажем|поделимся|поможем)|это поможет вам|узнайте|подготов(ь|и)тесь|важно знать)\b/u.test(normalized)
+  ) {
+    return true;
+  }
   const terms = POST_STUDIO_GENERIC_HELPER_TERMS[String(nicheId || '').trim()] || [];
   return terms.some((term) => low.includes(term));
 }
@@ -3868,6 +3922,13 @@ function postStudioLooksServiceFramedTopic(text) {
 function postStudioLooksGenericHelperCta(text, nicheId) {
   const low = String(text || '').trim().toLowerCase();
   if (!low) return false;
+  const normalized = normalizePostStudioCardLine(low);
+  if (
+    POST_STUDIO_PROMO_CTA_CLASS_TERMS.some((term) => normalized.includes(term))
+    || /^(посетите|запишитесь|приходите|начните|выберите|запланируйте|исследуйте)\b/u.test(normalized)
+  ) {
+    return true;
+  }
   const terms = POST_STUDIO_GENERIC_HELPER_CTA_TERMS[String(nicheId || '').trim()] || [];
   return terms.some((term) => low.includes(term));
 }
@@ -4246,8 +4307,21 @@ function normalizePostStudioCardLine(text) {
   return String(text || '')
     .trim()
     .replace(/[«»"'`.,!?;:()\-]+/g, ' ')
+    .replace(/\b\d+[).:-]?\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .toLowerCase();
+}
+function postStudioNormalizeSkeletonToken(token) {
+  return String(token || '')
+    .replace(/(иями|ями|ами|его|ого|ему|ому|ыми|ими|ей|ий|ый|ой|ая|яя|ое|ее|ые|ие|ам|ям|ах|ях|ов|ев|ом|ем|ую|юю|а|я|ы|и|о|е|у|ю)$/u, '')
+    .trim();
+}
+function postStudioCardLineSkeleton(text) {
+  const words = normalizePostStudioCardLine(text)
+    .split(/\s+/)
+    .map((word) => postStudioNormalizeSkeletonToken(word))
+    .filter((word) => word.length >= 3 && !POST_STUDIO_SUBLINE_SKELETON_STOPWORDS.has(word));
+  return words.slice(0, 6).join(' ');
 }
 function cropPostStudioCardLine(text, maxLen = 88) {
   const raw = String(text || '').trim().replace(/\s+/g, ' ');
@@ -4267,73 +4341,96 @@ function postStudioCardLineLooksGeneric(text, topic = '', angle = '') {
   if (angleLine && normalized === angleLine) return true;
   if (topicLine && normalized.length <= topicLine.length && topicLine.includes(normalized)) return true;
   if (angleLine && normalized.length <= angleLine.length && angleLine.includes(normalized)) return true;
-  if (postStudioCardLineWordCount(text) <= 4 && !String(text || '').includes(':')) return true;
-  const genericStarts = [
-    'в таких темах важнее',
-    'в ремонте проблемы начинаются',
-    'перед тем как посетить',
-    'перед тем как отправиться',
-    'перед тем как начать',
-    'перед тем как взять ножницы',
-    'перед ремонтом квартиры важно',
-    'до старта работ полезнее всего',
-    'на практике это быстро',
-    'сначала полезно',
-    'мы расскажем',
-    'узнайте как',
-    'избегайте распространенных ошибок',
-    'энергия и интуиция',
-    'духовные практики',
-    'очищение пространства',
-    'ошибки на старте',
-    'контроль бюджета',
-    'выбор формы стрижки',
-    'уход за бородой',
-    'ошибки управления',
-    'ускорение решений',
-    'практичные изменения',
-  ];
-  return genericStarts.some((part) => normalized.startsWith(part));
+  if (postStudioCardLineWordCount(text) <= 4 && !String(text || '').includes(':') && !normalized.startsWith('по теме') && !normalized.startsWith('в теме')) return true;
+  if (
+    POST_STUDIO_GENERIC_HELPER_CLASS_PREFIXES.some((part) => normalized.startsWith(part))
+    || POST_STUDIO_LISTICLE_CLASS_PREFIXES.some((part) => normalized.startsWith(part))
+    || /^(топ\s*\d+|\d+\s+шаг|практическ\w*\s+шаг|частые\s+вопросы|мифы\s+и\s+факты|советы\s+по)\b/u.test(normalized)
+    || /\b(узнайте|мы\s+(расскажем|поделимся|поможем)|это поможет вам)\b/u.test(normalized)
+  ) {
+    return true;
+  }
+  const skeleton = postStudioCardLineSkeleton(text);
+  if (!skeleton) return true;
+  return skeleton.split(/\s+/).length <= 2 && !normalized.startsWith('по теме') && !normalized.startsWith('в теме');
 }
 function postStudioCardLineLooksGenericForNiche(text, nicheId = '') {
   const normalized = normalizePostStudioCardLine(text);
   if (!normalized) return false;
   const terms = POST_STUDIO_GENERIC_CARD_SUBLINE_TERMS[String(nicheId || '').trim()] || [];
-  return terms.some((term) => normalized.startsWith(normalizePostStudioCardLine(term)));
+  if (terms.some((term) => normalized.startsWith(normalizePostStudioCardLine(term)))) return true;
+  const skeleton = postStudioCardLineSkeleton(text);
+  if (!skeleton) return true;
+  return terms.some((term) => skeleton.startsWith(postStudioCardLineSkeleton(term)));
 }
-function derivePostStudioCardSubline(item) {
+function postStudioSplitTextSentences(text) {
+  return String(text || '')
+    .split(/\n+/)
+    .flatMap((chunk) => String(chunk || '').split(/(?<=[.!?])\s+/))
+    .map((chunk) => String(chunk || '').trim())
+    .filter(Boolean);
+}
+function postStudioDeterministicSublineCandidates(item) {
+  const topic = String(item?.topic || '').trim();
+  const angle = String(item?.angle || topic || '').trim();
+  const nicheId = String(item?.nicheId || '').trim();
+  const [intro, detail] = postStudioPersonaTopicSentences(nicheId, topic, angle);
+  return [
+    ...postStudioSplitTextSentences(intro),
+    ...postStudioSplitTextSentences(detail),
+    `По теме ${topic.toLowerCase()}`,
+    `В теме ${topic.toLowerCase()}`,
+    angle,
+  ]
+    .map((line) => cropPostStudioCardLine(line))
+    .filter(Boolean);
+}
+function derivePostStudioCardSubline(item, { usedSkeletons = null } = {}) {
   const topicLine = normalizePostStudioCardLine(item?.topic);
   const angleLine = normalizePostStudioCardLine(item?.angle);
   const nicheId = String(item?.nicheId || '').trim();
+  const used = usedSkeletons instanceof Set ? usedSkeletons : null;
   const textPool = [item?.caption_text, item?.post_text, item?.caption]
     .map((value) => String(value || '').trim())
     .filter(Boolean);
-  for (const text of textPool) {
-    const parts = text
-      .split(/\n+/)
-      .flatMap((chunk) => String(chunk || '').split(/(?<=[.!?])\s+/))
-      .map((chunk) => String(chunk || '').trim())
-      .filter(Boolean);
-    const preferred = [];
-    const fallback = [];
-    for (const part of parts) {
-      const cropped = cropPostStudioCardLine(part);
-      const normalized = normalizePostStudioCardLine(cropped);
-      if (!normalized) continue;
-      if (postStudioCardLineLooksGeneric(cropped, topicLine, angleLine) || postStudioCardLineLooksGenericForNiche(cropped, nicheId)) {
-        fallback.push(cropped);
-        continue;
-      }
-      preferred.push(cropped);
+  const candidates = [];
+  for (const text of textPool) candidates.push(...postStudioSplitTextSentences(text).map((part) => cropPostStudioCardLine(part)).filter(Boolean));
+  candidates.push(...postStudioDeterministicSublineCandidates(item));
+  const seenCandidates = new Set();
+  for (const candidate of candidates) {
+    const normalized = normalizePostStudioCardLine(candidate);
+    if (!normalized || seenCandidates.has(normalized)) continue;
+    seenCandidates.add(normalized);
+    const skeleton = postStudioCardLineSkeleton(candidate);
+    if (used && skeleton && used.has(skeleton)) continue;
+    if (
+      postStudioCardLineLooksGeneric(candidate, topicLine, angleLine)
+      || postStudioCardLineLooksGenericForNiche(candidate, nicheId)
+      || postStudioLooksServiceFramed(candidate)
+      || postStudioLooksGenericHelperTone(candidate, nicheId)
+      || postStudioLooksGenericHelperCta(candidate, nicheId)
+    ) {
+      continue;
     }
-    if (preferred.length) return preferred[0];
-    const longestFallback = fallback
-      .filter((line) => !postStudioLooksServiceFramed(line))
-      .sort((a, b) => b.length - a.length)[0];
-    if (longestFallback) return longestFallback;
-    if (fallback.length) return fallback[0];
+    if (used && skeleton) used.add(skeleton);
+    return candidate;
+  }
+  for (const candidate of postStudioDeterministicSublineCandidates(item)) {
+    const skeleton = postStudioCardLineSkeleton(candidate);
+    if (used && skeleton && used.has(skeleton)) continue;
+    if (used && skeleton) used.add(skeleton);
+    return candidate;
   }
   return cropPostStudioCardLine(String(item?.angle || '').trim()) || '—';
+}
+function buildPostStudioCardSublineMap(items) {
+  const map = new Map();
+  const usedSkeletons = new Set();
+  (Array.isArray(items) ? items : []).forEach((item, idx) => {
+    const key = Number(item?.day || 0) || idx + 1;
+    map.set(key, derivePostStudioCardSubline(item, { usedSkeletons }));
+  });
+  return map;
 }
 function directorNicheAiContext(d) {
   if (!d || d.customTopicMode) return null;
@@ -7884,6 +7981,7 @@ function pageCreateDirector() {
     : null;
   const isPostStudioFlow = !isVideo && !isPlanFlow && studioRoute?.mode === 'post';
   const postStudioItems = isPostStudioFlow ? ((Array.isArray(d.planFlowItems) && d.planFlowItems.length) ? d.planFlowItems : []) : [];
+  const postStudioCardSublines = isPostStudioFlow ? buildPostStudioCardSublineMap(postStudioItems) : new Map();
   const postStudioLoading = isPostStudioFlow && d.planFlowState === 'loading';
   const postStudioError = isPostStudioFlow ? String(d.planFlowError || '').trim() : '';
   const postStudioGenerated = isPostStudioFlow && d.planFlowState === 'generated' && postStudioItems.length > 0;
@@ -8595,7 +8693,7 @@ function pageCreateDirector() {
           ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
             <div class="small">${esc(shellText('create_post_studio_day'))} ${Number(item.day || 0)}</div>
             <strong>${esc(item.topic || '—')}</strong>
-            <p class="small truncate" style="margin:0;">${esc(derivePostStudioCardSubline(item))}</p>
+            <p class="small truncate" style="margin:0;">${esc(postStudioCardSublines.get(Number(item.day || 0)) || derivePostStudioCardSubline(item))}</p>
           </button>`).join('')}
         </div>
       </article>
