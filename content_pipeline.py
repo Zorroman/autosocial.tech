@@ -1,4 +1,5 @@
 ﻿import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -2690,7 +2691,7 @@ def _persona_specific_fallback_text(
     key = str(persona.get("persona_key") or "").strip().lower()
     lead = angle_text or topic_text or "Тема"
     offer_mode = _has_explicit_offer(offer)
-    intro, detail = _persona_topic_sentences(key, topic_text, lead)
+    intro, detail = _sanitize_persona_topic_sentences(_persona_topic_sentences(key, topic_text, lead), topic_text)
     if key == "esoterica":
         close = (
             "Если хотите разобрать такой повторяющийся сюжет глубже, это уже можно делать в личной работе без громких обещаний."
@@ -2715,11 +2716,11 @@ def _persona_specific_fallback_text(
     if key == "apartment_renovation":
         if _looks_generic_helper_topic_no_offer(lead, persona) or _looks_generic_helper_no_offer(lead, persona):
             lead = "Где в ремонте квартиры чаще всего появляются скрытые перерасходы"
-            intro, detail = _persona_topic_sentences(key, topic_text, lead)
+            intro, detail = _sanitize_persona_topic_sentences(_persona_topic_sentences(key, topic_text, lead), topic_text)
         close = (
             "Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост."
             if offer_mode
-            else "До старта работ полезнее всего отдельно проверить смету, порядок этапов, сроки закупки и то, какие решения нельзя оставлять «на потом»."
+            else "Перерасход в ремонте почти всегда начинается там, где одно неуточнённое решение тянет за собой следующий этап и создаёт цепочку переделок."
         )
         return "\n\n".join([intro, detail, close]).strip()
     if key == "autoservice":
@@ -2825,6 +2826,94 @@ def _stable_pick(options: list[str], *parts: str) -> str:
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     low = str(text or "").strip().lower()
     return any(term in low for term in terms)
+
+
+def _opening_tokens(text: str) -> list[str]:
+    return [
+        token.strip()
+        for token in re.sub(r"[«»\"'`.,!?;:()\-]+", " ", str(text or "").lower()).split()
+        if len(token.strip()) >= 4
+    ]
+
+
+def _looks_meta_topic_intro(text: str) -> bool:
+    normalized = _normalize_policy_text(text)
+    if not normalized:
+        return False
+    return bool(
+        re.match(r"^(по|в)\s+(этой\s+)?теме\b", normalized)
+        or re.match(r"^[^.?!]+[.?!]\s*(по|в)\s+(этой\s+)?теме\b", normalized)
+    )
+
+
+def _looks_title_like_opening(text: str, topic_text: str) -> bool:
+    opening_tokens = _opening_tokens(text)
+    topic_tokens = _opening_tokens(topic_text)
+    if not opening_tokens or not topic_tokens:
+        return False
+    overlap = sum(1 for token in topic_tokens if token in opening_tokens)
+    return overlap / max(1, len(topic_tokens)) >= 0.75 and len(opening_tokens) <= len(topic_tokens) + 4
+
+
+def _capitalize_sentence(text: str) -> str:
+    raw = str(text or "").strip()
+    if not raw:
+        return ""
+    return raw[:1].upper() + raw[1:]
+
+
+def _strip_leading_topic_phrase(text: str, topic_text: str) -> str:
+    candidate_words = _normalize_policy_text(text).split()
+    topic_words = _normalize_policy_text(topic_text).split()
+    if not candidate_words or not topic_words:
+        return str(text or "").strip()
+    idx = 0
+    while idx < len(candidate_words) and idx < len(topic_words) and candidate_words[idx] == topic_words[idx]:
+        idx += 1
+    if idx >= max(2, math.ceil(len(topic_words) * 0.6)):
+        return " ".join(candidate_words[idx:]).strip()
+    return " ".join(candidate_words).strip()
+
+
+def _sanitize_opening_sentence(text: str, topic_text: str, fallback: str = "") -> str:
+    raw = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not raw:
+        return _capitalize_sentence(fallback)
+    candidate = raw
+    tail = re.sub(r"^[^.?!]+[.?!]\s*", "", raw).strip()
+    safe_fallback = _capitalize_sentence(fallback)
+    if _looks_meta_topic_intro(raw) or _looks_meta_topic_intro(tail):
+        tail_candidate = tail
+        if _looks_meta_topic_intro(tail_candidate):
+            tail_candidate = re.sub(r"^(по|в)\s+(этой\s+)?теме\b", "", tail_candidate, flags=re.I).strip()
+            tail_candidate = _strip_leading_topic_phrase(tail_candidate, topic_text)
+            tail_candidate = re.sub(r"^[—:;,.!?-]+", "", tail_candidate).strip()
+            tail_candidate = _capitalize_sentence(tail_candidate)
+            if tail_candidate and not _looks_meta_topic_intro(tail_candidate) and not _looks_title_like_opening(tail_candidate, topic_text):
+                return tail_candidate
+        if safe_fallback and not _looks_title_like_opening(safe_fallback, topic_text):
+            return safe_fallback
+    if _looks_meta_topic_intro(candidate) or _looks_meta_topic_intro(tail):
+        candidate = tail if _looks_meta_topic_intro(tail) else candidate
+        candidate = re.sub(r"^(по|в)\s+(этой\s+)?теме\b", "", candidate, flags=re.I).strip()
+        candidate = _strip_leading_topic_phrase(candidate, topic_text)
+        candidate = re.sub(r"^[—:;,.!?-]+", "", candidate).strip()
+    candidate = _capitalize_sentence(candidate)
+    if (not candidate or _looks_meta_topic_intro(candidate) or _looks_title_like_opening(candidate, topic_text)) and safe_fallback:
+        if not _looks_meta_topic_intro(safe_fallback) and not _looks_title_like_opening(safe_fallback, topic_text):
+            return safe_fallback
+    return candidate or _capitalize_sentence(fallback)
+
+
+def _sanitize_persona_topic_sentences(pair: tuple[str, str], topic_text: str) -> tuple[str, str]:
+    lines = [re.sub(r"\s+", " ", str(line or "")).strip() for line in (pair or ()) if str(line or "").strip()]
+    if not lines:
+        return ("", "")
+    fallback = str(lines[1] if len(lines) > 1 else "").strip()
+    lines[0] = _sanitize_opening_sentence(lines[0], topic_text, fallback)
+    if len(lines) == 1:
+        lines.append(fallback)
+    return lines[0], lines[1]
 
 
 def _topic_focus_phrase(topic_text: str, *, max_words: int = 4) -> str:
@@ -3275,10 +3364,10 @@ def _director_default_payload(
         angle_pool = []
         for angle in niche_content_angles:
             clean_angle = _repair_mojibake_text(angle)
-            angle_pool.append(f"Через {clean_angle}: что это значит для человека на практике")
+            angle_pool.append(f"{clean_angle[:1].upper() + clean_angle[1:] if clean_angle else 'Фокус'}: один конкретный сигнал")
         for angle in niche_content_angles:
             clean_angle = _repair_mojibake_text(angle)
-            angle_pool.append(f"Через {clean_angle}: как это применить в реальной жизни")
+            angle_pool.append(f"{clean_angle[:1].upper() + clean_angle[1:] if clean_angle else 'Фокус'}: где это влияет на результат")
     elif goal_mode == "lead":
         angle_pool = [
             "Через пользу: что человек получает уже в первый день",
@@ -3896,6 +3985,7 @@ __all__ = [
     "generateHashtags",
     "generate_hashtags",
 ]
+
 
 
 
