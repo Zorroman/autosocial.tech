@@ -4120,12 +4120,33 @@ function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
   }
   return candidate || postStudioCapitalizeSentence(fallback);
 }
+function postStudioAnalyticalFallbackSentence(topic, angle = '') {
+  const focus = postStudioTopicFocusPhrase(topic, 5);
+  const lead = String(angle || '').trim();
+  if (lead && !postStudioLooksMetaTopicIntro(lead) && !postStudioLooksTitleLikeOpening(lead, topic)) {
+    return postStudioCapitalizeSentence(`${focus}: где это влияет на результат`);
+  }
+  return postStudioCapitalizeSentence(`${focus}: что влияет сильнее всего`);
+}
+function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
+  const prepared = (Array.isArray(lines) ? lines : [])
+    .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  if (!prepared.length) return [];
+  const analyticalFallback = postStudioAnalyticalFallbackSentence(topic, angle);
+  for (let idx = 0; idx < Math.min(2, prepared.length); idx += 1) {
+    const futureSafe = prepared.slice(idx + 1).find((line) => !postStudioLooksMetaTopicIntro(line) && !postStudioLooksTitleLikeOpening(line, topic)) || analyticalFallback;
+    prepared[idx] = postStudioSanitizeOpeningSentence(prepared[idx], topic, futureSafe);
+    if (postStudioLooksMetaTopicIntro(prepared[idx]) || postStudioLooksTitleLikeOpening(prepared[idx], topic)) {
+      prepared[idx] = analyticalFallback;
+    }
+  }
+  return prepared.filter(Boolean);
+}
 function postStudioSanitizePersonaTopicSentences(pair, topic) {
   const lines = (Array.isArray(pair) ? pair : []).map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!lines.length) return lines;
-  const fallback = String(lines[1] || '').trim();
-  lines[0] = postStudioSanitizeOpeningSentence(lines[0], topic, fallback);
-  return lines.filter(Boolean);
+  return postStudioSanitizeEarlyBodySentences(lines, topic, '');
 }
 function postStudioTopicCta(topic, angle, nicheId, allowService = false, offerText = '') {
   const seed = postStudioTopicFocusPhrase(topic, 4);
@@ -11579,9 +11600,9 @@ async function bindCreateDirector(path) {
       seen.add(key);
       cleaned.push(one);
     }
-    if (cleaned.length) {
-      const fallbackOpening = cleaned.find((line, idx) => idx > 0 && !postStudioLooksMetaTopicIntro(line) && !postStudioLooksTitleLikeOpening(line, topic)) || '';
-      cleaned[0] = postStudioSanitizeOpeningSentence(cleaned[0], topic, fallbackOpening);
+    const sanitizedEarly = postStudioSanitizeEarlyBodySentences(cleaned, topic, angle);
+    if (sanitizedEarly.length) {
+      cleaned.splice(0, sanitizedEarly.length, ...sanitizedEarly);
     }
     let body = cleaned.join(' ').trim();
     const topicWords = String(topic || '')

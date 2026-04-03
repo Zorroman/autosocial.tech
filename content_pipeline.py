@@ -1399,7 +1399,7 @@ def _shared_core_fallback_text(topic: str, angle: str, goal: str, offer: str | N
     if persona and examples:
         intro = examples[0].rstrip(".") + "."
         explanation = examples[1].rstrip(".") + "." if len(examples) > 1 else (
-            f"В теме «{topic_text}» чаще всего важен не общий совет, а один узнаваемый сигнал, который человек может заметить у себя."
+            f"Один узнаваемый сигнал по теме «{topic_text}» обычно полезнее общего совета, который трудно применить к реальной ситуации."
         )
         if angle_text:
             practice = f"{angle_text}. На практике полезно выбрать один конкретный ориентир и проверить его в своей ситуации без спешки."
@@ -1433,6 +1433,7 @@ def _adapt_core_row_for_platform(source_row: dict, *, platform: str, variant_ind
         body_text = _format_core_for_platform(safe_core_text, platform)
     elif no_offer:
         body_text = _format_core_for_platform(safe_core_text, platform)
+    body_text = _sanitize_early_body_text(body_text, topic, str(source_row.get("title") or source_row.get("description") or "").strip())
     cta_text = _pick_default_cta(goal, offer, language, preferred=str(source_row.get("cta") or "").strip(), persona=persona, topic=topic)
     hashtags = [str(x).strip() for x in (source_row.get("hashtags") or []) if str(x).strip()]
     generated_tags = generateHashtags(niche=niche_label or topic, city=None, language=language, goal=goal)
@@ -1944,6 +1945,7 @@ def _generate_free_text_fallback_draft(
     persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     hook = _topic_to_client_hook(topic, goal_mode, persona=persona)
     body = _shared_core_fallback_text(topic, str(angle or hook).strip(), goal, offer, "ru", persona=persona)
+    body = _sanitize_early_body_text(body, topic, str(angle or hook).strip())
     return _ensure_platform_draft_shape(
         {
             "platform": platform,
@@ -2669,7 +2671,7 @@ def _persona_topic_variation(
         )
 
     return (
-        f"В теме «{topic_text}» полезнее разбирать не общий совет, а один конкретный сигнал, который человек может заметить у себя.",
+        f"Один конкретный сигнал по теме «{topic_text}» обычно полезнее общего совета, который остаётся слишком абстрактным.",
         "Чаще всего результат появляется там, где вы связываете тему не с теорией, а с реальной ситуацией, ошибкой или повторяющимся паттерном.",
         [
             "Сохраните пост, если хотите вернуться к этой мысли позже.",
@@ -2905,14 +2907,51 @@ def _sanitize_opening_sentence(text: str, topic_text: str, fallback: str = "") -
     return candidate or _capitalize_sentence(fallback)
 
 
+def _analytical_fallback_sentence(topic_text: str, angle_text: str = "") -> str:
+    focus = _topic_focus_phrase(topic_text, max_words=5)
+    lead = str(angle_text or "").strip()
+    if lead and not _looks_meta_topic_intro(lead) and not _looks_title_like_opening(lead, topic_text):
+        return _capitalize_sentence(f"{focus}: где это влияет на результат")
+    return _capitalize_sentence(f"{focus}: что влияет сильнее всего")
+
+
+def _sanitize_early_body_sentences(lines: list[str], topic_text: str, angle_text: str = "") -> list[str]:
+    prepared = [re.sub(r"\s+", " ", str(line or "")).strip() for line in (lines or []) if str(line or "").strip()]
+    if not prepared:
+        return []
+    analytical_fallback = _analytical_fallback_sentence(topic_text, angle_text)
+    for idx in range(min(2, len(prepared))):
+        future_safe = next(
+            (
+                str(prepared[pos] or "").strip()
+                for pos in range(idx + 1, len(prepared))
+                if str(prepared[pos] or "").strip()
+                and not _looks_meta_topic_intro(prepared[pos])
+                and not _looks_title_like_opening(prepared[pos], topic_text)
+            ),
+            analytical_fallback,
+        )
+        prepared[idx] = _sanitize_opening_sentence(prepared[idx], topic_text, future_safe)
+        if _looks_meta_topic_intro(prepared[idx]) or _looks_title_like_opening(prepared[idx], topic_text):
+            prepared[idx] = analytical_fallback
+    return [line for line in prepared if line]
+
+
+def _sanitize_early_body_text(text: str, topic_text: str, angle_text: str = "") -> str:
+    lines = _split_sentences(text)
+    if not lines:
+        return str(text or "").strip()
+    sanitized = _sanitize_early_body_sentences(lines, topic_text, angle_text)
+    return " ".join(sanitized).strip()
+
+
 def _sanitize_persona_topic_sentences(pair: tuple[str, str], topic_text: str) -> tuple[str, str]:
     lines = [re.sub(r"\s+", " ", str(line or "")).strip() for line in (pair or ()) if str(line or "").strip()]
     if not lines:
         return ("", "")
-    fallback = str(lines[1] if len(lines) > 1 else "").strip()
-    lines[0] = _sanitize_opening_sentence(lines[0], topic_text, fallback)
+    lines = _sanitize_early_body_sentences(lines, topic_text, "")
     if len(lines) == 1:
-        lines.append(fallback)
+        lines.append(_analytical_fallback_sentence(topic_text, ""))
     return lines[0], lines[1]
 
 
