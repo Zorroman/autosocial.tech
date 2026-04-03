@@ -4074,6 +4074,11 @@ function postStudioLooksMetaTopicIntro(text) {
   return /^(по|в)\s+(этой\s+)?теме\b/u.test(normalized)
     || /^[^.?!]+[.?!]\s*(по|в)\s+(этой\s+)?теме\b/u.test(normalized);
 }
+function postStudioContainsMetaTopicPhrase(text) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return false;
+  return /(^|[.?!]\s+|\s)(по|в)\s+(этой\s+)?теме\b/iu.test(raw);
+}
 function postStudioLooksTitleLikeOpening(text, topic) {
   const openingTokens = postStudioOpeningTokens(text);
   const topicTokens = postStudioOpeningTokens(topic);
@@ -4097,24 +4102,45 @@ function postStudioStripLeadingTopicPhrase(text, topic) {
   }
   return candidateWords.join(' ').trim();
 }
-function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
+function postStudioRewriteMetaTopicSentence(text, topic) {
   const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw || !postStudioContainsMetaTopicPhrase(raw)) return raw;
+  const stitched = raw.match(/^([^.?!]+[.?!])\s*(по|в)\s+(этой\s+)?теме\b\s*(.+)$/iu);
+  if (stitched) {
+    const head = String(stitched[1] || '').trim();
+    let tail = String(stitched[4] || '').trim();
+    tail = postStudioStripLeadingTopicPhrase(tail, topic);
+    tail = tail.replace(/^[—:;,.!?-]+/u, '').trim();
+    tail = postStudioCapitalizeSentence(tail);
+    if (head && tail) return `${head} ${tail}`.trim();
+  }
+  const bare = raw.match(/^(по|в)\s+(этой\s+)?теме\b\s*(.+)$/iu);
+  if (bare) {
+    let tail = String(bare[3] || '').trim();
+    tail = postStudioStripLeadingTopicPhrase(tail, topic);
+    tail = tail.replace(/^[—:;,.!?-]+/u, '').trim();
+    return postStudioCapitalizeSentence(tail);
+  }
+  return raw;
+}
+function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
+  const raw = postStudioRewriteMetaTopicSentence(text, topic);
   if (!raw) return postStudioCapitalizeSentence(fallback);
   let candidate = raw;
   const tail = raw.replace(/^[^.?!]+[.?!]\s*/u, '').trim();
   const safeFallback = postStudioCapitalizeSentence(fallback);
-  if ((postStudioLooksMetaTopicIntro(raw) || postStudioLooksMetaTopicIntro(tail)) && safeFallback && !postStudioLooksTitleLikeOpening(safeFallback, topic)) {
+  if ((postStudioContainsMetaTopicPhrase(raw) || postStudioContainsMetaTopicPhrase(tail)) && safeFallback && !postStudioLooksTitleLikeOpening(safeFallback, topic)) {
     return safeFallback;
   }
-  if (postStudioLooksMetaTopicIntro(candidate) || postStudioLooksMetaTopicIntro(tail)) {
-    candidate = postStudioLooksMetaTopicIntro(tail) ? tail : candidate;
+  if (postStudioContainsMetaTopicPhrase(candidate) || postStudioContainsMetaTopicPhrase(tail)) {
+    candidate = postStudioContainsMetaTopicPhrase(tail) ? tail : candidate;
     candidate = candidate.replace(/^(по|в)\s+(этой\s+)?теме\b/iu, '').trim();
     candidate = postStudioStripLeadingTopicPhrase(candidate, topic);
     candidate = candidate.replace(/^[—:;,.!?-]+/u, '').trim();
   }
   candidate = postStudioCapitalizeSentence(candidate);
-  if (!candidate || postStudioLooksMetaTopicIntro(candidate) || postStudioLooksTitleLikeOpening(candidate, topic)) {
-    if (safeFallback && !postStudioLooksMetaTopicIntro(safeFallback) && !postStudioLooksTitleLikeOpening(safeFallback, topic)) {
+  if (!candidate || postStudioContainsMetaTopicPhrase(candidate) || postStudioLooksTitleLikeOpening(candidate, topic)) {
+    if (safeFallback && !postStudioContainsMetaTopicPhrase(safeFallback) && !postStudioLooksTitleLikeOpening(safeFallback, topic)) {
       return safeFallback;
     }
   }
@@ -4130,14 +4156,15 @@ function postStudioAnalyticalFallbackSentence(topic, angle = '') {
 }
 function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
   const prepared = (Array.isArray(lines) ? lines : [])
+    .map((line) => postStudioRewriteMetaTopicSentence(line, topic))
     .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
   if (!prepared.length) return [];
   const analyticalFallback = postStudioAnalyticalFallbackSentence(topic, angle);
   for (let idx = 0; idx < Math.min(2, prepared.length); idx += 1) {
-    const futureSafe = prepared.slice(idx + 1).find((line) => !postStudioLooksMetaTopicIntro(line) && !postStudioLooksTitleLikeOpening(line, topic)) || analyticalFallback;
+    const futureSafe = prepared.slice(idx + 1).find((line) => !postStudioContainsMetaTopicPhrase(line) && !postStudioLooksTitleLikeOpening(line, topic)) || analyticalFallback;
     prepared[idx] = postStudioSanitizeOpeningSentence(prepared[idx], topic, futureSafe);
-    if (postStudioLooksMetaTopicIntro(prepared[idx]) || postStudioLooksTitleLikeOpening(prepared[idx], topic)) {
+    if (postStudioContainsMetaTopicPhrase(prepared[idx]) || postStudioLooksTitleLikeOpening(prepared[idx], topic)) {
       prepared[idx] = analyticalFallback;
     }
   }
@@ -4170,7 +4197,10 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
   const safeTopic = String(topic || 'Тема').trim() || 'Тема';
   const low = safeTopic.toLowerCase();
   const lead = String(angle || safeTopic).trim() || safeTopic;
-  const finalize = (pair) => postStudioSanitizePersonaTopicSentences(pair, safeTopic);
+  const finalize = (pair) => postStudioSanitizePersonaTopicSentences(
+    (Array.isArray(pair) ? pair : []).map((line) => postStudioRewriteMetaTopicSentence(line, safeTopic)),
+    safeTopic,
+  );
   switch (String(nicheId || '').trim()) {
     case 'esoterica':
       if (postStudioContainsAny(low, ['знак', 'вселен', 'синхрон', 'повтор'])) return finalize([
