@@ -4170,6 +4170,51 @@ function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
   }
   return prepared.filter(Boolean);
 }
+function postStudioSafePreviewSentenceCandidates(nicheId, topic, angle = '') {
+  const safeTopic = String(topic || '').trim() || 'Тема';
+  const safeLead = postStudioPersonaTopicFallback(safeTopic, angle, nicheId) || String(angle || safeTopic).trim() || safeTopic;
+  const pair = postStudioPersonaTopicSentences(nicheId, safeTopic, safeLead);
+  return [
+    ...postStudioSanitizePersonaTopicSentences(pair, safeTopic),
+    postStudioAnalyticalFallbackSentence(safeTopic, angle),
+    `${postStudioTopicFocusPhrase(safeTopic, 5) || 'Эта тема'}: что влияет сильнее всего`,
+  ]
+    .flatMap((line) => postStudioSplitTextSentences(line))
+    .map((line) => postStudioRewriteMetaTopicSentence(line, safeTopic))
+    .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
+    .filter((line) => line && !postStudioContainsMetaTopicPhrase(line) && !postStudioLooksTitleLikeOpening(line, safeTopic));
+}
+function postStudioSanitizeFinalPreviewBody(text, topic, angle, nicheId, { allowService = false } = {}) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+  const lines = postStudioSplitTextSentences(raw);
+  const cleaned = postStudioSanitizeEarlyBodySentences(lines, topic, angle);
+  const safeCandidates = postStudioSafePreviewSentenceCandidates(nicheId, topic, angle);
+  const out = cleaned.slice();
+  for (let idx = 0; idx < Math.min(2, out.length); idx += 1) {
+    if (!postStudioContainsMetaTopicPhrase(out[idx])) continue;
+    const replacement = safeCandidates.find((line) => normalizePostStudioCardLine(line) !== normalizePostStudioCardLine(out[idx]));
+    out[idx] = replacement || postStudioAnalyticalFallbackSentence(topic, angle);
+  }
+  let body = out.join(' ').trim();
+  const firstTwo = postStudioSplitTextSentences(body).slice(0, 2).join(' ').trim();
+  if (postStudioContainsMetaTopicPhrase(firstTwo)) {
+    body = [
+      postStudioAnalyticalFallbackSentence(topic, angle),
+      ...safeCandidates.slice(0, 2),
+      ...postStudioSplitTextSentences(body).slice(2),
+    ]
+      .map((line) => String(line || '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+  if (!allowService && (postStudioLooksServiceFramed(body) || postStudioLooksBlockedHelperTone(body, nicheId, { allowService }))) {
+    const [safeIntro, safeDetail] = postStudioSanitizePersonaTopicSentences(postStudioPersonaTopicSentences(nicheId, topic, angle), topic);
+    body = [safeIntro, safeDetail, postStudioAnalyticalFallbackSentence(topic, angle)].filter(Boolean).join(' ').trim();
+  }
+  return body;
+}
 function postStudioSanitizePersonaTopicSentences(pair, topic) {
   const lines = (Array.isArray(pair) ? pair : []).map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!lines.length) return lines;
@@ -11552,69 +11597,69 @@ async function bindCreateDirector(path) {
     const sentencesFor = (resolvedLead = lead) => postStudioPersonaTopicSentences(nicheId, safeTopic, resolvedLead);
     switch (String(nicheId || '').trim()) {
       case 'esoterica':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если хотите разобрать такой повторяющийся сюжет глубже, это уже можно делать в личной работе без громких обещаний.') || 'Полезнее не искать сенсацию, а спокойно понаблюдать, где этот знак уже повторяется в вашей жизни.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'psychology':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если хочется разобрать такую реакцию глубже, это уже повод для индивидуальной работы без спешки и громких обещаний.') || 'Обычно помогает начать с простого наблюдения: в какой момент включается напряжение, что вы при этом думаете и что стараетесь выдержать в одиночку.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'fitness':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || 'В тренировках лучше работает не рывок на мотивации, а схема, которую вы сможете повторить без отката через неделю.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'apartment_renovation':
         if (postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTone(lead, nicheId, { allowService })) {
           lead = 'Где в ремонте квартиры чаще всего появляются скрытые перерасходы';
         }
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(lead),
           explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || 'Перерасход в ремонте почти всегда начинается там, где одно неуточнённое решение тянет за собой следующий этап и создаёт цепочку переделок.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'autoservice':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если по симптомам уже нужен осмотр, дальше лучше не гадать по звуку, а проверить машину вживую.') || 'Если сигнал повторяется, полезно отметить, когда он появляется: на холодную, под нагрузкой, на скорости или при торможении.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'cosmetology':
         if (postStudioLooksBlockedHelperTone(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService })) {
           lead = postStudioPersonaTopicFallback(safeTopic, angle, nicheId);
         }
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || 'Чаще всего коже помогает не новый актив, а более спокойный уход, который не перегружает её ещё сильнее.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'smm_marketing':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала полезно проверить, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'barbershop':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если нужен разбор формы или домашнего ухода под конкретный образ, это уже личная работа с мастером, а не общий совет.') || 'Лучше всего работает не общий список советов, а один понятный режим: как носить форму, чем поддерживать её дома и что не ломать между стрижками.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'detailing':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если машине уже нужен подбор защиты под сезон и состояние покрытия, это решают по осмотру, а не по универсальному обещанию.') || 'Практическая польза здесь в том, чтобы заранее понимать, где нужен уход, а где уже начинается восстановление и потеря ресурса покрытия.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'consulting':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если вопрос уже упирается в конкретную стратегию роста, дальше нужен разбор цифр и процессов, а не ещё один абстрактный тезис.') || 'Полезнее всего здесь проверить один процесс, одну метрику и одно узкое место, которое сильнее всего тормозит решение прямо сейчас.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'online_courses':
-        return [
+        return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
           explicitClose('Если нужно подобрать программу под конкретную задачу, это уже делают от результата, а не от громкости обещаний.') || 'Перед покупкой курса полезнее всего проверить, какой навык вы получите, где будет практика и за счёт чего материал не останется просто теорией.',
-        ].filter(Boolean).join('\n\n');
+        ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'smm_marketing':
       default:
-        return `${safeTopic}\n\n${safeAngle || 'Практический подход'}\n\nОдин понятный пример из практики.\n\nОдин рабочий вывод без лишнего давления.`;
+        return postStudioSanitizeFinalPreviewBody(`${safeTopic}\n\n${safeAngle || 'Практический подход'}\n\nОдин понятный пример из практики.\n\nОдин рабочий вывод без лишнего давления.`, safeTopic, lead, nicheId, { allowService });
     }
   };
   const normalizeDraftTextForTopic = (text, topic, angle, nicheId, { allowService = false } = {}) => {
@@ -11647,12 +11692,24 @@ async function bindCreateDirector(path) {
     if (!body) {
       body = postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
     }
-    return body;
+    return postStudioSanitizeFinalPreviewBody(body, topic, angle, nicheId, { allowService });
   };
   const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false, nicheId = '' } = {}) => {
-  const body = normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService });
+  const body = postStudioSanitizeFinalPreviewBody(
+    normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService }),
+    topic,
+    angle,
+    nicheId,
+    { allowService },
+  );
   if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService })) return body;
-  return postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
+  return postStudioSanitizeFinalPreviewBody(
+    postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService }),
+    topic,
+    angle,
+    nicheId,
+    { allowService },
+  );
 };
   const buildMonthlyRenovationOpeningCandidates = (item, variantIndex = 0) => {
     const topic = String(item?.topic || '').trim() || 'Ремонт квартиры';
