@@ -45,6 +45,7 @@ const AUTOSOCIAL_RELEASE_MARKER_2026 = 'AUTOSOCIAL_RELEASE_MARKER_2026';
 const AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1 = 'AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1';
 const AUTOSOCIAL_CREATE_FLOW_V1 = 'AUTOSOCIAL_CREATE_FLOW_V1';
 const DIRECTOR_TOPIC_IDEA_COUNT = 5;
+const POST_STUDIO_MONTHLY_SOURCE_IDEA_COUNT = 30;
 const DIRECTOR_NICHE_OPTIONS = typeof DIRECTOR_NICHE_ENGINE.getNicheOptions === 'function'
   ? DIRECTOR_NICHE_ENGINE.getNicheOptions()
   : [{ value: 'smm_marketing', label: 'SMM и маркетинг' }];
@@ -3902,6 +3903,7 @@ function postStudioLooksGenericHelperTone(text, nicheId) {
   if (
     POST_STUDIO_GENERIC_HELPER_CLASS_PREFIXES.some((term) => normalized.startsWith(term))
     || /\b(мы\s+(расскажем|поделимся|поможем)|это поможет вам|узнайте|подготов(ь|и)тесь|важно знать)\b/u.test(normalized)
+    || /^через\b.+\b(что это значит|как это применить)\b/u.test(normalized)
   ) {
     return true;
   }
@@ -4266,7 +4268,7 @@ function postStudioNeutralCta(topic, angle) {
 function sanitizePostStudioTopic(topic, angle, { allowService = false, nicheId = '' } = {}) {
   const raw = String(topic || '').trim();
   if (!raw) return postStudioPersonaTopicFallback(topic, angle, nicheId);
-  if (allowService || (!postStudioLooksGenericHelperTopic(raw, nicheId) && !postStudioLooksServiceFramedTopic(raw))) return raw;
+  if (!postStudioLooksBlockedHelperTopic(raw, nicheId, { allowService })) return raw;
   return postStudioPersonaTopicFallback(raw, angle, nicheId);
 }
 function sanitizePostStudioCta(text, topic, angle, { allowService = false, nicheId = '' } = {}) {
@@ -4323,6 +4325,143 @@ function postStudioCardLineSkeleton(text) {
     .filter((word) => word.length >= 3 && !POST_STUDIO_SUBLINE_SKELETON_STOPWORDS.has(word));
   return words.slice(0, 6).join(' ');
 }
+function postStudioCardLineSkeletonTokens(text) {
+  return postStudioCardLineSkeleton(text).split(/\s+/).filter(Boolean);
+}
+function postStudioMonthlyFamilyMatches(tokens, terms = []) {
+  const list = Array.isArray(tokens) ? tokens : [];
+  return (Array.isArray(terms) ? terms : []).every((term) => list.some((token) => token.startsWith(String(term || ''))));
+}
+function postStudioMonthlyFamilyKey(text, nicheId = '') {
+  const normalized = normalizePostStudioCardLine(text);
+  if (!normalized) return '';
+  const tokens = normalized
+    .split(/\s+/)
+    .map((word) => postStudioNormalizeSkeletonToken(word))
+    .filter((word) => word.length >= 4);
+  const targeted = {
+    esoterica: [
+      [['защит', 'негатив', 'энерг'], 'esoterica_negative_energy'],
+      [['чуж', 'энерг'], 'esoterica_negative_energy'],
+      [['влиян', 'энерг'], 'esoterica_negative_energy'],
+      [['изобил'], 'esoterica_abundance'],
+      [['прошл', 'энерг'], 'esoterica_past_energy'],
+      [['дежав'], 'esoterica_dejavu'],
+    ],
+    apartment_renovation: [
+      [['этап', 'ремонт'], 'renovation_stage_budget'],
+      [['согласовыв', 'чернов'], 'renovation_stage_budget'],
+      [['ошибк', 'подрядчик'], 'renovation_contractor_errors'],
+      [['подрядчик', 'передел'], 'renovation_contractor_errors'],
+      [['выбор', 'подрядчик', 'смет'], 'renovation_contractor_estimate'],
+      [['подрядчик', 'прозрачн', 'смет'], 'renovation_contractor_estimate'],
+      [['подрядчик', 'непрозрачн', 'смет'], 'renovation_contractor_estimate'],
+      [['сравнен', 'подрядчик', 'смет'], 'renovation_contractor_estimate'],
+      [['подрядчик', 'структур', 'расчет'], 'renovation_contractor_estimate'],
+      [['подрядчик', 'расчет'], 'renovation_contractor_estimate'],
+      [['скрыт', 'перерасход'], 'renovation_hidden_overruns'],
+      [['чернов', 'отделк'], 'renovation_roughwork_finish'],
+      [['решен', 'чернов'], 'renovation_roughwork_finish'],
+    ],
+    psychology: [
+      [['тревог', 'повседнев'], 'psychology_anxiety_daily'],
+      [['тревог', 'жизн'], 'psychology_anxiety_daily'],
+    ],
+    fitness: [
+      [['сорва', 'старт', 'фитнес'], 'fitness_relapse_after_start'],
+      [['старт', 'фитнес', 'выгора'], 'fitness_relapse_after_start'],
+    ],
+    autoservice: [
+      [['звук', 'машин'], 'autoservice_vehicle_sounds'],
+      [['подготов', 'авт', 'сезон'], 'autoservice_season_prep'],
+      [['машин', 'сезон'], 'autoservice_season_prep'],
+    ],
+    cosmetology: [
+      [['привычк', 'обезвожив', 'кож'], 'cosmetology_dehydration_habits'],
+      [['обезвожив', 'кож'], 'cosmetology_dehydration_habits'],
+      [['что', 'важно', 'знать'], 'cosmetology_visit_helper'],
+      [['подготов', 'визит'], 'cosmetology_visit_helper'],
+      [['перед', 'визит'], 'cosmetology_visit_helper'],
+      [['перед', 'процедур'], 'cosmetology_visit_helper'],
+      [['консультац'], 'cosmetology_visit_helper'],
+    ],
+    smm_marketing: [
+      [['контент', 'оффер', 'продаж'], 'smm_offer_sales'],
+      [['мал', 'бизнес', 'публик'], 'smm_small_business_publishing'],
+    ],
+    barbershop: [
+      [['форм', 'бород', 'коррекц'], 'barbershop_beard_shape'],
+    ],
+    detailing: [
+      [['салон', 'свеж', 'аккурат'], 'detailing_clean_interior'],
+    ],
+    consulting: [
+      [['бизнес', 'теря', 'деньг'], 'consulting_hidden_money_loss'],
+      [['рост', 'перегруз', 'команд', 'процесс'], 'consulting_growth_overload'],
+    ],
+    online_courses: [
+      [['знан', 'практик', 'забыва'], 'online_courses_practice_decay'],
+    ],
+  }[String(nicheId || '').trim()] || [];
+  for (const [terms, label] of targeted) {
+    if (postStudioMonthlyFamilyMatches(tokens, terms)) return label;
+  }
+  const genericFamilyStopwords = new Set([
+    'как', 'почему', 'что', 'где', 'когда', 'тем', 'теме', 'по', 'в', 'один', 'конкретн',
+    'сигнал', 'фокус', 'детал', 'важн', 'значит', 'применить', 'результат', 'итог',
+    'полезн', 'смотрет', 'повторяющ', 'чащ', 'всег',
+  ]);
+  const coarseTokens = tokens.filter((word) => !genericFamilyStopwords.has(word));
+  return coarseTokens.slice(0, 2).join(' ');
+}
+function postStudioLooksStrictCosmetologyHelper(text, nicheId = '', allowService = false) {
+  if (!allowService || String(nicheId || '').trim() !== 'cosmetology') return false;
+  const normalized = normalizePostStudioCardLine(text);
+  if (!normalized) return false;
+  return [
+    'что важно знать',
+    'что это значит',
+    'как это применить',
+    'подготовка к визиту',
+    'перед визитом',
+    'перед процедур',
+    'рабочая деталь',
+    'консультац',
+  ].some((term) => normalized.includes(term));
+}
+function postStudioLooksRenovationChecklistHelper(text, nicheId = '', allowService = false) {
+  if (allowService || String(nicheId || '').trim() !== 'apartment_renovation') return false;
+  const normalized = normalizePostStudioCardLine(text);
+  if (!normalized) return false;
+  return [
+    'до старта работ',
+    'полезнее всего проверить',
+    'отдельно проверить смету',
+    'порядок этап',
+    'сроки закуп',
+    'оставлять на потом',
+  ].some((term) => normalized.includes(term));
+}
+function postStudioLooksBlockedHelperTone(text, nicheId = '', { allowService = false } = {}) {
+  return postStudioLooksGenericHelperTone(text, nicheId)
+    || postStudioLooksStrictCosmetologyHelper(text, nicheId, allowService)
+    || postStudioLooksRenovationChecklistHelper(text, nicheId, allowService);
+}
+function postStudioLooksBlockedHelperTopic(text, nicheId = '', { allowService = false } = {}) {
+  return postStudioLooksGenericHelperTopic(text, nicheId)
+    || postStudioLooksServiceFramedTopic(text)
+    || postStudioLooksStrictCosmetologyHelper(text, nicheId, allowService)
+    || postStudioLooksRenovationChecklistHelper(text, nicheId, allowService);
+}
+function postStudioCardLineHasTopicSignal(text, topic = '', angle = '') {
+  const candidateTokens = new Set(postStudioCardLineSkeletonTokens(text));
+  if (!candidateTokens.size) return false;
+  const referenceTokens = [
+    ...postStudioCardLineSkeletonTokens(topic),
+    ...postStudioCardLineSkeletonTokens(angle),
+  ].filter(Boolean);
+  return referenceTokens.some((token) => candidateTokens.has(token));
+}
 function cropPostStudioCardLine(text, maxLen = 88) {
   const raw = String(text || '').trim().replace(/\s+/g, ' ');
   if (!raw) return '';
@@ -4342,11 +4481,13 @@ function postStudioCardLineLooksGeneric(text, topic = '', angle = '') {
   if (topicLine && normalized.length <= topicLine.length && topicLine.includes(normalized)) return true;
   if (angleLine && normalized.length <= angleLine.length && angleLine.includes(normalized)) return true;
   if (postStudioCardLineWordCount(text) <= 4 && !String(text || '').includes(':') && !normalized.startsWith('по теме') && !normalized.startsWith('в теме')) return true;
+  if (!postStudioCardLineHasTopicSignal(text, topic, angle) && postStudioCardLineWordCount(text) <= 8 && !normalized.startsWith('по теме') && !normalized.startsWith('в теме')) return true;
   if (
     POST_STUDIO_GENERIC_HELPER_CLASS_PREFIXES.some((part) => normalized.startsWith(part))
     || POST_STUDIO_LISTICLE_CLASS_PREFIXES.some((part) => normalized.startsWith(part))
     || /^(топ\s*\d+|\d+\s+шаг|практическ\w*\s+шаг|частые\s+вопросы|мифы\s+и\s+факты|советы\s+по)\b/u.test(normalized)
     || /\b(узнайте|мы\s+(расскажем|поделимся|поможем)|это поможет вам)\b/u.test(normalized)
+    || /^через\b.+\b(что это значит|как это применить)\b/u.test(normalized)
   ) {
     return true;
   }
@@ -4385,50 +4526,279 @@ function postStudioDeterministicSublineCandidates(item) {
     .map((line) => cropPostStudioCardLine(line))
     .filter(Boolean);
 }
-function derivePostStudioCardSubline(item, { usedSkeletons = null } = {}) {
+function postStudioTopicVariantFromSeed(baseTopic, angle, nicheId, variantIndex = 0) {
+  const seedTopic = String(baseTopic || '').trim();
+  const seedAngle = String(angle || '').trim();
+  const fallbackTopic = postStudioPersonaTopicFallback(seedTopic || seedAngle, seedAngle || seedTopic, nicheId);
+  const angleHint = directorAngleHeadlineHint(seedAngle) || postStudioTopicFocusPhrase(seedAngle, 4);
+  const topicFocus = postStudioTopicFocusPhrase(seedTopic || fallbackTopic, 5);
+  const pool = [
+    fallbackTopic,
+    `${seedTopic || fallbackTopic}: ${angleHint}`.trim(),
+    `${fallbackTopic}: ${angleHint}`.trim(),
+    `${fallbackTopic} — ${topicFocus}`.trim(),
+  ].map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return pool[variantIndex % Math.max(1, pool.length)] || fallbackTopic || seedTopic;
+}
+function postStudioMergeUniqueStrings(existing, incoming, limit = 64) {
+  const out = [];
+  const seen = new Set();
+  const push = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(text);
+  };
+  (Array.isArray(existing) ? existing : []).forEach(push);
+  (Array.isArray(incoming) ? incoming : []).forEach(push);
+  return out.slice(0, limit);
+}
+function postStudioMonthlyTopicExpansionCandidates(baseTopic, angle, nicheId, variantIndex = 0) {
+  const seedTopic = String(baseTopic || '').trim();
+  const seedAngle = String(angle || '').trim();
+  const fallbackTopic = postStudioPersonaTopicFallback(seedTopic || seedAngle, seedAngle || seedTopic, nicheId);
+  const focus = postStudioTopicFocusPhrase(seedTopic || fallbackTopic, 6);
+  const angleFocus = postStudioTopicFocusPhrase(seedAngle || seedTopic || fallbackTopic, 5);
+  const variants = [
+    `Почему ${focus} требует другого подхода`,
+    `Где в теме ${focus} чаще всего теряется результат`,
+    `Что в теме ${focus} сильнее всего влияет на итог`,
+    `Как понять, что ${focus} уже начинает влиять на результат`,
+    `Какая ошибка в теме ${focus} чаще всего повторяется`,
+    `Что меняется, когда ${focus}`,
+    `Как не потерять результат в теме ${focus}`,
+    `${fallbackTopic}: ${angleFocus || 'один важный сигнал'}`,
+    `${fallbackTopic}: что влияет сильнее всего`,
+    `${fallbackTopic}: где чаще всего возникает ошибка`,
+    `${fallbackTopic}: один повторяющийся сигнал`,
+    `${fallbackTopic}: один важный вывод`,
+  ].map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return variants.slice(variantIndex % Math.max(1, variants.length)).concat(variants.slice(0, variantIndex % Math.max(1, variants.length)));
+}
+function postStudioTopicPoolPush(list, candidate, { seenLines = null, seenSkeletons = null, seenFamilies = null, strictHorizon = false, allowService = false, nicheId = '' } = {}) {
+  const normalized = normalizePostStudioCardLine(candidate);
+  if (!normalized || (seenLines && seenLines.has(normalized))) return false;
+  const sanitized = sanitizePostStudioTopic(candidate, '', { allowService, nicheId });
+  const sanitizedKey = normalizePostStudioCardLine(sanitized);
+  if (!sanitizedKey || (seenLines && seenLines.has(sanitizedKey))) return false;
+  const skeleton = postStudioCardLineSkeleton(sanitized);
+  const familyKey = strictHorizon ? postStudioMonthlyFamilyKey(sanitized, nicheId) : '';
+  if (strictHorizon && skeleton && seenSkeletons && seenSkeletons.has(skeleton)) return false;
+  if (strictHorizon && familyKey && seenFamilies && seenFamilies.has(familyKey)) return false;
+  if (seenLines) seenLines.add(sanitizedKey);
+  if (strictHorizon && skeleton && seenSkeletons) seenSkeletons.add(skeleton);
+  if (strictHorizon && familyKey && seenFamilies) seenFamilies.add(familyKey);
+  list.push(sanitized);
+  return true;
+}
+function postStudioTopicDerivedAngle(topic, angle, nicheId, variantIndex = 0, usedKeys = null, { allowService = false, usedFamilies = null } = {}) {
+  const safeTopic = String(topic || '').trim() || postStudioPersonaTopicFallback(topic, angle, nicheId);
+  const fallbackAngle = String(angle || '').trim();
+  const focus = postStudioTopicFocusPhrase(safeTopic, 5) || 'этой темы';
+  const angleFocus = postStudioTopicFocusPhrase(fallbackAngle || safeTopic, 4) || focus;
+  const pool = [
+    fallbackAngle,
+    `${focus}: один конкретный сигнал`,
+    `${focus}: где чаще всего теряется результат`,
+    `${focus}: что влияет сильнее всего`,
+    `${focus}: что меняет итог`,
+    `${angleFocus}: один ключевой нюанс`,
+    `${safeTopic}: один ключевой нюанс`,
+  ]
+    .map((line) => cropPostStudioCardLine(String(line || '').replace(/\s+/g, ' ').trim(), 72))
+    .filter(Boolean);
+  const ordered = pool.slice(variantIndex % Math.max(1, pool.length)).concat(pool.slice(0, variantIndex % Math.max(1, pool.length)));
+  for (const candidate of ordered) {
+    const normalized = normalizePostStudioCardLine(candidate);
+    const familyKey = postStudioMonthlyFamilyKey(candidate || safeTopic, nicheId);
+    if (!normalized) continue;
+    if (
+      postStudioLooksServiceFramed(candidate)
+      || postStudioLooksBlockedHelperTone(candidate, nicheId, { allowService })
+      || postStudioCardLineLooksGeneric(candidate, safeTopic, fallbackAngle)
+      || postStudioCardLineLooksGenericForNiche(candidate, nicheId)
+    ) {
+      continue;
+    }
+    if (usedKeys && usedKeys.has(normalized)) continue;
+    if (usedFamilies && familyKey && usedFamilies.has(familyKey)) continue;
+    if (usedKeys) usedKeys.add(normalized);
+    if (usedFamilies && familyKey) usedFamilies.add(familyKey);
+    return candidate;
+  }
+  const fallback = cropPostStudioCardLine(`${safeTopic}. ${focus}: что сильнее всего влияет на итог.`, 72);
+  const fallbackKey = normalizePostStudioCardLine(fallback);
+  const fallbackFamily = postStudioMonthlyFamilyKey(fallback || safeTopic, nicheId);
+  if (usedFamilies && fallbackFamily && usedFamilies.has(fallbackFamily)) {
+    return cropPostStudioCardLine(`${safeTopic}. Один новый ракурс для этой темы.`, 72);
+  }
+  if (usedKeys && fallbackKey) usedKeys.add(fallbackKey);
+  if (usedFamilies && fallbackFamily) usedFamilies.add(fallbackFamily);
+  return fallback;
+}
+function buildPostStudioTopicPool(topics, angles, total, { allowService = false, nicheId = '' } = {}) {
+  const resolvedTotal = Math.max(1, Number(total || 0) || 0);
+  const strictHorizon = resolvedTotal >= 30;
+  const out = [];
+  const seen = new Set();
+  const seenSkeletons = new Set();
+  const seenFamilies = new Set();
+  postStudioMergeUniqueStrings([], topics || [], Math.max(resolvedTotal, 8))
+    .forEach((topic, idx) => {
+      postStudioTopicPoolPush(out, sanitizePostStudioTopic(topic, String((angles || [])[idx % Math.max(1, (angles || []).length)] || '').trim(), { allowService, nicheId }), {
+        seenLines: seen,
+        seenSkeletons,
+        seenFamilies,
+        strictHorizon,
+        allowService,
+        nicheId,
+      });
+    });
+  const anglePool = postStudioMergeUniqueStrings([], angles || [], Math.max(resolvedTotal, 24));
+  const basePool = out.slice() || [postStudioPersonaTopicFallback('', '', nicheId)];
+  let variantIndex = 0;
+  while (out.length < resolvedTotal && variantIndex < resolvedTotal * 20) {
+    const baseTopic = basePool[variantIndex % Math.max(1, basePool.length)] || '';
+    const angle = anglePool[variantIndex % Math.max(1, anglePool.length)] || baseTopic;
+    const variants = strictHorizon
+      ? postStudioMonthlyTopicExpansionCandidates(baseTopic, angle, nicheId, variantIndex)
+      : [postStudioTopicVariantFromSeed(baseTopic, angle, nicheId, variantIndex)];
+    for (const candidate of variants) {
+      if (postStudioTopicPoolPush(out, candidate, {
+        seenLines: seen,
+        seenSkeletons,
+        seenFamilies,
+        strictHorizon,
+        allowService,
+        nicheId,
+      })) {
+        break;
+      }
+    }
+    variantIndex += 1;
+  }
+  return out.slice(0, resolvedTotal);
+}
+function postStudioStrictDeterministicSublineCandidates(item) {
+  const topic = String(item?.topic || '').trim();
+  const angle = String(item?.angle || topic || '').trim();
+  const focus = postStudioTopicFocusPhrase(topic, 5);
+  const nicheId = String(item?.nicheId || '').trim();
+  const strictLead = postStudioTopicDerivedAngle(topic, angle, nicheId, 0, null, { allowService: !!item?.allowService });
+  const [intro, detail] = postStudioPersonaTopicSentences(nicheId, topic, strictLead);
+  return [
+    cropPostStudioCardLine(`${topic}. ${strictLead || 'Один конкретный фокус.'}`),
+    cropPostStudioCardLine(`${focus}: полезнее смотреть на повторяющийся сигнал, а не на общий совет.`),
+    cropPostStudioCardLine(`${focus}: рабочая точка обычно скрыта в одной конкретной детали.`),
+    ...postStudioSplitTextSentences(detail),
+    ...postStudioSplitTextSentences(intro).slice(1),
+  ].filter(Boolean);
+}
+function postStudioMonthlySourceIdeaCount(daysCount = 7) {
+  const total = Math.max(1, Number(daysCount || 7) || 7);
+  return total >= 30 ? POST_STUDIO_MONTHLY_SOURCE_IDEA_COUNT : Math.min(total, DIRECTOR_TOPIC_IDEA_COUNT);
+}
+function derivePostStudioCardSubline(item, { usedSkeletons = null, usedNormalized = null, usedFamilies = null, strictHorizon = false } = {}) {
   const topicLine = normalizePostStudioCardLine(item?.topic);
   const angleLine = normalizePostStudioCardLine(item?.angle);
   const nicheId = String(item?.nicheId || '').trim();
+  const allowService = !!item?.allowService;
   const used = usedSkeletons instanceof Set ? usedSkeletons : null;
+  const usedLines = usedNormalized instanceof Set ? usedNormalized : null;
+  const usedFamilySet = usedFamilies instanceof Set ? usedFamilies : null;
   const textPool = [item?.caption_text, item?.post_text, item?.caption]
     .map((value) => String(value || '').trim())
     .filter(Boolean);
   const candidates = [];
   for (const text of textPool) candidates.push(...postStudioSplitTextSentences(text).map((part) => cropPostStudioCardLine(part)).filter(Boolean));
+  if (strictHorizon) candidates.push(...postStudioStrictDeterministicSublineCandidates(item));
   candidates.push(...postStudioDeterministicSublineCandidates(item));
   const seenCandidates = new Set();
   for (const candidate of candidates) {
     const normalized = normalizePostStudioCardLine(candidate);
     if (!normalized || seenCandidates.has(normalized)) continue;
     seenCandidates.add(normalized);
+    if (usedLines && usedLines.has(normalized)) continue;
     const skeleton = postStudioCardLineSkeleton(candidate);
+    const familyKey = strictHorizon ? postStudioMonthlyFamilyKey(candidate || item?.topic, nicheId) : '';
     if (used && skeleton && used.has(skeleton)) continue;
+    if (strictHorizon && familyKey && usedFamilySet && usedFamilySet.has(familyKey)) continue;
     if (
       postStudioCardLineLooksGeneric(candidate, topicLine, angleLine)
       || postStudioCardLineLooksGenericForNiche(candidate, nicheId)
       || postStudioLooksServiceFramed(candidate)
-      || postStudioLooksGenericHelperTone(candidate, nicheId)
+      || postStudioLooksBlockedHelperTone(candidate, nicheId, { allowService })
       || postStudioLooksGenericHelperCta(candidate, nicheId)
     ) {
       continue;
     }
     if (used && skeleton) used.add(skeleton);
+    if (usedLines) usedLines.add(normalized);
+    if (strictHorizon && familyKey && usedFamilySet) usedFamilySet.add(familyKey);
     return candidate;
   }
-  for (const candidate of postStudioDeterministicSublineCandidates(item)) {
+  for (const candidate of postStudioStrictDeterministicSublineCandidates(item)) {
+    const normalized = normalizePostStudioCardLine(candidate);
+    if (!normalized) continue;
+    if (usedLines && usedLines.has(normalized)) continue;
     const skeleton = postStudioCardLineSkeleton(candidate);
+    const familyKey = strictHorizon ? postStudioMonthlyFamilyKey(candidate || item?.topic, nicheId) : '';
     if (used && skeleton && used.has(skeleton)) continue;
+    if (strictHorizon && familyKey && usedFamilySet && usedFamilySet.has(familyKey)) continue;
+    if (
+      postStudioCardLineLooksGeneric(candidate, topicLine, angleLine)
+      || postStudioCardLineLooksGenericForNiche(candidate, nicheId)
+      || postStudioLooksServiceFramed(candidate)
+      || postStudioLooksBlockedHelperTone(candidate, nicheId, { allowService })
+      || postStudioLooksGenericHelperCta(candidate, nicheId)
+    ) {
+      continue;
+    }
     if (used && skeleton) used.add(skeleton);
+    if (usedLines) usedLines.add(normalized);
+    if (strictHorizon && familyKey && usedFamilySet) usedFamilySet.add(familyKey);
     return candidate;
   }
-  return cropPostStudioCardLine(String(item?.angle || '').trim()) || '—';
+  const terminalCandidates = [
+    cropPostStudioCardLine(`${String(item?.topic || 'Тема').trim()}. ${postStudioTopicFocusPhrase(String(item?.topic || ''), 5) || 'Один новый фокус для темы'}.`),
+    cropPostStudioCardLine(`${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'Эта тема'}: что сильнее всего влияет на итог.`),
+    cropPostStudioCardLine(`${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'Эта тема'}: где чаще всего теряется результат.`),
+  ].filter(Boolean);
+  for (const terminalFallback of terminalCandidates) {
+    const terminalNormalized = normalizePostStudioCardLine(terminalFallback);
+    const terminalSkeleton = postStudioCardLineSkeleton(terminalFallback);
+    const terminalFamily = strictHorizon ? postStudioMonthlyFamilyKey(terminalFallback || item?.topic, nicheId) : '';
+    if (!terminalNormalized) continue;
+    if (usedLines && usedLines.has(terminalNormalized)) continue;
+    if (used && terminalSkeleton && used.has(terminalSkeleton)) continue;
+    if (strictHorizon && terminalFamily && usedFamilySet && usedFamilySet.has(terminalFamily)) continue;
+    if (
+      postStudioCardLineLooksGeneric(terminalFallback, topicLine, angleLine)
+      || postStudioCardLineLooksGenericForNiche(terminalFallback, nicheId)
+      || postStudioLooksServiceFramed(terminalFallback)
+      || postStudioLooksBlockedHelperTone(terminalFallback, nicheId, { allowService })
+      || postStudioLooksGenericHelperCta(terminalFallback, nicheId)
+    ) {
+      continue;
+    }
+    if (used && terminalSkeleton) used.add(terminalSkeleton);
+    if (usedLines) usedLines.add(terminalNormalized);
+    if (strictHorizon && terminalFamily && usedFamilySet) usedFamilySet.add(terminalFamily);
+    return terminalFallback;
+  }
+  return cropPostStudioCardLine(String(item?.topic || '').trim()) || '—';
 }
 function buildPostStudioCardSublineMap(items) {
   const map = new Map();
   const usedSkeletons = new Set();
+  const usedNormalized = new Set();
+  const usedFamilies = new Set();
+  const strictHorizon = (Array.isArray(items) ? items.length : 0) >= 30;
   (Array.isArray(items) ? items : []).forEach((item, idx) => {
     const key = Number(item?.day || 0) || idx + 1;
-    map.set(key, derivePostStudioCardSubline(item, { usedSkeletons }));
+    map.set(key, derivePostStudioCardSubline(item, { usedSkeletons, usedNormalized, usedFamilies, strictHorizon }));
   });
   return map;
 }
@@ -11025,12 +11395,12 @@ async function bindCreateDirector(path) {
           explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || 'В тренировках лучше работает не рывок на мотивации, а схема, которую вы сможете повторить без отката через неделю.',
         ].filter(Boolean).join('\n\n');
       case 'apartment_renovation':
-        if (postStudioLooksGenericHelperTopic(lead, nicheId) || postStudioLooksGenericHelperTone(lead, nicheId)) {
+        if (postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTone(lead, nicheId, { allowService })) {
           lead = 'Где в ремонте квартиры чаще всего появляются скрытые перерасходы';
         }
         return [
           ...sentencesFor(lead),
-          explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || 'До старта работ полезнее всего отдельно проверить смету, порядок этапов, сроки закупки и то, какие решения нельзя оставлять на потом.',
+          explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || 'Перерасход в ремонте почти всегда начинается там, где одно неуточнённое решение тянет за собой следующий этап и создаёт цепочку переделок.',
         ].filter(Boolean).join('\n\n');
       case 'autoservice':
         return [
@@ -11038,6 +11408,9 @@ async function bindCreateDirector(path) {
           explicitClose('Если по симптомам уже нужен осмотр, дальше лучше не гадать по звуку, а проверить машину вживую.') || 'Если сигнал повторяется, полезно отметить, когда он появляется: на холодную, под нагрузкой, на скорости или при торможении.',
         ].filter(Boolean).join('\n\n');
       case 'cosmetology':
+        if (postStudioLooksBlockedHelperTone(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService })) {
+          lead = postStudioPersonaTopicFallback(safeTopic, angle, nicheId);
+        }
         return [
           ...sentencesFor(),
           explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || 'Чаще всего коже помогает не новый актив, а более спокойный уход, который не перегружает её ещё сильнее.',
@@ -11102,9 +11475,74 @@ async function bindCreateDirector(path) {
   };
   const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false, nicheId = '' } = {}) => {
   const body = normalizeDraftTextForTopic(text, topic, angle, nicheId, { allowService });
-  if (allowService || (!postStudioLooksServiceFramed(body) && !postStudioLooksGenericHelperTone(body, nicheId))) return body;
+  if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService })) return body;
   return postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
 };
+  const buildMonthlyRenovationOpeningCandidates = (item, variantIndex = 0) => {
+    const topic = String(item?.topic || '').trim() || 'Ремонт квартиры';
+    const angle = String(item?.angle || topic).trim() || topic;
+    const focus = postStudioTopicFocusPhrase(topic, 6) || 'ремонт квартиры';
+    const pool = [
+      `${topic}. В ремонте риск обычно растёт там, где решения по одному узлу сразу меняют следующий этап.`,
+      `${focus}: где чаще всего ломается прогноз по бюджету и срокам.`,
+      `Перерасход в ремонте редко начинается в финале: его запускают нестыковки между сметой, этапами и черновыми решениями.`,
+      `Конфликт с подрядчиком почти всегда начинается там, где объём работ и границы ответственности не собраны в одну схему.`,
+      `Переделки в ремонте растут не из одной мелочи, а из цепочки решений, которые не были связаны между собой вовремя.`,
+      `${angle}. Важнее всего увидеть, какой узел запускает следующую волну расходов и переделок.`,
+    ].map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+    return pool.slice(variantIndex % Math.max(1, pool.length)).concat(pool.slice(0, variantIndex % Math.max(1, pool.length)));
+  };
+  const stabilizeMonthlyRenovationItems = (items) => {
+    const list = Array.isArray(items) ? items.map((item) => ({ ...item })) : [];
+    if (list.length < 30) return list;
+    const usedOpeningLines = new Set();
+    const usedOpeningFamilies = new Set();
+    return list.map((item, idx) => {
+      const nicheId = String(item?.nicheId || '').trim();
+      const allowService = !!item?.allowService;
+      if (nicheId !== 'apartment_renovation' || allowService) return item;
+      let body = String(item?.post_text || item?.caption_text || item?.caption || '').trim();
+      if (!body || postStudioLooksRenovationChecklistHelper(body, nicheId, allowService)) {
+        body = postStudioPersonaBodyFallback(nicheId, item.topic, item.angle, { allowService });
+      }
+      let parts = postStudioSplitTextSentences(body);
+      let opening = String(parts[0] || '').trim();
+      let openingKey = normalizePostStudioCardLine(opening);
+      let openingFamily = postStudioMonthlyFamilyKey(opening, nicheId);
+      const openingRepeated = !!openingKey && (usedOpeningLines.has(openingKey) || (openingFamily && usedOpeningFamilies.has(openingFamily)));
+      if (openingRepeated || postStudioLooksRenovationChecklistHelper(opening, nicheId, allowService)) {
+        const remainder = parts.slice(1).join(' ').trim();
+        const candidates = buildMonthlyRenovationOpeningCandidates(item, idx);
+        for (const candidate of candidates) {
+          const candidateText = cropPostStudioCardLine(candidate, 180);
+          const candidateKey = normalizePostStudioCardLine(candidateText);
+          const candidateFamily = postStudioMonthlyFamilyKey(candidateText, nicheId);
+          if (!candidateKey) continue;
+          if (usedOpeningLines.has(candidateKey)) continue;
+          if (candidateFamily && usedOpeningFamilies.has(candidateFamily)) continue;
+          if (postStudioLooksBlockedHelperTone(candidateText, nicheId, { allowService }) || postStudioLooksServiceFramed(candidateText)) continue;
+          opening = candidateText;
+          openingKey = candidateKey;
+          openingFamily = candidateFamily;
+          body = [opening, remainder].filter(Boolean).join(' ');
+          break;
+        }
+      }
+      if (postStudioLooksRenovationChecklistHelper(body, nicheId, allowService)) {
+        body = buildMonthlyRenovationOpeningCandidates(item, idx + 1)[0] || body;
+      }
+      parts = postStudioSplitTextSentences(body);
+      opening = String(parts[0] || '').trim();
+      openingKey = normalizePostStudioCardLine(opening);
+      openingFamily = postStudioMonthlyFamilyKey(opening, nicheId);
+      if (openingKey) usedOpeningLines.add(openingKey);
+      if (openingFamily) usedOpeningFamilies.add(openingFamily);
+      item.post_text = body;
+      item.caption_text = body;
+      item.caption = body;
+      return item;
+    });
+  };
   const normalizeDraftRowsForPreview = (rows, topic, angle, nicheId, { allowService = false } = {}) => {
     const list = Array.isArray(rows) ? rows : [];
     return list.map((row, idx) => {
@@ -11216,21 +11654,26 @@ async function bindCreateDirector(path) {
     const total = Math.max(1, Number(count || 0) || 0);
     const allowService = postStudioHasExplicitOffer(offer);
     const nicheId = directorCurrentNicheId(d);
-    const topicList = mergeUniquePlanStrings([], topics || [], Math.max(total, 8));
+    const topicList = buildPostStudioTopicPool(topics || [], angles || [], total, { allowService, nicheId });
     if (!topicList.length) throw new Error('AI не вернул темы для плана.');
-    const angleList = mergeUniquePlanStrings([], angles || [], 24);
-    const ctaList = mergeUniquePlanStrings([], ctaOptions || [], 24);
+    const angleList = mergeUniquePlanStrings([], angles || [], Math.max(total, 24));
+    const ctaList = mergeUniquePlanStrings([], ctaOptions || [], Math.max(total, 24));
     const tagSets = (Array.isArray(hashtagSets) ? hashtagSets : []).map((set) => normalizeHashtagSet(set)).filter((set) => Array.isArray(set) && set.length);
     const formatPool = ['expert_post', 'checklist_post', 'story_post', 'carousel', 'sales_post', 'tutorial_post', 'comparison_post'];
+    const strictHorizon = total >= 30;
+    const usedAngleKeys = strictHorizon ? new Set() : null;
+    const usedAngleFamilies = strictHorizon ? new Set() : null;
     return Array.from({ length: total }, (_, idx) => {
       const rawTopic = topicList[idx % topicList.length];
-      const angle = angleList[idx % Math.max(1, angleList.length)] || '';
-      const topic = sanitizePostStudioTopic(rawTopic, angle, { allowService, nicheId });
+      const rawAngle = angleList[idx % Math.max(1, angleList.length)] || '';
+      const topic = sanitizePostStudioTopic(rawTopic, rawAngle, { allowService, nicheId });
+      const angle = strictHorizon ? postStudioTopicDerivedAngle(topic, rawAngle, nicheId, idx, usedAngleKeys, { allowService, usedFamilies: usedAngleFamilies }) : rawAngle;
       const cta = sanitizePostStudioCta(ctaList[idx % Math.max(1, ctaList.length)] || '', topic, angle, { allowService, nicheId });
       const hashtags = sanitizePostStudioHashtags(d, tagSets[idx % Math.max(1, tagSets.length)] || [], { allowService, nicheId }).join(' ');
       return {
         day: idx + 1,
         nicheId,
+        allowService,
         topic,
         angle,
         cta,
@@ -11553,7 +11996,7 @@ async function bindCreateDirector(path) {
       await advanceStep(0, 80);
       const slots = await buildPostStudioSlots(daysCount);
       await advanceStep(1, 80);
-      const suggestData = await fetchPlanAiSuggestions(Math.min(daysCount, DIRECTOR_TOPIC_IDEA_COUNT));
+      const suggestData = await fetchPlanAiSuggestions(postStudioMonthlySourceIdeaCount(daysCount));
       await advanceStep(2, 80);
       const allowService = postStudioHasExplicitOffer(base.offer);
       const builtItems = buildPlanFlowItemsFromAi({
@@ -11620,12 +12063,13 @@ async function bindCreateDirector(path) {
         const chunkItems = await Promise.all(chunk.map((item) => enrichPostStudioItem(item)));
         enrichedItems.push(...chunkItems);
       }
+      const finalItems = daysCount >= 30 ? stabilizeMonthlyRenovationItems(enrichedItems) : enrichedItems;
       await advanceStep(3, 80);
-      d.planFlowItems = enrichedItems;
+      d.planFlowItems = finalItems;
       d.planFlowState = 'generated';
-      d.planFlowSelectedDay = Number(enrichedItems[0]?.day || 1) || 1;
-      d.selectedCta = sanitizePostStudioCta(String(enrichedItems[0]?.cta || '').trim(), String(enrichedItems[0]?.topic || base.topic || '').trim(), String(enrichedItems[0]?.angle || '').trim(), { allowService, nicheId: enrichedItems[0]?.nicheId || directorCurrentNicheId(d) });
-      d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(enrichedItems[0]?.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
+      d.planFlowSelectedDay = Number(finalItems[0]?.day || 1) || 1;
+      d.selectedCta = sanitizePostStudioCta(String(finalItems[0]?.cta || '').trim(), String(finalItems[0]?.topic || base.topic || '').trim(), String(finalItems[0]?.angle || '').trim(), { allowService, nicheId: finalItems[0]?.nicheId || directorCurrentNicheId(d) });
+      d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(finalItems[0]?.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
       await advanceStep(4, 0);
       state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };
     } catch (e) {
