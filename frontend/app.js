@@ -9142,7 +9142,8 @@ function pageCreateDirector() {
     const postStudioPlanDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
     const postStudioPendingAction = String(d.postStudioPendingAction || '').trim();
     const postStudioGeneratePending = postStudioPendingAction === 'generate';
-    const postStudioPreviewActionPending = postStudioPendingAction === 'publish' || postStudioPendingAction === 'schedule';
+    const postStudioHydrating = postStudioGeneratePending && postStudioGenerated;
+    const postStudioPreviewActionPending = postStudioPendingAction === 'publish' || postStudioPendingAction === 'schedule' || postStudioHydrating;
     const postStudioPrimaryCta = postStudioGeneratePending
       ? (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7'))
       : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
@@ -9221,7 +9222,7 @@ function pageCreateDirector() {
         ${postStudioGenerateFeedback}
       </article>
     `;
-    const postStudioProgressCard = postStudioLoading ? `
+    const postStudioProgressCard = (postStudioLoading || postStudioHydrating) ? `
       <article class="card glass-card create-director-card plan-flow-progress-card">
         <h3 style="margin-top:0;">${esc(shellText('create_post_studio_loading'))}</h3>
         <div class="plan-flow-progress-list">
@@ -12241,6 +12242,15 @@ async function bindCreateDirector(path) {
         slots,
         offer: base.offer,
       }).map((item) => ({ ...item, format_hint: planFormatLabel(item.contentFormat || 'post') }));
+      if (daysCount >= 30 && builtItems.length) {
+        d.planFlowItems = builtItems.map((item) => ({ ...item }));
+        d.planFlowState = 'generated';
+        d.planFlowSelectedDay = Number(builtItems[0]?.day || 1) || 1;
+        d.selectedCta = sanitizePostStudioCta(String(builtItems[0]?.cta || '').trim(), String(builtItems[0]?.topic || base.topic || '').trim(), String(builtItems[0]?.angle || '').trim(), { allowService, nicheId: builtItems[0]?.nicheId || directorCurrentNicheId(d) });
+        d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(builtItems[0]?.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
+        setPostStudioGenerateFeedback('pending', 'AI собрал каркас плана и продолжает улучшать тексты, CTA и хештеги.');
+        render();
+      }
       const enrichPostStudioItem = async (seedItem) => {
         const item = { ...seedItem };
         try {
@@ -12295,6 +12305,21 @@ async function bindCreateDirector(path) {
         const chunk = builtItems.slice(idx, idx + draftBatchSize);
         const chunkItems = await Promise.all(chunk.map((item) => enrichPostStudioItem(item)));
         enrichedItems.push(...chunkItems);
+        if (daysCount >= 30 && chunkItems.length) {
+          const nextItems = Array.isArray(d.planFlowItems) && d.planFlowItems.length ? d.planFlowItems.slice() : builtItems.map((item) => ({ ...item }));
+          chunkItems.forEach((item, offset) => {
+            nextItems[idx + offset] = item;
+          });
+          d.planFlowItems = nextItems;
+          if (Number(d.planFlowSelectedDay || 1) === Number(chunkItems[0]?.day || 0) || !String(d.selectedCta || '').trim()) {
+            const selectedItem = nextItems.find((item) => Number(item.day || 0) === Number(d.planFlowSelectedDay || 1)) || nextItems[0] || null;
+            if (selectedItem) {
+              d.selectedCta = sanitizePostStudioCta(String(selectedItem.cta || '').trim(), String(selectedItem.topic || base.topic || '').trim(), String(selectedItem.angle || '').trim(), { allowService, nicheId: selectedItem.nicheId || directorCurrentNicheId(d) });
+              d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(selectedItem.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
+            }
+          }
+          render();
+        }
       }
       const finalItems = daysCount >= 30 ? stabilizeMonthlyRenovationItems(enrichedItems) : enrichedItems;
       await advanceStep(3, 80);
@@ -12304,11 +12329,13 @@ async function bindCreateDirector(path) {
       d.selectedCta = sanitizePostStudioCta(String(finalItems[0]?.cta || '').trim(), String(finalItems[0]?.topic || base.topic || '').trim(), String(finalItems[0]?.angle || '').trim(), { allowService, nicheId: finalItems[0]?.nicheId || directorCurrentNicheId(d) });
       d.selectedHashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(finalItems[0]?.hashtags || '')), { allowService, nicheId: directorCurrentNicheId(d) }).slice(0, 20);
       await advanceStep(4, 0);
+      clearPostStudioGenerateFeedback();
       state.notice = { type: 'ok', text: daysCount === 30 ? 'AI подготовил план постов на 30 дней.' : 'AI подготовил план постов на 7 дней.' };
     } catch (e) {
       d.planFlowState = 'error';
       d.planFlowItems = [];
       d.planFlowError = e.message || 'Не удалось создать план. Попробуйте ещё раз.';
+      clearPostStudioGenerateFeedback();
     } finally {
       d.planFlowProgressStep = 0;
       render();
