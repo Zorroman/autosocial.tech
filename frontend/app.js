@@ -4147,12 +4147,29 @@ function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
   return candidate || postStudioCapitalizeSentence(fallback);
 }
 function postStudioAnalyticalFallbackSentence(topic, angle = '') {
-  const focus = postStudioTopicFocusPhrase(topic, 5);
-  const lead = String(angle || '').trim();
-  if (lead && !postStudioLooksMetaTopicIntro(lead) && !postStudioLooksTitleLikeOpening(lead, topic)) {
-    return postStudioCapitalizeSentence(`${focus}: где это влияет на результат`);
+  const safeTopic = String(topic || '').trim() || 'эта тема';
+  const focus = postStudioTopicFocusPhrase(safeTopic, 5);
+  const low = safeTopic.toLowerCase();
+  if (postStudioContainsAny(low, ['контент-план', 'рубрик', 'публиков'])) {
+    return 'Контент начинает работать заметно лучше, когда темы, рубрики и цель собраны в одну понятную систему.';
   }
-  return postStudioCapitalizeSentence(`${focus}: что влияет сильнее всего`);
+  if (postStudioContainsAny(low, ['заявк', 'клиент', 'лид', 'оффер', 'прода'])) {
+    return 'Результат чаще теряется не на внимании, а в переходе от интереса к понятному следующему шагу.';
+  }
+  if (postStudioContainsAny(low, ['иде', 'генерир', 'тем'])) {
+    return 'Идеи для контента не заканчиваются, когда у команды есть понятные источники тем и повторяемая логика подготовки.';
+  }
+  if (postStudioContainsAny(low, ['миф', 'эксперт', 'лайк'])) {
+    return 'Польза начинает работать сильнее, когда пост связывает идею с конкретным выбором и понятным следующим шагом.';
+  }
+  if (postStudioContainsAny(low, ['аналит', 'метрик', 'цифр'])) {
+    return 'Цифры становятся полезными только тогда, когда из них понятно, что именно менять в следующем посте.';
+  }
+  const lead = String(angle || '').trim();
+  if (lead && !postStudioLooksMetaTopicIntro(lead) && !postStudioLooksTitleLikeOpening(lead, safeTopic)) {
+    return postStudioCapitalizeSentence(`Тема «${focus}» начинает работать сильнее, когда у поста есть одна ясная задача и понятный следующий шаг для читателя.`);
+  }
+  return postStudioCapitalizeSentence(`Сильный пост по теме «${focus}» связывает пользу, доказательство и одно понятное действие, а не распадается на набор общих тезисов.`);
 }
 function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
   const prepared = (Array.isArray(lines) ? lines : [])
@@ -4214,6 +4231,241 @@ function postStudioSanitizeFinalPreviewBody(text, topic, angle, nicheId, { allow
     body = [safeIntro, safeDetail, postStudioAnalyticalFallbackSentence(topic, angle)].filter(Boolean).join(' ').trim();
   }
   return body;
+}
+function postStudioBodyFailsQualityGuard(text, topic, nicheId, { allowService = false } = {}) {
+  const earlySentences = postStudioSplitTextSentences(String(text || '')).slice(0, 4).map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (!earlySentences.length) return true;
+  const earlyText = earlySentences.join(' ').toLowerCase();
+  const fullText = String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!allowService && (
+    /\b(визит|посетить|прийти к нам|приходить к нам|наш офис|нашу студи|наше заведен|подготовк|встрече|поделитесь с нами|не забудьте|мы готовы|мы поможем|позаботьтесь|мы собрали|мы подготовили|не стесняйтесь|подготовьте|обратитесь|приходите|мы работаем с)\b/u.test(earlyText)
+    || /^знайте\b/u.test(earlyText)
+    || /^планируете\s+визит\b/u.test(earlyText)
+  )) return true;
+  if (/(где это влияет на результат|что влияет сильнее всего|как мы можем помочь|не верьте мифам|как правильно|знание этих нюансов|новых высот|разговор про\s+[«"])/u.test(earlyText)) return true;
+  if (/(как\s+[а-яa-z0-9\s-]{3,}: где это|[а-яa-z0-9\s-]{4,}: где это влияет)/u.test(earlyText)) return true;
+  if (/(подготовк[аи]\s+—\s+это\s+залог|давайте\s+разберем|узнайте\s+какие|узнайте\s+как|это\s+поможет\s+нам|какие\s+вопросы\s+задать|как\s+правильно\s+подготовиться|советы\s+по\s+подготовк|мы\s+подготовили|как\s+мы\s+можем\s+помочь|не\s+верьте\s+мифам)/u.test(earlyText)) return true;
+  if (!allowService && /(мы\s+готовы|мы\s+поможем|как\s+мы\s+можем\s+помочь|начните\s+свой\s+путь|поделитесь\s+с\s+нами|не\s+стесняйтесь|мы\s+расскажем|мы\s+подготовили|мы\s+собрали|подготовьте|определите\s+свои\s+цели|наша\s+встреча|ваш\s+визит|наших\s+услуг)/u.test(fullText)) return true;
+  if (postStudioLooksServiceFramed(earlyText) || postStudioLooksBlockedHelperTone(earlyText, nicheId, { allowService })) return true;
+  const normalized = earlySentences.map((line) => normalizePostStudioCardLine(line)).filter(Boolean);
+  if (normalized.length >= 2 && normalized[0] === normalized[1]) return true;
+  return false;
+}
+function postStudioDraftSentenceLooksDiscardable(text, topic, nicheId, { allowService = false } = {}) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return true;
+  const low = raw.toLowerCase();
+  if (/^\d+[)\].:-]?\s*/u.test(low)) return true;
+  if (/(ключев\w+\s+проблем\w+\s+аудитор\w+|практическ\w+\s+шаг|ожидаем\w+\s+результат)/u.test(low)) return true;
+  if (/(мы\s+поможем|готовы\s+обсудить|наш[а-я\s]+специалист|нашу\s+консультац|посетить\s+(нас|нашего|нашу)|перед\s+визитом|перед\s+тем\s+как\s+посетить|сотрудничеств)/u.test(low)) return true;
+  if (/^(поделитесь\s+с\s+нами|проверьте\s+свои\s+материал|подготовьтесь\s+к\s+встрече|не\s+забудьте)/u.test(low)) return true;
+  if (/^(планируете\s+визит|знайте\b|позаботьтесь\b|давайте\s+разберем\b|мы\s+делимся\b|мы\s+собрали\b|мы\s+подготовили\b|подготовьте\b|это\s+поможет\s+нам\b|не\s+стесняйтесь\b|как\s+правильно\b|как\s+мы\s+можем\s+помочь\b|не\s+верьте\s+мифам\b|какие\s+вопросы\s+задать\b)/u.test(low)) return true;
+  if (/^(какие|какой|какая|какое)\b/u.test(low)) return true;
+  if (/^как\s+(?!только\b)/u.test(low)) return true;
+  if (/^определите\b/u.test(low)) return true;
+  if (/^вы\s+готовы\b/u.test(low) || /^не\s+стесняйтесь\b/u.test(low)) return true;
+  if (postStudioLooksBlockedHelperTone(raw, nicheId, { allowService }) || postStudioLooksServiceFramed(raw)) {
+    const topicWords = String(topic || '')
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .map((word) => word.trim())
+      .filter((word) => word.length >= 5);
+    const hasTopicSignal = topicWords.some((word) => low.includes(word));
+    if (!hasTopicSignal) return true;
+  }
+  return false;
+}
+function postStudioRewriteDraftHelperSentence(text, topic, angle, nicheId) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+  let out = raw
+    .replace(/^во-?первых,\s*/iu, '')
+    .replace(/^во-?вторых,\s*/iu, '')
+    .replace(/^в-?третьих,\s*/iu, '')
+    .replace(/^кроме\s+того,\s*/iu, '')
+    .trim();
+  if (/^узнайте,\s+как\s+/iu.test(out)) {
+    return '';
+  } else if (/^узнайте,\s+/iu.test(out)) {
+    out = out.replace(/^узнайте,\s+/iu, '');
+  }
+  if (/^знайте,\s+что\s+/iu.test(out)) {
+    out = out.replace(/^знайте,\s+что\s+/iu, '');
+  }
+  if (/^ознакомьтесь\s+с\s+/iu.test(out)) return '';
+  if (/^мы\s+разобрали\s+/iu.test(out)) return '';
+  if (/^давайте\s+разберем\s+/iu.test(out)) return '';
+  if (/^как\s+правильно\b/iu.test(out)) return '';
+  if (/^не\s+верьте\s+мифам\b/iu.test(out)) return '';
+  if (/^мы\s+подготовили\b/iu.test(out)) return '';
+  if (/^мы\s+работаем\s+с\b/iu.test(out)) return '';
+  if (/^как\s+мы\s+можем\s+помочь\b/iu.test(out)) return '';
+  if (/^знание\s+этих\s+нюансов\b/iu.test(out)) return '';
+  if (/^определите\b/iu.test(out)) return '';
+  if (/^мы\s+делимся\s+/iu.test(out)) return '';
+  if (/^мы\s+собрали\s+для\s+вас\s+/iu.test(out)) return '';
+  if (/^мы\s+всегда\s+готовы\s+/iu.test(out)) return '';
+  if (/^мы\s+собрали\b/iu.test(out)) return '';
+  if (/^планируете\s+визит\b/iu.test(out)) return '';
+  if (/^позаботьтесь\b/iu.test(out)) return '';
+  if (/^подготовьте\b/iu.test(out)) return '';
+  if (/^это\s+поможет\s+нам\b/iu.test(out)) return '';
+  if (/^поделитесь\s+с\s+нами\b/iu.test(out)) return '';
+  if (/^подготовьтесь\s+к\s+встрече\b/iu.test(out)) return '';
+  if (/^и\s+не\s+забудьте\b/iu.test(out)) return '';
+  if (/^и\s+не\s+стесняйтесь\b/iu.test(out)) return '';
+  if (/^какие\s+вопросы\s+стоит\s+задать\b/iu.test(out)) return '';
+  if (/^какие\s+вопросы\s+задать\b/iu.test(out)) return '';
+  if (/^как\s+правильно\s+подготовиться\b/iu.test(out)) return '';
+  out = out.replace(/\bчтобы\s+мы\s+могли\b.*$/iu, '').trim();
+  out = out.replace(/\bмы\s+рады\s+предложить\b.*$/iu, '').trim();
+  out = out.replace(/\bмы\s+расскажем\b.*$/iu, '').trim();
+  out = out.replace(/\bмы\s+готовы\s+поделиться\b.*$/iu, '').trim();
+  out = out.replace(/\bкак\s+мы\s+можем\s+помочь\b.*$/iu, '').trim();
+  out = out.replace(/\bзнание\s+этих\s+нюансов\b.*$/iu, '').trim();
+  if (!out) return '';
+  if (postStudioDraftSentenceLooksDiscardable(out, topic, nicheId, { allowService: false })) {
+    const analytical = postStudioAnalyticalFallbackSentence(topic, angle);
+    if (!postStudioDraftSentenceLooksDiscardable(analytical, topic, nicheId, { allowService: false })) return analytical;
+    return '';
+  }
+  return out;
+}
+function postStudioExtractUsableDraftBody(text, topic, angle, nicheId, { allowService = false } = {}) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+  const rawLow = raw.toLowerCase();
+  if (!allowService && /(визит|посетить|агентств|услуг|подготов|сотрудничеств|к\s+нам|наш[а-я\s]+офис|мы\s+подел|мы\s+расскаж|мы\s+поможем|мы\s+готовы|подготовьтесь|подготовьте|не\s+забудьте|не\s+бойтесь|наша\s+встреча|обсудить\s+со\s+специалистом)/u.test(rawLow)) {
+    return '';
+  }
+  const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
+  const seen = new Set();
+  const prepared = [];
+  for (const sentence of sentences) {
+    const one = String(sentence || '').replace(/\s+/g, ' ').trim();
+    if (!one) continue;
+    const key = one.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    prepared.push(one);
+  }
+  const cleaned = prepared
+    .map((line) => postStudioRewriteMetaTopicSentence(line, topic))
+    .map((line) => postStudioRewriteDraftHelperSentence(line, topic, angle, nicheId))
+    .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
+    .filter((line) => line && !postStudioDraftSentenceLooksDiscardable(line, topic, nicheId, { allowService }));
+  if (!cleaned.length) return '';
+  if (String(nicheId || '').trim() === 'smm_marketing' && cleaned.length < 2) return '';
+  const safeLines = postStudioSanitizeEarlyBodySentences(cleaned, topic, angle);
+  const assembled = postStudioSanitizeFinalPreviewBody(safeLines.join(' '), topic, angle, nicheId, { allowService });
+  if (!assembled) return '';
+  if (postStudioBodyFailsQualityGuard(assembled, topic, nicheId, { allowService })) return '';
+  if (!allowService && (postStudioLooksServiceFramed(assembled) || postStudioLooksBlockedHelperTone(assembled, nicheId, { allowService }))) {
+    const fallbackLead = postStudioAnalyticalFallbackSentence(topic, angle);
+    const recovered = postStudioSanitizeFinalPreviewBody([fallbackLead, ...safeLines.slice(1)].filter(Boolean).join(' '), topic, angle, nicheId, { allowService });
+    if (recovered && !postStudioLooksServiceFramed(recovered) && !postStudioLooksBlockedHelperTone(recovered, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(recovered, topic, nicheId, { allowService })) return recovered;
+    return '';
+  }
+  return assembled;
+}
+function postStudioPreviewBodyCore(text) {
+  const early = postStudioSplitTextSentences(String(text || '')).slice(0, 3).join(' ').trim();
+  if (!early) return '';
+  const words = normalizePostStudioCardLine(early)
+    .split(/\s+/)
+    .map((word) => postStudioNormalizeSkeletonToken(word))
+    .filter((word) => word.length >= 4 && !POST_STUDIO_SUBLINE_SKELETON_STOPWORDS.has(word));
+  return words.slice(0, 18).join(' ');
+}
+function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { allowService = false } = {}) {
+  const safeTopic = String(topic || 'Тема').trim() || 'Тема';
+  const focus = postStudioTopicFocusPhrase(safeTopic, 6) || safeTopic.toLowerCase();
+  const idx = Math.abs(Number(variantIndex) || 0);
+  if (String(nicheId || '').trim() === 'smm_marketing') {
+    const smmLow = safeTopic.toLowerCase();
+    let variants = [];
+    if (postStudioContainsAny(smmLow, ['контент-план', 'план', 'рубрик', 'фреймворк'])) {
+      variants = [
+        [
+          'Контент-план начинает работать только тогда, когда у каждой темы есть своя функция в пути аудитории, а не просто место в расписании.',
+          `Если тема «${focus}» не связана с конкретным этапом воронки, пост может выглядеть полезным, но всё равно не усиливать общий результат.`,
+          'Поэтому сильнее всего здесь помогает не новый список идей, а более чёткая логика роли каждого поста.',
+        ],
+        [
+          'Даже хороший план перестаёт давать эффект, когда рубрики существуют отдельно от задач бизнеса и ожидаемого действия читателя.',
+          `Тема «${focus}» работает заметно сильнее, когда она заранее привязана к нужному шагу: привлечь внимание, снять возражение или довести до заявки.`,
+          'Так контент перестаёт быть набором публикаций и начинает собираться в предсказуемую систему.',
+        ],
+      ];
+    } else if (postStudioContainsAny(smmLow, ['кейс', 'результат', 'отклик'])) {
+      variants = [
+        [
+          'Кейс помогает не тогда, когда в нём есть громкая цифра, а тогда, когда из него понятно, какое решение дало этот результат.',
+          `Если в теме «${focus}» виден только итог без логики пути, аудитория считывает красивую историю, но не понимает, что именно можно применить к себе.`,
+          'Поэтому сильнее всего здесь работает разбор связки между контекстом, действием и следующим шагом.',
+        ],
+        [
+          'Результат в кейсе перестаёт убеждать, если читатель не видит, за счёт какого хода он вообще появился.',
+          `Тема «${focus}» становится полезной тогда, когда история показывает не только финал, но и выбор, который можно повторить в своей ситуации.`,
+          'Именно это превращает кейс из витрины в понятный ориентир для решения.',
+        ],
+      ];
+    } else if (postStudioContainsAny(smmLow, ['миф', 'эксперт', 'лайк'])) {
+      variants = [
+        [
+          'Мифы про SMM мешают не сами по себе, а тем, что подменяют рабочую логику контента красивыми, но бесполезными ожиданиями.',
+          `Если тема «${focus}» не связана с реальным выбором аудитории, человек уносит общую мысль, но не понимает, почему ему стоит двигаться дальше.`,
+          'Поэтому здесь полезнее всего разбирать не лозунг, а то, как именно пост переводит интерес в действие.',
+        ],
+        [
+          'Экспертный пост не начинает продавать автоматически только потому, что в нём много пользы и правильных тезисов.',
+          `Тема «${focus}» начинает работать сильнее, когда ценность в тексте связана с понятным следующим шагом, а не остаётся абстрактным советом.`,
+          'Тогда публикация не просто нравится, а помогает человеку увидеть решение для своей задачи.',
+        ],
+      ];
+    } else if (postStudioContainsAny(smmLow, ['хаос', 'регуляр', 'публиков', 'контент'])) {
+      variants = [
+        [
+          'Хаос в контенте появляется не из-за нехватки идей, а из-за отсутствия понятной последовательности между темами, форматами и задачами постов.',
+          `Если тема «${focus}» не встроена в общий маршрут аудитории, публикация может собрать внимание, но не добавить системе устойчивости.`,
+          'Поэтому первый рабочий шаг здесь обычно не в новом креативе, а в более ясной структуре контента.',
+        ],
+        [
+          'Нерегулярный контент почти всегда сигнализирует не о слабой дисциплине, а о том, что команда каждый раз начинает с нуля.',
+          `Тема «${focus}» перестаёт буксовать, когда у поста появляется одна задача и понятная роль в общей схеме публикаций.`,
+          'Тогда контент проще повторять без ощущения постоянной импровизации.',
+        ],
+      ];
+    } else {
+      variants = [
+        [
+          `Результат чаще всего теряется там, где тема «${focus}» остаётся полезной, но не доводит внимание аудитории до понятного следующего шага.`,
+          `Если пост по теме «${focus}» не встроен в логику выбора, человек считывает пользу, но не связывает её со своим решением и не движется дальше.`,
+          'Поэтому здесь полезнее всего смотреть не на отдельную публикацию, а на роль поста в общем пути до заявки.',
+        ],
+        [
+          `Контент вокруг темы «${focus}» проседает не на охвате, а в том месте, где тема не связана с понятным действием для читателя.`,
+          `Тема «${focus}» работает заметно лучше, когда у поста есть одна задача и одно ожидаемое движение аудитории, а не попытка закрыть все вопросы сразу.`,
+          'Тогда публикация перестаёт быть отдельным фрагментом ленты и начинает работать как часть общей системы.',
+        ],
+      ];
+    }
+    const rescued = postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
+    if (!postStudioBodyFailsQualityGuard(rescued, safeTopic, nicheId, { allowService })) return rescued;
+    const backup = [
+      'Контент начинает работать заметно лучше, когда у темы есть одна чёткая задача и один понятный следующий шаг для читателя.',
+      `Для темы «${focus}» это особенно важно: без связи между пользой, доказательством и действием публикация остаётся заметной, но не становится рабочей частью воронки.`,
+      'Поэтому сильнее всего здесь помогает не новый формат, а более точная роль поста в общем пути аудитории.',
+    ].join(' ');
+    const safeBackup = postStudioSanitizeFinalPreviewBody(backup, safeTopic, angle, nicheId, { allowService });
+    return safeBackup;
+  }
+  const personaPair = postStudioSanitizePersonaTopicSentences(postStudioPersonaTopicSentences(nicheId, safeTopic, angle || safeTopic), safeTopic);
+  const genericRescue = [
+    ...personaPair,
+    postStudioAnalyticalFallbackSentence(safeTopic, angle),
+  ].filter(Boolean).join(' ');
+  return postStudioSanitizeFinalPreviewBody(genericRescue, safeTopic, angle, nicheId, { allowService });
 }
 function postStudioSanitizePersonaTopicSentences(pair, topic) {
   const lines = (Array.isArray(pair) ? pair : []).map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -4358,6 +4610,30 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
         'Полезнее смотреть на перегруз и дефицит восстановления, чем добавлять новый актив вслепую: кожа обычно отвечает на это раздражением, а не устойчивым улучшением.',
       ]);
     case 'smm_marketing':
+      if (postStudioContainsAny(low, ['кейс', 'результат', 'отклик'])) return finalize([
+        'Даже сильный кейс перестаёт работать, если в нём видно только цифру, но не видно, какой именно ход привёл к отклику.',
+        'Когда в посте разобран контекст, решение и следующий шаг, аудитория считывает не красивую историю, а рабочую механику, которую можно применить к своему бизнесу.',
+      ]);
+      if (postStudioContainsAny(low, ['иде', 'генерир', 'темы законч', 'контент'])) return finalize([
+        'Поток идей заканчивается не потому, что темы исчезли, а потому, что контент пытаются придумывать с нуля каждый раз без опоры на повторяемую систему.',
+        'Когда у команды есть набор рабочих источников, поводов и форматов, новые посты собираются быстрее и не выглядят случайным набором мыслей.',
+      ]);
+      if (postStudioContainsAny(low, ['хаотич', 'регуляр', 'команд', 'рубрик', 'публиков'])) return finalize([
+        'Хаос в SMM редко выглядит как одна большая ошибка: чаще это серия постов, у которых нет общей роли и понятной последовательности.',
+        'Как только рубрики, цель и следующий шаг начинают работать как единая схема, контент перестаёт быть набором публикаций и начинает собирать предсказуемый эффект.',
+      ]);
+      if (postStudioContainsAny(low, ['миф', 'эксперт', 'лайк'])) return finalize([
+        'Экспертный контент не начинает продавать автоматически только потому, что в нём много пользы и правильных мыслей.',
+        'Если пост не связывает пользу с конкретным следующим шагом, аудитория получает интересное чтение, но не понимает, почему ей стоит двигаться дальше именно сейчас.',
+      ]);
+      if (postStudioContainsAny(low, ['оффер', 'заявк', 'клиент', 'лид', 'прода'])) return finalize([
+        'Слабое место обычно не в охвате, а в переходе от внимания к заявке: сообщение не доводит человека до понятного следующего шага.',
+        'На практике это выглядит так: подписчики читают, соглашаются и даже сохраняют пост, но путь до лида рвётся, потому что оффер, кейс и CTA работают как три разных разговора.',
+      ]);
+      if (postStudioContainsAny(low, ['аналит', 'метрик', 'цифр', 'отслеж'])) return finalize([
+        'Аналитика начинает помогать только в тот момент, когда цифры связаны не с любопытством, а с конкретным решением по следующему шагу в контенте.',
+        'Если метрика не отвечает на вопрос, что именно усиливать, убирать или тестировать дальше, команда видит движение в таблице, но не превращает его в рост заявки.',
+      ]);
       if (postStudioContainsAny(low, ['контент-план', 'рубрик', 'темы', 'публиков'])) return finalize([
         'Контент обычно буксует не из-за идей, а из-за системы: рубрики, ритм публикаций и роль каждого поста не собраны в одну воронку.',
         'Когда план не связан с целью, человек видит активность в соцсетях, но не понимает, какой пост должен греть интерес, какой собирать заявки и какой удерживать внимание аудитории.',
@@ -11590,12 +11866,17 @@ async function bindCreateDirector(path) {
     });
     return out;
   };
-  const postStudioPersonaBodyFallback = (nicheId, topic, angle, { allowService = false } = {}) => {
+  const postStudioPersonaBodyFallback = (nicheId, topic, angle, { allowService = false, variantIndex = 0 } = {}) => {
     const safeTopic = String(topic || 'Тема').trim() || 'Тема';
     const safeAngle = String(angle || '').trim();
     let lead = safeAngle || safeTopic;
     const explicitClose = (text) => (allowService ? text : '');
     const sentencesFor = (resolvedLead = lead) => postStudioPersonaTopicSentences(nicheId, safeTopic, resolvedLead);
+    const pickVariant = (...variants) => {
+      const pool = variants.filter((variant) => Array.isArray(variant) && variant.length);
+      if (!pool.length) return [];
+      return pool[Math.abs(Number(variantIndex) || 0) % pool.length];
+    };
     switch (String(nicheId || '').trim()) {
       case 'esoterica':
         return postStudioSanitizeFinalPreviewBody([
@@ -11634,10 +11915,164 @@ async function bindCreateDirector(path) {
           explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || 'Чаще всего коже помогает не новый актив, а более спокойный уход, который не перегружает её ещё сильнее.',
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'smm_marketing':
+        {
+        const smmSeed = `${safeTopic} ${safeAngle}`.toLowerCase();
+        if (postStudioContainsAny(smmSeed, ['анализ', 'аналит', 'метрик', 'цифр', 'результат публикац', 'результаты публикац', 'показател'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Аналитика перестаёт помогать в тот момент, когда цифры читают как отчёт о прошлом, а не как подсказку к следующему решению.',
+                'Если публикации оценивают только по общему охвату или лайкам, команда видит движение в таблице, но не понимает, какой пост усиливает интерес, а какой реально ведёт к заявке.',
+                explicitClose('Если метрики уже нужно связать с воронкой, это делается как отдельная настройка системы.') || 'Поэтому сильнее всего здесь помогает не новый дашборд, а связка между метрикой, гипотезой и следующим действием.',
+              ],
+              [
+                'Ошибки в аналитике почти всегда начинаются там, где цифры смотрят отдельно от задачи поста и роли публикации в маршруте аудитории.',
+                `Тема «${postStudioTopicFocusPhrase(safeTopic, 5) || safeTopic.toLowerCase()}» становится полезной, когда по метрике можно понять, что именно менять в следующем сообщении, а не просто зафиксировать результат.`,
+                explicitClose('Если отчётность уже нужно перестраивать под реальные решения, это делают на уровне системы контента.') || 'Тогда аналитика перестаёт быть формальностью и начинает влиять на контент-план по-настоящему.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['кейс', 'результат', 'отклик'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Даже сильный кейс перестаёт работать, если в нём видно только цифру, но не видно, какой именно ход привёл к отклику.',
+                'Когда в посте разобран контекст, решение и следующий шаг, аудитория считывает не красивую историю, а рабочую механику, которую можно применить к своему бизнесу.',
+                explicitClose('Если задача уже упирается в воронку заявок, дальше нужен разбор системы под ваш цикл продаж.') || 'Полезнее всего здесь показать, где результат появился из структуры, а не из удачного совпадения.',
+              ],
+              [
+                'Кейс начинает продавать не в тот момент, когда в нём показывают рост, а в тот момент, когда читатель понимает, за счёт какого решения этот рост вообще появился.',
+                'Чем точнее разобран исходный контекст и логика действий, тем проще аудитории соотнести результат не с удачей, а с повторяемой системой работы.',
+                explicitClose('Если нужен разбор кейсов под ваш цикл продаж, это уже отдельная настройка контент-воронки.') || 'Сильнее всего здесь работает не громкая цифра, а ясная связь между задачей, решением и следующим шагом.',
+              ],
+              [
+                'Проблема большинства кейсов не в том, что они слабые, а в том, что из них непонятно, какой ход можно повторить в своей нише.',
+                'Когда в истории видны входные данные, развилка решений и причина результата, кейс перестаёт быть витриной и начинает работать как практическая опора для выбора.',
+                explicitClose('Если кейсы уже нужно собирать под разные сегменты, это делают на уровне системы, а не отдельного поста.') || 'Поэтому полезнее не украшать результат, а разложить его на шаги, которые аудитория может считать и примерить к себе.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['контент-план', 'план', 'рубрик'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Контент начинает работать заметно лучше, когда темы, рубрики и цель собраны в одну понятную систему.',
+                'Если план не связан с этапами воронки и ожидаемым действием читателя, публикации становятся заметными, но не складываются в предсказуемый результат.',
+                explicitClose('Если нужно собрать такую систему под ваш цикл продаж, это уже отдельная рабочая настройка.') || 'Первый сдвиг здесь обычно появляется не от новых идей, а от более чёткой структуры контент-плана.',
+              ],
+              [
+                'План контента перестаёт работать в тот момент, когда темы выбираются отдельно от задач бизнеса и роли поста в маршруте аудитории.',
+                'Как только у каждой рубрики появляется своя функция и понятный следующий шаг, публикации перестают спорить друг с другом и начинают усиливать общую систему.',
+                explicitClose('Если контент-план уже нужно перестраивать под воронку, это делается как отдельная настройка.') || 'Поэтому полезнее не просто расширять список тем, а связывать каждую тему с конкретным движением читателя дальше.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['иде', 'темы', 'генерир'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Поток идей заканчивается не потому, что темы исчезли, а потому, что контент пытаются придумывать с нуля каждый раз без опоры на повторяемую систему.',
+                'Когда у команды есть набор рабочих источников, поводов и форматов, новые посты собираются быстрее и не выглядят случайным набором мыслей.',
+                explicitClose('Если нужно собрать такую систему под вашу нишу, это уже отдельная настройка контент-процесса.') || 'Обычно помогает не искать вдохновение в последний момент, а заранее связать темы с задачами бизнеса и точками входа аудитории.',
+              ],
+              [
+                'Идеи для контента заканчиваются в тот момент, когда поиск тем идёт в отрыве от реальных вопросов аудитории и точек принятия решения.',
+                'Как только вы начинаете собирать повторяющиеся возражения, кейсы и поводы в одну базу, контент перестаёт зависеть от случайного вдохновения и становится управляемым.',
+                explicitClose('Если хотите собрать банк тем под свою нишу, это уже делается как отдельный контент-контур.') || 'Быстрее всего идеи появляются там, где каждая тема заранее привязана к роли поста и следующему шагу для читателя.',
+              ],
+              [
+                'Сильный контент-ритм держится не на внезапных инсайтах, а на системе, где у каждой рубрики есть свой источник идей и понятная задача.',
+                'Если темы рождаются прямо перед публикацией, команда почти неизбежно уходит в хаос: повторяет одно и то же, теряет фокус и не доводит читателя до действия.',
+                explicitClose('Если нужен разбор такой системы под ваш процесс, это уже отдельная рабочая настройка.') || 'Поэтому полезнее не ждать вдохновения, а заранее раскладывать идеи по форматам, вопросам аудитории и этапам воронки.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['фреймворк', 'рубрик', 'хаотич', 'целенаправ'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Хаос в SMM редко выглядит как одна большая ошибка: чаще это серия постов, у которых нет общей роли и понятной последовательности.',
+                'Как только рубрики, цель и следующий шаг начинают работать как единая схема, контент перестаёт быть набором публикаций и начинает собирать предсказуемый эффект.',
+                explicitClose('Если нужен разбор рубрик под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первый сдвиг здесь обычно появляется не от новых идей, а от более чёткой структуры.',
+              ],
+              [
+                'Проблема нерегулярного контента почти всегда связана не с нехваткой времени, а с тем, что публикации не собраны в повторяемый каркас.',
+                'Когда команда понимает, какой тип поста отвечает за внимание, какой за доверие и какой за следующий шаг, выпускать контент стабильно становится заметно проще.',
+                explicitClose('Если такой каркас нужно собрать под ваш цикл продаж, это уже отдельная настройка.') || 'Поэтому сначала полезно определить роли рубрик, а не просто увеличивать частоту публикаций.',
+              ],
+              [
+                'Регулярность ломается там, где каждый пост приходится заново изобретать без шаблона решений для типовых задач бизнеса.',
+                'Если у рубрик нет привязки к целям, публикации выходят хаотично и команда тратит ресурс на поиск темы вместо развития понятной системы.',
+                explicitClose('Если нужно разложить рубрики по этапам воронки, это уже делают как отдельную рабочую схему.') || 'Устойчивый ритм появляется тогда, когда структура контента снимает лишние решения на каждом выпуске.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['миф', 'эксперт', 'лайк'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Экспертный контент не начинает продавать автоматически только потому, что в нём много пользы и правильных мыслей.',
+                'Если пост не связывает пользу с конкретным следующим шагом, аудитория получает интересное чтение, но не понимает, почему ей стоит двигаться дальше именно сейчас.',
+                explicitClose('Если нужно разложить экспертный контент по этапам воронки, это уже решают на уровне системы, а не одного поста.') || 'Поэтому важен не объём пользы сам по себе, а то, как она встроена в путь до заявки.',
+              ],
+              [
+                'Польза перестаёт работать на заявку в тот момент, когда экспертный пост отвечает на всё сразу, но не создаёт ясного хода для читателя дальше.',
+                'Человек может согласиться с текстом, сохранить его и даже поделиться им, но всё равно не увидеть, почему следующий шаг логично делать прямо сейчас.',
+                explicitClose('Если экспертный контент уже нужно перестраивать под сегменты, это делается на уровне системы контента.') || 'Сильнее всего продаёт не сама экспертиза, а её связь с конкретным выбором и понятным действием.',
+              ],
+              [
+                'Миф о том, что полезный пост продаёт сам по себе, обычно ломает логику контента сильнее, чем слабый охват.',
+                'Если в тексте нет связи между болью, решением и следующим шагом, читатель уносит идею, но не связывает её с вашим предложением и своим текущим запросом.',
+                explicitClose('Если нужно перестроить экспертный контент под воронку, это уже отдельная рабочая настройка.') || 'Поэтому полезнее не наращивать объём советов, а выстраивать у поста ясную роль в пути до заявки.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
+        if (postStudioContainsAny(smmSeed, ['оффер', 'заяв', 'клиент', 'лид', 'прода'])) {
+          return postStudioSanitizeFinalPreviewBody([
+            ...pickVariant(
+              [
+                'Слабое место обычно не в охвате, а в переходе от внимания к заявке: сообщение не доводит человека до понятного следующего шага.',
+                'На практике это выглядит так: подписчики читают, соглашаются и даже сохраняют пост, но путь до лида рвётся, потому что оффер, кейс и CTA работают как три разных разговора.',
+                explicitClose('Если нужно связать контент и воронку под ваш цикл продаж, это уже отдельная настройка.') || 'Поэтому сначала стоит проверить, где именно у вас распадается связка между пользой поста и следующим действием клиента.',
+              ],
+              [
+                'Контент перестаёт приводить к заявкам не тогда, когда посты становятся слабее, а тогда, когда польза и предложение существуют в них как две несвязанные части.',
+                'Читатель может считать ценность, но не понять, почему следующий шаг относится именно к его ситуации и что он получит, если двинется дальше сейчас.',
+                explicitClose('Если проблема уже в структуре оффера, это лучше разбирать как систему, а не один пост.') || 'Сильнее всего здесь помогает не новый креатив, а связка между болью, доказательством и следующим шагом.',
+              ],
+              [
+                'Оффер провисает там, где контент объясняет тему, но не переводит внимание аудитории в конкретное решение и понятный формат действия.',
+                'Когда у пользы нет продолжения в виде ясного предложения, пост создаёт вовлечение, но оставляет человека без мотива двинуться к заявке.',
+                explicitClose('Если нужно перестроить эту связку под вашу воронку, это уже отдельная рабочая задача.') || 'Поэтому полезнее всего проверить, как именно в тексте связаны ценность, доказательство и следующий шаг.',
+              ],
+            ),
+          ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
         return postStudioSanitizeFinalPreviewBody([
-          ...sentencesFor(),
-          explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала полезно проверить, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
+          ...pickVariant(
+            [
+              ...sentencesFor(postStudioPersonaTopicFallback(safeTopic, `${angle}|${variantIndex}`, nicheId)),
+              explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала полезно проверить, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
+            ],
+            [
+              'Контент начинает работать заметно лучше в тот момент, когда у каждого поста появляется одна чёткая задача вместо попытки закрыть все вопросы аудитории сразу.',
+              'Если публикация одновременно и обучает, и продаёт, и доказывает, и развлекает, человек чаще уносит только общее впечатление, но не движется к понятному следующему шагу.',
+              explicitClose('Если уже нужно собрать такую логику под ваши продукты, это делается как отдельная настройка системы.') || 'Обычно здесь помогает не новый формат, а ясное распределение ролей между постами в одной цепочке.',
+            ],
+            [
+              'Проблема контента редко в том, что он недостаточно полезный: чаще он просто не встроен в общую логику движения аудитории.',
+              'Когда темы, форматы и CTA не согласованы между собой, даже хорошие публикации работают как отдельные эпизоды, а не как система, которая наращивает доверие и ведёт к действию.',
+              explicitClose('Если нужен разбор такой системы под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первый рабочий шаг здесь обычно в том, чтобы связать каждую тему с этапом воронки и одним ожидаемым результатом поста.',
+            ],
+          ),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
+        }
       case 'barbershop':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
@@ -11665,35 +12100,15 @@ async function bindCreateDirector(path) {
   };
   const normalizeDraftTextForTopic = (text, topic, angle, nicheId, { allowService = false } = {}) => {
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
-    const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
-    const seen = new Set();
-    const cleaned = [];
-    for (const s of sentences) {
-      const one = String(s || '').replace(/\s+/g, ' ').trim();
-      if (!one) continue;
-      const key = one.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      cleaned.push(one);
-    }
-    const sanitizedEarly = postStudioSanitizeEarlyBodySentences(cleaned, topic, angle);
-    if (sanitizedEarly.length) {
-      cleaned.splice(0, sanitizedEarly.length, ...sanitizedEarly);
-    }
-    let body = cleaned.join(' ').trim();
-    const topicWords = String(topic || '')
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .map((w) => w.trim())
-      .filter((w) => w.length >= 4);
-    const hasTopic = topicWords.some((w) => body.toLowerCase().includes(w));
-    if (!hasTopic && String(topic || '').trim()) {
-      body = `${String(topic).trim()}. ${body}`.trim();
-    }
-    if (!body) {
-      body = postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService });
-    }
-    return postStudioSanitizeFinalPreviewBody(body, topic, angle, nicheId, { allowService });
+    const preservedDraftBody = postStudioExtractUsableDraftBody(raw, topic, angle, nicheId, { allowService });
+    if (preservedDraftBody) return preservedDraftBody;
+    return postStudioSanitizeFinalPreviewBody(
+      postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService }),
+      topic,
+      angle,
+      nicheId,
+      { allowService },
+    );
   };
   const sanitizePostStudioPreviewText = (text, topic, angle, { allowService = false, nicheId = '' } = {}) => {
   const body = postStudioSanitizeFinalPreviewBody(
@@ -11703,9 +12118,25 @@ async function bindCreateDirector(path) {
     nicheId,
     { allowService },
   );
-  if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService })) return body;
-  return postStudioSanitizeFinalPreviewBody(
+  if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(body, topic, nicheId, { allowService })) return body;
+  const fallbackBody = postStudioSanitizeFinalPreviewBody(
     postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService }),
+    topic,
+    angle,
+    nicheId,
+    { allowService },
+  );
+  if (!postStudioBodyFailsQualityGuard(fallbackBody, topic, nicheId, { allowService })) return fallbackBody;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const rescued = postStudioUniqueBodyRescue(nicheId, topic, angle, attempt, { allowService });
+    if (rescued && !postStudioBodyFailsQualityGuard(rescued, topic, nicheId, { allowService })) return rescued;
+  }
+  return postStudioSanitizeFinalPreviewBody(
+    [
+      postStudioAnalyticalFallbackSentence(topic, angle),
+      'Рабочий текст здесь должен не обслуживать визит или промо, а объяснять, где именно тема меняет решение, поведение или следующий шаг аудитории.',
+      'Если исходный драфт не дал такой опоры, безопаснее собрать короткий аналитический пост, чем оставлять слабый сервисный шаблон.',
+    ].join(' '),
     topic,
     angle,
     nicheId,
@@ -12233,6 +12664,7 @@ async function bindCreateDirector(path) {
       const suggestData = await fetchPlanAiSuggestions(postStudioMonthlySourceIdeaCount(daysCount));
       await advanceStep(2, 80);
       const allowService = postStudioHasExplicitOffer(base.offer);
+      const usedBodyCoreKeys = new Set();
       const builtItems = buildPlanFlowItemsFromAi({
         count: daysCount,
         topics: suggestData.topics,
@@ -12276,6 +12708,88 @@ async function bindCreateDirector(path) {
           if (draft) {
             const mergedText = String(draft.post_text || item.post_text || '').trim();
             item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
+            const initialBodyCore = postStudioPreviewBodyCore(item.post_text);
+            if (initialBodyCore && usedBodyCoreKeys.has(initialBodyCore)) {
+              const preservedDraftBody = postStudioExtractUsableDraftBody(mergedText, item.topic, item.angle, item.nicheId || directorCurrentNicheId(d), { allowService });
+              const preservedCore = postStudioPreviewBodyCore(preservedDraftBody);
+              if (preservedDraftBody && preservedCore && !usedBodyCoreKeys.has(preservedCore) && !postStudioBodyFailsQualityGuard(preservedDraftBody, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                item.post_text = preservedDraftBody;
+              } else {
+                let foundUniqueFallback = false;
+                for (let attempt = 0; attempt < 6; attempt += 1) {
+                  const rerolledFallback = postStudioPersonaBodyFallback(
+                    item.nicheId || directorCurrentNicheId(d),
+                    item.topic,
+                    item.angle,
+                    { allowService, variantIndex: (Number(item.day || 0) || 0) + attempt },
+                  );
+                  const rerolledCore = postStudioPreviewBodyCore(rerolledFallback);
+                  if (rerolledFallback && rerolledCore && !usedBodyCoreKeys.has(rerolledCore) && !postStudioBodyFailsQualityGuard(rerolledFallback, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                    item.post_text = rerolledFallback;
+                    foundUniqueFallback = true;
+                    break;
+                  }
+                }
+                if (!foundUniqueFallback) {
+                  item.post_text = postStudioUniqueBodyRescue(
+                    item.nicheId || directorCurrentNicheId(d),
+                    item.topic,
+                    item.angle,
+                    Number(item.day || 0) || 0,
+                    { allowService },
+                  );
+                }
+              }
+            }
+            if (postStudioBodyFailsQualityGuard(item.post_text, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+              let repairedBody = '';
+              for (let attempt = 0; attempt < 6; attempt += 1) {
+                const rerolledFallback = postStudioPersonaBodyFallback(
+                  item.nicheId || directorCurrentNicheId(d),
+                  item.topic,
+                  item.angle,
+                  { allowService, variantIndex: (Number(item.day || 0) || 0) + attempt },
+                );
+                const rerolledCore = postStudioPreviewBodyCore(rerolledFallback);
+                if (rerolledFallback && rerolledCore && !usedBodyCoreKeys.has(rerolledCore) && !postStudioBodyFailsQualityGuard(rerolledFallback, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                  repairedBody = rerolledFallback;
+                  break;
+                }
+              }
+              if (!repairedBody) {
+                for (let attempt = 0; attempt < 6; attempt += 1) {
+                  const rescued = postStudioUniqueBodyRescue(
+                    item.nicheId || directorCurrentNicheId(d),
+                    item.topic,
+                    item.angle,
+                    (Number(item.day || 0) || 0) + attempt,
+                    { allowService },
+                  );
+                  const rescuedCore = postStudioPreviewBodyCore(rescued);
+                  if (rescued && rescuedCore && !usedBodyCoreKeys.has(rescuedCore) && !postStudioBodyFailsQualityGuard(rescued, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                    repairedBody = rescued;
+                    break;
+                  }
+                }
+              }
+              if (repairedBody) {
+                item.post_text = repairedBody;
+              } else {
+                item.post_text = postStudioSanitizeFinalPreviewBody(
+                  [
+                    postStudioAnalyticalFallbackSentence(item.topic, item.angle),
+                    'Сильный пост здесь должен объяснять, где тема влияет на решение аудитории и какой следующий шаг она делает понятным.',
+                    'Если исходный драфт этого не даёт, безопаснее оставить короткий аналитический текст, чем сервисный или промо-хвост.',
+                  ].join(' '),
+                  item.topic,
+                  item.angle,
+                  item.nicheId || directorCurrentNicheId(d),
+                  { allowService },
+                );
+              }
+            }
+            const acceptedBodyCore = postStudioPreviewBodyCore(item.post_text);
+            if (acceptedBodyCore) usedBodyCoreKeys.add(acceptedBodyCore);
             item.caption_text = item.post_text;
             item.caption = item.post_text;
             item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
@@ -12292,6 +12806,63 @@ async function bindCreateDirector(path) {
             item.angle,
             { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) },
           );
+          const fallbackCore = postStudioPreviewBodyCore(item.post_text);
+          if (fallbackCore && usedBodyCoreKeys.has(fallbackCore)) {
+            let foundUniqueFallback = false;
+            for (let attempt = 0; attempt < 6; attempt += 1) {
+              const rerolledFallback = postStudioPersonaBodyFallback(
+                item.nicheId || directorCurrentNicheId(d),
+                item.topic,
+                item.angle,
+                { allowService, variantIndex: (Number(item.day || 0) || 0) + attempt },
+              );
+              const rerolledCore = postStudioPreviewBodyCore(rerolledFallback);
+              if (rerolledFallback && rerolledCore && !usedBodyCoreKeys.has(rerolledCore) && !postStudioBodyFailsQualityGuard(rerolledFallback, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                item.post_text = rerolledFallback;
+                foundUniqueFallback = true;
+                break;
+              }
+            }
+            if (!foundUniqueFallback) {
+              item.post_text = postStudioUniqueBodyRescue(
+                item.nicheId || directorCurrentNicheId(d),
+                item.topic,
+                item.angle,
+                Number(item.day || 0) || 0,
+                { allowService },
+              );
+            }
+          }
+          if (postStudioBodyFailsQualityGuard(item.post_text, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+            for (let attempt = 0; attempt < 6; attempt += 1) {
+              const rescued = postStudioUniqueBodyRescue(
+                item.nicheId || directorCurrentNicheId(d),
+                item.topic,
+                item.angle,
+                (Number(item.day || 0) || 0) + attempt,
+                { allowService },
+              );
+              if (rescued && !postStudioBodyFailsQualityGuard(rescued, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                item.post_text = rescued;
+                break;
+              }
+            }
+            if (postStudioBodyFailsQualityGuard(item.post_text, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+              item.post_text = postStudioSanitizeFinalPreviewBody(
+                [
+                  postStudioAnalyticalFallbackSentence(item.topic, item.angle),
+                  'Рабочий текст здесь должен не обслуживать визит или промо, а объяснять, где тема меняет решение, поведение или следующий шаг аудитории.',
+                  'Если исходный драфт не дал такой опоры, безопаснее собрать короткий аналитический пост, чем оставлять слабый сервисный шаблон.',
+                ].join(' '),
+                item.topic,
+                item.angle,
+                item.nicheId || directorCurrentNicheId(d),
+                { allowService },
+              );
+            }
+          }
+          const acceptedFallbackCore = postStudioPreviewBodyCore(item.post_text);
+          if (acceptedFallbackCore) usedBodyCoreKeys.add(acceptedFallbackCore);
           item.caption_text = item.post_text;
           item.caption = item.post_text;
           item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
