@@ -4123,8 +4123,20 @@ function postStudioRewriteMetaTopicSentence(text, topic) {
   }
   return raw;
 }
+function postStudioRewriteReleaseToneSentence(text, topic) {
+  let raw = postStudioRewriteMetaTopicSentence(text, topic);
+  if (!raw) return '';
+  raw = raw.replace(/^(эта|данная)\s+тема\b[—:,\s-]*/iu, '').trim();
+  raw = raw.replace(/^тема\s+[«"][^«»"]+[»"]\s*/iu, '').trim();
+  raw = raw.replace(/\b(важно|нужно|необходимо)\s+понимать,?\s+что\b/iu, '').trim();
+  raw = raw.replace(/\b(следует|стоит)\s+отметить,?\s+что\b/iu, '').trim();
+  raw = raw.replace(/^(сегодня\s+мы\s+поговорим|в\s+этой\s+статье|рассмотрим|разбер[её]м)\b[—:,\s-]*/iu, '').trim();
+  raw = raw.replace(/^разбор\s+становится\s+полезным,\s+когда\b/iu, 'Смотрите, как').trim();
+  raw = raw.replace(/\bначинает\s+работать\s+только\s+тогда,\s+когда\b/iu, 'работает только в том случае, если').trim();
+  return postStudioCapitalizeSentence(raw);
+}
 function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
-  const raw = postStudioRewriteMetaTopicSentence(text, topic);
+  const raw = postStudioRewriteReleaseToneSentence(text, topic);
   if (!raw) return postStudioCapitalizeSentence(fallback);
   let candidate = raw;
   const tail = raw.replace(/^[^.?!]+[.?!]\s*/u, '').trim();
@@ -4146,30 +4158,154 @@ function postStudioSanitizeOpeningSentence(text, topic, fallback = '') {
   }
   return candidate || postStudioCapitalizeSentence(fallback);
 }
-function postStudioAnalyticalFallbackSentence(topic, angle = '') {
+function postStudioAnalyticalFallbackSentence(topic, angle = '', nicheId = '') {
   const safeTopic = String(topic || '').trim() || 'эта тема';
-  const focus = postStudioTopicFocusPhrase(safeTopic, 5);
   const low = safeTopic.toLowerCase();
+  const niche = String(nicheId || '').trim();
+  if (niche === 'psychology' || postStudioContainsAny(low, ['тревог', 'границ', 'отношен', 'эмоци', 'выгоран', 'сценар'])) {
+    return 'Один и тот же сценарий обычно видно раньше, чем человек успевает назвать эмоцию: тело уже зажимается, внимание сужается, а знакомая мысль включается автоматически.';
+  }
+  if (niche === 'cosmetology' || postStudioContainsAny(low, ['кож', 'процедур', 'барьер', 'акне', 'пигмент', 'уход'])) {
+    return 'Кожа быстро показывает перегруз: после умывания стягивает, активы щиплют, а покраснение держится дольше обычного.';
+  }
+  if (niche === 'apartment_renovation' || postStudioContainsAny(low, ['ремонт', 'подряд', 'смет', 'бюджет', 'чернов', 'квартир'])) {
+    return 'Перерасход в ремонте почти всегда стартует тихо: один узел не согласовали, бригада пошла дальше, а потом переделка тянет следующий этап.';
+  }
+  if (niche === 'esoterica' || postStudioContainsAny(low, ['знак', 'вселен', 'ритуал', 'аффирмац', 'лун', 'карм', 'негатив', 'энерг'])) {
+    return 'Один и тот же знак начинает что-то значить только тогда, когда он повторяется в похожем состоянии, выборе или разговоре, а не вспыхивает один раз для красоты.';
+  }
   if (postStudioContainsAny(low, ['контент-план', 'рубрик', 'публиков'])) {
-    return 'Контент начинает работать заметно лучше, когда темы, рубрики и цель собраны в одну понятную систему.';
+    return 'Контент-план рассыпается в тот момент, когда рубрики живут отдельно от задачи поста и от следующего шага читателя.';
   }
   if (postStudioContainsAny(low, ['заявк', 'клиент', 'лид', 'оффер', 'прода'])) {
-    return 'Результат чаще теряется не на внимании, а в переходе от интереса к понятному следующему шагу.';
+    return 'Заявки теряются не на охвате, а в том месте, где человек понял пользу, но так и не увидел, что делать дальше.';
   }
   if (postStudioContainsAny(low, ['иде', 'генерир', 'тем'])) {
-    return 'Идеи для контента не заканчиваются, когда у команды есть понятные источники тем и повторяемая логика подготовки.';
+    return 'Темы перестают заканчиваться, когда команда собирает в одну базу реальные вопросы клиентов, кейсы и повторяющиеся возражения.';
   }
   if (postStudioContainsAny(low, ['миф', 'эксперт', 'лайк'])) {
-    return 'Польза начинает работать сильнее, когда пост связывает идею с конкретным выбором и понятным следующим шагом.';
+    return 'Экспертный пост читают до конца, когда из него ясно, какую ошибку человек допускает сейчас и какой шаг меняет ситуацию.';
   }
   if (postStudioContainsAny(low, ['аналит', 'метрик', 'цифр'])) {
-    return 'Цифры становятся полезными только тогда, когда из них понятно, что именно менять в следующем посте.';
+    return 'Цифры становятся рабочими только тогда, когда по ним видно, какой пост двигает интерес дальше, а какой просто шумит в ленте.';
   }
   const lead = String(angle || '').trim();
   if (lead && !postStudioLooksMetaTopicIntro(lead) && !postStudioLooksTitleLikeOpening(lead, safeTopic)) {
-    return postStudioCapitalizeSentence(`Тема «${focus}» начинает работать сильнее, когда у поста есть одна ясная задача и понятный следующий шаг для читателя.`);
+    return postStudioCapitalizeSentence('Живой пост начинается с узнаваемой ситуации: человек уже видел этот сбой у себя, у клиента или в ежедневной практике.');
   }
-  return postStudioCapitalizeSentence(`Сильный пост по теме «${focus}» связывает пользу, доказательство и одно понятное действие, а не распадается на набор общих тезисов.`);
+  return postStudioCapitalizeSentence('Лучше всего работает конкретный сигнал: ошибка, симптом или повторяющийся момент, который человек узнаёт без длинного вступления.');
+}
+function postStudioPracticalCloseSentence(nicheId, topic, angle = '', variantIndex = 0) {
+  const safeTopic = String(topic || '').trim() || 'Тема';
+  const low = safeTopic.toLowerCase();
+  const niche = String(nicheId || '').trim();
+  const pick = (...variants) => {
+    const pool = variants.filter(Boolean);
+    const rawIdx = Number(variantIndex);
+    const stableIdx = Number.isFinite(rawIdx) && rawIdx !== 0
+      ? Math.abs(rawIdx)
+      : normalizePostStudioCardLine(`${safeTopic} ${angle || ''}`).split(/\s+/).join('').length;
+    return pool[stableIdx % Math.max(1, pool.length)] || '';
+  };
+  if (niche === 'psychology' || postStudioContainsAny(low, ['тревог', 'границ', 'отношен', 'эмоци', 'выгоран', 'сценар'])) {
+    return pick(
+      'Если вовремя заметить первый внутренний зажим, привычная реакция уже не захватывает весь разговор или весь день.',
+      'Самая рабочая точка обычно ближе к триггеру, чем кажется: там, где мысль только вспыхнула, а тело уже напряглось.',
+      'Когда человек видит этот участок раньше, у него появляется шанс ответить себе иначе, а не доигрывать старый сценарий до конца.',
+    );
+  }
+  if (niche === 'cosmetology' || postStudioContainsAny(low, ['кож', 'процедур', 'барьер', 'акне', 'пигмент', 'уход'])) {
+    if (postStudioContainsAny(low, ['восстанов', 'после', 'результат'])) {
+      return 'Самое важное после процедуры видно не в первом впечатлении, а в том, как спокойно кожа проходит восстановление без нового фона раздражения.';
+    }
+    if (postStudioContainsAny(low, ['миф', 'правда'])) {
+      return 'Как только человек смотрит на кожу по её состоянию, а не по обещанию процедуры, большая часть мифов отваливается сама собой.';
+    }
+    return pick(
+      'Ориентир здесь простой: если кожу щиплет, тянет или быстро краснит, ей сейчас важнее восстановление, чем новый актив.',
+      'Хороший результат чаще приходит после спокойной схемы, когда кожа сначала перестаёт раздражаться, а уже потом выдерживает усиление ухода.',
+      'Как только фон раздражения уходит, становится видно, что коже действительно подходит, а что держало её в постоянной перегрузке.',
+    );
+  }
+  if (niche === 'apartment_renovation' || postStudioContainsAny(low, ['ремонт', 'подряд', 'смет', 'бюджет', 'чернов', 'квартир'])) {
+    return pick(
+      'Самый дорогой сбой в ремонте почти всегда выглядит как мелочь в моменте, но потом тянет за собой следующий этап и новый расход.',
+      'Больше всего денег сохраняет заранее зафиксированный узел, который иначе расползается на весь объект через переделки и паузы.',
+      'Когда очередность и границы решений собраны заранее, ремонт перестаёт держаться на постоянных спасательных правках.',
+    );
+  }
+  if (niche === 'esoterica' || postStudioContainsAny(low, ['знак', 'вселен', 'ритуал', 'аффирмац', 'лун', 'карм', 'негатив', 'энерг'])) {
+    if (postStudioContainsAny(low, ['аффирмац', 'изобил'])) {
+      return 'Слова начинают помогать только там, где они не спорят с ежедневным выбором и не отменяются привычной реакцией через час.';
+    }
+    if (postStudioContainsAny(low, ['лун', 'цикл'])) {
+      return 'Если этот ритм действительно влияет на вас, он проявляется повтором в теле, сне и фоне, а не только в красивом описании периода.';
+    }
+    if (postStudioContainsAny(low, ['карм', 'родов', 'судьб'])) {
+      return 'Здесь важнее заметить один и тот же узел, который возвращается через разные декорации, чем искать большое окончательное объяснение.';
+    }
+    if (postStudioContainsAny(low, ['защит', 'негатив', 'очищен', 'пространств'])) {
+      return 'Практика начинает давать опору тогда, когда вокруг становится меньше фонового напряжения и больше ясности в собственных границах.';
+    }
+    return pick(
+      'Чаще всего ответ здесь видно не в редком красивом знаке, а в том, что уже повторялось рядом с вами больше одного раза.',
+      'Сигнал становится понятнее, когда один и тот же сюжет повторяется в обычной жизни, а не только в сильном эмоциональном моменте.',
+      'Когда один и тот же сигнал возвращается в похожих обстоятельствах, он говорит о вас гораздо точнее, чем разовый эффектный символ.',
+    );
+  }
+  if (niche === 'smm_marketing' || postStudioContainsAny(low, ['контент', 'заявк', 'лид', 'оффер', 'кейс', 'smm', 'пост'])) {
+    return pick(
+      'Результат меняется быстрее, когда у поста есть ясная роль в пути аудитории, а не просто ещё один формат.',
+      'Если у поста нет одной задачи и одного понятного следующего шага, человек читает его, но не двигается дальше.',
+      'Если связка между пользой, доказательством и действием собрана заранее, контент перестаёт зависеть от случайной импровизации.',
+    );
+  }
+  return pick(
+    'Самый сильный фрагмент здесь обычно связан с одним конкретным сигналом, который человек сразу узнаёт у себя.',
+    'Как только мысль опирается на реальную ситуацию, текст звучит живо и перестаёт быть общим объяснением.',
+  );
+}
+function postStudioBodyMatchesTopicFamily(text, topic, nicheId) {
+  const body = normalizePostStudioCardLine(text);
+  const low = String(topic || '').toLowerCase();
+  const niche = String(nicheId || '').trim();
+  if (!body || !low) return true;
+  const hasAny = (terms) => (Array.isArray(terms) ? terms : []).some((term) => body.includes(String(term || '')));
+  if (niche === 'smm_marketing') {
+    if (postStudioContainsAny(low, ['контент-план', 'план', 'рубрик', 'фреймворк', 'тем'])) return hasAny(['контент', 'план', 'рубр', 'тем', 'систем', 'публик']);
+    if (postStudioContainsAny(low, ['кейс', 'пример', 'результат'])) return hasAny(['кейс', 'результат', 'истор', 'контекст', 'выбор']);
+    if (postStudioContainsAny(low, ['миф'])) return hasAny(['миф', 'ожидан', 'логик', 'выбор']);
+    if (postStudioContainsAny(low, ['заявк', 'клиент', 'продаж', 'лид'])) return hasAny(['заявк', 'лид', 'оффер', 'клиент', 'действ']);
+  }
+  if (niche === 'cosmetology') {
+    if (postStudioContainsAny(low, ['миф', 'правда'])) return hasAny(['миф', 'кожа', 'процедур', 'барьер']);
+    if (postStudioContainsAny(low, ['восстанов', 'после', 'результат'])) return hasAny(['восстанов', 'кожа', 'барьер', 'раздраж', 'фон']);
+    if (postStudioContainsAny(low, ['стресс'])) return hasAny(['стресс', 'кожа', 'реакц', 'барьер']);
+  }
+  if (niche === 'esoterica') {
+    if (postStudioContainsAny(low, ['аффирмац', 'изобил'])) return hasAny(['аффирмац', 'намерен', 'выбор', 'реакц']);
+    if (postStudioContainsAny(low, ['лун', 'цикл'])) return hasAny(['ритм', 'ресурс', 'сон', 'цикл', 'фон']);
+    if (postStudioContainsAny(low, ['карм', 'родов', 'судьб'])) return hasAny(['карм', 'сюжет', 'выбор', 'сценар']);
+    if (postStudioContainsAny(low, ['защит', 'негатив', 'очищен', 'пространств'])) return hasAny(['границ', 'простран', 'напряж', 'сред']);
+  }
+  if (niche === 'apartment_renovation') {
+    if (postStudioContainsAny(low, ['подряд'])) return hasAny(['подряд', 'объём', 'задач', 'доплат']);
+    if (postStudioContainsAny(low, ['смет', 'бюджет', 'расход'])) return hasAny(['смет', 'бюджет', 'расход', 'траты']);
+    if (postStudioContainsAny(low, ['этап', 'чернов', 'начал'])) return hasAny(['этап', 'чернов', 'последовательн', 'электрик', 'сантех']);
+  }
+  return true;
+}
+function postStudioEmergencySpecialistBody(nicheId, topic, angle, variantIndex = 0, { allowService = false } = {}) {
+  const safeTopic = String(topic || '').trim() || 'Тема';
+  const pair = postStudioSanitizePersonaTopicSentences(postStudioPersonaTopicSentences(nicheId, safeTopic, angle || safeTopic), safeTopic);
+  const close = postStudioPracticalCloseSentence(nicheId, safeTopic, angle, variantIndex);
+  return postStudioSanitizeFinalPreviewBody(
+    [...pair, close || postStudioAnalyticalFallbackSentence(safeTopic, angle, nicheId)].filter(Boolean).join(' '),
+    safeTopic,
+    angle,
+    nicheId,
+    { allowService },
+  );
 }
 function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
   const prepared = (Array.isArray(lines) ? lines : [])
@@ -4177,7 +4313,7 @@ function postStudioSanitizeEarlyBodySentences(lines, topic, angle = '') {
     .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
   if (!prepared.length) return [];
-  const analyticalFallback = postStudioAnalyticalFallbackSentence(topic, angle);
+  const analyticalFallback = postStudioAnalyticalFallbackSentence(topic, angle, '');
   for (let idx = 0; idx < Math.min(2, prepared.length); idx += 1) {
     const futureSafe = prepared.slice(idx + 1).find((line) => !postStudioContainsMetaTopicPhrase(line) && !postStudioLooksTitleLikeOpening(line, topic)) || analyticalFallback;
     prepared[idx] = postStudioSanitizeOpeningSentence(prepared[idx], topic, futureSafe);
@@ -4193,11 +4329,10 @@ function postStudioSafePreviewSentenceCandidates(nicheId, topic, angle = '') {
   const pair = postStudioPersonaTopicSentences(nicheId, safeTopic, safeLead);
   return [
     ...postStudioSanitizePersonaTopicSentences(pair, safeTopic),
-    postStudioAnalyticalFallbackSentence(safeTopic, angle),
-    `${postStudioTopicFocusPhrase(safeTopic, 5) || 'Эта тема'}: что влияет сильнее всего`,
+    postStudioAnalyticalFallbackSentence(safeTopic, angle, nicheId),
   ]
     .flatMap((line) => postStudioSplitTextSentences(line))
-    .map((line) => postStudioRewriteMetaTopicSentence(line, safeTopic))
+    .map((line) => postStudioRewriteReleaseToneSentence(line, safeTopic))
     .map((line) => String(line || '').replace(/\s+/g, ' ').trim())
     .filter((line) => line && !postStudioContainsMetaTopicPhrase(line) && !postStudioLooksTitleLikeOpening(line, safeTopic));
 }
@@ -4211,13 +4346,13 @@ function postStudioSanitizeFinalPreviewBody(text, topic, angle, nicheId, { allow
   for (let idx = 0; idx < Math.min(2, out.length); idx += 1) {
     if (!postStudioContainsMetaTopicPhrase(out[idx])) continue;
     const replacement = safeCandidates.find((line) => normalizePostStudioCardLine(line) !== normalizePostStudioCardLine(out[idx]));
-    out[idx] = replacement || postStudioAnalyticalFallbackSentence(topic, angle);
+    out[idx] = replacement || postStudioAnalyticalFallbackSentence(topic, angle, nicheId);
   }
   let body = out.join(' ').trim();
   const firstTwo = postStudioSplitTextSentences(body).slice(0, 2).join(' ').trim();
   if (postStudioContainsMetaTopicPhrase(firstTwo)) {
     body = [
-      postStudioAnalyticalFallbackSentence(topic, angle),
+      postStudioAnalyticalFallbackSentence(topic, angle, nicheId),
       ...safeCandidates.slice(0, 2),
       ...postStudioSplitTextSentences(body).slice(2),
     ]
@@ -4228,7 +4363,7 @@ function postStudioSanitizeFinalPreviewBody(text, topic, angle, nicheId, { allow
   }
   if (!allowService && (postStudioLooksServiceFramed(body) || postStudioLooksBlockedHelperTone(body, nicheId, { allowService }))) {
     const [safeIntro, safeDetail] = postStudioSanitizePersonaTopicSentences(postStudioPersonaTopicSentences(nicheId, topic, angle), topic);
-    body = [safeIntro, safeDetail, postStudioAnalyticalFallbackSentence(topic, angle)].filter(Boolean).join(' ').trim();
+    body = [safeIntro, safeDetail, postStudioPracticalCloseSentence(nicheId, topic, angle)].filter(Boolean).join(' ').trim();
   }
   return body;
 }
@@ -4238,13 +4373,18 @@ function postStudioBodyFailsQualityGuard(text, topic, nicheId, { allowService = 
   const earlyText = earlySentences.join(' ').toLowerCase();
   const fullText = String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
   if (!allowService && (
-    /\b(визит|посетить|прийти к нам|приходить к нам|наш офис|нашу студи|наше заведен|подготовк|встрече|поделитесь с нами|не забудьте|мы готовы|мы поможем|позаботьтесь|мы собрали|мы подготовили|не стесняйтесь|подготовьте|обратитесь|приходите|мы работаем с)\b/u.test(earlyText)
+    /\b(визит|посетить|прийти к нам|приходить к нам|наш офис|нашу студи|наше заведен|подготовк|встрече|поделитесь с нами|не забудьте|мы готовы|мы поможем|позаботьтесь|мы собрали|мы подготовили|не стесняйтесь|подготовьте|обратитесь|приходите|мы работаем с|поделимся|убедитесь|обсудите|задавайте подрядчику|перед началом ремонта|важно знать)\b/u.test(earlyText)
     || /^знайте\b/u.test(earlyText)
     || /^планируете\s+визит\b/u.test(earlyText)
+    || /^планируете\s+ремонт\b/u.test(earlyText)
   )) return true;
-  if (/(где это влияет на результат|что влияет сильнее всего|как мы можем помочь|не верьте мифам|как правильно|знание этих нюансов|новых высот|разговор про\s+[«"])/u.test(earlyText)) return true;
+  if (/(один\s+конкретный\s+сигнал|один\s+ключевой\s+нюанс|один\s+важный\s+вывод|один\s+повторяющийся\s+сигнал|где\s+чаще\s+всего\s+теряется\s+результат|где\s+чаще\s+всего\s+возникает\s+ошибка|что\s+влияет\s+сильнее\s+всего|что\s+меняет\s+итог|начинает\s+работать\s+заметно|заметно\s+ровнее)/u.test(earlyText)) return true;
+  if (/(где\s+это\s+влияет\s+на\s+результат|что\s+влияет\s+сильнее\s+всего|как\s+мы\s+можем\s+помочь|не\s+верьте\s+мифам|как\s+правильно|знание\s+этих\s+нюансов|новых\s+высот|разговор\s+про\s+[«"]|начинает\s+работать\s+сильнее,\s+когда|работает\s+заметно\s+сильнее,\s+когда|становится\s+полезной\s+тогда,\s+когда|если\s+тем[ае]\s+[«"]|для\s+тем[ыы]\s+[«"]|по\s+тем[ее]\s+[«"]|эта\s+тема|данная\s+тема|важно\s+понимать|нужно\s+понимать|следует\s+отметить|стоит\s+отметить|в\s+этой\s+статье|сегодня\s+мы\s+поговорим|в\s+наше\s+время|играет\s+важную\s+роль|позволяет\s+лучше\s+понять|помогает\s+осознать|этот\s+вопрос\s+актуален|многие\s+люди\s+сталкиваются|следует\s+учитывать|необходимо\s+помнить|лучше\s+брать\s+один\s+живой|лучше\s+всего\s+держится|сильный\s+пост\s+здесь\s+должен|рабочий\s+текст\s+здесь\s+должен|полезнее\s+не\s+искать\s+сенсацию|пост\s+держится\s+лучше|текст\s+держится\s+лучше|полезнее\s+всего|поэтому\s+здесь|практическ\w*\s+смысл|смысл\s+не\s+в|первый\s+сдвиг|здесь\s+появля[ею]тся|здесь\s+полезнее|лучше\s+разбирать|рабочий\s+сдвиг|лучше\s+всего\s+работает|смотреть\s+здесь\s+стоит|важно\s+не\s+[^.?!]{0,80}\s+а\s+[^.?!]{0,80}|не\s+в\s+[^.?!]{0,80}\s+а\s+в\s+[^.?!]{0,80}|держится\s+лучше|сильнее\s+всего\s+здесь|реальный\s+прогресс\s+здесь|реальная\s+экономия\s+здесь)/u.test(earlyText)) return true;
+  if (/(тема\s+[«"][^«»"]+[»"]\s+(начинает\s+работать\s+сильнее|работает\s+заметно\s+сильнее|становится\s+полезной|переста[её]т\s+буксовать))/u.test(earlyText)) return true;
   if (/(как\s+[а-яa-z0-9\s-]{3,}: где это|[а-яa-z0-9\s-]{4,}: где это влияет)/u.test(earlyText)) return true;
-  if (/(подготовк[аи]\s+—\s+это\s+залог|давайте\s+разберем|узнайте\s+какие|узнайте\s+как|это\s+поможет\s+нам|какие\s+вопросы\s+задать|как\s+правильно\s+подготовиться|советы\s+по\s+подготовк|мы\s+подготовили|как\s+мы\s+можем\s+помочь|не\s+верьте\s+мифам)/u.test(earlyText)) return true;
+  if (/(подготовк[аи]\s+—\s+это\s+залог|давайте\s+разберем|узнайте\s+какие|узнайте\s+как|это\s+поможет\s+нам|какие\s+вопросы\s+задать|как\s+правильно\s+подготовиться|советы\s+по\s+подготовк|мы\s+подготовили|как\s+мы\s+можем\s+помочь|не\s+верьте\s+мифам|начните\s+с|составьте\s+детальн|правильн\w+\s+планирован\w+\s+поможет|избежать\s+неожиданн\w+\s+расход|поможет\s+избежать|вот\s+несколько\s+советов)/u.test(earlyText)) return true;
+  if (/^(первое|во-?первых|во-?вторых|во-?третьих)\b/u.test(earlyText)) return true;
+  if (String(nicheId || '').trim() === 'apartment_renovation' && /(\bвот\s+несколько\s+советов\b|\bсоставьте\s+детальн\w+\s+смет\w*\b|\bобсудите\s+с\s+подрядчик\w*\b|\bпроверьте\s+отзывы\b|\bзадавайте\s+подрядчику\b|\bубедитесь\b|\bсписок\s+ошибок\b|\bтоп-?\d+\b|\b1\.\s)/u.test(earlyText)) return true;
   if (!allowService && /(мы\s+готовы|мы\s+поможем|как\s+мы\s+можем\s+помочь|начните\s+свой\s+путь|поделитесь\s+с\s+нами|не\s+стесняйтесь|мы\s+расскажем|мы\s+подготовили|мы\s+собрали|подготовьте|определите\s+свои\s+цели|наша\s+встреча|ваш\s+визит|наших\s+услуг)/u.test(fullText)) return true;
   if (postStudioLooksServiceFramed(earlyText) || postStudioLooksBlockedHelperTone(earlyText, nicheId, { allowService })) return true;
   const normalized = earlySentences.map((line) => normalizePostStudioCardLine(line)).filter(Boolean);
@@ -4262,6 +4402,8 @@ function postStudioDraftSentenceLooksDiscardable(text, topic, nicheId, { allowSe
   if (/^(планируете\s+визит|знайте\b|позаботьтесь\b|давайте\s+разберем\b|мы\s+делимся\b|мы\s+собрали\b|мы\s+подготовили\b|подготовьте\b|это\s+поможет\s+нам\b|не\s+стесняйтесь\b|как\s+правильно\b|как\s+мы\s+можем\s+помочь\b|не\s+верьте\s+мифам\b|какие\s+вопросы\s+задать\b)/u.test(low)) return true;
   if (/^(какие|какой|какая|какое)\b/u.test(low)) return true;
   if (/^как\s+(?!только\b)/u.test(low)) return true;
+  if (/^(планируете\s+ремонт|поделимся|убедитесь|обсудите|задавайте\s+подрядчику|перед\s+началом\s+ремонта|важно\s+знать|начните\s+с|составьте\s+детальн|правильн\w+\s+планирован\w+\s+поможет)\b/u.test(low)) return true;
+  if (String(nicheId || '').trim() === 'apartment_renovation' && /^(вот\s+несколько\s+советов|составьте\s+детальн\w+\s+смет\w*|проверьте\s+отзывы|топ-?\d+)/u.test(low)) return true;
   if (/^определите\b/u.test(low)) return true;
   if (/^вы\s+готовы\b/u.test(low) || /^не\s+стесняйтесь\b/u.test(low)) return true;
   if (postStudioLooksBlockedHelperTone(raw, nicheId, { allowService }) || postStudioLooksServiceFramed(raw)) {
@@ -4307,8 +4449,14 @@ function postStudioRewriteDraftHelperSentence(text, topic, angle, nicheId) {
   if (/^мы\s+всегда\s+готовы\s+/iu.test(out)) return '';
   if (/^мы\s+собрали\b/iu.test(out)) return '';
   if (/^планируете\s+визит\b/iu.test(out)) return '';
+  if (/^планируете\s+ремонт\b/iu.test(out)) return '';
   if (/^позаботьтесь\b/iu.test(out)) return '';
   if (/^подготовьте\b/iu.test(out)) return '';
+  if (/^поделимся\b/iu.test(out)) return '';
+  if (/^убедитесь\b/iu.test(out)) return '';
+  if (/^обсудите\b/iu.test(out)) return '';
+  if (/^задавайте\s+подрядчику\b/iu.test(out)) return '';
+  if (/^перед\s+началом\s+ремонта\b/iu.test(out)) return '';
   if (/^это\s+поможет\s+нам\b/iu.test(out)) return '';
   if (/^поделитесь\s+с\s+нами\b/iu.test(out)) return '';
   if (/^подготовьтесь\s+к\s+встрече\b/iu.test(out)) return '';
@@ -4317,6 +4465,9 @@ function postStudioRewriteDraftHelperSentence(text, topic, angle, nicheId) {
   if (/^какие\s+вопросы\s+стоит\s+задать\b/iu.test(out)) return '';
   if (/^какие\s+вопросы\s+задать\b/iu.test(out)) return '';
   if (/^как\s+правильно\s+подготовиться\b/iu.test(out)) return '';
+  if (/^начните\s+с\b/iu.test(out)) return '';
+  if (/^составьте\s+детальн\w+\s+смет\w*/iu.test(out)) return '';
+  if (/^правильн\w+\s+планирован\w+\s+поможет\b/iu.test(out)) return '';
   out = out.replace(/\bчтобы\s+мы\s+могли\b.*$/iu, '').trim();
   out = out.replace(/\bмы\s+рады\s+предложить\b.*$/iu, '').trim();
   out = out.replace(/\bмы\s+расскажем\b.*$/iu, '').trim();
@@ -4325,7 +4476,7 @@ function postStudioRewriteDraftHelperSentence(text, topic, angle, nicheId) {
   out = out.replace(/\bзнание\s+этих\s+нюансов\b.*$/iu, '').trim();
   if (!out) return '';
   if (postStudioDraftSentenceLooksDiscardable(out, topic, nicheId, { allowService: false })) {
-    const analytical = postStudioAnalyticalFallbackSentence(topic, angle);
+    const analytical = postStudioAnalyticalFallbackSentence(topic, angle, nicheId);
     if (!postStudioDraftSentenceLooksDiscardable(analytical, topic, nicheId, { allowService: false })) return analytical;
     return '';
   }
@@ -4335,7 +4486,7 @@ function postStudioExtractUsableDraftBody(text, topic, angle, nicheId, { allowSe
   const raw = String(text || '').replace(/\s+/g, ' ').trim();
   if (!raw) return '';
   const rawLow = raw.toLowerCase();
-  if (!allowService && /(визит|посетить|агентств|услуг|подготов|сотрудничеств|к\s+нам|наш[а-я\s]+офис|мы\s+подел|мы\s+расскаж|мы\s+поможем|мы\s+готовы|подготовьтесь|подготовьте|не\s+забудьте|не\s+бойтесь|наша\s+встреча|обсудить\s+со\s+специалистом)/u.test(rawLow)) {
+  if (!allowService && /(визит|посетить|агентств|услуг|подготов|сотрудничеств|к\s+нам|наш[а-я\s]+офис|мы\s+подел|мы\s+расскаж|мы\s+поможем|мы\s+готовы|подготовьтесь|подготовьте|не\s+забудьте|не\s+бойтесь|наша\s+встреча|обсудить\s+со\s+специалистом|планируете\s+ремонт|поделимся|убедитесь|обсудите|задавайте\s+подрядчику|перед\s+началом\s+ремонта|важно\s+знать|начните\s+с|составьте\s+детальн|правильн\w+\s+планирован\w+\s+поможет|избежать\s+неожиданн\w+\s+расход)/u.test(rawLow)) {
     return '';
   }
   const sentences = raw.match(/[^.!?]+[.!?]?/g) || [raw];
@@ -4360,22 +4511,40 @@ function postStudioExtractUsableDraftBody(text, topic, angle, nicheId, { allowSe
   const assembled = postStudioSanitizeFinalPreviewBody(safeLines.join(' '), topic, angle, nicheId, { allowService });
   if (!assembled) return '';
   if (postStudioBodyFailsQualityGuard(assembled, topic, nicheId, { allowService })) return '';
+  if (!postStudioBodyMatchesTopicFamily(assembled, topic, nicheId)) return '';
   if (!allowService && (postStudioLooksServiceFramed(assembled) || postStudioLooksBlockedHelperTone(assembled, nicheId, { allowService }))) {
-    const fallbackLead = postStudioAnalyticalFallbackSentence(topic, angle);
+    const fallbackLead = postStudioAnalyticalFallbackSentence(topic, angle, nicheId);
     const recovered = postStudioSanitizeFinalPreviewBody([fallbackLead, ...safeLines.slice(1)].filter(Boolean).join(' '), topic, angle, nicheId, { allowService });
-    if (recovered && !postStudioLooksServiceFramed(recovered) && !postStudioLooksBlockedHelperTone(recovered, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(recovered, topic, nicheId, { allowService })) return recovered;
+    if (recovered && !postStudioLooksServiceFramed(recovered) && !postStudioLooksBlockedHelperTone(recovered, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(recovered, topic, nicheId, { allowService }) && postStudioBodyMatchesTopicFamily(recovered, topic, nicheId)) return recovered;
     return '';
   }
   return assembled;
 }
 function postStudioPreviewBodyCore(text) {
-  const early = postStudioSplitTextSentences(String(text || '')).slice(0, 3).join(' ').trim();
+  const early = postStudioSplitTextSentences(String(text || ''))
+    .slice(0, 4)
+    .filter((line) => !/(один\s+конкретный\s+сигнал|один\s+ключевой\s+нюанс|один\s+важный\s+вывод|один\s+повторяющийся\s+сигнал|что\s+влияет\s+сильнее\s+всего|где\s+чаще\s+всего\s+теряется\s+результат|где\s+чаще\s+всего\s+возникает\s+ошибка|что\s+меняет\s+итог)/iu.test(String(line || '')))
+    .slice(0, 3)
+    .join(' ')
+    .trim();
   if (!early) return '';
   const words = normalizePostStudioCardLine(early)
     .split(/\s+/)
     .map((word) => postStudioNormalizeSkeletonToken(word))
     .filter((word) => word.length >= 4 && !POST_STUDIO_SUBLINE_SKELETON_STOPWORDS.has(word));
   return words.slice(0, 18).join(' ');
+}
+function postStudioPreviewSentenceKey(text, sentenceIndex = 0) {
+  const sentences = postStudioSplitTextSentences(String(text || ''))
+    .filter((line) => !/(один\s+конкретный\s+сигнал|один\s+ключевой\s+нюанс|один\s+важный\s+вывод|один\s+повторяющийся\s+сигнал|что\s+влияет\s+сильнее\s+всего|где\s+чаще\s+всего\s+теряется\s+результат|где\s+чаще\s+всего\s+возникает\s+ошибка|что\s+меняет\s+итог)/iu.test(String(line || '')));
+  const sentence = String(sentences[sentenceIndex] || '').trim();
+  if (!sentence) return '';
+  return normalizePostStudioCardLine(sentence)
+    .split(/\s+/)
+    .map((word) => postStudioNormalizeSkeletonToken(word))
+    .filter((word) => word.length >= 4 && !POST_STUDIO_SUBLINE_SKELETON_STOPWORDS.has(word))
+    .slice(0, 12)
+    .join(' ');
 }
 function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { allowService = false } = {}) {
   const safeTopic = String(topic || 'Тема').trim() || 'Тема';
@@ -4387,13 +4556,13 @@ function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { a
     if (postStudioContainsAny(smmLow, ['контент-план', 'план', 'рубрик', 'фреймворк'])) {
       variants = [
         [
-          'Контент-план начинает работать только тогда, когда у каждой темы есть своя функция в пути аудитории, а не просто место в расписании.',
-          `Если тема «${focus}» не связана с конкретным этапом воронки, пост может выглядеть полезным, но всё равно не усиливать общий результат.`,
-          'Поэтому сильнее всего здесь помогает не новый список идей, а более чёткая логика роли каждого поста.',
+          'Контент-план даёт эффект только тогда, когда у каждой темы есть своя функция в пути аудитории, а не просто место в расписании.',
+          'Если пост не связан с конкретным этапом воронки, он может выглядеть полезным, но всё равно не усиливать общий результат.',
+          'Сильнее всего систему собирает ясная логика роли каждого поста: что греет интерес, что снимает возражение и что ведёт дальше.',
         ],
         [
           'Даже хороший план перестаёт давать эффект, когда рубрики существуют отдельно от задач бизнеса и ожидаемого действия читателя.',
-          `Тема «${focus}» работает заметно сильнее, когда она заранее привязана к нужному шагу: привлечь внимание, снять возражение или довести до заявки.`,
+          'Сильнее всего срабатывает пост, который заранее привязан к нужному шагу: привлечь внимание, снять возражение или довести до заявки.',
           'Так контент перестаёт быть набором публикаций и начинает собираться в предсказуемую систему.',
         ],
       ];
@@ -4401,12 +4570,12 @@ function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { a
       variants = [
         [
           'Кейс помогает не тогда, когда в нём есть громкая цифра, а тогда, когда из него понятно, какое решение дало этот результат.',
-          `Если в теме «${focus}» виден только итог без логики пути, аудитория считывает красивую историю, но не понимает, что именно можно применить к себе.`,
-          'Поэтому сильнее всего здесь работает разбор связки между контекстом, действием и следующим шагом.',
+          'Если в кейсе виден только итог без логики пути, аудитория считывает красивую историю, но не понимает, что именно можно применить к себе.',
+          'Рабочим кейс становится в тот момент, когда читатель видит контекст, решение и следующий шаг без догадок.',
         ],
         [
           'Результат в кейсе перестаёт убеждать, если читатель не видит, за счёт какого хода он вообще появился.',
-          `Тема «${focus}» становится полезной тогда, когда история показывает не только финал, но и выбор, который можно повторить в своей ситуации.`,
+          'История полезна только в одном случае: когда она показывает не только финал, но и выбор, который можно повторить в своей ситуации.',
           'Именно это превращает кейс из витрины в понятный ориентир для решения.',
         ],
       ];
@@ -4414,12 +4583,12 @@ function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { a
       variants = [
         [
           'Мифы про SMM мешают не сами по себе, а тем, что подменяют рабочую логику контента красивыми, но бесполезными ожиданиями.',
-          `Если тема «${focus}» не связана с реальным выбором аудитории, человек уносит общую мысль, но не понимает, почему ему стоит двигаться дальше.`,
-          'Поэтому здесь полезнее всего разбирать не лозунг, а то, как именно пост переводит интерес в действие.',
+          'Если мысль в посте не связана с реальным выбором аудитории, человек уносит общую идею, но не понимает, почему ему стоит двигаться дальше.',
+          'Лучше разбирать конкретный ход: за счёт чего пост переводит интерес в действие, а не остаётся лозунгом.',
         ],
         [
           'Экспертный пост не начинает продавать автоматически только потому, что в нём много пользы и правильных тезисов.',
-          `Тема «${focus}» начинает работать сильнее, когда ценность в тексте связана с понятным следующим шагом, а не остаётся абстрактным советом.`,
+          'Ценность в тексте срабатывает только там, где она связана с понятным следующим шагом, а не остаётся абстрактным советом.',
           'Тогда публикация не просто нравится, а помогает человеку увидеть решение для своей задачи.',
         ],
       ];
@@ -4427,25 +4596,25 @@ function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { a
       variants = [
         [
           'Хаос в контенте появляется не из-за нехватки идей, а из-за отсутствия понятной последовательности между темами, форматами и задачами постов.',
-          `Если тема «${focus}» не встроена в общий маршрут аудитории, публикация может собрать внимание, но не добавить системе устойчивости.`,
-          'Поэтому первый рабочий шаг здесь обычно не в новом креативе, а в более ясной структуре контента.',
+          'Если публикация не встроена в общий маршрут аудитории, она может собрать внимание, но не добавить системе устойчивости.',
+          'Первый рабочий шаг здесь простой: собрать более ясную структуру контента, а не искать ещё один креатив.',
         ],
         [
           'Нерегулярный контент почти всегда сигнализирует не о слабой дисциплине, а о том, что команда каждый раз начинает с нуля.',
-          `Тема «${focus}» перестаёт буксовать, когда у поста появляется одна задача и понятная роль в общей схеме публикаций.`,
+          'Пост перестаёт буксовать в тот момент, когда у него появляется одна задача и понятная роль в общей схеме публикаций.',
           'Тогда контент проще повторять без ощущения постоянной импровизации.',
         ],
       ];
     } else {
       variants = [
         [
-          `Результат чаще всего теряется там, где тема «${focus}» остаётся полезной, но не доводит внимание аудитории до понятного следующего шага.`,
-          `Если пост по теме «${focus}» не встроен в логику выбора, человек считывает пользу, но не связывает её со своим решением и не движется дальше.`,
-          'Поэтому здесь полезнее всего смотреть не на отдельную публикацию, а на роль поста в общем пути до заявки.',
+          'Результат чаще всего теряется там, где польза в тексте есть, а понятного следующего шага для читателя всё ещё нет.',
+          'Если пост не встроен в логику выбора, человек считывает пользу, но не связывает её со своим решением и не движется дальше.',
+          'Смотрите на роль поста в общем пути до заявки, а не только на отдельную публикацию.',
         ],
         [
-          `Контент вокруг темы «${focus}» проседает не на охвате, а в том месте, где тема не связана с понятным действием для читателя.`,
-          `Тема «${focus}» работает заметно лучше, когда у поста есть одна задача и одно ожидаемое движение аудитории, а не попытка закрыть все вопросы сразу.`,
+          'Контент проседает не на охвате, а в том месте, где мысль не связана с понятным действием для читателя.',
+          'Когда у поста одна задача и одно ожидаемое движение аудитории, текст читается яснее и ведёт человека дальше без лишнего шума.',
           'Тогда публикация перестаёт быть отдельным фрагментом ленты и начинает работать как часть общей системы.',
         ],
       ];
@@ -4453,41 +4622,103 @@ function postStudioUniqueBodyRescue(nicheId, topic, angle, variantIndex = 0, { a
     const rescued = postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
     if (!postStudioBodyFailsQualityGuard(rescued, safeTopic, nicheId, { allowService })) return rescued;
     const backup = [
-      'Контент начинает работать заметно лучше, когда у темы есть одна чёткая задача и один понятный следующий шаг для читателя.',
-      `Для темы «${focus}» это особенно важно: без связи между пользой, доказательством и действием публикация остаётся заметной, но не становится рабочей частью воронки.`,
-      'Поэтому сильнее всего здесь помогает не новый формат, а более точная роль поста в общем пути аудитории.',
+      'У сильного поста всегда видно, какую задачу он решает и какой шаг подталкивает дальше.',
+      'Без связи между пользой, доказательством и действием публикация остаётся заметной, но не становится рабочей частью воронки.',
+      'Результат растёт быстрее, когда роль поста в общем пути аудитории заранее понятна всей системе контента.',
     ].join(' ');
     const safeBackup = postStudioSanitizeFinalPreviewBody(backup, safeTopic, angle, nicheId, { allowService });
     return safeBackup;
   }
   const personaPair = postStudioSanitizePersonaTopicSentences(postStudioPersonaTopicSentences(nicheId, safeTopic, angle || safeTopic), safeTopic);
-  const genericRescue = [
-    ...personaPair,
-    postStudioAnalyticalFallbackSentence(safeTopic, angle),
-  ].filter(Boolean).join(' ');
+  if (String(nicheId || '').trim() === 'psychology') {
+    const variants = [
+      [
+        'Сильная реакция редко начинается на поверхности: сначала внутри собирается знакомое напряжение, которое потом уже выходит в словах, молчании или резком откате.',
+        'Обычно решающим оказывается момент перед финальной эмоцией: какая мысль вспыхивает первой, что именно сжимается внутри и от чего вы автоматически пытаетесь защититься.',
+        'Когда этот участок становится заметным, человек перестаёт раз за разом попадать в один и тот же сценарий вслепую.',
+      ],
+      [
+        'Самая тяжёлая часть часто не в самом переживании, а в том, что оно кажется внезапным, хотя на деле складывается из повторяющегося внутреннего хода.',
+        'Если увидеть, где именно включается привычная защита, напряжение перестаёт выглядеть чем-то бесформенным и становится намного понятнее по структуре.',
+        'Именно там обычно появляется пространство для более бережной и честной реакции на себя.',
+      ],
+    ];
+    return postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
+  }
+  if (String(nicheId || '').trim() === 'cosmetology') {
+    const variants = [
+      [
+        'Кожа быстро показывает, когда ей уже не нужен новый актив, а нужен более спокойный режим без лишней стимуляции.',
+        'Если барьер перегружен, даже хорошая процедура или домашний уход начинают давать не улучшение, а фон из стянутости, покраснения и раздражения.',
+        'Реальный прогресс здесь начинается с точного чтения состояния кожи, а не с очередного модного шага.',
+      ],
+      [
+        'Проблема кожи редко звучит в одном слове: за высыпанием, реактивностью или тусклостью почти всегда стоит сочетание перегруза, обезвоженности и неудачной последовательности ухода.',
+        'Когда домашний режим и процедуры не спорят между собой, кожа перестаёт жить в постоянной компенсации и начинает восстанавливаться заметно ровнее.',
+        'Именно этот спокойный фон обычно даёт более стабильный и понятный результат, чем очередной резкий эксперимент.',
+      ],
+    ];
+    return postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
+  }
+  if (String(nicheId || '').trim() === 'apartment_renovation') {
+    const variants = [
+      [
+        'В ремонте самый дорогой сбой редко выглядит как катастрофа в моменте: чаще это один недоговорённый узел, который потом ломает следующие этапы.',
+        'Как только решения по смете, материалам и очередности работ живут отдельно друг от друга, объект начинает тянуть деньги не рывком, а длинной цепочкой мелких правок.',
+        'Экономия здесь начинается раньше, чем люди обычно начинают искать проблему: ещё на этапе фиксации узлов и очередности.',
+      ],
+      [
+        'Переделка почти никогда не начинается с чистовой отделки: её запускают решения, которые ушли в работу без полной привязки к следующему этапу.',
+        'Если границы объёма, материалы и технические узлы не собраны в одну картину, любая мелочь быстро превращается в остановку, спор или новый расход.',
+        'Вот почему в ремонте выигрывает не тот, кто спешит, а тот, кто заранее удерживает связку между решениями.',
+      ],
+    ];
+    return postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
+  }
+  if (String(nicheId || '').trim() === 'esoterica') {
+    const variants = [
+      [
+        'Самые точные знаки редко приходят в громкой форме: чаще они возвращают один и тот же сюжет, пока человек не замечает, где именно повторяет старый выбор.',
+        'Если смотреть не на красивую оболочку, а на повтор обстоятельств и внутренний отклик, картина становится гораздо яснее и спокойнее.',
+        'Такой подход даёт больше опоры, чем попытка каждый раз искать новое объяснение или редкий эффектный символ.',
+      ],
+      [
+        'В эзотерической практике важнее не впечатляющий ритуал, а то, что реально меняется в состоянии, решениях и повторяющихся сюжетах человека.',
+        'Когда один и тот же сигнал приходит в похожих обстоятельствах, он обычно указывает не на мистическую загадку, а на конкретный внутренний узел.',
+        'Именно там практика начинает давать опору, а не просто сильное впечатление на один вечер.',
+      ],
+    ];
+    return postStudioSanitizeFinalPreviewBody(variants[idx % variants.length].join(' '), safeTopic, angle, nicheId, { allowService });
+  }
+  const genericRescue = [...personaPair, postStudioPracticalCloseSentence(nicheId, safeTopic, angle, variantIndex)].filter(Boolean).join(' ');
   return postStudioSanitizeFinalPreviewBody(genericRescue, safeTopic, angle, nicheId, { allowService });
 }
 function postStudioSanitizePersonaTopicSentences(pair, topic) {
   const lines = (Array.isArray(pair) ? pair : []).map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!lines.length) return lines;
-  return postStudioSanitizeEarlyBodySentences(lines, topic, '');
+  const sanitized = postStudioSanitizeEarlyBodySentences(lines.map((line) => postStudioRewriteReleaseToneSentence(line, topic)), topic, '');
+  if (sanitized.length >= 2 && normalizePostStudioCardLine(sanitized[0]) === normalizePostStudioCardLine(sanitized[1])) {
+    const replacement = postStudioAnalyticalFallbackSentence(topic, '');
+    if (replacement && normalizePostStudioCardLine(replacement) !== normalizePostStudioCardLine(sanitized[1])) sanitized[0] = replacement;
+  }
+  return sanitized;
 }
 function postStudioTopicCta(topic, angle, nicheId, allowService = false, offerText = '') {
   const seed = postStudioTopicFocusPhrase(topic, 4);
   if (allowService && String(offerText || '').trim()) {
     const offer = String(offerText || '').trim();
     return postStudioStablePick([
-      `${offer}. Если тема «${seed}» актуальна, можно перейти к следующему шагу без спешки.`,
-      `Если хотите решить вопрос по теме «${seed}», ${offer.charAt(0).toLowerCase()}${offer.slice(1)}`,
-      `По теме «${seed}» лучше действовать по фактам: ${offer.charAt(0).toLowerCase()}${offer.slice(1)}`,
+      `${offer}. Если вопрос уже назрел, можно перейти к следующему шагу без спешки.`,
+      `Если хотите решить это по делу, ${offer.charAt(0).toLowerCase()}${offer.slice(1)}`,
+      `Когда нужен следующий шаг по фактам, ${offer.charAt(0).toLowerCase()}${offer.slice(1)}`,
     ], nicheId, seed, offer);
   }
   return postStudioStablePick([
-    `Сохраните пост, если хотите позже вернуться к теме «${seed}».`,
-    `Напишите, какой момент в теме «${seed}» кажется вам самым спорным.`,
-    `Поделитесь, где в теме «${seed}» у вас чаще всего возникает больше вопросов.`,
-    `Расскажите, какой вывод по теме «${seed}» показался вам самым полезным.`,
-    `Если тема «${seed}» вам близка, отметьте, где вы замечаете это чаще всего.`,
+    'Сохраните пост, если захотите вернуться к этой мысли позже.',
+    'Напишите, какой момент здесь откликнулся сильнее всего.',
+    'Поделитесь, где у вас это чаще всего проявляется на практике.',
+    'Расскажите, какой вывод отсюда оказался для вас самым полезным.',
+    'Отметьте, в какой момент вы замечаете это чаще всего.',
   ], nicheId, seed, angle);
 }
 function postStudioPersonaTopicSentences(nicheId, topic, angle) {
@@ -4500,31 +4731,63 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
   );
   switch (String(nicheId || '').trim()) {
     case 'esoterica':
+      if (postStudioContainsAny(low, ['интуиц', 'предупред'])) return finalize([
+        'Интуиция редко звучит как громкое озарение: чаще она приходит коротким внутренним стопом, который человек сначала пытается объяснить логикой.',
+        'Если один и тот же сигнал повторяется рядом с похожими людьми, разговорами или решениями, это уже не фантазия на пустом месте, а повторяющийся ориентир.',
+      ]);
+      if (postStudioContainsAny(low, ['желан', 'исполня'])) return finalize([
+        'Желание буксует не только из-за внешних обстоятельств, а ещё и там, где человек сам каждый день отменяет его привычным выбором.',
+        'Если намерение звучит красиво, но в действиях всё снова строится из страха, вины или сомнения, энергия уходит в внутренний конфликт вместо движения.',
+      ]);
+      if (postStudioContainsAny(low, ['очист', 'дом', 'пространств', 'тяжел'])) return finalize([
+        'Тяжёлый фон в доме редко держится на мистике одной кнопкой: его чаще собирают перегруженные вещи, незавершённые дела и постоянное внутреннее напряжение людей.',
+        'Как только в пространстве становится меньше хаоса, шума и застрявших напоминаний, тело обычно первым показывает, что дышать и восстанавливаться стало легче.',
+      ]);
+      if (postStudioContainsAny(low, ['истощ', 'энергет'])) return finalize([
+        'Энергетическое истощение обычно заметно не по одному красивому термину, а по повторяющемуся состоянию: нет опоры, нет тонуса и нет ощущения, что ресурс возвращается сам.',
+        'Если после отдыха фон остаётся тяжёлым, а обычные дела снова забирают слишком много сил, значит сигнал уже закрепился глубже, чем кажется снаружи.',
+      ]);
       if (postStudioContainsAny(low, ['знак', 'вселен', 'синхрон', 'повтор'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} человек чаще путает редкий эффектный знак с повторяющимся сигналом, который возвращается в похожих обстоятельствах.`,
+        'Человек чаще путает редкий эффектный знак с повторяющимся сигналом, который возвращается в похожих обстоятельствах.',
         'Рабочая точка обычно не в красивом символе, а в том, где один и тот же сюжет снова связывается с вашим выбором, тревогой или внутренним запретом.',
       ]);
       if (postStudioContainsAny(low, ['аффирмац', 'изобил', 'намерен'])) return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} результат срывается не на словах, а на том месте, где человек каждый день внутренне отменяет собственное намерение.`,
-        'Аффирмация начинает работать только тогда, когда вы замечаете, в каком действии, реакции или привычке она расходится с вашей реальной жизнью.',
+        'Результат срывается не на словах, а на том месте, где человек каждый день внутренне отменяет собственное намерение.',
+        'Аффирмация даёт опору только в том случае, если вы замечаете, в каком действии, реакции или привычке она расходится с вашей реальной жизнью.',
       ]);
       if (postStudioContainsAny(low, ['лун', 'цикл'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} сильнее всего заметны не общие предсказания, а повторяющиеся скачки ресурса, сна и внутреннего фона.`,
+        'Сильнее всего заметны не общие предсказания, а повторяющиеся скачки ресурса, сна и внутреннего фона.',
         'Практика начинается там, где вы связываете этот ритм не с мистическим шумом, а с конкретным периодом напряжения, восстановления или эмоционального отклика.',
       ]);
       if (postStudioContainsAny(low, ['карм', 'путь', 'урок'])) return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} важен не громкий вывод о судьбе, а повтор одного и того же выбора, в котором человек снова приходит к схожему результату.`,
+        'Здесь важен не громкий вывод о судьбе, а повтор одного и того же выбора, в котором человек снова приходит к схожему результату.',
         'Кармический сюжет обычно читается через отношения, деньги, границы или чувство вины, которое возвращается в разных декорациях, но по одному сценарию.',
       ]);
       if (postStudioContainsAny(low, ['негатив', 'защит', 'очищен', 'пространств'])) return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} люди часто ищут сложный ритуал, хотя реальный сдвиг начинается с границ, режима и того, чем заполнено пространство вокруг.`,
+        'Люди часто ищут сложный ритуал, хотя реальный сдвиг начинается с границ, режима и того, чем заполнено пространство вокруг.',
         'Сначала полезно заметить, где напряжение поддерживают не внешние влияния, а перегруженная среда, чужие ожидания и привычка всё время держаться настороже.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} важнее не красивый мистический образ, а повторяющийся внутренний отклик, который человек уже узнаёт в своей реальности.`,
-        'Разбор становится полезным, когда вы связываете тему не с сенсацией, а с наблюдением: что именно повторяется, в какой момент и с каким последствием.',
+        'Важнее не красивый мистический образ, а повторяющийся внутренний отклик, который человек уже узнаёт в своей реальности.',
+        'Свяжите это не с сенсацией, а с наблюдением: что именно повторяется, в какой момент и с каким последствием.',
       ]);
     case 'psychology':
+      if (postStudioContainsAny(low, ['сценар', 'повтор', 'болезнен'])) return finalize([
+        'Повторяющийся болезненный сценарий держится не на случайности, а на одной и той же внутренней реакции, которую человек снова проживает как новую историю.',
+        'Пока не становится видно, что запускается первым и в какой точке вы снова уступаете знакомому паттерну, ситуация меняет декорации, но не меняет исход.',
+      ]);
+      if (postStudioContainsAny(low, ['перегруз', 'внутрен'])) return finalize([
+        'Внутренний перегруз обычно не приходит рывком: сначала человек дольше обычного держит напряжение, быстрее устаёт от мелочей и хуже выдерживает привычный ритм.',
+        'Самый ранний сигнал здесь виден не в срыве, а в фоне: сложнее переключаться, сложнее отдыхать и намного легче застревать в одном и том же напряжении.',
+      ]);
+      if (postStudioContainsAny(low, ['отдых', 'нервн', 'напряжен'])) return finalize([
+        'Отдых не возвращает ресурс в тот момент, когда нервная система так и остаётся в режиме внутренней готовности и не выходит из напряжения даже в паузе.',
+        'Снаружи это похоже на усталость, но внутри остаётся всё тот же сигнал тревоги: тело не отпускает, сон не разгружает, а обычные вещи снова ощущаются как перегруз.',
+      ]);
+      if (postStudioContainsAny(low, ['нет', 'вины'])) return finalize([
+        'Сказать «нет» сложно не из-за слабого характера, а в том месте, где вина включается раньше, чем человек успевает почувствовать собственную границу.',
+        'Тогда отказ переживается как угроза отношениям или образу «хорошего человека», и тело автоматически толкает к привычному согласию вместо честного ответа.',
+      ]);
       if (postStudioContainsAny(low, ['тревог', 'паник', 'страх'])) return finalize([
         'Человек обычно замечает уже пик напряжения, хотя рабочая точка находится раньше, в том месте, где тревога только начинает собираться.',
         'Там важны конкретные маркеры: тело зажимается, внимание сужается, мысли ускоряются, а привычная реакция включается ещё до того, как вы успеваете это назвать.',
@@ -4535,30 +4798,46 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
       ]);
       if (postStudioContainsAny(low, ['выгоран', 'устал', 'ресурс'])) return finalize([
         'Состояние редко рушится за один день: сначала накапливается фоновая перегрузка, к которой человек долго пытается приспособиться.',
-        'Обычно полезно смотреть не на абстрактный баланс, а на повторяющийся цикл: где уходит энергия, что остаётся невысказанным и какое напряжение вы держите без паузы.',
+        'Смотрите не на абстрактный баланс, а на повторяющийся цикл: где уходит энергия, что остаётся невысказанным и какое напряжение вы держите без паузы.',
       ]);
       return finalize([
         'Состояние редко меняется от одной правильной мысли: сначала важно увидеть паттерн, который снова запускает знакомую реакцию.',
-        'Рабочий сдвиг начинается там, где вы замечаете не только последствия, но и ранний триггер: что именно включается перед раздражением, закрытостью или чувством вины.',
+        'Обычно всё меняется в тот момент, когда вы замечаете не только последствия, но и ранний триггер: что именно включается перед раздражением, закрытостью или чувством вины.',
       ]);
     case 'fitness':
       if (postStudioContainsAny(low, ['восстанов', 'сон', 'устал'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} срыв чаще случается не на самой тренировке, а там, где восстановление не встроено в график и держится на остаточном ресурсе.`,
+        'Срыв чаще случается не на самой тренировке, а там, где восстановление не встроено в график и держится на остаточном ресурсе.',
         'Если сон, паузы и объём не согласованы между собой, человек быстро получает не прогресс, а ощущение, что любая нагрузка начинает возвращаться усталостью.',
       ]);
       if (postStudioContainsAny(low, ['техник', 'движен', 'упражнен'])) return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} прогресс тормозится не из-за слабой мотивации, а из-за движения, которое повторяется в неверной механике под уставшим контролем.`,
+        'Прогресс тормозится не из-за слабой мотивации, а из-за движения, которое повторяется в неверной механике под уставшим контролем.',
         'Пока техника плавает, лишний объём только закрепляет ошибку: нагрузка уходит не туда, а результат становится случайным и трудно повторяемым.',
       ]);
       if (postStudioContainsAny(low, ['похуд', 'жир', 'вес', 'кардио'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} люди чаще перегружают себя лишним объёмом, хотя устойчивый результат обычно держится на регулярности, а не на разовом рывке.`,
+        'Люди чаще перегружают себя лишним объёмом, хотя устойчивый результат обычно держится на регулярности, а не на разовом рывке.',
         'Когда питание, шаги и тренировки не стыкуются по режиму, организм получает много суеты и мало предсказуемого сигнала для реального прогресса.',
       ]);
       return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} люди чаще срываются не потому, что ленятся, а потому что стартуют слишком резко и быстро упираются в усталость.`,
-        'Полезнее собирать режим от реального графика, восстановления и техники, чем пытаться сразу тренироваться так, будто базовая регулярность уже давно выстроена.',
+        'Люди чаще срываются не потому, что ленятся, а потому что стартуют слишком резко и быстро упираются в усталость.',
+        'Собирайте режим от реального графика, восстановления и техники, а не тренируйтесь так, будто базовая регулярность уже давно выстроена.',
       ]);
     case 'apartment_renovation':
+      if ((low.includes('подряд') && low.includes('ошиб')) || (low.includes('подряд') && low.includes('передел'))) return finalize([
+        'Ошибки подрядчика почти всегда становятся дорогими не в момент решения, а позже, когда переделка уже цепляет следующий этап ремонта.',
+        'Если бригада идёт дальше без точной фиксации размеров, узлов и допусков, даже одна неверная трактовка быстро превращается в новую работу и новый расход.',
+      ]);
+      if (low.includes('прозрач') || (low.includes('выбор') && low.includes('смет'))) return finalize([
+        'Выбор подрядчика без прозрачной сметы почти всегда выглядит спокойнее на старте, чем оказывается в работе на объекте.',
+        'Когда в расчёте нет расшифровки по узлам, материалам и спорным зонам, человек сравнивает не реальные объёмы, а разные версии одной и той же задачи.',
+      ]);
+      if (postStudioContainsAny(low, ['узл', 'зафикс', 'бригад', 'объект'])) return finalize([
+        'Самые дорогие переделки начинаются там, где ключевой узел решили «уточнить по ходу», а бригада уже вышла на объект.',
+        'Когда точка подключения, размер, материал или очередность не зафиксированы заранее, решение расползается на несколько этапов и почти всегда дорожает.',
+      ]);
+      if (low.includes('кускам') || low.includes('по кускам') || low.includes('кусок')) return finalize([
+        'Смета по кускам почти всегда даёт ложное чувство контроля: сумма вроде бы есть, а взаимосвязи между этапами и скрытыми затратами всё ещё нет.',
+        'На объекте это быстро превращается в цепочку мелких доплат, потому что каждый следующий шаг вытаскивает то, что не было учтено в предыдущем.',
+      ]);
       if (postStudioContainsAny(low, ['подрядчик', 'бригада', 'договор'])) return finalize([
         'Конфликт появляется не в финале ремонта, а в моменте, когда объём работ и спорные узлы не зафиксированы до выхода подрядчика на объект.',
         'Потом каждая недосказанность превращается в отдельную доплату, перенос срока или переделку, потому что у собственника и бригады изначально были разные версии одной и той же задачи.',
@@ -4577,25 +4856,45 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
       ]);
     case 'autoservice':
       if (postStudioContainsAny(low, ['тормоз', 'тормож'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} сначала смотрят не на страшный сценарий, а на конкретный симптом: как меняется педаль, звук и поведение машины при торможении.`,
+        'Сначала смотрят не на страшный сценарий, а на конкретный симптом: как меняется педаль, звук и поведение машины при торможении.',
         'Один и тот же признак может означать и расходник, и более серьёзный износ, поэтому здесь важны условия: на холодную, после прогрева, на скорости или под нагрузкой.',
       ]);
       if (postStudioContainsAny(low, ['масл', 'двигател', 'мотор', 'перегрев'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} риск оценивают не по одному слову «двигатель», а по связке симптомов: расход масла, температура, тяга, шум и частота повторения.`,
+        'Риск оценивают не по одному слову «двигатель», а по связке симптомов: расход масла, температура, тяга, шум и частота повторения.',
         'Практический разбор начинается там, где вы отделяете разовый эпизод от устойчивого сигнала: что именно изменилось, после чего это проявляется и стало ли повторяться чаще.',
       ]);
       if (postStudioContainsAny(low, ['подвес', 'шум', 'стук', 'вибрац'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} самое полезное - не гадать по названию поломки, а точно поймать, при каких условиях проявляется шум, стук или вибрация.`,
+        'Самое полезное здесь не гадать по названию поломки, а точно поймать, при каких условиях проявляется шум, стук или вибрация.',
         'Именно эта привязка к режиму движения помогает отличить условно безопасный износ от узла, который уже начинает влиять на управляемость и ресурс машины.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} сначала смотрят не на страшный сценарий, а на конкретный симптом: что изменилось в звуке, тяге, вибрации или поведении машины.`,
+        'Сначала смотрят не на страшный сценарий, а на конкретный симптом: что изменилось в звуке, тяге, вибрации или поведении машины.',
         'Чем точнее вы фиксируете условия появления сигнала, тем быстрее отделяете обычный износ от поломки, которая уже начинает расти и повторяться чаще.',
       ]);
     case 'cosmetology':
+      if (postStudioContainsAny(low, ['обезвож'])) return finalize([
+        'Обезвоживание кожи редко приходит только от сухого воздуха: его чаще собирают привычки, которые каждый день понемногу срывают восстановление барьера.',
+        'Горячая вода, частое умывание, активы без паузы и слабая защита после процедур дают тот самый фон, при котором кожа быстро теряет спокойствие и влагу.',
+      ]);
+      if (postStudioContainsAny(low, ['эффект', 'держ', 'после'])) return finalize([
+        'Эффект после процедуры держится дольше не там, где добавляют больше средств, а там, где коже не мешают восстановиться между активными шагами.',
+        'Если сразу перегрузить домашний уход кислотами, ретинолом или лишними экспериментами, кожа быстрее уходит обратно в раздражение, чем успевает закрепить результат.',
+      ]);
+      if (postStudioContainsAny(low, ['курс', 'трат'])) return finalize([
+        'Лишние траты на курс процедур начинаются в тот момент, когда человек покупает набор шагов без понимания, какая задача у кожи сейчас главная.',
+        'Если барьер уже раздражён или реактивность высокая, даже правильная процедура в неверной последовательности даёт больше расходов, чем пользы.',
+      ]);
+      if (postStudioContainsAny(low, ['совмещ', 'актив', 'домашн', 'процедур'])) return finalize([
+        'Активный домашний уход и процедуры спорят друг с другом в тот момент, когда кожа получает слишком много нагрузки без окна на восстановление.',
+        'Если после кабинета дома продолжают давать тот же объём кислот, ретиноидов или раздражающих шагов, барьер быстро уходит в перегруз и результат смазывается.',
+      ]);
+      if (postStudioContainsAny(low, ['домашн', 'уход'])) return finalize([
+        'Домашний уход портит результат процедуры не одним «не тем» средством, а цепочкой привычек, которые каждый день держат кожу в раздражении или пересушивании.',
+        'Обычно проблема видна в мелочах: слишком активное очищение, раннее возвращение кислот, лишние слои и попытка ускорить эффект вместо спокойного восстановления.',
+      ]);
       if (postStudioContainsAny(low, ['акне', 'высып', 'воспал'])) return finalize([
         'Кожа чаще страдает не от одного «неподходящего средства», а от режима, который одновременно сушит барьер и подогревает воспаление.',
-        'Поэтому здесь важно не гнаться за агрессивным очищением, а понять, что именно запускает реакцию: трение, перегруз активами, обезвоженность или слишком частая смена ухода.',
+        'Здесь не стоит гнаться за агрессивным очищением: сначала поймите, что именно запускает реакцию — трение, перегруз активами, обезвоженность или слишком частая смена ухода.',
       ]);
       if (postStudioContainsAny(low, ['чувств', 'барьер', 'реактив', 'покрас'])) return finalize([
         'Ориентиром служит не название процедуры, а состояние барьера: насколько кожа уже раздражена, обезвожена и склонна к ответной реакции.',
@@ -4607,7 +4906,7 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
       ]);
       return finalize([
         'Ориентиром служит не название процедуры, а текущее состояние кожи: чувствительность, обезвоженность, реактивность и то, как работает барьер.',
-        'Полезнее смотреть на перегруз и дефицит восстановления, чем добавлять новый актив вслепую: кожа обычно отвечает на это раздражением, а не устойчивым улучшением.',
+        'Смотрите на перегруз и дефицит восстановления, а не добавляйте новый актив вслепую: кожа обычно отвечает на это раздражением, а не устойчивым улучшением.',
       ]);
     case 'smm_marketing':
       if (postStudioContainsAny(low, ['кейс', 'результат', 'отклик'])) return finalize([
@@ -4648,59 +4947,59 @@ function postStudioPersonaTopicSentences(nicheId, topic, angle) {
       ]);
     case 'barbershop':
       if (postStudioContainsAny(low, ['бород', 'щетин'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} аккуратный результат держится не на разовой стрижке, а на том, как борода ведёт себя между коррекциями и домашним уходом.`,
+        'Аккуратный результат держится не на разовой стрижке, а на том, как борода ведёт себя между коррекциями и домашним уходом.',
         'Форма быстрее всего теряется там, где нет простой системы: чем укладывать, как сушить, когда подравнивать контур и какие мелочи каждый день портят общий образ.',
       ]);
       if (postStudioContainsAny(low, ['стриж', 'форма лица', 'образ'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} хороший выбор строится не на модной картинке, а на том, как форма стрижки работает с лицом, ростом волос и повседневным режимом человека.`,
+        'Хороший выбор строится не на модной картинке, а на том, как форма стрижки работает с лицом, ростом волос и повседневным режимом человека.',
         'Именно здесь барбершоп-подход отличается от общего lifestyle-совета: важно не просто сделать красиво, а собрать форму, которую легко носить и поддерживать без лишней суеты.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} барбершоп ценят не за эффект в кресле, а за то, как стрижка и уход выглядят через несколько дней в обычной жизни.`,
+        'Барбершоп ценят не за эффект в кресле, а за то, как стрижка и уход выглядят через несколько дней в обычной жизни.',
         'Сильный результат виден там, где форма, длина и домашний уход работают вместе, а не держатся только на свежем контуре в день стрижки.',
       ]);
     case 'detailing':
       if (postStudioContainsAny(low, ['кузов', 'покрыт', 'полиров', 'защит'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} детейлинг важен не ради блеска, а ради ресурса покрытия: где кузов уже начинает терять защиту и быстрее ловить износ от повседневной эксплуатации.`,
-        'Практический смысл здесь в конкретных зонах риска: кромки, капот, ручки, пескоструй и мойка, которая постепенно съедает результат, если защита не подобрана под реальный режим машины.',
+        'Детейлинг важен не ради блеска, а ради ресурса покрытия: где кузов уже начинает терять защиту и быстрее ловить износ от повседневной эксплуатации.',
+        'Зоны риска здесь конкретные: кромки, капот, ручки, пескоструй и мойка, которая постепенно съедает результат, если защита не подобрана под реальный режим машины.',
       ]);
       if (postStudioContainsAny(low, ['салон', 'химчист', 'свеж'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} хороший детейлинг читается не по запаху в день работ, а по тому, как салон держит чистоту, фактуру и комфорт через недели повседневной эксплуатации.`,
+        'Хороший детейлинг читается не по запаху в день работ, а по тому, как салон держит чистоту, фактуру и комфорт через недели повседневной эксплуатации.',
         'Именно поэтому здесь важны не только процедуры, но и привычки владельца: чем перегружается поверхность, где копится влага и что быстрее всего возвращает ощущение уставшего салона.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} детейлинг работает как профилактика: он сохраняет кузов, салон и ликвидность машины, а не просто делает фото до и после.`,
+        'Детейлинг работает как профилактика: он сохраняет кузов, салон и ликвидность машины, а не просто делает фото до и после.',
         'Если уход собран по сезону, пробегу и состоянию покрытия, владелец заранее видит, где нужна защита, а где уже начинается восстановление вместо простой профилактики.',
       ]);
     case 'consulting':
       if (postStudioContainsAny(low, ['узк', 'процесс', 'систем', 'команд'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} проблема обычно не в одном сотруднике, а в месте, где процесс перестал доводить решение до результата и начал создавать системный узкий участок.`,
+        'Проблема обычно не в одном сотруднике, а в месте, где процесс перестал доводить решение до результата и начал создавать системный узкий участок.',
         'Здесь консалтинг полезен не теорией, а разбором связки: где теряется скорость, кто принимает решение, как измеряется эффект и почему команда компенсирует систему ручным героизмом.',
       ]);
       if (postStudioContainsAny(low, ['рост', 'масштаб', 'деньг', 'эффектив'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} бизнес чаще теряет деньги не на большой ошибке, а на серии управленческих решений, которые по отдельности выглядят разумно, но вместе размывают стратегию роста.`,
+        'Бизнес чаще теряет деньги не на большой ошибке, а на серии управленческих решений, которые по отдельности выглядят разумно, но вместе размывают стратегию роста.',
         'Видимый эффект появляется там, где собственник смотрит не на общую суету, а на конкретный разрыв: какая гипотеза проверяется, какой процесс тормозит и где рост уже начал перегружать систему.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} консалтинг нужен тогда, когда компании уже мало общих советов и нужен разбор причин, из-за которых процессы и стратегия не дают ожидаемой скорости.`,
+        'Консалтинг нужен тогда, когда компании уже мало общих советов и нужен разбор причин, из-за которых процессы и стратегия не дают ожидаемой скорости.',
         'Хороший разбор здесь всегда опирается на решения, цифры и последовательность действий, а не на абстрактную мотивацию или вдохновляющие формулировки.',
       ]);
     case 'online_courses':
       if (postStudioContainsAny(low, ['курс', 'программ', 'модул', 'урок'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} качество онлайн-курса видно не по количеству уроков, а по тому, как программа ведёт человека от модуля к результату без провалов между теорией и практикой.`,
+        'Качество онлайн-курса видно не по количеству уроков, а по тому, как программа ведёт человека от модуля к результату без провалов между теорией и практикой.',
         'Сильное обучение обычно заметно по структуре: каждый блок решает отдельную задачу, а материал не просто объясняет тему, а двигает студента к конкретному навыку и внедрению.',
       ]);
       if (postStudioContainsAny(low, ['наставн', 'практик', 'результат', 'обучен'])) return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} главный вопрос не в объёме контента, а в том, что именно помогает довести обучение до результата: практика, обратная связь или сопровождение наставника.`,
+        'Главный вопрос здесь не в объёме контента, а в том, что именно помогает довести обучение до результата: практика, обратная связь или сопровождение наставника.',
         'Если курс не помогает перевести знание в действие, уроки быстро превращаются в архив, а у человека остаётся ощущение, что обучение было интересным, но нерабочим.',
       ]);
       return finalize([
-        `${lead}. По теме ${safeTopic.toLowerCase()} онлайн-обучение ценят не за красивое обещание, а за понятный маршрут: что человек изучает, где применяет это на практике и какой результат может проверить сам.`,
+        'Онлайн-обучение ценят не за красивое обещание, а за понятный маршрут: что человек изучает, где применяет это на практике и какой результат может проверить сам.',
         'Чем яснее в курсе связаны модуль, практика и следующий шаг, тем меньше шанс, что обучение останется просто теорией без внедрения.',
       ]);
     default:
       return finalize([
-        `${lead}. В теме ${safeTopic.toLowerCase()} полезнее опираться на узнаваемую ситуацию, а не на общий совет.`,
+        'Лучше опираться на узнаваемую ситуацию, а не на общий совет.',
         'Чем конкретнее вы называете сигнал, ошибку или паттерн, тем легче человеку примерить это на свою реальность без лишней теории.',
       ]);
   }
@@ -4964,8 +5263,6 @@ function postStudioDeterministicSublineCandidates(item) {
   return [
     ...introCandidates,
     ...postStudioSplitTextSentences(detail),
-    `${focus}: один конкретный сигнал`,
-    `${focus}: что влияет сильнее всего`,
     angle,
   ]
     .map((line) => cropPostStudioCardLine(line))
@@ -5015,11 +5312,11 @@ function postStudioMonthlyTopicExpansionCandidates(baseTopic, angle, nicheId, va
     `Какая ошибка в теме ${focus} чаще всего повторяется`,
     `Что меняется, когда ${focus}`,
     `Как не потерять результат в теме ${focus}`,
-    `${fallbackTopic}: ${angleFocus || 'один важный сигнал'}`,
-    `${fallbackTopic}: что влияет сильнее всего`,
-    `${fallbackTopic}: где чаще всего возникает ошибка`,
-    `${fallbackTopic}: один повторяющийся сигнал`,
-    `${fallbackTopic}: один важный вывод`,
+    `Где в ${focus} люди чаще всего упускают ключевой момент`,
+    `Что в ${focus} люди обычно замечают слишком поздно`,
+    `Как в ${focus} выглядит повторяющийся сбой`,
+    `Что в ${focus} чаще всего ломает ожидаемый результат`,
+    `Какой нюанс в ${focus} обычно недооценивают`,
   ].map((line) => String(line || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   return variants.slice(variantIndex % Math.max(1, variants.length)).concat(variants.slice(0, variantIndex % Math.max(1, variants.length)));
 }
@@ -5046,12 +5343,12 @@ function postStudioTopicDerivedAngle(topic, angle, nicheId, variantIndex = 0, us
   const angleFocus = postStudioTopicFocusPhrase(fallbackAngle || safeTopic, 4) || focus;
   const pool = [
     fallbackAngle,
-    `${focus}: один конкретный сигнал`,
-    `${focus}: где чаще всего теряется результат`,
-    `${focus}: что влияет сильнее всего`,
-    `${focus}: что меняет итог`,
-    `${angleFocus}: один ключевой нюанс`,
-    `${safeTopic}: один ключевой нюанс`,
+    `Где в ${focus} люди чаще всего теряют результат`,
+    `Что в ${focus} обычно упускают в работе`,
+    `Как в ${focus} выглядит повторяющаяся ошибка`,
+    `Что в ${focus} меняет итог на практике`,
+    `Какой нюанс в ${angleFocus} люди замечают слишком поздно`,
+    `Что в ${safeTopic} чаще всего недооценивают`,
   ]
     .map((line) => cropPostStudioCardLine(String(line || '').replace(/\s+/g, ' ').trim(), 72))
     .filter(Boolean);
@@ -5211,8 +5508,8 @@ function derivePostStudioCardSubline(item, { usedSkeletons = null, usedNormalize
   }
   const terminalCandidates = [
     cropPostStudioCardLine(`${String(item?.topic || 'Тема').trim()}. ${postStudioTopicFocusPhrase(String(item?.topic || ''), 5) || 'Один новый фокус для темы'}.`),
-    cropPostStudioCardLine(`${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'Эта тема'}: что сильнее всего влияет на итог.`),
-    cropPostStudioCardLine(`${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'Эта тема'}: где чаще всего теряется результат.`),
+    cropPostStudioCardLine(`Что в ${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'этой теме'} чаще всего меняет итог.`),
+    cropPostStudioCardLine(`Где в ${postStudioTopicFocusPhrase(String(item?.topic || item?.angle || ''), 5) || 'этой теме'} люди чаще всего теряют результат.`),
   ].filter(Boolean);
   for (const terminalFallback of terminalCandidates) {
     const terminalNormalized = normalizePostStudioCardLine(terminalFallback);
@@ -11881,17 +12178,17 @@ async function bindCreateDirector(path) {
       case 'esoterica':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если хотите разобрать такой повторяющийся сюжет глубже, это уже можно делать в личной работе без громких обещаний.') || 'Полезнее не искать сенсацию, а спокойно понаблюдать, где этот знак уже повторяется в вашей жизни.',
+          explicitClose('Если хотите разобрать такой повторяющийся сюжет глубже, это уже можно делать в личной работе без громких обещаний.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'psychology':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если хочется разобрать такую реакцию глубже, это уже повод для индивидуальной работы без спешки и громких обещаний.') || 'Обычно помогает начать с простого наблюдения: в какой момент включается напряжение, что вы при этом думаете и что стараетесь выдержать в одиночку.',
+          explicitClose('Если хочется разобрать такую реакцию глубже, это уже повод для индивидуальной работы без спешки и громких обещаний.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'fitness':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || 'В тренировках лучше работает не рывок на мотивации, а схема, которую вы сможете повторить без отката через неделю.',
+          explicitClose('Если нужен режим под ваш график и восстановление, это уже можно разбирать как персональный план.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'apartment_renovation':
         if (postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTone(lead, nicheId, { allowService })) {
@@ -11899,12 +12196,12 @@ async function bindCreateDirector(path) {
         }
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(lead),
-          explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || 'Перерасход в ремонте почти всегда начинается там, где одно неуточнённое решение тянет за собой следующий этап и создаёт цепочку переделок.',
+          explicitClose('Если нужен разбор сметы или этапов под конкретную квартиру, это уже отдельная рабочая задача, а не общий пост.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'autoservice':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если по симптомам уже нужен осмотр, дальше лучше не гадать по звуку, а проверить машину вживую.') || 'Если сигнал повторяется, полезно отметить, когда он появляется: на холодную, под нагрузкой, на скорости или при торможении.',
+          explicitClose('Если по симптомам уже нужен осмотр, дальше лучше не гадать по звуку, а проверить машину вживую.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'cosmetology':
         if (postStudioLooksBlockedHelperTone(lead, nicheId, { allowService }) || postStudioLooksBlockedHelperTopic(lead, nicheId, { allowService })) {
@@ -11912,7 +12209,7 @@ async function bindCreateDirector(path) {
         }
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || 'Чаще всего коже помогает не новый актив, а более спокойный уход, который не перегружает её ещё сильнее.',
+          explicitClose('Если коже нужен уже не общий уход, а разбор по процедурам, это решают по состоянию кожи, а не по моде.') || postStudioPracticalCloseSentence(nicheId, safeTopic, lead, variantIndex),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'smm_marketing':
         {
@@ -11923,11 +12220,11 @@ async function bindCreateDirector(path) {
               [
                 'Аналитика перестаёт помогать в тот момент, когда цифры читают как отчёт о прошлом, а не как подсказку к следующему решению.',
                 'Если публикации оценивают только по общему охвату или лайкам, команда видит движение в таблице, но не понимает, какой пост усиливает интерес, а какой реально ведёт к заявке.',
-                explicitClose('Если метрики уже нужно связать с воронкой, это делается как отдельная настройка системы.') || 'Поэтому сильнее всего здесь помогает не новый дашборд, а связка между метрикой, гипотезой и следующим действием.',
+                explicitClose('Если метрики уже нужно связать с воронкой, это делается как отдельная настройка системы.') || 'Связка между метрикой, гипотезой и следующим действием даёт больше пользы, чем ещё один дашборд без решения.',
               ],
               [
                 'Ошибки в аналитике почти всегда начинаются там, где цифры смотрят отдельно от задачи поста и роли публикации в маршруте аудитории.',
-                `Тема «${postStudioTopicFocusPhrase(safeTopic, 5) || safeTopic.toLowerCase()}» становится полезной, когда по метрике можно понять, что именно менять в следующем сообщении, а не просто зафиксировать результат.`,
+          'Метрика полезна только тогда, когда по ней можно понять, что именно менять в следующем сообщении, а не просто зафиксировать результат.',
                 explicitClose('Если отчётность уже нужно перестраивать под реальные решения, это делают на уровне системы контента.') || 'Тогда аналитика перестаёт быть формальностью и начинает влиять на контент-план по-настоящему.',
               ],
             ),
@@ -11939,7 +12236,7 @@ async function bindCreateDirector(path) {
               [
                 'Даже сильный кейс перестаёт работать, если в нём видно только цифру, но не видно, какой именно ход привёл к отклику.',
                 'Когда в посте разобран контекст, решение и следующий шаг, аудитория считывает не красивую историю, а рабочую механику, которую можно применить к своему бизнесу.',
-                explicitClose('Если задача уже упирается в воронку заявок, дальше нужен разбор системы под ваш цикл продаж.') || 'Полезнее всего здесь показать, где результат появился из структуры, а не из удачного совпадения.',
+                explicitClose('Если задача уже упирается в воронку заявок, дальше нужен разбор системы под ваш цикл продаж.') || 'Лучше всего работает кейс, в котором видно, за счёт какого решения результат вообще появился.',
               ],
               [
                 'Кейс начинает продавать не в тот момент, когда в нём показывают рост, а в тот момент, когда читатель понимает, за счёт какого решения этот рост вообще появился.',
@@ -11949,7 +12246,7 @@ async function bindCreateDirector(path) {
               [
                 'Проблема большинства кейсов не в том, что они слабые, а в том, что из них непонятно, какой ход можно повторить в своей нише.',
                 'Когда в истории видны входные данные, развилка решений и причина результата, кейс перестаёт быть витриной и начинает работать как практическая опора для выбора.',
-                explicitClose('Если кейсы уже нужно собирать под разные сегменты, это делают на уровне системы, а не отдельного поста.') || 'Поэтому полезнее не украшать результат, а разложить его на шаги, которые аудитория может считать и примерить к себе.',
+                explicitClose('Если кейсы уже нужно собирать под разные сегменты, это делают на уровне системы, а не отдельного поста.') || 'Кейс убеждает сильнее, когда его можно разложить на шаги и примерить к своей ситуации.',
               ],
             ),
           ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -11958,14 +12255,14 @@ async function bindCreateDirector(path) {
           return postStudioSanitizeFinalPreviewBody([
             ...pickVariant(
               [
-                'Контент начинает работать заметно лучше, когда темы, рубрики и цель собраны в одну понятную систему.',
+              'Контент работает устойчивее, когда темы, рубрики и цель собраны в одну понятную систему.',
                 'Если план не связан с этапами воронки и ожидаемым действием читателя, публикации становятся заметными, но не складываются в предсказуемый результат.',
-                explicitClose('Если нужно собрать такую систему под ваш цикл продаж, это уже отдельная рабочая настройка.') || 'Первый сдвиг здесь обычно появляется не от новых идей, а от более чёткой структуры контент-плана.',
+                explicitClose('Если нужно собрать такую систему под ваш цикл продаж, это уже отдельная рабочая настройка.') || 'Чаще результат меняется не от новых идей, а от более чёткой структуры контент-плана.',
               ],
               [
                 'План контента перестаёт работать в тот момент, когда темы выбираются отдельно от задач бизнеса и роли поста в маршруте аудитории.',
                 'Как только у каждой рубрики появляется своя функция и понятный следующий шаг, публикации перестают спорить друг с другом и начинают усиливать общую систему.',
-                explicitClose('Если контент-план уже нужно перестраивать под воронку, это делается как отдельная настройка.') || 'Поэтому полезнее не просто расширять список тем, а связывать каждую тему с конкретным движением читателя дальше.',
+                explicitClose('Если контент-план уже нужно перестраивать под воронку, это делается как отдельная настройка.') || 'Список тем даёт результат только тогда, когда каждая тема связана с конкретным движением читателя дальше.',
               ],
             ),
           ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -11976,7 +12273,7 @@ async function bindCreateDirector(path) {
               [
                 'Поток идей заканчивается не потому, что темы исчезли, а потому, что контент пытаются придумывать с нуля каждый раз без опоры на повторяемую систему.',
                 'Когда у команды есть набор рабочих источников, поводов и форматов, новые посты собираются быстрее и не выглядят случайным набором мыслей.',
-                explicitClose('Если нужно собрать такую систему под вашу нишу, это уже отдельная настройка контент-процесса.') || 'Обычно помогает не искать вдохновение в последний момент, а заранее связать темы с задачами бизнеса и точками входа аудитории.',
+                explicitClose('Если нужно собрать такую систему под вашу нишу, это уже отдельная настройка контент-процесса.') || 'Темы собираются быстрее, когда они заранее связаны с задачами бизнеса и точками входа аудитории.',
               ],
               [
                 'Идеи для контента заканчиваются в тот момент, когда поиск тем идёт в отрыве от реальных вопросов аудитории и точек принятия решения.',
@@ -11986,7 +12283,7 @@ async function bindCreateDirector(path) {
               [
                 'Сильный контент-ритм держится не на внезапных инсайтах, а на системе, где у каждой рубрики есть свой источник идей и понятная задача.',
                 'Если темы рождаются прямо перед публикацией, команда почти неизбежно уходит в хаос: повторяет одно и то же, теряет фокус и не доводит читателя до действия.',
-                explicitClose('Если нужен разбор такой системы под ваш процесс, это уже отдельная рабочая настройка.') || 'Поэтому полезнее не ждать вдохновения, а заранее раскладывать идеи по форматам, вопросам аудитории и этапам воронки.',
+                explicitClose('Если нужен разбор такой системы под ваш процесс, это уже отдельная рабочая настройка.') || 'Идеи перестают зависеть от вдохновения, когда они заранее разложены по форматам, вопросам аудитории и этапам воронки.',
               ],
             ),
           ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -11997,12 +12294,12 @@ async function bindCreateDirector(path) {
               [
                 'Хаос в SMM редко выглядит как одна большая ошибка: чаще это серия постов, у которых нет общей роли и понятной последовательности.',
                 'Как только рубрики, цель и следующий шаг начинают работать как единая схема, контент перестаёт быть набором публикаций и начинает собирать предсказуемый эффект.',
-                explicitClose('Если нужен разбор рубрик под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первый сдвиг здесь обычно появляется не от новых идей, а от более чёткой структуры.',
+                explicitClose('Если нужен разбор рубрик под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первые заметные изменения обычно приходят после более чёткой структуры, а не после очередной идеи в последний момент.',
               ],
               [
                 'Проблема нерегулярного контента почти всегда связана не с нехваткой времени, а с тем, что публикации не собраны в повторяемый каркас.',
                 'Когда команда понимает, какой тип поста отвечает за внимание, какой за доверие и какой за следующий шаг, выпускать контент стабильно становится заметно проще.',
-                explicitClose('Если такой каркас нужно собрать под ваш цикл продаж, это уже отдельная настройка.') || 'Поэтому сначала полезно определить роли рубрик, а не просто увеличивать частоту публикаций.',
+                explicitClose('Если такой каркас нужно собрать под ваш цикл продаж, это уже отдельная настройка.') || 'Сначала лучше определить роли рубрик, а не просто увеличивать частоту публикаций.',
               ],
               [
                 'Регулярность ломается там, где каждый пост приходится заново изобретать без шаблона решений для типовых задач бизнеса.',
@@ -12018,7 +12315,7 @@ async function bindCreateDirector(path) {
               [
                 'Экспертный контент не начинает продавать автоматически только потому, что в нём много пользы и правильных мыслей.',
                 'Если пост не связывает пользу с конкретным следующим шагом, аудитория получает интересное чтение, но не понимает, почему ей стоит двигаться дальше именно сейчас.',
-                explicitClose('Если нужно разложить экспертный контент по этапам воронки, это уже решают на уровне системы, а не одного поста.') || 'Поэтому важен не объём пользы сам по себе, а то, как она встроена в путь до заявки.',
+                explicitClose('Если нужно разложить экспертный контент по этапам воронки, это уже решают на уровне системы, а не одного поста.') || 'Объём пользы работает только тогда, когда она встроена в путь до заявки.',
               ],
               [
                 'Польза перестаёт работать на заявку в тот момент, когда экспертный пост отвечает на всё сразу, но не создаёт ясного хода для читателя дальше.',
@@ -12028,7 +12325,7 @@ async function bindCreateDirector(path) {
               [
                 'Миф о том, что полезный пост продаёт сам по себе, обычно ломает логику контента сильнее, чем слабый охват.',
                 'Если в тексте нет связи между болью, решением и следующим шагом, читатель уносит идею, но не связывает её с вашим предложением и своим текущим запросом.',
-                explicitClose('Если нужно перестроить экспертный контент под воронку, это уже отдельная рабочая настройка.') || 'Поэтому полезнее не наращивать объём советов, а выстраивать у поста ясную роль в пути до заявки.',
+                explicitClose('Если нужно перестроить экспертный контент под воронку, это уже отдельная рабочая настройка.') || 'Пост работает сильнее, когда у него есть ясная роль в пути до заявки, а не просто ещё один слой советов.',
               ],
             ),
           ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -12039,7 +12336,7 @@ async function bindCreateDirector(path) {
               [
                 'Слабое место обычно не в охвате, а в переходе от внимания к заявке: сообщение не доводит человека до понятного следующего шага.',
                 'На практике это выглядит так: подписчики читают, соглашаются и даже сохраняют пост, но путь до лида рвётся, потому что оффер, кейс и CTA работают как три разных разговора.',
-                explicitClose('Если нужно связать контент и воронку под ваш цикл продаж, это уже отдельная настройка.') || 'Поэтому сначала стоит проверить, где именно у вас распадается связка между пользой поста и следующим действием клиента.',
+                explicitClose('Если нужно связать контент и воронку под ваш цикл продаж, это уже отдельная настройка.') || 'Сначала стоит проверить, где именно у вас распадается связка между пользой поста и следующим действием клиента.',
               ],
               [
                 'Контент перестаёт приводить к заявкам не тогда, когда посты становятся слабее, а тогда, когда польза и предложение существуют в них как две несвязанные части.',
@@ -12049,7 +12346,7 @@ async function bindCreateDirector(path) {
               [
                 'Оффер провисает там, где контент объясняет тему, но не переводит внимание аудитории в конкретное решение и понятный формат действия.',
                 'Когда у пользы нет продолжения в виде ясного предложения, пост создаёт вовлечение, но оставляет человека без мотива двинуться к заявке.',
-                explicitClose('Если нужно перестроить эту связку под вашу воронку, это уже отдельная рабочая задача.') || 'Поэтому полезнее всего проверить, как именно в тексте связаны ценность, доказательство и следующий шаг.',
+                explicitClose('Если нужно перестроить эту связку под вашу воронку, это уже отдельная рабочая задача.') || 'Проверьте, как именно в тексте связаны ценность, доказательство и следующий шаг.',
               ],
             ),
           ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -12058,17 +12355,17 @@ async function bindCreateDirector(path) {
           ...pickVariant(
             [
               ...sentencesFor(postStudioPersonaTopicFallback(safeTopic, `${angle}|${variantIndex}`, nicheId)),
-              explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала полезно проверить, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
+              explicitClose('Если задача уже упирается в заявки и воронку, дальше нужен разбор системы, а не ещё один общий совет.') || 'Сначала проверьте, ведёт ли каждый пост к одному понятному следующему шагу, а не пытается решить всё сразу.',
             ],
             [
-              'Контент начинает работать заметно лучше в тот момент, когда у каждого поста появляется одна чёткая задача вместо попытки закрыть все вопросы аудитории сразу.',
+              'Контент собирается в систему в тот момент, когда у каждого поста появляется одна чёткая задача вместо попытки закрыть все вопросы аудитории сразу.',
               'Если публикация одновременно и обучает, и продаёт, и доказывает, и развлекает, человек чаще уносит только общее впечатление, но не движется к понятному следующему шагу.',
-              explicitClose('Если уже нужно собрать такую логику под ваши продукты, это делается как отдельная настройка системы.') || 'Обычно здесь помогает не новый формат, а ясное распределение ролей между постами в одной цепочке.',
+              explicitClose('Если уже нужно собрать такую логику под ваши продукты, это делается как отдельная настройка системы.') || 'Чаще всего здесь помогает ясное распределение ролей между постами в одной цепочке.',
             ],
             [
               'Проблема контента редко в том, что он недостаточно полезный: чаще он просто не встроен в общую логику движения аудитории.',
               'Когда темы, форматы и CTA не согласованы между собой, даже хорошие публикации работают как отдельные эпизоды, а не как система, которая наращивает доверие и ведёт к действию.',
-              explicitClose('Если нужен разбор такой системы под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первый рабочий шаг здесь обычно в том, чтобы связать каждую тему с этапом воронки и одним ожидаемым результатом поста.',
+              explicitClose('Если нужен разбор такой системы под ваш цикл контента, это уже отдельная рабочая настройка.') || 'Первый рабочий шаг обычно в том, чтобы связать каждую тему с этапом воронки и одним ожидаемым результатом поста.',
             ],
           ),
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
@@ -12086,7 +12383,7 @@ async function bindCreateDirector(path) {
       case 'consulting':
         return postStudioSanitizeFinalPreviewBody([
           ...sentencesFor(),
-          explicitClose('Если вопрос уже упирается в конкретную стратегию роста, дальше нужен разбор цифр и процессов, а не ещё один абстрактный тезис.') || 'Полезнее всего здесь проверить один процесс, одну метрику и одно узкое место, которое сильнее всего тормозит решение прямо сейчас.',
+          explicitClose('Если вопрос уже упирается в конкретную стратегию роста, дальше нужен разбор цифр и процессов, а не ещё один абстрактный тезис.') || 'Проверьте один процесс, одну метрику и одно узкое место, которое сильнее всего тормозит решение прямо сейчас.',
         ].filter(Boolean).join('\n\n'), safeTopic, lead, nicheId, { allowService });
       case 'online_courses':
         return postStudioSanitizeFinalPreviewBody([
@@ -12118,7 +12415,7 @@ async function bindCreateDirector(path) {
     nicheId,
     { allowService },
   );
-  if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(body, topic, nicheId, { allowService })) return body;
+  if (!postStudioLooksServiceFramed(body) && !postStudioLooksBlockedHelperTone(body, nicheId, { allowService }) && !postStudioBodyFailsQualityGuard(body, topic, nicheId, { allowService }) && postStudioBodyMatchesTopicFamily(body, topic, nicheId)) return body;
   const fallbackBody = postStudioSanitizeFinalPreviewBody(
     postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService }),
     topic,
@@ -12126,17 +12423,13 @@ async function bindCreateDirector(path) {
     nicheId,
     { allowService },
   );
-  if (!postStudioBodyFailsQualityGuard(fallbackBody, topic, nicheId, { allowService })) return fallbackBody;
+  if (!postStudioBodyFailsQualityGuard(fallbackBody, topic, nicheId, { allowService }) && postStudioBodyMatchesTopicFamily(fallbackBody, topic, nicheId)) return fallbackBody;
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const rescued = postStudioUniqueBodyRescue(nicheId, topic, angle, attempt, { allowService });
-    if (rescued && !postStudioBodyFailsQualityGuard(rescued, topic, nicheId, { allowService })) return rescued;
+    if (rescued && !postStudioBodyFailsQualityGuard(rescued, topic, nicheId, { allowService }) && postStudioBodyMatchesTopicFamily(rescued, topic, nicheId)) return rescued;
   }
   return postStudioSanitizeFinalPreviewBody(
-    [
-      postStudioAnalyticalFallbackSentence(topic, angle),
-      'Рабочий текст здесь должен не обслуживать визит или промо, а объяснять, где именно тема меняет решение, поведение или следующий шаг аудитории.',
-      'Если исходный драфт не дал такой опоры, безопаснее собрать короткий аналитический пост, чем оставлять слабый сервисный шаблон.',
-    ].join(' '),
+    postStudioPersonaBodyFallback(nicheId, topic, angle, { allowService }),
     topic,
     angle,
     nicheId,
@@ -12665,6 +12958,9 @@ async function bindCreateDirector(path) {
       await advanceStep(2, 80);
       const allowService = postStudioHasExplicitOffer(base.offer);
       const usedBodyCoreKeys = new Set();
+      const usedBodyLeadKeys = new Set();
+      const usedBodySecondKeys = new Set();
+      const usedBodyFamilyKeys = new Set();
       const builtItems = buildPlanFlowItemsFromAi({
         count: daysCount,
         topics: suggestData.topics,
@@ -12683,6 +12979,116 @@ async function bindCreateDirector(path) {
         setPostStudioGenerateFeedback('pending', 'AI собрал каркас плана и продолжает улучшать тексты, CTA и хештеги.');
         render();
       }
+      const enforceAcceptedPostStudioBody = (seedItem, fallbackOffset = 0) => {
+        const item = { ...seedItem };
+        const itemNicheId = item.nicheId || directorCurrentNicheId(d);
+        const candidateSignatures = (candidate) => {
+          const safeCandidate = postStudioSanitizeFinalPreviewBody(candidate, item.topic, item.angle, itemNicheId, { allowService });
+          return {
+            text: safeCandidate,
+            core: postStudioPreviewBodyCore(safeCandidate),
+            leadKey: postStudioPreviewSentenceKey(safeCandidate, 0),
+            secondKey: postStudioPreviewSentenceKey(safeCandidate, 1),
+            familyKey: postStudioMonthlyFamilyKey(safeCandidate, itemNicheId),
+          };
+        };
+        const candidateLooksUsed = ({ core, leadKey, secondKey, familyKey }) => {
+          if (!core) return true;
+          if (usedBodyCoreKeys.has(core)) return true;
+          if (leadKey && usedBodyLeadKeys.has(leadKey)) return true;
+          if (secondKey && usedBodySecondKeys.has(secondKey)) return true;
+          if (familyKey && usedBodyFamilyKeys.has(familyKey)) return true;
+          return false;
+        };
+        const tryAccept = (candidate) => {
+          const signatures = candidateSignatures(candidate);
+          if (!signatures.text || !signatures.core) return '';
+          if (candidateLooksUsed(signatures)) return '';
+          if (postStudioBodyFailsQualityGuard(signatures.text, item.topic, itemNicheId, { allowService })) return '';
+          if (!postStudioBodyMatchesTopicFamily(signatures.text, item.topic, itemNicheId)) return '';
+          return signatures.text;
+        };
+        let accepted = tryAccept(String(item.post_text || ''));
+        for (let attempt = 0; !accepted && attempt < 6; attempt += 1) {
+          accepted = tryAccept(postStudioPersonaBodyFallback(
+            itemNicheId,
+            item.topic,
+            item.angle,
+            { allowService, variantIndex: (Number(item.day || 0) || 0) + fallbackOffset + attempt },
+          ));
+        }
+        for (let attempt = 0; !accepted && attempt < 6; attempt += 1) {
+          accepted = tryAccept(postStudioUniqueBodyRescue(
+            itemNicheId,
+            item.topic,
+            item.angle,
+            (Number(item.day || 0) || 0) + fallbackOffset + attempt,
+            { allowService },
+          ));
+        }
+        for (let attempt = 0; !accepted && attempt < 6; attempt += 1) {
+          accepted = tryAccept(postStudioEmergencySpecialistBody(
+            itemNicheId,
+            item.topic,
+            item.angle,
+            (Number(item.day || 0) || 0) + fallbackOffset + 17 + attempt,
+            { allowService },
+          ));
+        }
+        if (!accepted) {
+          for (let attempt = 0; !accepted && attempt < 12; attempt += 1) {
+            accepted = tryAccept(postStudioPersonaBodyFallback(
+              itemNicheId,
+              item.topic,
+              item.angle,
+              { allowService, variantIndex: 31 + (Number(item.day || 0) || 0) + fallbackOffset + attempt },
+            ));
+          }
+        }
+        if (!accepted) {
+          for (let attempt = 0; !accepted && attempt < 12; attempt += 1) {
+            accepted = tryAccept(postStudioUniqueBodyRescue(
+              itemNicheId,
+              item.topic,
+              item.angle,
+              41 + (Number(item.day || 0) || 0) + fallbackOffset + attempt,
+              { allowService },
+            ));
+          }
+        }
+        if (!accepted) {
+          for (let attempt = 0; !accepted && attempt < 12; attempt += 1) {
+            accepted = tryAccept(postStudioEmergencySpecialistBody(
+              itemNicheId,
+              item.topic,
+              item.angle,
+              71 + (Number(item.day || 0) || 0) + fallbackOffset + attempt,
+              { allowService },
+            ));
+          }
+        }
+        if (!accepted) {
+          accepted = tryAccept(String(item.post_text || ''));
+        }
+        if (!accepted) {
+          accepted = postStudioEmergencySpecialistBody(
+            itemNicheId,
+            item.topic,
+            item.angle,
+            101 + (Number(item.day || 0) || 0) + fallbackOffset,
+            { allowService },
+          );
+        }
+        item.post_text = accepted;
+        item.caption_text = accepted;
+        item.caption = accepted;
+        const acceptedSignatures = candidateSignatures(accepted);
+        if (acceptedSignatures.core) usedBodyCoreKeys.add(acceptedSignatures.core);
+        if (acceptedSignatures.leadKey) usedBodyLeadKeys.add(acceptedSignatures.leadKey);
+        if (acceptedSignatures.secondKey) usedBodySecondKeys.add(acceptedSignatures.secondKey);
+        if (acceptedSignatures.familyKey) usedBodyFamilyKeys.add(acceptedSignatures.familyKey);
+        return item;
+      };
       const enrichPostStudioItem = async (seedItem) => {
         const item = { ...seedItem };
         try {
@@ -12772,24 +13178,32 @@ async function bindCreateDirector(path) {
                   }
                 }
               }
-              if (repairedBody) {
-                item.post_text = repairedBody;
-              } else {
-                item.post_text = postStudioSanitizeFinalPreviewBody(
-                  [
-                    postStudioAnalyticalFallbackSentence(item.topic, item.angle),
-                    'Сильный пост здесь должен объяснять, где тема влияет на решение аудитории и какой следующий шаг она делает понятным.',
-                    'Если исходный драфт этого не даёт, безопаснее оставить короткий аналитический текст, чем сервисный или промо-хвост.',
-                  ].join(' '),
-                  item.topic,
-                  item.angle,
-                  item.nicheId || directorCurrentNicheId(d),
-                  { allowService },
-                );
+              item.post_text = repairedBody || postStudioEmergencySpecialistBody(
+                item.nicheId || directorCurrentNicheId(d),
+                item.topic,
+                item.angle,
+                (Number(item.day || 0) || 0) + 9,
+                { allowService },
+              );
+              if (postStudioBodyFailsQualityGuard(item.post_text, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService }) || usedBodyCoreKeys.has(postStudioPreviewBodyCore(item.post_text))) {
+                let emergencyAccepted = '';
+                for (let attempt = 0; attempt < 6; attempt += 1) {
+                  const emergencyBody = postStudioEmergencySpecialistBody(
+                    item.nicheId || directorCurrentNicheId(d),
+                    item.topic,
+                    item.angle,
+                    (Number(item.day || 0) || 0) + 9 + attempt,
+                    { allowService },
+                  );
+                  const emergencyCore = postStudioPreviewBodyCore(emergencyBody);
+                  if (emergencyBody && emergencyCore && !usedBodyCoreKeys.has(emergencyCore) && !postStudioBodyFailsQualityGuard(emergencyBody, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                    emergencyAccepted = emergencyBody;
+                    break;
+                  }
+                }
+                if (emergencyAccepted) item.post_text = emergencyAccepted;
               }
             }
-            const acceptedBodyCore = postStudioPreviewBodyCore(item.post_text);
-            if (acceptedBodyCore) usedBodyCoreKeys.add(acceptedBodyCore);
             item.caption_text = item.post_text;
             item.caption = item.post_text;
             item.cta = sanitizePostStudioCta(String(draft.cta || item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
@@ -12848,21 +13262,30 @@ async function bindCreateDirector(path) {
               }
             }
             if (postStudioBodyFailsQualityGuard(item.post_text, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
-              item.post_text = postStudioSanitizeFinalPreviewBody(
-                [
-                  postStudioAnalyticalFallbackSentence(item.topic, item.angle),
-                  'Рабочий текст здесь должен не обслуживать визит или промо, а объяснять, где тема меняет решение, поведение или следующий шаг аудитории.',
-                  'Если исходный драфт не дал такой опоры, безопаснее собрать короткий аналитический пост, чем оставлять слабый сервисный шаблон.',
-                ].join(' '),
+              let emergencyAccepted = '';
+              for (let attempt = 0; attempt < 6; attempt += 1) {
+                const emergencyBody = postStudioEmergencySpecialistBody(
+                  item.nicheId || directorCurrentNicheId(d),
+                  item.topic,
+                  item.angle,
+                  (Number(item.day || 0) || 0) + 13 + attempt,
+                  { allowService },
+                );
+                const emergencyCore = postStudioPreviewBodyCore(emergencyBody);
+                if (emergencyBody && emergencyCore && !usedBodyCoreKeys.has(emergencyCore) && !postStudioBodyFailsQualityGuard(emergencyBody, item.topic, item.nicheId || directorCurrentNicheId(d), { allowService })) {
+                  emergencyAccepted = emergencyBody;
+                  break;
+                }
+              }
+              item.post_text = emergencyAccepted || postStudioEmergencySpecialistBody(
+                item.nicheId || directorCurrentNicheId(d),
                 item.topic,
                 item.angle,
-                item.nicheId || directorCurrentNicheId(d),
+                (Number(item.day || 0) || 0) + 19,
                 { allowService },
               );
             }
           }
-          const acceptedFallbackCore = postStudioPreviewBodyCore(item.post_text);
-          if (acceptedFallbackCore) usedBodyCoreKeys.add(acceptedFallbackCore);
           item.caption_text = item.post_text;
           item.caption = item.post_text;
           item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
@@ -12875,10 +13298,11 @@ async function bindCreateDirector(path) {
       for (let idx = 0; idx < builtItems.length; idx += draftBatchSize) {
         const chunk = builtItems.slice(idx, idx + draftBatchSize);
         const chunkItems = await Promise.all(chunk.map((item) => enrichPostStudioItem(item)));
-        enrichedItems.push(...chunkItems);
-        if (daysCount >= 30 && chunkItems.length) {
+        const acceptedChunk = chunkItems.map((item, offset) => enforceAcceptedPostStudioBody(item, idx + offset));
+        enrichedItems.push(...acceptedChunk);
+        if (daysCount >= 30 && acceptedChunk.length) {
           const nextItems = Array.isArray(d.planFlowItems) && d.planFlowItems.length ? d.planFlowItems.slice() : builtItems.map((item) => ({ ...item }));
-          chunkItems.forEach((item, offset) => {
+          acceptedChunk.forEach((item, offset) => {
             nextItems[idx + offset] = item;
           });
           d.planFlowItems = nextItems;
