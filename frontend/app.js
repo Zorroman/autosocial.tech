@@ -9831,7 +9831,7 @@ function pageCreateDirector() {
           </div>
         </div>
         <div class="post-studio-day-list">
-          ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
+          ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-image="${esc(encodeURIComponent(String(item.media_url || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
             <div class="small">${esc(shellText('create_post_studio_day'))} ${Number(item.day || 0)}</div>
             <strong>${esc(item.topic || '—')}</strong>
             <p class="small truncate" style="margin:0;">${esc(postStudioCardSublines.get(Number(item.day || 0)) || derivePostStudioCardSubline(item))}</p>
@@ -9848,6 +9848,9 @@ function pageCreateDirector() {
               <h3 id="cdPostStudioPreviewTitle" style="margin-top:0;">${esc(selectedPostStudioItem.topic || '—')}</h3>
               <p id="cdPostStudioPreviewState" class="small create-preview-state">${esc(planFormatLabel(selectedPostStudioItem.format_hint || selectedPostStudioItem.contentFormat || 'post'))}</p>
               <p class="small" style="margin:0 0 10px 0;">${esc(shellText('create_post_studio_auto_time'))}</p>
+              <div id="cdPostStudioPreviewImageWrap" style="${String(selectedPostStudioItem.media_url || '').trim() ? 'display:block;' : 'display:none;'}margin:0 0 12px 0;">
+                <img id="cdPostStudioPreviewImage" src="${esc(String(selectedPostStudioItem.media_url || '').trim())}" alt="${esc(selectedPostStudioItem.topic || 'Post image')}" style="width:100%;max-height:240px;object-fit:cover;border-radius:16px;display:block;" />
+              </div>
               <label class="create-toggle" style="margin-bottom:10px;"><input id="cdPostStudioManualTimeToggle" type="checkbox" ${d.postStudioManualTimeEnabled ? 'checked' : ''}/> ${esc(shellText('create_post_studio_manual_time_toggle'))}</label>
               <div id="cdPostStudioManualTimeFields" style="display:block;opacity:${d.postStudioManualTimeEnabled ? '1' : '0.56'};">
                 <div class="field">
@@ -12636,6 +12639,7 @@ async function bindCreateDirector(path) {
         angle,
         cta,
         hashtags,
+        media_url: '',
         scheduled_at: String((Array.isArray(slots) ? slots[idx] : '') || '').trim(),
         contentFormat: formatPool[idx % formatPool.length],
         objective: d.goal || 'engagement',
@@ -13089,6 +13093,31 @@ async function bindCreateDirector(path) {
         if (acceptedSignatures.familyKey) usedBodyFamilyKeys.add(acceptedSignatures.familyKey);
         return item;
       };
+      const ensurePostStudioItemImage = async (item) => {
+        if (!item) return item;
+        if (String(item.media_url || '').trim()) return item;
+        try {
+          const imageOut = await api('/api/ai/director/generate-image', {
+            method: 'POST',
+            body: JSON.stringify({
+              topic: String(item.topic || '').trim(),
+              caption: String(item.post_text || item.caption_text || item.caption || '').trim(),
+              asset_ideas: [],
+              niche_label: directorCurrentNicheMeta(d)?.label || '',
+              niche_context: directorNicheAiContext(d),
+              language: base.language || d.language || 'ru',
+              tone: base.tone || d.tone || 'friendly',
+              style: 'realistic',
+              no_text_on_image: true,
+              realism: true,
+            }),
+            timeoutMs: 120000,
+          });
+          const imageUrl = String(imageOut?.data?.image_url || '').trim();
+          if (imageUrl) item.media_url = imageUrl;
+        } catch {}
+        return item;
+      };
       const enrichPostStudioItem = async (seedItem) => {
         const item = { ...seedItem };
         try {
@@ -13113,6 +13142,8 @@ async function bindCreateDirector(path) {
           const draft = incomingDrafts[0] || null;
           if (draft) {
             const mergedText = String(draft.post_text || item.post_text || '').trim();
+            const draftMediaUrl = String(draft.media_url || '').trim();
+            if (draftMediaUrl) item.media_url = draftMediaUrl;
             item.post_text = sanitizePostStudioPreviewText(mergedText, item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
             const initialBodyCore = postStudioPreviewBodyCore(item.post_text);
             if (initialBodyCore && usedBodyCoreKeys.has(initialBodyCore)) {
@@ -13291,6 +13322,7 @@ async function bindCreateDirector(path) {
           item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
           item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) }).join(' ');
         }
+        await ensurePostStudioItemImage(item);
         return item;
       };
       const enrichedItems = [];
@@ -13361,6 +13393,7 @@ async function bindCreateDirector(path) {
       post_text: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-text')),
       cta: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-cta')),
       hashtags: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-tags')),
+      media_url: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-image')),
       scheduled_at: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-scheduled')),
     };
   };
@@ -13375,6 +13408,7 @@ async function bindCreateDirector(path) {
       post_text: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-text')),
       cta: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-cta')),
       hashtags: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-tags')),
+      media_url: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-image')),
       scheduled_at: decodePostStudioAttr(btn.getAttribute('data-cd-poststudio-scheduled')),
     })).filter((item) => item.day > 0);
   };
@@ -13444,6 +13478,7 @@ async function bindCreateDirector(path) {
       language: d.language || 'ru',
       tone: d.tone || 'friendly',
       generated_text: String(item.post_text || item.caption_text || item.caption || '').trim(),
+      media_url: String(item.media_url || '').trim() || null,
       save_as_draft: true,
     };
     if (schedule) payload.schedule_at = String(item.scheduled_at || '').trim();
@@ -13479,6 +13514,8 @@ async function bindCreateDirector(path) {
     const textEl = document.getElementById('cdPostStudioPreviewText');
     const ctaEl = document.getElementById('cdPostStudioPreviewCtaText');
     const tagsEl = document.getElementById('cdPostStudioPreviewTags');
+    const imageWrapEl = document.getElementById('cdPostStudioPreviewImageWrap');
+    const imageEl = document.getElementById('cdPostStudioPreviewImage');
     const manualToggleEl = document.getElementById('cdPostStudioManualTimeToggle');
     const manualWrapEl = document.getElementById('cdPostStudioManualTimeFields');
     const globalTimeEl = document.getElementById('cdPostStudioGlobalTime');
@@ -13494,6 +13531,8 @@ async function bindCreateDirector(path) {
       if (textEl) textEl.textContent = shellText('create_post_studio_preview_empty');
       if (ctaEl) ctaEl.textContent = '—';
       if (tagsEl) tagsEl.innerHTML = '<span class="small">—</span>';
+      if (imageWrapEl) imageWrapEl.style.display = 'none';
+      if (imageEl) imageEl.removeAttribute('src');
       if (manualWrapEl) {
         manualWrapEl.style.display = 'block';
         manualWrapEl.style.visibility = 'visible';
@@ -13519,6 +13558,16 @@ async function bindCreateDirector(path) {
     if (tagsEl) {
       const tags = String(item.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10);
       tagsEl.innerHTML = tags.length ? tags.map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') : '<span class="small">—</span>';
+    }
+    const mediaUrl = String(item.media_url || '').trim();
+    if (imageWrapEl) imageWrapEl.style.display = mediaUrl ? 'block' : 'none';
+    if (imageEl) {
+      if (mediaUrl) {
+        imageEl.src = mediaUrl;
+        imageEl.alt = String(item.topic || 'Post image').trim() || 'Post image';
+      } else {
+        imageEl.removeAttribute('src');
+      }
     }
     if (manualToggleEl) manualToggleEl.checked = manualEnabled;
     if (manualWrapEl) {
