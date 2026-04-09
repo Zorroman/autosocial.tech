@@ -2959,7 +2959,9 @@ def ai_director_generate_image():
             language=language,
         )
 
-    mirrored = _download_and_store_binary(image_url, ".jpg")
+    mirrored = None
+    if not str(image_url or "").strip().lower().endswith(".svg"):
+        mirrored = _download_and_store_binary(image_url, ".jpg")
     final_url = mirrored[0] if mirrored else image_url
     return jsonify(
         {
