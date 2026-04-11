@@ -13093,9 +13093,33 @@ async function bindCreateDirector(path) {
         if (acceptedSignatures.familyKey) usedBodyFamilyKeys.add(acceptedSignatures.familyKey);
         return item;
       };
+      const usedImageUrls = new Set();
+      const usedImageExternalIds = new Set();
+      const extractMediaExternalId = (value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        const pexelsMatch = raw.match(/pexels_(\d+)/i);
+        if (pexelsMatch) return pexelsMatch[1] || '';
+        const assetMatch = raw.match(/\/photos\/(\d+)\//i);
+        if (assetMatch) return assetMatch[1] || '';
+        return '';
+      };
+      const registerPostStudioImage = (item) => {
+        if (!item) return;
+        const mediaUrl = String(item.media_url || '').trim();
+        if (mediaUrl) usedImageUrls.add(mediaUrl);
+        const externalId = String(item.media_external_id || item.external_id || extractMediaExternalId(mediaUrl)).trim();
+        if (externalId) {
+          item.media_external_id = externalId;
+          usedImageExternalIds.add(externalId);
+        }
+      };
       const ensurePostStudioItemImage = async (item) => {
         if (!item) return item;
-        if (String(item.media_url || '').trim()) return item;
+        if (String(item.media_url || '').trim()) {
+          registerPostStudioImage(item);
+          return item;
+        }
         try {
           const imageOut = await api('/api/ai/director/generate-image', {
             method: 'POST',
@@ -13110,11 +13134,17 @@ async function bindCreateDirector(path) {
               style: 'realistic',
               no_text_on_image: true,
               realism: true,
+              project_id: selectedProjectId() || undefined,
+              used_urls: Array.from(usedImageUrls),
+              used_external_ids: Array.from(usedImageExternalIds),
             }),
             timeoutMs: 120000,
           });
           const imageUrl = String(imageOut?.data?.image_url || '').trim();
+          const externalId = String(imageOut?.data?.external_id || '').trim();
           if (imageUrl) item.media_url = imageUrl;
+          if (externalId) item.media_external_id = externalId;
+          registerPostStudioImage(item);
         } catch {}
         return item;
       };
@@ -13322,7 +13352,6 @@ async function bindCreateDirector(path) {
           item.cta = sanitizePostStudioCta(String(item.cta || d.selectedCta || '').trim(), item.topic, item.angle, { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) });
           item.hashtags = sanitizePostStudioHashtags(d, parseCampaignHashtags(String(item.hashtags || '')), { allowService, nicheId: item.nicheId || directorCurrentNicheId(d) }).join(' ');
         }
-        await ensurePostStudioItemImage(item);
         return item;
       };
       const enrichedItems = [];
@@ -13331,6 +13360,10 @@ async function bindCreateDirector(path) {
         const chunk = builtItems.slice(idx, idx + draftBatchSize);
         const chunkItems = await Promise.all(chunk.map((item) => enrichPostStudioItem(item)));
         const acceptedChunk = chunkItems.map((item, offset) => enforceAcceptedPostStudioBody(item, idx + offset));
+        for (const acceptedItem of acceptedChunk) {
+          registerPostStudioImage(acceptedItem);
+          await ensurePostStudioItemImage(acceptedItem);
+        }
         enrichedItems.push(...acceptedChunk);
         if (daysCount >= 30 && acceptedChunk.length) {
           const nextItems = Array.isArray(d.planFlowItems) && d.planFlowItems.length ? d.planFlowItems.slice() : builtItems.map((item) => ({ ...item }));

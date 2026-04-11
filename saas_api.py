@@ -47,7 +47,7 @@ from backend.services.media.pexels_service import (
     PexelsRequestError,
     fetch_post_image,
 )
-from gpt_generator import build_semantic_fallback_image_url, generate_image_url, generate_structured_text_with_usage
+from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
 from plans_catalog import all_public_plan_specs, get_plan_spec, normalize_plan_code, to_plan_payload
 from content_pipeline import (
     OpenAIClientError,
@@ -2924,29 +2924,75 @@ def ai_director_generate_image():
     topic = str(data.get("topic") or "").strip()
     if not topic:
         return jsonify({"status": "error", "data": {}, "warnings": ["topic is required"], "debug_code": "missing_topic"}), 400
+    caption = str(data.get("caption") or "").strip()
+    niche_label = str(data.get("niche_label") or "").strip()
+    niche_context_raw = data.get("niche_context")
+    niche_context = ""
+    niche_hint_parts: list[str] = []
+    if isinstance(niche_context_raw, dict):
+        niche_context = str(niche_context_raw.get("id") or niche_context_raw.get("label") or "").strip()
+        keyword_values = niche_context_raw.get("keywords") if isinstance(niche_context_raw.get("keywords"), list) else []
+        niche_hint_parts.extend([str(item or "").strip() for item in keyword_values if str(item or "").strip()][:6])
+        image_guidelines = niche_context_raw.get("imageGuidelines") if isinstance(niche_context_raw.get("imageGuidelines"), dict) else {}
+        for field in ("focus", "mood"):
+            value = str(image_guidelines.get(field) or "").strip()
+            if value:
+                niche_hint_parts.append(value)
+    else:
+        niche_context = str(niche_context_raw or "").strip()
+    asset_ideas_raw = data.get("asset_ideas") if isinstance(data.get("asset_ideas"), list) else []
+    asset_ideas = [str(item or "").strip() for item in asset_ideas_raw if str(item or "").strip()][:6]
     language = str(data.get("language") or "ru").strip().lower() or "ru"
     tone = _normalize_create_tone(data.get("tone") or "friendly")
-    style = str(data.get("style") or "реалистично").strip()
+    style = str(data.get("style") or "???????????").strip()
     no_text_on_image = bool(data.get("no_text_on_image") is not False)
     realism = bool(data.get("realism") is not False)
 
-    prompt_topic = f"{topic}. Стиль: {style}."
+    prompt_topic = f"{topic}. ?????: {style}."
     if realism:
-        prompt_topic += " Реалистичная сцена."
+        prompt_topic += " ???????????? ?????."
     if no_text_on_image:
-        prompt_topic += " Без текста, надписей, логотипов и водяных знаков."
-    prompt_topic += " Смысл изображения должен передавать тему поста."
+        prompt_topic += " ??? ??????, ????????, ????????? ? ??????? ??????."
+    prompt_topic += " ????? ??????????? ?????? ?????????? ???? ?????."
+
+    project_id_raw = data.get("project_id")
+    try:
+        project_id = int(project_id_raw) if project_id_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        project_id = None
+    used_external_ids = {
+        str(item or "").strip()
+        for item in (data.get("used_external_ids") if isinstance(data.get("used_external_ids"), list) else [])
+        if str(item or "").strip()
+    }
+    used_urls = {
+        str(item or "").strip()
+        for item in (data.get("used_urls") if isinstance(data.get("used_urls"), list) else [])
+        if str(item or "").strip()
+    }
 
     warnings = []
-    source = "openai"
+    source = "pexels"
+    search_context = "\n".join(part for part in [caption, *asset_ideas, *niche_hint_parts] if part).strip() or None
+    image_url = None
+    media = None
     try:
-        image_url = generate_image_url(
-            topic=prompt_topic,
-            category="business",
-            tone=tone,
-            language=language,
-        )
-    except Exception:
+        db = SessionLocal()
+        try:
+            media = _fetch_post_media_or_error(
+                niche=niche_context or niche_label or topic,
+                topic=topic,
+                platform="instagram",
+                post_text=search_context,
+                db=db,
+                project_id=project_id,
+                used_external_ids=used_external_ids,
+                used_urls=used_urls,
+            )
+        finally:
+            db.close()
+        image_url = str(media.local_url or "").strip() or None
+    except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
         image_url = None
 
     if not image_url:
@@ -2954,9 +3000,11 @@ def ai_director_generate_image():
         warnings.append("image_fallback_used")
         image_url = build_semantic_fallback_image_url(
             topic=prompt_topic,
-            category="business",
+            category=niche_context or niche_label or "business",
             tone=tone,
             language=language,
+            caption=caption or None,
+            asset_ideas=asset_ideas,
         )
 
     mirrored = None
@@ -2969,9 +3017,10 @@ def ai_director_generate_image():
             "data": {
                 "image_url": final_url,
                 "source": source,
+                "external_id": str(getattr(media, "external_id", "") or "").strip() or None,
             },
             "warnings": warnings,
-            "debug_code": "director_image_ok" if source == "openai" else "director_image_fallback",
+            "debug_code": "director_image_ok" if source == "pexels" else "director_image_fallback",
         }
     )
 

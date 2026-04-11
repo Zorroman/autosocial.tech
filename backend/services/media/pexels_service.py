@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from hashlib import sha1
@@ -16,6 +16,73 @@ PEXELS_PHOTO_API_URL = "https://api.pexels.com/v1/search"
 MEDIA_DIR = Path(__file__).resolve().parents[3] / "generated_media"
 MEDIA_DIR.mkdir(exist_ok=True)
 
+_GENERIC_TEXTURE_TERMS = {
+    "tile", "tiles", "ceramic", "marble", "texture", "pattern", "background", "surface", "mosaic", "wallpaper",
+}
+
+_MATERIAL_TOPIC_TERMS = {
+    "tile", "tiles", "material", "materials", "floor", "flooring", "wall", "walls", "paint", "ceramic", "marble",
+}
+
+_ESOTERICA_REQUIRED_TERMS = {
+    "ritual", "moon", "energy", "meditation", "tarot", "symbol", "symbols", "candles", "candle", "mystic",
+    "mystical", "zodiac", "spiritual", "practice", "intuition", "universe", "sacred", "incense",
+}
+
+_ESOTERICA_WRONG_CONTEXT_TERMS = {
+    "renovation", "interior", "wall", "room", "floor", "tool", "texture", "material", "materials",
+    "kitchen", "bathroom", "construction", "tile", "tiles", "surface", "pattern", "wallpaper", "workspace",
+}
+
+_COSMETOLOGY_SKIN_TERMS = {
+    "skin", "facial", "face", "skincare", "esthetician", "aesthetic", "cosmetology", "treatment", "clinic",
+}
+
+_COSMETOLOGY_NAIL_TERMS = {
+    "nail", "nails", "manicure", "pedicure", "hand", "hands",
+}
+
+_RENOVATION_PROCESS_TERMS = {
+    "worker", "measure", "measuring", "blueprint", "tools", "tool", "renovation", "construction",
+    "interior", "room", "repair", "worksite", "contractor", "home improvement",
+}
+
+
+_PSYCHOLOGY_SUPPORT_TERMS = {
+    "therapy", "therapist", "counseling", "counselling", "conversation", "support", "journal", "journaling",
+    "reflection", "listening", "session", "comfort", "calm", "emotions", "mental health", "psychology",
+}
+
+_PSYCHOLOGY_ABSTRACT_TERMS = {
+    "landscape", "sunset", "forest", "mountain", "lake", "sea", "ocean", "window", "silhouette", "sky",
+}
+
+_RENOVATION_PLANNING_TERMS = {
+    "estimate", "budget", "blueprint", "plan", "planning", "measuring", "contractor", "discussion", "worksite",
+    "unfinished room", "renovation process", "repair planning", "construction estimate", "project management",
+}
+
+_ESOTERICA_MOON_TOPIC_TERMS = {
+    "луна", "лун", "полнолун", "новолун", "moon", "full moon", "zodiac", "зодиак", "астролог",
+}
+
+_ESOTERICA_ENERGY_TOPIC_TERMS = {
+    "энерг", "защит", "негатив", "очищ", "ритуал", "свеч", "аура", "crystal", "energy", "cleansing", "ritual",
+}
+
+_ESOTERICA_SIGNS_TOPIC_TERMS = {
+    "знак", "знаки", "вселен", "интуиц", "символ", "повтор", "синхрон", "universe", "intuition", "symbols", "signs",
+}
+
+_RENOVATION_MATERIAL_TOPIC_TERMS_RU = {
+    "материал", "отделк", "плитк", "пол", "полы", "стен", "краск", "обои", "ламинат", "керам", "финиш",
+}
+
+_RENOVATION_PLANNING_TOPIC_TERMS_RU = {
+    "смет", "бюджет", "подрядчик", "план", "этап", "срок", "договор", "расчет", "расчёт",
+    "доплат", "перерасход", "контроль", "приемк", "приёмк", "закуп", "очеред", "работ",
+}
+
 _WEAK_TOPIC_WORDS = {
     "как", "что", "почему", "ошибка", "ошибки", "ошибок", "шаг", "шаги", "план", "контент", "контентплан",
     "контент-план", "день", "дней", "неделя", "неделю", "месяц", "пост", "поста", "постов", "тема",
@@ -23,7 +90,7 @@ _WEAK_TOPIC_WORDS = {
     "публикации", "публиковать", "generate", "post", "social", "media",
 }
 
-NICHE_MEDIA_KEYWORDS: dict[str, dict[str, list[str]]] = {
+NICHE_MEDIA_KEYWORDS: dict[str, dict[str, Any]] = {
     "fitness": {
         "visual": ["gym workout", "morning exercise", "yoga stretching", "healthy lifestyle", "personal trainer"],
         "fallback": ["fitness gym portrait", "exercise coaching", "healthy workout"],
@@ -50,14 +117,15 @@ NICHE_MEDIA_KEYWORDS: dict[str, dict[str, list[str]]] = {
         "negative": ["gym", "restaurant", "tattoo", "barbershop"],
     },
     "psychology": {
-        "visual": ["calm reflection", "therapy session", "journaling notebook", "mindful moment", "quiet conversation"],
-        "fallback": ["journaling reflection", "therapy office", "mindful calm"],
+        "visual": ["therapy session", "supportive conversation", "journaling notebook", "counseling office", "emotional support"],
+        "fallback": ["therapy office", "journaling reflection", "emotional support conversation"],
         "negative": ["construction", "cars", "restaurant kitchen", "tattoo machine"],
     },
     "esoterica": {
-        "visual": ["candles meditation", "moon ritual", "spiritual hands crystals", "incense smoke", "calm spiritual interior"],
-        "fallback": ["meditation candles", "moon spiritual ritual", "crystals hands"],
+        "visual": ["tarot candles altar", "moon ritual candles", "spiritual hands crystals", "mystical meditation", "esoteric symbols"],
+        "fallback": ["meditation candles", "moon spiritual ritual", "altar candles crystals"],
         "negative": ["animal", "street traffic", "train", "office", "car", "restaurant"],
+        "required_any": ["candle", "candles", "moon", "crystal", "spiritual", "meditation", "ritual", "incense", "tarot", "energy"],
     },
     "tattoo": {
         "visual": ["tattoo artist studio", "tattoo sketch drawing", "black ink tattoo arm", "tattoo machine close up", "tattoo consultation"],
@@ -95,9 +163,10 @@ NICHE_MEDIA_KEYWORDS: dict[str, dict[str, list[str]]] = {
         "negative": ["forest", "animal", "office", "restaurant"],
     },
     "renovation": {
-        "visual": ["apartment renovation interior", "tile installation close up", "renovation tools", "worker measuring wall", "home improvement"],
-        "fallback": ["apartment renovation", "home improvement tools", "interior renovation"],
+        "visual": ["renovation planning blueprint", "worker measuring room", "contractor discussion worksite", "unfinished room renovation", "home improvement tools in use"],
+        "fallback": ["apartment renovation planning", "worker measuring wall", "interior renovation worksite"],
         "negative": ["animal", "restaurant", "tattoo", "gym"],
+        "required_any": ["renovation", "repair", "interior", "worker", "tool", "construction", "apartment", "home", "paint", "measure"],
     },
     "consulting": {
         "visual": ["business consultation meeting", "strategy discussion desk", "advisor with client", "planning session", "professional consultation"],
@@ -117,6 +186,7 @@ NICHE_ALIASES = {
     "real_estate": "real_estate",
     "недвижимость": "real_estate",
     "ремонт квартир": "renovation",
+    "apartment_renovation": "renovation",
     "renovation": "renovation",
     "restaurant": "restaurant",
     "ресторан": "restaurant",
@@ -253,6 +323,139 @@ def _topic_focus_terms(topic: str, post_text: str | None = None, limit: int = 4)
     return merged
 
 
+def _normalized_text(*parts: str | None) -> str:
+    return " ".join(str(part or "").strip().lower() for part in parts if str(part or "").strip())
+
+
+def _contains_any_term(text: str, terms: set[str] | list[str] | tuple[str, ...]) -> bool:
+    return any(str(term or "").strip().lower() in text for term in terms if str(term or "").strip())
+
+
+def _derive_topic_constraints(niche_slug: str, topic: str, post_text: str | None = None) -> dict[str, Any]:
+    text = _normalized_text(topic, post_text)
+    query_terms: list[str] = []
+    positive_terms: list[str] = []
+    avoid_terms: list[str] = []
+    required_positive_any: list[str] = []
+    required_positive_count = 0
+
+    if niche_slug == "esoterica":
+        positive_terms.extend(sorted(_ESOTERICA_REQUIRED_TERMS))
+        avoid_terms.extend(sorted(_ESOTERICA_WRONG_CONTEXT_TERMS))
+        required_positive_any.extend(["ritual", "moon", "meditation", "candles", "candle", "tarot", "spiritual", "mystical", "altar", "crystal", "incense"])
+        required_positive_count = 1
+        if _contains_any_term(text, _ESOTERICA_ENERGY_TOPIC_TERMS):
+            query_terms.extend([
+                "energy cleansing ritual candles crystals incense",
+                "spiritual protection ritual candles altar",
+                "sacred smoke candles crystals ritual",
+            ])
+        elif _contains_any_term(text, _ESOTERICA_MOON_TOPIC_TERMS):
+            query_terms.extend([
+                "full moon ritual candles tarot altar",
+                "moon phase spiritual ritual candles",
+                "zodiac mystical candles meditation",
+            ])
+        elif _contains_any_term(text, _ESOTERICA_SIGNS_TOPIC_TERMS):
+            query_terms.extend([
+                "tarot cards candles mystical symbols",
+                "intuition spiritual symbols candles",
+                "universe signs mystical ritual altar",
+            ])
+        else:
+            query_terms.extend([
+                "tarot candles crystals altar",
+                "spiritual meditation candles crystals",
+                "mystical ritual altar incense",
+            ])
+
+    elif niche_slug == "psychology":
+        positive_terms.extend(sorted(_PSYCHOLOGY_SUPPORT_TERMS))
+        avoid_terms.extend(sorted(_PSYCHOLOGY_ABSTRACT_TERMS))
+        required_positive_any.extend(["therapy", "conversation", "journaling", "support", "reflection", "counseling"])
+        required_positive_count = 1
+        if _contains_any_term(text, {"????", "anxiety", "panic", "??????", "stress"}):
+            query_terms.extend([
+                "therapy session calm conversation",
+                "emotional support counseling",
+                "mental health journaling support",
+            ])
+        elif _contains_any_term(text, {"??????", "boundary", "???", "guilt", "????"}):
+            query_terms.extend([
+                "supportive conversation therapy",
+                "journaling self reflection",
+                "therapist client calm office",
+            ])
+        else:
+            query_terms.extend([
+                "therapy session reflection",
+                "journaling emotional support",
+                "calm conversation counseling",
+            ])
+
+    elif niche_slug == "cosmetology":
+        nail_topic = _contains_any_term(text, {"????", "?????", "?????", "nail", "manicure", "pedicure"})
+        if nail_topic:
+            positive_terms.extend(sorted(_COSMETOLOGY_NAIL_TERMS))
+            query_terms.extend([
+                "manicure salon close up",
+                "nail treatment beauty salon",
+                "nail care procedure",
+            ])
+        else:
+            positive_terms.extend(sorted(_COSMETOLOGY_SKIN_TERMS))
+            avoid_terms.extend(sorted(_COSMETOLOGY_NAIL_TERMS))
+            if _contains_any_term(text, {"????????", "??????", "???????", "skin", "hydrat", "sensitive"}):
+                query_terms.extend([
+                    "sensitive skin facial treatment",
+                    "skincare face consultation",
+                    "aesthetic clinic skin care",
+                ])
+            else:
+                query_terms.extend([
+                    "skincare facial treatment",
+                    "esthetician face consultation",
+                    "aesthetic clinic face",
+                ])
+
+    elif niche_slug == "renovation":
+        material_topic = _contains_any_term(text, _RENOVATION_MATERIAL_TOPIC_TERMS_RU | _MATERIAL_TOPIC_TERMS)
+        planning_topic = _contains_any_term(text, _RENOVATION_PLANNING_TOPIC_TERMS_RU | {"estimate", "budget", "contractor", "plan", "planning", "timeline"})
+        if material_topic and not planning_topic:
+            positive_terms.extend(sorted(_MATERIAL_TOPIC_TERMS))
+            query_terms.extend([
+                "tile installation renovation worker",
+                "home renovation materials installation",
+                "apartment finishing work in progress",
+            ])
+        elif planning_topic:
+            positive_terms.extend(sorted(_RENOVATION_PROCESS_TERMS | _RENOVATION_PLANNING_TERMS))
+            avoid_terms.extend(sorted(_GENERIC_TEXTURE_TERMS | _MATERIAL_TOPIC_TERMS))
+            query_terms.extend([
+                "contractor reviewing blueprint renovation",
+                "home renovation estimate blueprint planning",
+                "worker measuring unfinished apartment room",
+                "renovation planning contractor discussion",
+            ])
+        else:
+            positive_terms.extend(sorted(_RENOVATION_PROCESS_TERMS | {"worker", "measuring", "unfinished room"}))
+            avoid_terms.extend(sorted(_GENERIC_TEXTURE_TERMS))
+            query_terms.extend([
+                "worker renovating unfinished apartment room",
+                "contractor measuring room renovation",
+                "home renovation tools in use",
+            ])
+
+    return {
+        "query_terms": query_terms[:4],
+        "positive_terms": positive_terms,
+        "avoid_terms": avoid_terms,
+        "required_positive_any": required_positive_any,
+        "required_positive_count": required_positive_count,
+    }
+
+
+
 def _platform_orientation(platform: str | None) -> str:
     key = str(platform or "").strip().lower()
     if key == "instagram":
@@ -268,11 +471,13 @@ def build_media_query(niche: str | None, topic: str, post_text: str | None = Non
     topic_terms = _topic_focus_terms(topic, post_text, limit=4)
     visual_terms = list(pack["visual"])
     orientation = _platform_orientation(platform)
+    topic_constraints = _derive_topic_constraints(niche_slug, topic, post_text)
 
-    primary_parts = [*topic_terms[:2], *visual_terms[:2]]
+    primary_parts = [*(topic_constraints["query_terms"][:1] or []), *visual_terms[:1], *topic_terms[:1]]
     primary_query = " ".join(part for part in primary_parts if part).strip()
     fallback_queries = []
     for parts in (
+        topic_constraints["query_terms"],
         [*topic_terms[:1], *visual_terms[:3]],
         [*visual_terms[:2], *topic_terms[:1]],
         pack["fallback"],
@@ -288,6 +493,10 @@ def build_media_query(niche: str | None, topic: str, post_text: str | None = Non
         "topic_terms": topic_terms,
         "niche_terms": visual_terms,
         "negative_terms": list(pack["negative"]),
+        "positive_terms": list(topic_constraints["positive_terms"]),
+        "avoid_terms": list(topic_constraints["avoid_terms"]),
+        "required_positive_any": list(topic_constraints["required_positive_any"]),
+        "required_positive_count": int(topic_constraints["required_positive_count"] or 0),
         "primary_query": primary_query or " ".join(visual_terms[:2]),
         "fallback_queries": fallback_queries[:6],
         "selection_seed": f"{niche_slug}|{topic}|{platform or ''}",
@@ -410,6 +619,7 @@ def _select_candidate(
 
 def _score_candidate(photo: dict[str, Any], query_meta: dict[str, Any], orientation: str) -> float:
     blob = _candidate_blob(photo)
+    blob_tokens = _signature_tokens(blob)
     width = int(photo.get("width") or 0)
     height = int(photo.get("height") or 0)
     candidate_orientation = _candidate_orientation(width, height)
@@ -418,6 +628,14 @@ def _score_candidate(photo: dict[str, Any], query_meta: dict[str, Any], orientat
     topic_terms = query_meta["topic_terms"]
     niche_terms = query_meta["niche_terms"]
     negative_terms = query_meta["negative_terms"]
+    positive_terms = [str(item or "").strip().lower() for item in (query_meta.get("positive_terms") or []) if str(item or "").strip()]
+    avoid_terms = [str(item or "").strip().lower() for item in (query_meta.get("avoid_terms") or []) if str(item or "").strip()]
+    required_positive_any = [str(item or "").strip().lower() for item in (query_meta.get("required_positive_any") or []) if str(item or "").strip()]
+    required_positive_count = max(0, int(query_meta.get("required_positive_count") or 0))
+    niche_slug = str(query_meta.get("niche_slug") or "").strip().lower()
+    pack = NICHE_MEDIA_KEYWORDS.get(niche_slug, {})
+    required_any = [str(item or "").strip().lower() for item in (pack.get("required_any") or []) if str(item or "").strip()]
+    positive_hits = 0
 
     for token in topic_terms:
         if token in blob:
@@ -426,9 +644,41 @@ def _score_candidate(photo: dict[str, Any], query_meta: dict[str, Any], orientat
         token_low = token.lower()
         if token_low in blob:
             score += 6.0
+    for token in positive_terms:
+        if token in blob:
+            score += 8.0
+            positive_hits += 1
     for token in negative_terms:
         if token in blob:
             score -= 20.0
+    for token in avoid_terms:
+        if token in blob:
+            score -= 14.0
+
+    if required_any and not any(token in blob for token in required_any):
+        score -= 18.0
+    if required_positive_any and not any(token in blob for token in required_positive_any):
+        score -= 26.0
+    if required_positive_count and positive_hits < required_positive_count:
+        score -= 18.0 * float(required_positive_count - positive_hits)
+
+    if niche_slug in {"esoterica", "renovation"}:
+        if any(token in blob_tokens for token in _GENERIC_TEXTURE_TERMS):
+            topic_token_set = {str(token or "").strip().lower() for token in topic_terms}
+            if not (topic_token_set & _MATERIAL_TOPIC_TERMS):
+                score -= 24.0
+    if niche_slug == "esoterica":
+        esoterica_positive_hits = sum(1 for token in _ESOTERICA_REQUIRED_TERMS if token in blob)
+        if any(token in blob for token in _ESOTERICA_WRONG_CONTEXT_TERMS):
+            score -= 42.0
+        if esoterica_positive_hits < 2:
+            score -= 14.0 * float(2 - esoterica_positive_hits)
+    if niche_slug == "renovation":
+        planning_intent = _contains_any_term(str(query_meta.get("selection_seed") or ""), _RENOVATION_PLANNING_TOPIC_TERMS_RU | {"estimate", "budget", "contractor", "plan", "planning", "timeline"})
+        if planning_intent and any(token in blob_tokens for token in _GENERIC_TEXTURE_TERMS | _MATERIAL_TOPIC_TERMS):
+            score -= 20.0
+    if niche_slug == "psychology" and any(token in blob for token in _PSYCHOLOGY_ABSTRACT_TERMS):
+        score -= 18.0
 
     if orientation == "portrait":
         if candidate_orientation == "portrait":
