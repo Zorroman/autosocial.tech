@@ -92,6 +92,18 @@ def probe_duration(path: str) -> float:
         return 0.0
 
 
+
+
+def _speech_speed_factor(raw: str | float | int | None) -> float:
+    key = str(raw or "normal").strip().lower()
+    mapping = {"slow": 0.92, "normal": 1.0, "fast": 1.10}
+    if key in mapping:
+        return mapping[key]
+    try:
+        return max(0.85, min(1.15, float(key)))
+    except Exception:
+        return 1.0
+
 def _atempo_chain(speed_factor: float) -> str:
     factor = max(0.5, float(speed_factor))
     parts: list[str] = []
@@ -150,7 +162,7 @@ def _tts_phrase_edge(
         phrase = "Контент готов."
     voice = _resolve_edge_voice(voice_gender=voice_gender, voice_tone=voice_tone, voice_name=voice_name)
     tone = str(voice_tone or "neutral").strip().lower()
-    rate = "+0%" if tone == "neutral" else ("-4%" if tone == "calm" else "+7%")
+    rate = "+0%" if tone == "neutral" else ("-1%" if tone == "calm" else "+7%")
     pitch = "+0Hz" if tone == "neutral" else ("-1Hz" if tone == "calm" else "+2Hz")
 
     async def _synth() -> None:
@@ -224,6 +236,7 @@ def synthesize_voiceover(
     voice_gender: str | None = None,
     voice_tone: str | None = None,
     voice_name: str | None = None,
+    speech_speed: str | float | int | None = None,
 ) -> tuple[str, list[float]]:
     out_dir.mkdir(parents=True, exist_ok=True)
     phrase_files: list[Path] = []
@@ -288,6 +301,24 @@ def synthesize_voiceover(
             str(final_audio),
         ]
     )
+    speed_factor = _speech_speed_factor(speech_speed)
+    if abs(speed_factor - 1.0) > 0.01:
+        speed_audio = out_dir / f"{prefix}_voiceover_speed.mp3"
+        _run(
+            [
+                settings.FFMPEG_BIN,
+                "-y",
+                "-i",
+                str(final_audio),
+                "-filter:a",
+                _atempo_chain(speed_factor),
+                "-q:a",
+                "2",
+                str(speed_audio),
+            ]
+        )
+        final_audio = speed_audio
+        durations = [max(0.2, float(d) / speed_factor) for d in durations]
     if target_total_seconds is not None:
         target_total = max(1.0, float(target_total_seconds))
         actual_total = probe_duration(str(final_audio))

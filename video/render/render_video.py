@@ -1,6 +1,5 @@
 import subprocess
 from pathlib import Path
-import re
 
 from saas_settings import settings
 
@@ -12,13 +11,12 @@ def _run(cmd: list[str]) -> None:
 
 
 def _resolution(orientation: str, resolution: str | None) -> tuple[int, int]:
-    if resolution:
-        if "x" in resolution:
-            w, h = resolution.lower().split("x", 1)
-            try:
-                return (int(w), int(h))
-            except Exception:
-                pass
+    if resolution and "x" in resolution:
+        w, h = resolution.lower().split("x", 1)
+        try:
+            return (int(w), int(h))
+        except Exception:
+            pass
     if orientation == "vertical":
         return (1080, 1920)
     return (1920, 1080)
@@ -28,13 +26,14 @@ def _vf_scale_crop(width: int, height: int) -> str:
     return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
 
 
-def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, fps, resolution):
+def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, fps, resolution, subtitle_profile: dict | None = None):
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     temp_dir = out.parent / f".tmp_{out.stem}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     width, height = _resolution(orientation, resolution)
     fps = int(fps or 30)
+    subtitle_profile = subtitle_profile or {}
 
     normalized = []
     is_short_render = sum(float(c.get("duration_target") or 0.0) for c in (clips or [])) <= 60.0
@@ -97,27 +96,26 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
     if subtitles_path:
         sub_safe = str(subtitles_path).replace("\\", "/").replace(":", "\\:")
         if orientation == "vertical":
-            # Use libass for better unicode wrapping and stable placement above player controls.
             force_style = (
-                "FontName=Arial,"
-                "FontSize=64,"
-                "Alignment=2,"
-                "MarginV=360,"
-                "MarginL=72,"
-                "MarginR=72,"
+                f"FontName={subtitle_profile.get('font_name', 'Arial')},"
+                f"FontSize={int(subtitle_profile.get('font_size', 64))},"
+                f"Alignment={int(subtitle_profile.get('alignment', 2))},"
+                f"MarginV={int(subtitle_profile.get('margin_v', 430))},"
+                f"MarginL={int(subtitle_profile.get('margin_lr', 84))},"
+                f"MarginR={int(subtitle_profile.get('margin_lr', 84))},"
                 "BorderStyle=1,"
-                "Outline=3,"
-                "Shadow=1,"
-                "PrimaryColour=&H00FFFFFF&,"
-                "OutlineColour=&H00202020&,"
-                "BackColour=&H78000000&"
+                f"Outline={float(subtitle_profile.get('outline', 3.0))},"
+                f"Shadow={float(subtitle_profile.get('shadow', 1.0))},"
+                f"PrimaryColour={subtitle_profile.get('primary_colour', '&H00FFFFFF')},"
+                f"OutlineColour={subtitle_profile.get('outline_colour', '&H00111111')},"
+                f"BackColour={subtitle_profile.get('back_colour', '&H8C000000')},"
+                f"Bold={int(subtitle_profile.get('bold', 1))}"
             )
             filter_chain.append(f"[0:v]subtitles='{sub_safe}':force_style='{force_style}'[v]")
         else:
             filter_chain.append(f"[0:v]subtitles='{sub_safe}'[v]")
         video_map = "[v]"
     if bg_music_enabled:
-        # Keep music low so Eddy voice remains dominant.
         filter_chain.append("[2:a]volume=0.08,aresample=44100[bgm]")
         filter_chain.append("[1:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]")
         audio_map = "[aout]"

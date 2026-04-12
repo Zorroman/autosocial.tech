@@ -1,4 +1,4 @@
-import os
+﻿import os
 from pathlib import Path
 
 
@@ -14,12 +14,28 @@ class Settings:
     FFMPEG_BIN = os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg"
     FFPROBE_BIN = os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe"
     VIDEO_RENDER_CONCURRENCY = max(1, int(os.getenv("VIDEO_RENDER_CONCURRENCY", "2")))
+    VIDEO_MAX_ACTIVE_RENDERS = max(1, int(os.getenv("VIDEO_MAX_ACTIVE_RENDERS", str(VIDEO_RENDER_CONCURRENCY))))
+    VIDEO_MAX_QUEUED_PER_USER = max(1, int(os.getenv("VIDEO_MAX_QUEUED_PER_USER", "30")))
+    VIDEO_MAX_QUEUED_GLOBAL = max(1, int(os.getenv("VIDEO_MAX_QUEUED_GLOBAL", "200")))
+    VIDEO_AUTO_RETRY_TRANSIENT = max(0, int(os.getenv("VIDEO_AUTO_RETRY_TRANSIENT", "1")))
+    VIDEO_QUEUE_AVG_RENDER_SECONDS = max(30, int(os.getenv("VIDEO_QUEUE_AVG_RENDER_SECONDS", "180")))
     VIDEO_CROSS_VIDEO_DEDUP_DAYS = max(0, int(os.getenv("VIDEO_CROSS_VIDEO_DEDUP_DAYS", "30")))
     VIDEO_CROSS_VIDEO_DEDUP_MAX_MANIFESTS = max(20, int(os.getenv("VIDEO_CROSS_VIDEO_DEDUP_MAX_MANIFESTS", "200")))
+    VIDEO_AVOID_DUPLICATE_FOOTAGE = os.getenv("VIDEO_AVOID_DUPLICATE_FOOTAGE", "true").lower() in {"1", "true", "yes"}
+    VIDEO_SUBTITLE_MODE = (os.getenv("VIDEO_SUBTITLE_MODE", "auto").strip().lower() or "auto")
+    VIDEO_PLATFORM_TARGET = (os.getenv("VIDEO_PLATFORM_TARGET", "generic").strip().lower() or "generic")
+    VIDEO_SUBTITLE_STYLE = (os.getenv("VIDEO_SUBTITLE_STYLE", "social_default").strip().lower() or "social_default")
+    VIDEO_MIN_UNIQUE_CLIPS_SHORT = max(4, int(os.getenv("VIDEO_MIN_UNIQUE_CLIPS_SHORT", "8")))
+    VIDEO_FALLBACK_RELATED_KEYWORDS = os.getenv("VIDEO_FALLBACK_RELATED_KEYWORDS", "true").lower() in {"1", "true", "yes"}
+    VIDEO_DIVERSITY_MODE = (os.getenv("VIDEO_DIVERSITY_MODE", "balanced").strip().lower() or "balanced")
+    VIDEO_ALLOW_EMERGENCY_REUSE = os.getenv("VIDEO_ALLOW_EMERGENCY_REUSE", "true").lower() in {"1", "true", "yes"}
     OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts").strip() or "gpt-4o-mini-tts"
     OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "eddy").strip() or "eddy"
     VIDEO_BG_MUSIC_ENABLED = os.getenv("VIDEO_BG_MUSIC_ENABLED", "false").lower() in {"1", "true", "yes"}
     VIDEO_BG_MUSIC_PATH = os.getenv("VIDEO_BG_MUSIC_PATH", "").strip()
+    MEDIA_AUTOFIX_ENABLED = os.getenv("MEDIA_AUTOFIX_ENABLED", "false").lower() in {"1", "true", "yes"}
+    MEDIA_AUTOFIX_INTERVAL_SECONDS = max(60, int(os.getenv("MEDIA_AUTOFIX_INTERVAL_SECONDS", "600")))
+    MEDIA_AUTOFIX_BATCH_SIZE = max(1, int(os.getenv("MEDIA_AUTOFIX_BATCH_SIZE", "4")))
 
     USE_MOCK_PROVIDERS = os.getenv("USE_MOCK_PROVIDERS", "false").lower() in {"1", "true", "yes"}
     MOCK_META = os.getenv("MOCK_META", "false").lower() in {"1", "true", "yes"}

@@ -23,6 +23,7 @@ def search_videos(
     min_duration: int,
     max_duration: int,
     limit: int,
+    page: int = 1,
 ) -> list[VideoResult]:
     key = _api_key()
     if not key:
@@ -39,6 +40,7 @@ def search_videos(
                 "orientation": orient,
                 "size": "medium",
                 "per_page": per_page,
+                "page": max(1, int(page or 1)),
             },
             timeout=40,
         )
@@ -90,6 +92,8 @@ def search_videos(
                     author=author,
                     fps=float(best.get("fps")) if str(best.get("fps") or "").replace(".", "", 1).isdigit() else None,
                     source_query=cleaned_query,
+                    shot_size=("wide" if max(width, height) >= 1920 else "medium"),
+                    motion_hint=("motion" if duration >= 5 else "static"),
                 )
             )
             if len(out) >= limit:

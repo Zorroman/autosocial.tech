@@ -556,6 +556,192 @@ def _merge_job_result(job: GenerationJob, patch: dict) -> None:
     job.result_json = json.dumps(base, ensure_ascii=False)
 
 
+_VIDEO_ACTIVE_STATUSES = {"running", "processing", "downloading", "rendering", "uploading"}
+_VIDEO_TERMINAL_STATUSES = {"done", "failed", "cancelled"}
+_VIDEO_QUEUE_LOCK = threading.Lock()
+
+
+def _video_style_preset(raw: str | None) -> dict:
+    key = str(raw or "educational_clean").strip().lower() or "educational_clean"
+    presets = {
+        "meditation_calm": {"id": "meditation_calm", "label": "Meditation calm", "style": "meditation calm", "voice_tone": "calm", "speech_speed": "slow", "subtitle_style": "clean_bold", "scene_seconds": 6, "intent_terms": ["calm practice", "breathing", "soft nature", "mindful ritual"]},
+        "motivational_fast": {"id": "motivational_fast", "label": "Motivational fast", "style": "motivational fast", "voice_tone": "live", "speech_speed": "fast", "subtitle_style": "creator_pop", "scene_seconds": 3, "intent_terms": ["dynamic action", "progress", "energy", "achievement"]},
+        "educational_clean": {"id": "educational_clean", "label": "Educational clean", "style": "educational", "voice_tone": "neutral", "speech_speed": "normal", "subtitle_style": "social_default", "scene_seconds": 4, "intent_terms": ["explainer", "process", "clear demonstration", "expert"]},
+        "luxury_minimal": {"id": "luxury_minimal", "label": "Luxury minimal", "style": "luxury minimal", "voice_tone": "calm", "speech_speed": "normal", "subtitle_style": "luxury_minimal", "scene_seconds": 5, "intent_terms": ["premium", "minimal", "elegant", "high end"]},
+        "esoteric_mystical": {"id": "esoteric_mystical", "label": "Esoteric mystical", "style": "mystical educational", "voice_tone": "calm", "speech_speed": "slow", "subtitle_style": "mystical_glow", "scene_seconds": 5, "intent_terms": ["ritual", "moon", "tarot", "candles", "mystical symbols", "energy practice"]},
+    }
+    return dict(presets.get(key) or presets["educational_clean"])
+
+
+def _video_queue_result(job: GenerationJob) -> dict:
+    result = _job_result_dict(job)
+    queue = result.get("queue") if isinstance(result.get("queue"), dict) else {}
+    return dict(queue or {})
+
+
+def _write_video_queue_result(job: GenerationJob, patch: dict) -> None:
+    result = _job_result_dict(job)
+    queue = result.get("queue") if isinstance(result.get("queue"), dict) else {}
+    queue.update(patch or {})
+    result["queue"] = queue
+    job.result_json = json.dumps(result, ensure_ascii=False)
+
+
+def _classify_video_failure(exc: Exception | str) -> str:
+    msg = str(exc or "").lower()
+    permanent_tokens = ["invalid", "unsupported", "missing required", "topic обязател", "duration_sec", "aspect_ratio", "payload"]
+    transient_tokens = ["timeout", "timed out", "rate limit", "429", "tempor", "network", "connection", "provider", "pexels", "pixabay", "edge", "tts", "ffmpeg", "subprocess"]
+    if any(token in msg for token in permanent_tokens):
+        return "permanent"
+    if any(token in msg for token in transient_tokens):
+        return "transient"
+    return "transient"
+
+
+def _video_progress_stage(step: str | None) -> str:
+    normalized = str(step or "").strip().lower()
+    if normalized in {"structure", "script", "queued"}:
+        return "preparing_script"
+    if normalized in {"footage", "download", "downloading"}:
+        return "selecting_footage"
+    if normalized in {"voice", "tts", "audio"}:
+        return "generating_voice"
+    if normalized in {"render", "rendering"}:
+        return "assembling_video"
+    if normalized in {"export", "upload", "finalizing"}:
+        return "finalizing"
+    if normalized in {"done", "ready"}:
+        return "ready"
+    if normalized == "failed":
+        return "failed"
+    return normalized or "preparing_script"
+
+
+def _video_queue_order_key(job: GenerationJob) -> tuple:
+    queue = _video_queue_result(job)
+    priority = 0 if queue.get("priority") else 1
+    batch_id = str(queue.get("batch_id") or "")
+    batch_order = int(queue.get("batch_order") or queue.get("batch_day") or job.id or 0)
+    return (priority, batch_id, batch_order, job.created_at or datetime.utcnow(), job.id or 0)
+
+
+def _video_queued_jobs(db) -> list[GenerationJob]:
+    rows = db.query(GenerationJob).filter_by(job_type="generate_video", status="queued").order_by(GenerationJob.created_at.asc(), GenerationJob.id.asc()).all()
+    eligible = []
+    for row in rows:
+        queue = _video_queue_result(row)
+        if queue.get("paused") or queue.get("cancelled"):
+            continue
+        eligible.append(row)
+    return sorted(eligible, key=_video_queue_order_key)
+
+
+def _video_active_count(db) -> int:
+    return db.query(GenerationJob).filter(GenerationJob.job_type == "generate_video", GenerationJob.status.in_(list(_VIDEO_ACTIVE_STATUSES))).count()
+
+
+def _video_user_queued_count(db, user_id: int) -> int:
+    rows = db.query(GenerationJob).filter(GenerationJob.job_type == "generate_video", GenerationJob.status.in_(["queued", "paused"])).all()
+    count = 0
+    for row in rows:
+        campaign = db.query(Campaign).filter_by(id=row.campaign_id).first()
+        if campaign and int(campaign.user_id or 0) == int(user_id):
+            count += 1
+    return count
+
+
+def _video_queue_envelope(db, job: GenerationJob) -> dict:
+    queue = _video_queue_result(job)
+    active = _video_active_count(db)
+    queued = _video_queued_jobs(db)
+    position = None
+    if str(job.status or "").lower() == "queued":
+        for idx, row in enumerate(queued, start=1):
+            if int(row.id) == int(job.id):
+                position = idx
+                break
+    avg = int(getattr(settings, "VIDEO_QUEUE_AVG_RENDER_SECONDS", 180) or 180)
+    slots = max(1, int(getattr(settings, "VIDEO_MAX_ACTIVE_RENDERS", settings.VIDEO_RENDER_CONCURRENCY) or 1))
+    start_delay = 0 if position in (None, 1) and active < slots else max(0, int(((position or 1) - 1) / slots) * avg)
+    start_at = datetime.utcnow() + timedelta(seconds=start_delay)
+    complete_at = start_at + timedelta(seconds=avg)
+    result = _job_result_dict(job)
+    progress = result.get("progress") if isinstance(result.get("progress"), dict) else {}
+    return {
+        **queue,
+        "position": position,
+        "active_renders": active,
+        "max_active_renders": slots,
+        "estimated_start_at": start_at.isoformat() + "Z" if str(job.status or "").lower() in {"queued", "running", "processing", "downloading", "rendering", "uploading"} else None,
+        "estimated_completion_at": complete_at.isoformat() + "Z" if str(job.status or "").lower() in {"queued", "running", "processing", "downloading", "rendering", "uploading"} else None,
+        "stage": _video_progress_stage(progress.get("step") if isinstance(progress, dict) else queue.get("stage")),
+    }
+
+
+def _video_job_payload(db, job: GenerationJob) -> dict:
+    base = _job_payload(job)
+    base["queue"] = _video_queue_envelope(db, job)
+    return base
+
+
+def _maybe_start_next_video_jobs() -> None:
+    with _VIDEO_QUEUE_LOCK:
+        db = SessionLocal()
+        try:
+            capacity = max(1, int(getattr(settings, "VIDEO_MAX_ACTIVE_RENDERS", settings.VIDEO_RENDER_CONCURRENCY) or 1))
+            available = capacity - _video_active_count(db)
+            if available <= 0:
+                return
+            for job in _video_queued_jobs(db)[:available]:
+                result = _job_result_dict(job)
+                payload = result.get("render_payload") if isinstance(result.get("render_payload"), dict) else None
+                if not payload:
+                    job.status = "failed"
+                    job.error_message = "Missing video render payload"
+                    _write_video_queue_result(job, {"failure_type": "permanent", "stage": "failed"})
+                    job.updated_at = datetime.utcnow()
+                    db.commit()
+                    continue
+                _write_video_queue_result(job, {"started_at": datetime.utcnow().isoformat() + "Z", "stage": "preparing_script"})
+                job.status = "running"
+                job.progress = max(1, int(job.progress or 0))
+                job.updated_at = datetime.utcnow()
+                db.commit()
+                _start_generation_job(job.id, payload)
+        finally:
+            db.close()
+
+
+def _queue_video_job(db, job: GenerationJob, payload: dict, *, user_id: int, queue_meta: dict | None = None) -> tuple[bool, str | None]:
+    queued_global = db.query(GenerationJob).filter_by(job_type="generate_video", status="queued").count()
+    if queued_global >= int(getattr(settings, "VIDEO_MAX_QUEUED_GLOBAL", 200) or 200):
+        return False, "video_queue_global_limit"
+    if _video_user_queued_count(db, int(user_id)) >= int(getattr(settings, "VIDEO_MAX_QUEUED_PER_USER", 30) or 30):
+        return False, "video_queue_user_limit"
+    result = _job_result_dict(job)
+    result["request"] = result.get("request") if isinstance(result.get("request"), dict) else {}
+    result["render_payload"] = dict(payload or {})
+    result["queue"] = {
+        "batch_id": str((queue_meta or {}).get("batch_id") or f"single-{job.id}"),
+        "batch_day": int((queue_meta or {}).get("batch_day") or 1),
+        "batch_order": int((queue_meta or {}).get("batch_order") or (queue_meta or {}).get("batch_day") or 1),
+        "priority": bool((queue_meta or {}).get("priority") is True),
+        "retry_count": int((queue_meta or {}).get("retry_count") or 0),
+        "max_auto_retries": int(getattr(settings, "VIDEO_AUTO_RETRY_TRANSIENT", 1) or 1),
+        "stage": "queued",
+        "queued_at": datetime.utcnow().isoformat() + "Z",
+        "paused": False,
+        "cancelled": False,
+        "footage_intent": str((queue_meta or {}).get("footage_intent") or payload.get("footage_intent") or "").strip(),
+    }
+    job.result_json = json.dumps(result, ensure_ascii=False)
+    job.status = "queued"
+    job.progress = 0
+    job.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(job)
+    return True, None
+
 def _set_video_job_progress(
     db,
     job: GenerationJob,
@@ -3400,6 +3586,8 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
             job = db.query(GenerationJob).filter_by(id=job_id).first()
             if not job:
                 return
+            if str(job.status or "").lower() == "cancelled":
+                return
             campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
             if not campaign:
                 job.status = "failed"
@@ -3486,11 +3674,13 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
 
                 def _progress_cb(step: str, progress: int, message: str) -> None:
                     normalized_step = str(step or "").strip().lower()
-                    if normalized_step == "footage":
+                    if normalized_step in {"footage", "selecting_footage"}:
                         legacy_status = "downloading"
-                    elif normalized_step == "render":
+                    elif normalized_step in {"voice", "tts", "audio", "generating_voice"}:
+                        legacy_status = "running"
+                    elif normalized_step in {"render", "rendering", "assembling_video"}:
                         legacy_status = "rendering"
-                    elif normalized_step in {"export", "upload"}:
+                    elif normalized_step in {"export", "upload", "finalizing"}:
                         legacy_status = "uploading"
                     else:
                         legacy_status = "running"
@@ -3524,6 +3714,22 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                             minimize_repeats=minimize_repeats,
                             realistic_only=realistic_only,
                             progress_callback=_progress_cb,
+                            custom_scenes=payload.get("custom_scenes") if isinstance(payload.get("custom_scenes"), list) else None,
+                            custom_title=str(payload.get("custom_title") or "").strip() or None,
+                            custom_description=str(payload.get("custom_description") or "").strip() or None,
+                            custom_hashtags=payload.get("custom_hashtags") if isinstance(payload.get("custom_hashtags"), list) else None,
+                            custom_cta=str(payload.get("custom_cta") or "").strip() or None,
+                            voice_gender=str(payload.get("voice_gender") or "male"),
+                            voice_tone=str(payload.get("voice_tone") or "neutral"),
+                            voice_name=str(payload.get("voice_name") or "").strip() or None,
+                            speech_speed=str(payload.get("speech_speed") or "normal"),
+                            avoid_duplicate_footage=bool(payload.get("avoid_duplicate_footage") is not False),
+                            subtitle_mode=str(payload.get("subtitle_mode") or settings.VIDEO_SUBTITLE_MODE),
+                            platform_target=str(payload.get("platform_target") or settings.VIDEO_PLATFORM_TARGET),
+                            subtitle_style=str(payload.get("subtitle_style") or settings.VIDEO_SUBTITLE_STYLE),
+                            batch_footage_memory=payload.get("batch_footage_memory") if isinstance(payload.get("batch_footage_memory"), dict) else None,
+                            footage_intent=str(payload.get("footage_intent") or "").strip() or None,
+                            style_preset=str(payload.get("style_preset") or "educational_clean"),
                         )
                         break
                     except Exception as exc:
@@ -3600,6 +3806,12 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 if thumb_asset:
                     db.refresh(thumb_asset)
                     result_payload["thumbnail"] = _asset_payload(thumb_asset)
+                previous_result = _job_result_dict(job)
+                if isinstance(previous_result.get("queue"), dict):
+                    result_payload["queue"] = previous_result.get("queue")
+                    result_payload["queue"].update({"stage": "ready", "completed_at": datetime.utcnow().isoformat() + "Z"})
+                if isinstance(previous_result.get("request"), dict):
+                    result_payload["request"] = previous_result.get("request")
                 job.result_json = json.dumps(result_payload, ensure_ascii=False)
                 db.commit()
                 _set_video_job_progress(db, job, status="done", progress=100, step="upload", message="Видео готово к публикации")
@@ -3610,12 +3822,30 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
             db.rollback()
             row = db.query(GenerationJob).filter_by(id=job_id).first()
             if row:
-                row.status = "failed"
-                row.error_message = str(exc)[:2000]
-                row.updated_at = datetime.utcnow()
-                db.commit()
+                failure_type = _classify_video_failure(exc) if row.job_type == "generate_video" else "permanent"
+                queue = _video_queue_result(row) if row.job_type == "generate_video" else {}
+                retry_count = int(queue.get("retry_count") or 0)
+                max_retries = int(queue.get("max_auto_retries") if queue.get("max_auto_retries") is not None else getattr(settings, "VIDEO_AUTO_RETRY_TRANSIENT", 1))
+                if row.job_type == "generate_video" and failure_type == "transient" and retry_count < max_retries:
+                    _write_video_queue_result(row, {"retry_count": retry_count + 1, "failure_type": failure_type, "last_error": str(exc)[:500], "stage": "queued", "auto_retry": True})
+                    row.status = "queued"
+                    row.progress = 0
+                    row.error_message = None
+                    row.updated_at = datetime.utcnow()
+                    db.commit()
+                else:
+                    row.status = "failed"
+                    row.error_message = str(exc)[:2000]
+                    if row.job_type == "generate_video":
+                        _write_video_queue_result(row, {"failure_type": failure_type, "stage": "failed", "last_error": str(exc)[:500]})
+                    row.updated_at = datetime.utcnow()
+                    db.commit()
         finally:
             db.close()
+            try:
+                _maybe_start_next_video_jobs()
+            except Exception:
+                pass
 
     thread = threading.Thread(target=_runner, daemon=True, name=f"generation-job-{job_id}")
     thread.start()
@@ -3846,42 +4076,26 @@ def campaign_generate_video(campaign_id: int):
     try:
         campaign = db.query(Campaign).filter_by(id=campaign_id).first()
         if not campaign:
-            return jsonify({"error": "Кампания не найдена"}), 404
+            return jsonify({"error": "???????? ?? ???????"}), 404
         if user.role != "admin" and campaign.user_id != user.id:
-            return jsonify({"error": "Недостаточно прав"}), 403
+            return jsonify({"error": "???????????? ????"}), 403
         if campaign.mode == "image":
-            return jsonify({"error": "Для режима image генерация видео недоступна"}), 400
+            return jsonify({"error": "??? ?????? image ????????? ????? ??????????"}), 400
         if not (campaign.topic or "").strip():
-            return jsonify({"error": "Укажите тему кампании перед генерацией"}), 400
-
-        duration_sec = int(data.get("duration_sec") or 30)
-        if duration_sec < 20 or duration_sec > 480:
-            return jsonify({"error": "duration_sec должен быть в диапазоне 20..480"}), 400
-        aspect_ratio = str(data.get("aspect_ratio") or "9:16").strip()
-        if aspect_ratio not in {"9:16", "1:1", "16:9"}:
-            return jsonify({"error": "aspect_ratio должен быть 9:16, 1:1 или 16:9"}), 400
-        requested_style_pack = str(data.get("style_pack_id") or "").strip().lower()
-        if not requested_style_pack:
-            requested_style_pack = _get_user_style_pref(db, user.id)
+            return jsonify({"error": "??????? ???? ???????? ????? ??????????"}), 400
+        requested_style_pack = str(data.get("style_pack_id") or "").strip().lower() or _get_user_style_pref(db, user.id)
         normalized_style_pack = get_style_pack(requested_style_pack).get("id") or DEFAULT_STYLE_PACK_ID
         _set_user_style_pref(db, user.id, normalized_style_pack)
-        payload = {
-            "duration_sec": duration_sec,
-            "aspect_ratio": aspect_ratio,
-            "realism": bool(data.get("realism") is not False),
-            "prompt_guards": data.get("prompt_guards") or {"no_fantasy": True},
-            "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
-            "style": str(data.get("style") or "educational"),
-            "style_pack_id": normalized_style_pack,
-            "reuse_manifest": bool(data.get("reuse_manifest") is True),
-            "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
-        }
+        payload_input = dict(data or {})
+        payload_input.setdefault("topic", campaign.topic)
+        payload_input.setdefault("offer", campaign.offer)
+        payload = _video_payload_from_request(payload_input, normalized_style_pack=normalized_style_pack)
         job = GenerationJob(
             campaign_id=campaign.id,
             job_type="generate_video",
             status="queued",
             progress=0,
-            result_json=json.dumps({}, ensure_ascii=False),
+            result_json=json.dumps({"request": {"target_seconds": payload.get("duration_sec"), "orientation": payload.get("orientation"), "style_preset": payload.get("style_preset"), "footage_intent": payload.get("footage_intent")}}, ensure_ascii=False),
             error_message=None,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -3891,9 +4105,14 @@ def campaign_generate_video(campaign_id: int):
         campaign.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(job)
-        _start_generation_job(job.id, payload)
+        ok, err = _queue_video_job(db, job, payload, user_id=user.id, queue_meta={"batch_id": str(data.get("batch_id") or f"single-{job.id}"), "batch_day": int(data.get("batch_day") or 1), "batch_order": int(data.get("batch_order") or data.get("batch_day") or 1), "footage_intent": payload.get("footage_intent")})
+        if not ok:
+            db.delete(job)
+            db.commit()
+            return jsonify({"error": err or "video_queue_limit"}), 429
+        _maybe_start_next_video_jobs()
         recordUsageEvent(user, "VIDEOS_GENERATED", 1, {"endpoint": "/api/campaigns/generate-video", "campaign_id": campaign.id, "job_id": job.id})
-        return jsonify({"job": _job_payload(job)}), 202
+        return jsonify({"job": _video_job_payload(db, job)}), 202
     finally:
         db.close()
 
@@ -3917,6 +4136,260 @@ def get_job_status(job_id: int):
         db.close()
 
 
+
+
+def _normalize_video_plan_days(raw) -> int:
+    try:
+        days = int(raw or 1)
+    except Exception:
+        days = 1
+    return 30 if days >= 30 else (7 if days >= 7 else 1)
+
+
+def _video_footage_intent(topic: str, concept: str, niche: str, preset: dict) -> str:
+    bits = [topic, concept, niche, *list(preset.get("intent_terms") or [])]
+    return " ".join([str(x or "").strip() for x in bits if str(x or "").strip()])[:500]
+
+
+def _video_payload_from_request(data: dict, *, normalized_style_pack: str | None = None) -> dict:
+    fmt = str(data.get("format") or "short").strip().lower()
+    if fmt not in {"short", "long"}:
+        fmt = "short"
+    min_sec = 20 if fmt == "short" else 120
+    max_sec = 70 if fmt == "short" else 480
+    target_seconds = max(min_sec, min(max_sec, int(data.get("target_seconds") or data.get("duration_sec") or min_sec)))
+    orientation = str(data.get("orientation") or ("vertical" if fmt == "short" else "horizontal")).strip().lower()
+    if orientation not in {"vertical", "horizontal"}:
+        orientation = "vertical" if fmt == "short" else "horizontal"
+    preset = _video_style_preset(data.get("style_preset"))
+    scene_seconds = int(data.get("scene_seconds") or data.get("clip_seconds") or preset.get("scene_seconds") or 0) if str(data.get("scene_seconds") or data.get("clip_seconds") or preset.get("scene_seconds") or "").strip() else 0
+    topic = str(data.get("topic") or "").strip()
+    concept = str(data.get("concept") or data.get("hook") or data.get("custom_title") or "").strip()
+    niche = str(data.get("niche") or data.get("niche_id") or "").strip()
+    footage_intent = str(data.get("footage_intent") or _video_footage_intent(topic, concept, niche, preset)).strip()
+    return {
+        "duration_sec": target_seconds,
+        "aspect_ratio": "9:16" if orientation == "vertical" else "16:9",
+        "format": fmt,
+        "orientation": orientation,
+        "realism": bool(data.get("realism") is not False),
+        "prompt_guards": {"no_fantasy": bool(data.get("realistic_only") is not False)},
+        "generate_thumbnail": bool(data.get("generate_thumbnail") is not False),
+        "style": str(data.get("style") or preset.get("style") or "educational"),
+        "style_pack_id": normalized_style_pack or str(data.get("style_pack_id") or DEFAULT_STYLE_PACK_ID),
+        "style_preset": str(preset.get("id") or "educational_clean"),
+        "scene_seconds": scene_seconds if scene_seconds > 0 else None,
+        "minimize_repeats": bool(data.get("minimize_repeats") is not False),
+        "realistic_only": bool(data.get("realistic_only") is not False),
+        "reuse_manifest": bool(data.get("reuse_manifest") is True),
+        "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
+        "custom_scenes": data.get("custom_scenes") if isinstance(data.get("custom_scenes"), list) else None,
+        "custom_title": str(data.get("custom_title") or data.get("hook") or "").strip() or None,
+        "custom_description": str(data.get("custom_description") or data.get("concept") or "").strip() or None,
+        "custom_hashtags": data.get("custom_hashtags") if isinstance(data.get("custom_hashtags"), list) else None,
+        "custom_cta": str(data.get("custom_cta") or data.get("cta") or "").strip() or None,
+        "voice_gender": str(data.get("voice_gender") or "male"),
+        "voice_tone": str(data.get("voice_tone") or preset.get("voice_tone") or "neutral"),
+        "voice_name": str(data.get("voice_name") or "").strip() or None,
+        "speech_speed": str(data.get("speech_speed") or preset.get("speech_speed") or "normal"),
+        "avoid_duplicate_footage": bool(data.get("avoid_duplicate_footage") is not False),
+        "subtitle_mode": str(data.get("subtitle_mode") or settings.VIDEO_SUBTITLE_MODE),
+        "platform_target": str(data.get("platform_target") or settings.VIDEO_PLATFORM_TARGET),
+        "subtitle_style": str(data.get("subtitle_style") or preset.get("subtitle_style") or settings.VIDEO_SUBTITLE_STYLE),
+        "batch_footage_memory": data.get("batch_footage_memory") if isinstance(data.get("batch_footage_memory"), dict) else None,
+        "footage_intent": footage_intent,
+    }
+
+
+@saas_api.route("/video/plan", methods=["POST"])
+@require_auth
+def video_plan_generate():
+    user = _current_user_refetched()
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic") or "").strip()
+    if not topic:
+        return jsonify({"error": "topic ??????????"}), 400
+    days = _normalize_video_plan_days(data.get("days"))
+    preset = _video_style_preset(data.get("style_preset"))
+    batch_id = str(data.get("batch_id") or f"video-{user.id}-{int(time.time())}-{secrets.token_hex(3)}")
+    language = str(data.get("language") or "ru").strip().lower() or "ru"
+    duration = int(data.get("target_seconds") or data.get("duration_sec") or 30)
+    orientation = str(data.get("orientation") or "vertical").strip().lower()
+    niche = str(data.get("niche_id") or data.get("niche") or "").strip()
+    now = datetime.utcnow()
+    items = []
+    for idx in range(days):
+        day = idx + 1
+        day_topic = str(data.get("topic") or "").strip()
+        if days > 1:
+            day_topic = f"{topic}: ????? {day}"
+        hook = f"{day_topic} ? ???????? ??????? ????"
+        concept = f"?????????? ?????: ???, 2-3 ????????? ????? ? ???????? ????? ?? ???? {day_topic}."
+        footage_intent = _video_footage_intent(day_topic, concept, niche, preset)
+        items.append({
+            "id": f"{batch_id}-{day}",
+            "batch_id": batch_id,
+            "day": day,
+            "batch_order": day,
+            "scheduled_at": (now + timedelta(days=idx)).replace(hour=12, minute=0, second=0, microsecond=0).isoformat() + "Z",
+            "topic": day_topic,
+            "hook": hook,
+            "concept": concept,
+            "voice_gender": str(data.get("voice_gender") or "male"),
+            "voice_tone": str(data.get("voice_tone") or preset.get("voice_tone") or "neutral"),
+            "speech_speed": str(data.get("speech_speed") or preset.get("speech_speed") or "normal"),
+            "subtitle_style": str(data.get("subtitle_style") or preset.get("subtitle_style") or settings.VIDEO_SUBTITLE_STYLE),
+            "duration_sec": max(20, min(480, duration)),
+            "orientation": orientation if orientation in {"vertical", "horizontal"} else "vertical",
+            "style_preset": str(preset.get("id") or "educational_clean"),
+            "footage_intent": footage_intent,
+            "status": "draft",
+            "stage": "draft",
+            "queue": {"position": None, "estimated_start_at": None, "estimated_completion_at": None},
+        })
+    return jsonify({"status": "ok", "batch_id": batch_id, "days": days, "items": items, "capacity": {"max_active_renders": settings.VIDEO_MAX_ACTIVE_RENDERS, "max_queued_per_user": settings.VIDEO_MAX_QUEUED_PER_USER}})
+
+
+@saas_api.route("/video/jobs/<int:job_id>/cancel", methods=["POST"])
+@require_auth
+def video_job_cancel(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job ?? ??????"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign or (user.role != "admin" and campaign.user_id != user.id):
+            return jsonify({"error": "???????????? ????"}), 403
+        if str(job.status or "").lower() in _VIDEO_ACTIVE_STATUSES:
+            return jsonify({"error": "processing_job_cannot_be_cancelled_safely"}), 409
+        job.status = "cancelled"
+        job.progress = 0
+        _write_video_queue_result(job, {"cancelled": True, "stage": "cancelled"})
+        job.updated_at = datetime.utcnow()
+        db.commit()
+        _maybe_start_next_video_jobs()
+        return jsonify({"job": _video_job_payload(db, job)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/jobs/<int:job_id>/prioritize", methods=["POST"])
+@require_auth
+def video_job_prioritize(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job ?? ??????"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign or (user.role != "admin" and campaign.user_id != user.id):
+            return jsonify({"error": "???????????? ????"}), 403
+        if str(job.status or "").lower() != "queued":
+            return jsonify({"error": "only_queued_jobs_can_be_prioritized"}), 400
+        _write_video_queue_result(job, {"priority": True})
+        job.updated_at = datetime.utcnow()
+        db.commit()
+        _maybe_start_next_video_jobs()
+        return jsonify({"job": _video_job_payload(db, job)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/jobs/<int:job_id>/retry", methods=["POST"])
+@require_auth
+def video_job_retry(job_id: int):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter_by(id=job_id, job_type="generate_video").first()
+        if not job:
+            return jsonify({"error": "Job ?? ??????"}), 404
+        campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+        if not campaign or (user.role != "admin" and campaign.user_id != user.id):
+            return jsonify({"error": "???????????? ????"}), 403
+        if str(job.status or "").lower() != "failed":
+            return jsonify({"error": "only_failed_jobs_can_be_retried"}), 400
+        queue = _video_queue_result(job)
+        _write_video_queue_result(job, {"retry_count": int(queue.get("retry_count") or 0) + 1, "manual_retry": True, "stage": "queued", "cancelled": False, "paused": False})
+        job.status = "queued"
+        job.progress = 0
+        job.error_message = None
+        job.updated_at = datetime.utcnow()
+        db.commit()
+        _maybe_start_next_video_jobs()
+        return jsonify({"job": _video_job_payload(db, job)})
+    finally:
+        db.close()
+
+
+def _set_batch_pause_state(batch_id: str, *, paused: bool | None = None, cancel: bool = False):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        rows = db.query(GenerationJob).filter_by(job_type="generate_video").all()
+        changed = []
+        for job in rows:
+            queue = _video_queue_result(job)
+            if str(queue.get("batch_id") or "") != str(batch_id):
+                continue
+            campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+            if not campaign or (user.role != "admin" and campaign.user_id != user.id):
+                continue
+            status = str(job.status or "").lower()
+            if cancel and status not in _VIDEO_ACTIVE_STATUSES and status not in {"done"}:
+                job.status = "cancelled"
+                _write_video_queue_result(job, {"cancelled": True, "stage": "cancelled"})
+            elif paused is not None and status in {"queued", "paused"}:
+                job.status = "paused" if paused else "queued"
+                _write_video_queue_result(job, {"paused": bool(paused), "stage": "paused" if paused else "queued"})
+            job.updated_at = datetime.utcnow()
+            changed.append(job)
+        db.commit()
+        if not paused:
+            _maybe_start_next_video_jobs()
+        return jsonify({"batch_id": batch_id, "items": [_video_job_payload(db, row) for row in sorted(changed, key=_video_queue_order_key)]})
+    finally:
+        db.close()
+
+
+@saas_api.route("/video/batches/<batch_id>/pause", methods=["POST"])
+@require_auth
+def video_batch_pause(batch_id: str):
+    return _set_batch_pause_state(batch_id, paused=True)
+
+
+@saas_api.route("/video/batches/<batch_id>/resume", methods=["POST"])
+@require_auth
+def video_batch_resume(batch_id: str):
+    return _set_batch_pause_state(batch_id, paused=False)
+
+
+@saas_api.route("/video/batches/<batch_id>/cancel", methods=["POST"])
+@require_auth
+def video_batch_cancel(batch_id: str):
+    return _set_batch_pause_state(batch_id, cancel=True)
+
+
+@saas_api.route("/video/batches/<batch_id>", methods=["GET"])
+@require_auth
+def video_batch_status(batch_id: str):
+    user = g.current_user
+    db = SessionLocal()
+    try:
+        rows = []
+        for job in db.query(GenerationJob).filter_by(job_type="generate_video").all():
+            if str(_video_queue_result(job).get("batch_id") or "") != str(batch_id):
+                continue
+            campaign = db.query(Campaign).filter_by(id=job.campaign_id).first()
+            if campaign and (user.role == "admin" or campaign.user_id == user.id):
+                rows.append(job)
+        return jsonify({"batch_id": batch_id, "items": [_video_job_payload(db, row) for row in sorted(rows, key=_video_queue_order_key)]})
+    finally:
+        db.close()
+
 @saas_api.route("/video/generate", methods=["POST"])
 @saas_api.route("/ai/video/render", methods=["POST"])
 @require_auth
@@ -3925,32 +4398,17 @@ def video_generate():
     data = request.get_json(silent=True) or {}
     topic = str(data.get("topic") or "").strip()
     if not topic:
-        return jsonify({"error": "topic обязателен"}), 400
+        return jsonify({"error": "topic ??????????"}), 400
     offer = str(data.get("offer") or "").strip() or None
     language = str(data.get("language") or "ru").strip().lower() or "ru"
-    style = str(data.get("style") or "educational").strip() or "educational"
-    fmt = str(data.get("format") or "short").strip().lower()
-    if fmt not in {"short", "long"}:
-        fmt = "short"
-    min_sec = 20 if fmt == "short" else 120
-    max_sec = 70 if fmt == "short" else 480
-    target_seconds = int(data.get("target_seconds") or min_sec)
-    target_seconds = max(min_sec, min(max_sec, target_seconds))
-    orientation = str(data.get("orientation") or ("vertical" if fmt == "short" else "horizontal")).strip().lower()
-    if orientation not in {"vertical", "horizontal"}:
-        orientation = "vertical" if fmt == "short" else "horizontal"
-    aspect_ratio = "9:16" if orientation == "vertical" else "16:9"
-    scene_seconds = int(data.get("scene_seconds") or 0) if str(data.get("scene_seconds") or "").strip() else 0
-    minimize_repeats = bool(data.get("minimize_repeats") is not False)
-    realistic_only = bool(data.get("realistic_only") is not False)
 
     project_id_raw = data.get("project_id")
     try:
         project_id = int(project_id_raw) if project_id_raw else get_or_create_default_project(user.id).id
     except Exception:
-        return jsonify({"error": "project_id должен быть числом"}), 400
+        return jsonify({"error": "project_id ?????? ???? ??????"}), 400
     if not can_access_project(user, project_id):
-        return jsonify({"error": "Нет доступа к проекту"}), 403
+        return jsonify({"error": "??? ??????? ? ???????"}), 403
 
     endpoint_ref = "/api/ai/video/render" if request.path.endswith("/ai/video/render") else "/api/video/generate"
     pw = _paywall_response_if_needed(authorizeAction(user, ACTION_VIDEO_GENERATE, {"endpoint": endpoint_ref}))
@@ -3964,6 +4422,7 @@ def video_generate():
             requested_style_pack = _get_user_style_pref(db, user.id)
         normalized_style_pack = get_style_pack(requested_style_pack).get("id") or DEFAULT_STYLE_PACK_ID
         _set_user_style_pref(db, user.id, normalized_style_pack)
+        render_payload = _video_payload_from_request(data, normalized_style_pack=normalized_style_pack)
         campaign = Campaign(
             user_id=user.id,
             project_id=project_id,
@@ -3971,9 +4430,9 @@ def video_generate():
             topic=topic,
             offer=offer,
             objective="engagement",
-            caption_master=None,
-            cta=None,
-            hashtags_master=json.dumps([], ensure_ascii=False),
+            caption_master=str(data.get("custom_description") or data.get("concept") or "").strip() or None,
+            cta=str(data.get("custom_cta") or data.get("cta") or "").strip() or None,
+            hashtags_master=json.dumps(data.get("custom_hashtags") if isinstance(data.get("custom_hashtags"), list) else [], ensure_ascii=False),
             language=language,
             status="draft",
             created_at=datetime.utcnow(),
@@ -3983,27 +4442,27 @@ def video_generate():
         db.commit()
         db.refresh(campaign)
 
+        request_meta = {
+            "format": render_payload.get("format"),
+            "target_seconds": render_payload.get("duration_sec"),
+            "orientation": render_payload.get("orientation"),
+            "style": render_payload.get("style"),
+            "style_pack_id": normalized_style_pack,
+            "style_preset": render_payload.get("style_preset"),
+            "language": language,
+            "scene_seconds": render_payload.get("scene_seconds"),
+            "voice_gender": render_payload.get("voice_gender"),
+            "voice_tone": render_payload.get("voice_tone"),
+            "speech_speed": render_payload.get("speech_speed"),
+            "subtitle_style": render_payload.get("subtitle_style"),
+            "footage_intent": render_payload.get("footage_intent"),
+        }
         job = GenerationJob(
             campaign_id=campaign.id,
             job_type="generate_video",
             status="queued",
             progress=0,
-            result_json=json.dumps(
-                {
-                    "request": {
-                        "format": fmt,
-                        "target_seconds": target_seconds,
-                        "orientation": orientation,
-                        "style": style,
-                        "style_pack_id": normalized_style_pack,
-                        "language": language,
-                        "scene_seconds": scene_seconds if scene_seconds > 0 else None,
-                        "minimize_repeats": minimize_repeats,
-                        "realistic_only": realistic_only,
-                    }
-                },
-                ensure_ascii=False,
-            ),
+            result_json=json.dumps({"request": request_meta}, ensure_ascii=False),
             error_message=None,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -4011,25 +4470,28 @@ def video_generate():
         db.add(job)
         db.commit()
         db.refresh(job)
-        _start_generation_job(
-            job.id,
-            {
-                "duration_sec": target_seconds,
-                "aspect_ratio": aspect_ratio,
-                "realism": realistic_only,
-                "prompt_guards": {"no_fantasy": realistic_only},
-                "generate_thumbnail": True,
-                "style": style,
-                "style_pack_id": normalized_style_pack,
-                "scene_seconds": scene_seconds if scene_seconds > 0 else None,
-                "minimize_repeats": minimize_repeats,
-                "realistic_only": realistic_only,
-                "reuse_manifest": bool(data.get("reuse_manifest") is True),
-                "reuse_from_job_id": int(data.get("reuse_from_job_id")) if str(data.get("reuse_from_job_id", "")).isdigit() else None,
+        ok, err = _queue_video_job(
+            db,
+            job,
+            render_payload,
+            user_id=user.id,
+            queue_meta={
+                "batch_id": str(data.get("batch_id") or f"single-{job.id}"),
+                "batch_day": int(data.get("batch_day") or data.get("day") or 1),
+                "batch_order": int(data.get("batch_order") or data.get("day") or 1),
+                "priority": bool(data.get("priority") is True),
+                "footage_intent": render_payload.get("footage_intent"),
             },
         )
+        if not ok:
+            db.delete(job)
+            db.delete(campaign)
+            db.commit()
+            return jsonify({"error": err or "video_queue_limit"}), 429
+        _maybe_start_next_video_jobs()
         recordUsageEvent(user, "VIDEOS_GENERATED", 1, {"endpoint": endpoint_ref, "campaign_id": campaign.id, "job_id": job.id})
-        return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status}), 202
+        db.refresh(job)
+        return jsonify({"job_id": job.id, "campaign_id": campaign.id, "status": job.status, "job": _video_job_payload(db, job)}), 202
     finally:
         db.close()
 
@@ -4149,6 +4611,7 @@ def video_job_status(job_id: int):
                 "result": _json_loads_safe(job.result_json, {}),
                 "campaign_id": campaign.id,
                 "assets": [_asset_payload(a) for a in assets],
+                "queue": _video_queue_envelope(db, job),
             }
         )
     finally:
@@ -4227,11 +4690,12 @@ def ai_video_job_status(job_id: int):
             {
                 "status": out_status,
                 "progress": max(0, min(100, int(job.progress or 0))),
-                "step": step,
+                "step": _video_progress_stage(step),
                 "message": message,
                 "previewUrl": preview_url or video_url or None,
                 "finalUrl": video_url or None,
                 "error": (str(job.error_message or "").strip() or None),
+                "queue": _video_queue_envelope(db, job),
             }
         )
     finally:
@@ -7594,10 +8058,3 @@ def admin_niche_hooks():
         return jsonify([{"id": r.id, "niche": r.niche, "hook": r.hook} for r in rows])
     finally:
         db.close()
-
-
-
-
-
-
-

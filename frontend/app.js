@@ -3135,6 +3135,9 @@ const state = {
     videoRealisticOnly: true,
     videoVoiceGender: 'male',
     videoVoiceTone: 'neutral',
+    videoSpeechSpeed: 'normal',
+    videoSubtitleStyle: 'social_default',
+    videoStylePreset: 'educational_clean',
     previewVideoTab: 'meta',
     previewVideoMetaPlatform: 'facebook',
     previewExpanded: {},
@@ -3155,12 +3158,22 @@ const state = {
     videoRenderedVoiceTone: '',
     videoRenderRequestedVoiceGender: '',
     videoRenderRequestedVoiceTone: '',
+    videoDayPostsPerDay: 1,
+    videoDayDurationPreset: '30',
+    videoDayTimeMode: 'ai',
+    videoDayManualTime: '12:00',
+    videoDayLoading: false,
+    videoDayApplying: false,
+    videoDayScheduling: false,
+    videoDayItems: [],
+    videoDaySelectedDate: '',
     videoWeekPostsPerDay: 1,
     videoWeekDurationPreset: '30',
     videoWeekTimeMode: 'ai',
     videoWeekManualTime: '12:00',
     videoWeekLoading: false,
     videoWeekApplying: false,
+    videoWeekScheduling: false,
     videoWeekItems: [],
     videoWeekSelectedDate: '',
     videoMonthPostsPerDay: 1,
@@ -3169,6 +3182,7 @@ const state = {
     videoMonthManualTime: '12:00',
     videoMonthLoading: false,
     videoMonthApplying: false,
+    videoMonthScheduling: false,
     videoMonthItems: [],
     videoMonthSelectedDate: '',
     postWeekPostsPerDay: 1,
@@ -5926,6 +5940,7 @@ function getCreatePlannerRoute(path = location.pathname.replace(/\/$/, '') || '/
     }
   }
   if (path === '/create/post-week') return { kind: 'post', days: 7, legacy: true };
+  if (path === '/create/video') return { kind: 'video', days: 1, legacy: false };
   if (path === '/create/video-week') return { kind: 'video', days: 7, legacy: true };
   if (path === '/create/video-month') return { kind: 'video', days: 30, legacy: true };
   return null;
@@ -5934,7 +5949,7 @@ function getPlannerStateConfig(kind, days) {
   const normalizedKind = normalizePlannerKind(kind);
   const normalizedDays = normalizePlannerDays(days);
   const baseKey = normalizedKind === 'video'
-    ? (normalizedDays === 30 ? 'videoMonth' : 'videoWeek')
+    ? (normalizedDays === 30 ? 'videoMonth' : (normalizedDays === 1 ? 'videoDay' : 'videoWeek'))
     : (normalizedDays === 30 ? 'postMonth' : 'postWeek');
   return {
     kind: normalizedKind,
@@ -5949,10 +5964,10 @@ function getPlannerStateConfig(kind, days) {
     applyingKey: `${baseKey}Applying`,
     schedulingKey: `${baseKey}Scheduling`,
     title: normalizedKind === 'video'
-      ? (normalizedDays === 30 ? shellText('create_planner_video30') : shellText('create_planner_video7'))
+      ? (normalizedDays === 30 ? shellText('create_planner_video30') : (normalizedDays === 1 ? 'Video Studio - 1 day' : shellText('create_planner_video7')))
       : (normalizedDays === 30 ? shellText('create_planner_post30') : shellText('create_planner_post7')),
     subtitle: normalizedKind === 'video'
-      ? shellText('create_planner_video30_subtitle')
+      ? 'Plan first, then queue safe footage-based renders with server capacity controls.'
       : shellText('create_planner_post30_subtitle'),
     backUrl: `/create?type=${normalizedKind}`,
   };
@@ -6017,15 +6032,31 @@ function renderPostPlannerPreview(item, d) {
 }
 function renderVideoPlannerPreview(item, d) {
   const timeLabel = new Date(item.scheduled_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const status = String(item.status || 'draft').toLowerCase();
+  const queue = item.queue || {};
+  const stage = String(item.stage || queue.stage || 'draft').replace(/_/g, ' ');
+  const etaStart = queue.estimated_start_at ? new Date(queue.estimated_start_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '?';
+  const etaDone = queue.estimated_completion_at ? new Date(queue.estimated_completion_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '?';
+  const canQueue = ['draft', 'scheduled', 'cancelled'].includes(status);
+  const canCancel = ['queued', 'scheduled', 'paused'].includes(status);
+  const canRetry = status === 'failed';
+  const canPrioritize = status === 'queued';
   return `<article class="card" style="padding:12px;border:1px solid rgba(148,163,184,.18);">
-    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;">
-      <strong>${esc(timeLabel)}</strong>
-      <span class="small">${esc(shellText('common_duration'))}: ${esc(String(item.duration_sec || d.videoDurationPreset || '30'))} сек · ${esc(shellText('common_format'))}: ${esc(String(item.format || item.orientation || d.videoOrientation || 'vertical'))}</span>
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;"><strong>${esc(timeLabel)}</strong><span class="pill">${esc(status)}</span></div>
+    <p class="small" style="margin:8px 0 4px 0;"><strong>${esc(shellText('common_topic'))}:</strong> ${esc(item.topic || '?')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>${esc(shellText('common_hook'))}:</strong> ${esc(item.hook || '?')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>Concept:</strong> ${esc(item.concept || item.script || '?')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>Voice:</strong> ${esc(item.voice_gender || d.videoVoiceGender || 'male')} / ${esc(item.voice_tone || d.videoVoiceTone || 'neutral')} / ${esc(item.speech_speed || d.videoSpeechSpeed || 'normal')}</p>
+    <p class="small" style="margin:0 0 4px 0;"><strong>Subtitles:</strong> ${esc(item.subtitle_style || d.videoSubtitleStyle || 'social_default')} / <strong>${esc(shellText('common_duration'))}:</strong> ${esc(String(item.duration_sec || d.videoDurationPreset || '30'))} sec</p>
+    <p class="small" style="margin:0 0 6px 0;"><strong>Footage intent:</strong> ${esc(item.footage_intent || '?')}</p>
+    <p class="small" style="margin:0 0 8px 0;"><strong>Queue:</strong> #${esc(queue.position || '?')} / start ${esc(etaStart)} / complete ${esc(etaDone)} / stage ${esc(stage)}</p>
+    ${item.finalUrl ? `<p class="small"><a href="${esc(item.finalUrl)}" target="_blank" rel="noreferrer">Open video</a></p>` : ''}
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
+      ${canQueue ? `<button type="button" class="btn btn-primary" data-video-plan-queue="${esc(item.id || item.index || '')}">Queue</button>` : ''}
+      ${canCancel ? `<button type="button" class="btn btn-ghost" data-video-plan-cancel="${esc(item.job_id || '')}">Cancel</button>` : ''}
+      ${canPrioritize ? `<button type="button" class="btn btn-secondary" data-video-plan-priority="${esc(item.job_id || '')}">Prioritize</button>` : ''}
+      ${canRetry ? `<button type="button" class="btn btn-secondary" data-video-plan-retry="${esc(item.job_id || '')}">Retry</button>` : ''}
     </div>
-    <p class="small" style="margin:8px 0 4px 0;"><strong>${esc(shellText('common_topic'))}:</strong> ${esc(item.topic || '—')}</p>
-    <p class="small" style="margin:0 0 4px 0;"><strong>${esc(shellText('common_hook'))}:</strong> ${esc(item.hook || '—')}</p>
-    <p class="small" style="margin:0 0 4px 0;"><strong>${esc(shellText('common_script'))}:</strong> ${esc(item.script || '—')}</p>
-    <p class="small" style="margin:0;"><strong>${esc(shellText('common_cta'))}:</strong> ${esc(item.cta || '—')}</p>
   </article>`;
 }
 function renderPlannerPreview(data, config) {
@@ -6043,9 +6074,14 @@ function getPlannerRenderConfig(kind, d) {
       panelLabel: shellText('planner_video_panel'),
       fieldConfig: {
         secondaryField: selectField('plannerOrientation', shellText('planner_video_format'), String(d.videoOrientation || 'vertical'), [{ value: 'vertical', label: 'Shorts/Reels (9:16)' }, { value: 'horizontal', label: 'Обычное (16:9)' }]),
-        tertiaryField: selectField('plannerDuration', shellText('common_duration'), String(d.videoDurationPreset || d.videoWeekDurationPreset || '30'), String(d.videoOrientation || 'vertical') === 'horizontal'
-          ? [{ value: '120', label: '120 сек' }, { value: '180', label: '180 сек' }, { value: '240', label: '240 сек' }, { value: '300', label: '300 сек' }, { value: '360', label: '360 сек' }, { value: '420', label: '420 сек' }, { value: '480', label: '480 сек' }]
-          : [{ value: '20', label: '20 сек' }, { value: '30', label: '30 сек' }, { value: '40', label: '40 сек' }, { value: '60', label: '60 сек' }]),
+        tertiaryField: `${selectField('plannerDuration', shellText('common_duration'), String(d.videoDurationPreset || d.videoWeekDurationPreset || '30'), String(d.videoOrientation || 'vertical') === 'horizontal'
+          ? [{ value: '120', label: '120 sec' }, { value: '180', label: '180 sec' }, { value: '240', label: '240 sec' }, { value: '300', label: '300 sec' }, { value: '360', label: '360 sec' }, { value: '420', label: '420 sec' }, { value: '480', label: '480 sec' }]
+          : [{ value: '20', label: '20 sec' }, { value: '30', label: '30 sec' }, { value: '40', label: '40 sec' }, { value: '60', label: '60 sec' }])}
+          ${selectField('plannerStylePreset', 'Video style', d.videoStylePreset || 'educational_clean', [{ value: 'meditation_calm', label: 'Meditation calm' }, { value: 'motivational_fast', label: 'Motivational fast' }, { value: 'educational_clean', label: 'Educational clean' }, { value: 'luxury_minimal', label: 'Luxury minimal' }, { value: 'esoteric_mystical', label: 'Esoteric mystical' }])}
+          ${selectField('plannerClipLength', 'Footage clip length', String(d.videoShotSeconds || 4), [{ value: '3', label: 'Short - 3 sec' }, { value: '5', label: 'Medium - 5 sec' }, { value: '8', label: 'Long - 8 sec' }])}
+          ${selectField('plannerVoiceGender', 'Voice', d.videoVoiceGender || 'male', [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }])}
+          ${selectField('plannerSpeechSpeed', 'Speech speed', d.videoSpeechSpeed || 'normal', [{ value: 'slow', label: 'Slow' }, { value: 'normal', label: 'Normal' }, { value: 'fast', label: 'Fast' }])}
+          ${selectField('plannerSubtitleStyle', 'Subtitle style', d.videoSubtitleStyle || 'social_default', [{ value: 'social_default', label: 'Social default' }, { value: 'clean_bold', label: 'Clean bold' }, { value: 'creator_pop', label: 'Creator pop' }, { value: 'luxury_minimal', label: 'Luxury minimal' }, { value: 'mystical_glow', label: 'Mystical glow' }])}`,
         postsPerDayLabel: shellText('planner_videos_per_day'),
         topicPlaceholder: shellText('planner_topic_placeholder_video'),
         platformsMarkup: `<label class="create-toggle"><input id="plannerPlatformFacebook" type="checkbox" ${d.platforms?.facebook ? 'checked' : ''}/> Facebook</label>
@@ -10125,11 +10161,19 @@ function pageCreatePlanner(route = getCreatePlannerRoute()) {
                     bestHoursText ? `${shellText('planner_best_hours')}: ${bestHoursText}` : '',
                   ].filter(Boolean).join(' · ')}</p>`
                 : ''))}
+            ${cfg.kind === 'video' ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <button type="button" class="btn ${cfg.days === 1 ? 'btn-primary' : 'btn-ghost'}" data-link="/create/video">1 day</button>
+              <button type="button" class="btn ${cfg.days === 7 ? 'btn-primary' : 'btn-ghost'}" data-link="/create/video-week">7 days</button>
+              <button type="button" class="btn ${cfg.days === 30 ? 'btn-primary' : 'btn-ghost'}" data-link="/create/video-month">30 days</button>
+            </div>` : ''}
             <div class="cta-row planner-actions-row" style="margin-top:12px;">
               <button id="plannerGenerate" class="btn btn-primary" type="button" ${loading ? 'disabled' : ''}>${loading ? esc(shellText('planner_generating')) : esc(shellTextFmt('planner_generate', { days: cfg.days }))}</button>
               ${cfg.kind === 'post'
-                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? `🚀 ${esc(shellText('planner_scheduling'))}` : `🚀 ${esc(shellText('planner_schedule_all_cta'))}`}</button>`
-                : ''}
+                ? `<button id="plannerScheduleAll" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? esc(shellText('planner_scheduling')) : esc(shellText('planner_schedule_all_cta'))}</button>`
+                : `<button id="plannerQueueBatch" class="btn btn-secondary" type="button" ${(scheduling || !items.length) ? 'disabled' : ''}>${scheduling ? 'Queueing...' : 'Queue batch safely'}</button>
+                   <button id="plannerPauseBatch" class="btn btn-ghost" type="button" ${!items.length ? 'disabled' : ''}>Pause batch</button>
+                   <button id="plannerResumeBatch" class="btn btn-ghost" type="button" ${!items.length ? 'disabled' : ''}>Resume batch</button>
+                   <button id="plannerCancelBatch" class="btn btn-ghost" type="button" ${!items.length ? 'disabled' : ''}>Cancel batch</button>`}
               <button id="plannerApplyToDirector" class="btn btn-secondary" type="button" ${applying ? 'disabled' : ''}>${applying ? esc(shellText('planner_applying')) : esc(shellText('planner_open_in_director'))}</button>
             </div>
           </article>
@@ -11998,6 +12042,9 @@ async function bindCreateDirector(path) {
     realistic_only: !!(document.getElementById('cdVideoRealisticOnly')?.checked ?? d.videoRealisticOnly),
     voice_gender: document.getElementById('cdVideoVoiceGender')?.value || d.videoVoiceGender || 'male',
     voice_tone: document.getElementById('cdVideoVoiceTone')?.value || d.videoVoiceTone || 'neutral',
+    speech_speed: document.getElementById('cdVideoSpeechSpeed')?.value || d.videoSpeechSpeed || 'normal',
+    subtitle_style: document.getElementById('cdVideoSubtitleStyle')?.value || d.videoSubtitleStyle || 'social_default',
+    style_preset: document.getElementById('cdVideoStylePreset')?.value || d.videoStylePreset || 'educational_clean',
   });
   const wordsPerSecond = 2.2;
   const targetVideoSeconds = () => Math.max(20, Math.min(480, Number(d.videoDurationPreset || 30) || 30));
@@ -14184,7 +14231,10 @@ async function bindCreateDirector(path) {
           allow_emergency_reuse: format === 'short' ? false : true,
           subtitle_mode: 'auto',
           platform_target: String(d.activePlatform || 'facebook').toLowerCase(),
-          subtitle_style: 'social_default',
+          speech_speed: String(video.speech_speed || d.videoSpeechSpeed || 'normal').toLowerCase(),
+          subtitle_style: String(video.subtitle_style || d.videoSubtitleStyle || 'social_default').toLowerCase(),
+          style_preset: String(video.style_preset || d.videoStylePreset || 'educational_clean').toLowerCase(),
+          footage_intent: [String(video.custom_title || d.videoStructure?.title || d.selectedSuggestedTopic || d.topic || ''), String(video.custom_description || d.videoStructure?.description || ''), String(directorCurrentNicheMeta(d)?.label || '')].filter(Boolean).join(' '),
           min_unique_clips_short: 8,
           fallback_related_keywords: true,
           custom_title: String(d.videoStructure?.title || resolvedTopic).trim(),
@@ -14517,7 +14567,7 @@ async function bindCreateDirector(path) {
     };
   });
 
-  ['cdTopicPreset', 'cdTopic', 'cdManualTopic', 'cdGoal', 'cdOffer', 'cdLang', 'cdTone', 'cdAudience', 'cdLength', 'cdStyle', 'cdRules', 'cdScheduleAt', 'cdVideoOrientation', 'cdVideoDurationPreset', 'cdVideoShotSeconds', 'cdVideoVoiceGender', 'cdVideoVoiceTone'].forEach((id) => {
+  ['cdTopicPreset', 'cdTopic', 'cdManualTopic', 'cdGoal', 'cdOffer', 'cdLang', 'cdTone', 'cdAudience', 'cdLength', 'cdStyle', 'cdRules', 'cdScheduleAt', 'cdVideoOrientation', 'cdVideoDurationPreset', 'cdVideoShotSeconds', 'cdVideoVoiceGender', 'cdVideoVoiceTone', 'cdVideoSpeechSpeed', 'cdVideoSubtitleStyle', 'cdVideoStylePreset'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.oninput = () => {
@@ -14547,6 +14597,9 @@ async function bindCreateDirector(path) {
         if (id === 'cdVideoShotSeconds') d.videoShotSeconds = Math.max(2, Math.min(12, Number(el.value || 4) || 4));
         if (id === 'cdVideoVoiceGender') d.videoVoiceGender = el.value;
         if (id === 'cdVideoVoiceTone') d.videoVoiceTone = el.value;
+        if (id === 'cdVideoSpeechSpeed') d.videoSpeechSpeed = el.value;
+        if (id === 'cdVideoSubtitleStyle') d.videoSubtitleStyle = el.value;
+        if (id === 'cdVideoStylePreset') d.videoStylePreset = el.value;
         if (id === 'cdVideoOrientation') {
           refreshVideoDurationOptionsDom();
           normalizeVideoScenesBudget({ silent: true });
@@ -15211,69 +15264,44 @@ async function bindCreatePlanner(path) {
   };
   const buildVideoPlanner = async () => {
     const topic = plannerTopicSeed();
-    if (!topic) throw new Error('Укажите тему.');
+    if (!topic) throw new Error('Set a topic first.');
     d.topic = topic;
     setPlanValue('Loading', true);
     render();
     try {
-      const slots = await buildSlots();
-      const total = slots.length;
-      const topicsPool = [];
-      const anglesPool = [];
-      const ctaPool = [];
-      for (const seed of [0, 101, 202]) {
-        try {
-          const out = await api('/api/ai/director/suggest', {
-            method: 'POST',
-            body: JSON.stringify({
-              topic,
-              niche_id: directorCurrentNicheId(d),
-              niche_label: directorCurrentNicheMeta(d)?.label || directorBaseTopic(d, d.topic),
-              niche_context: directorNicheAiContext(d),
-              goal: d.goal || 'engagement',
-              language: d.language || 'ru',
-              tone: d.tone || 'friendly',
-              platforms: ['facebook', 'instagram', 'youtube'],
-              content_type: 'video',
-              orientation: d.videoOrientation || 'vertical',
-              duration_preset: String(d.videoDurationPreset || '30'),
-              variation_seed: seed,
-            }),
-            timeoutMs: 120000,
-          });
-          const s = out?.data || {};
-          (Array.isArray(s.topics) ? s.topics : []).forEach((x) => { if (x) topicsPool.push(String(x).trim()); });
-          (Array.isArray(s.angles) ? s.angles : []).forEach((x) => { if (x) anglesPool.push(String(x).trim()); });
-          (Array.isArray(s.cta_options) ? s.cta_options : []).forEach((x) => { if (x) ctaPool.push(String(x).trim()); });
-        } catch {}
-      }
-      const builtItems = slots.map((iso, idx) => {
-        const title = String(topicsPool[idx % Math.max(1, topicsPool.length)] || `${topic}: короткий разбор ${idx + 1}`).trim();
-        const angle = String(anglesPool[idx % Math.max(1, anglesPool.length)] || 'через короткий практический сценарий').trim();
-        const hook = title;
-        const script = `${title}. Короткий ход через ${angle} с 3 шагами и понятным выводом для зрителя.`;
-        return {
-          index: idx + 1,
-          scheduled_at: iso,
-          topic: title,
-          hook,
-          format: d.videoOrientation || 'vertical',
-          script,
-          caption: script,
-          cta: String(ctaPool[idx % Math.max(1, ctaPool.length)] || d.selectedCta || 'Сохраните и напишите «ПЛАН».').trim(),
-
-          duration_sec: Number(d.videoDurationPreset || 30) || 30,
+      const out = await api('/api/video/plan', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic,
+          days: cfg.days,
+          niche_id: directorCurrentNicheId(d),
+          language: d.language || 'ru',
+          target_seconds: Number(d.videoDurationPreset || 30) || 30,
           orientation: d.videoOrientation || 'vertical',
-          video_included: true,
-        };
+          voice_gender: d.videoVoiceGender || 'male',
+          voice_tone: d.videoVoiceTone || 'neutral',
+          speech_speed: d.videoSpeechSpeed || 'normal',
+          subtitle_style: d.videoSubtitleStyle || 'social_default',
+          style_preset: d.videoStylePreset || 'educational_clean',
+        }),
+        timeoutMs: 120000,
       });
+      const builtItems = (Array.isArray(out?.items) ? out.items : []).map((item, idx) => ({
+        ...item,
+        index: Number(item.day || idx + 1),
+        scheduled_at: item.scheduled_at || new Date(Date.now() + idx * 86400000).toISOString(),
+        status: item.status || 'draft',
+        stage: item.stage || 'draft',
+        queue: item.queue || {},
+        video_included: true,
+      }));
       setPlanValue('Items', builtItems);
       setPlanValue('SelectedDate', builtItems[0] ? String(builtItems[0].scheduled_at || '').slice(0, 10) : '');
       if (builtItems[0]) {
-        d.selectedCta = builtItems[0].cta;
-        d.selectedHashtags = parseCampaignHashtags(builtItems[0].hashtags).slice(0, 20);
+        d.selectedCta = builtItems[0].cta || d.selectedCta || '';
+        d.selectedHashtags = parseCampaignHashtags(builtItems[0].hashtags || '').slice(0, 20);
       }
-      state.notice = { type: 'ok', text: cfg.days === 30 ? 'Видео-посты на 30 дней сформированы.' : 'Видео-посты на 7 дней сформированы.' };
+      state.notice = { type: 'ok', text: `${builtItems.length} video draft item(s) created. Rendering has not started yet.` };
     } finally {
       setPlanValue('Loading', false);
       render();
@@ -15298,6 +15326,11 @@ async function bindCreatePlanner(path) {
   bindRerender('plannerImageEnabled', (el) => { d.imageEnabled = !!el.checked; });
   bindRerender('plannerOrientation', (el) => { d.videoOrientation = String(el.value || 'vertical'); });
   bindRerender('plannerDuration', (el) => { d.videoDurationPreset = String(el.value || '30'); });
+  bindRerender('plannerStylePreset', (el) => { d.videoStylePreset = String(el.value || 'educational_clean'); });
+  bindRerender('plannerClipLength', (el) => { d.videoShotSeconds = Math.max(2, Math.min(12, Number(el.value || 4) || 4)); });
+  bindRerender('plannerVoiceGender', (el) => { d.videoVoiceGender = String(el.value || 'male'); });
+  bindRerender('plannerSpeechSpeed', (el) => { d.videoSpeechSpeed = String(el.value || 'normal'); });
+  bindRerender('plannerSubtitleStyle', (el) => { d.videoSubtitleStyle = String(el.value || 'social_default'); });
   bindRerender('plannerPlatformFacebook', (el) => { d.platforms.facebook = !!el.checked; });
   bindRerender('plannerPlatformInstagram', (el) => { d.platforms.instagram = !!el.checked; });
   bindRerender('plannerPlatformYouTube', (el) => { d.platforms.youtube = !!el.checked; });
@@ -15311,6 +15344,55 @@ async function bindCreatePlanner(path) {
   if (plannerTimeManual) plannerTimeManual.onclick = () => {
     setPlanValue('TimeMode', 'manual');
     render();
+  };
+  const updateVideoPlannerJob = (planItem, jobPayload) => {
+    if (!planItem || !jobPayload) return planItem;
+    const result = jobPayload.result || {};
+    const queue = jobPayload.queue || result.queue || {};
+    return {
+      ...planItem,
+      job_id: jobPayload.id || jobPayload.job_id || planItem.job_id,
+      campaign_id: jobPayload.campaign_id || planItem.campaign_id,
+      status: String(jobPayload.status || planItem.status || 'queued').replace('running', 'processing').replace('done', 'ready'),
+      progress: Number(jobPayload.progress || planItem.progress || 0),
+      queue,
+      stage: queue.stage || result?.progress?.step || planItem.stage || 'queued',
+      finalUrl: result?.video?.storage_url || jobPayload.finalUrl || planItem.finalUrl || '',
+    };
+  };
+  const queueVideoPlanItem = async (planItem, priority = false) => {
+    if (!planItem) throw new Error('Select a video item first.');
+    const out = await api('/api/ai/video/render', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic: planItem.topic,
+        hook: planItem.hook,
+        concept: planItem.concept,
+        custom_title: planItem.hook || planItem.topic,
+        custom_description: planItem.concept || planItem.script || '',
+        custom_cta: planItem.cta || d.selectedCta || '',
+        language: d.language || 'ru',
+        format: String(planItem.orientation || d.videoOrientation || 'vertical') === 'horizontal' ? 'long' : 'short',
+        target_seconds: Number(planItem.duration_sec || d.videoDurationPreset || 30) || 30,
+        orientation: planItem.orientation || d.videoOrientation || 'vertical',
+        voice_gender: planItem.voice_gender || d.videoVoiceGender || 'male',
+        voice_tone: planItem.voice_tone || d.videoVoiceTone || 'neutral',
+        speech_speed: planItem.speech_speed || d.videoSpeechSpeed || 'normal',
+        subtitle_style: planItem.subtitle_style || d.videoSubtitleStyle || 'social_default',
+        style_preset: planItem.style_preset || d.videoStylePreset || 'educational_clean',
+        scene_seconds: Number(d.videoShotSeconds || 4) || 4,
+        minimize_repeats: true,
+        realistic_only: true,
+        avoid_duplicate_footage: true,
+        batch_id: planItem.batch_id,
+        batch_day: planItem.day || planItem.index || 1,
+        batch_order: planItem.batch_order || planItem.day || planItem.index || 1,
+        footage_intent: planItem.footage_intent || '',
+        priority: !!priority,
+      }),
+      timeoutMs: 120000,
+    });
+    return updateVideoPlannerJob(planItem, out?.job || out);
   };
   const plannerGenerate = document.getElementById('plannerGenerate');
   if (plannerGenerate) plannerGenerate.onclick = async () => {
@@ -15367,6 +15449,87 @@ async function bindCreatePlanner(path) {
       render();
     }
   };
+  const setVideoPlanItems = (nextItems) => {
+    setPlanValue('Items', Array.isArray(nextItems) ? nextItems : []);
+  };
+  document.querySelectorAll('[data-video-plan-queue]').forEach((btn) => {
+    btn.onclick = async () => {
+      const id = String(btn.getAttribute('data-video-plan-queue') || '');
+      const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
+      const item = items.find((x) => String(x.id || x.index || '') === id);
+      try {
+        const updated = await queueVideoPlanItem(item, false);
+        setVideoPlanItems(items.map((x) => x === item ? updated : x));
+        state.notice = { type: 'ok', text: 'Video queued safely.' };
+      } catch (e) {
+        state.notice = { type: 'error', text: e.message || 'Unable to queue video.' };
+      }
+      render();
+    };
+  });
+  const bindVideoJobAction = (selector, endpointSuffix, okText) => {
+    document.querySelectorAll(selector).forEach((btn) => {
+      btn.onclick = async () => {
+        const jobId = String(btn.getAttribute('data-video-plan-cancel') || btn.getAttribute('data-video-plan-priority') || btn.getAttribute('data-video-plan-retry') || '').trim();
+        if (!jobId) return;
+        try {
+          const out = await api(`/api/video/jobs/${encodeURIComponent(jobId)}/${endpointSuffix}`, { method: 'POST', body: JSON.stringify({}) });
+          const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
+          setVideoPlanItems(items.map((x) => String(x.job_id || '') === jobId ? updateVideoPlannerJob(x, out?.job || out) : x));
+          state.notice = { type: 'ok', text: okText };
+        } catch (e) {
+          state.notice = { type: 'error', text: e.message || 'Video job action failed.' };
+        }
+        render();
+      };
+    });
+  };
+  bindVideoJobAction('[data-video-plan-cancel]', 'cancel', 'Video job cancelled.');
+  bindVideoJobAction('[data-video-plan-priority]', 'prioritize', 'Video job prioritized.');
+  bindVideoJobAction('[data-video-plan-retry]', 'retry', 'Video job queued for retry.');
+  const plannerQueueBatch = document.getElementById('plannerQueueBatch');
+  if (plannerQueueBatch) plannerQueueBatch.onclick = async () => {
+    const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
+    if (!items.length) return;
+    setPlanValue('Scheduling', true);
+    render();
+    const next = [];
+    try {
+      for (const item of items) {
+        if (['queued', 'processing', 'ready'].includes(String(item.status || '').toLowerCase())) next.push(item);
+        else next.push(await queueVideoPlanItem(item, false));
+      }
+      setVideoPlanItems(next);
+      state.notice = { type: 'ok', text: 'Batch queued in order. Server capacity controls rendering.' };
+    } catch (e) {
+      setVideoPlanItems(next.concat(items.slice(next.length)));
+      state.notice = { type: 'error', text: e.message || 'Batch queue failed.' };
+    } finally {
+      setPlanValue('Scheduling', false);
+      render();
+    }
+  };
+  const batchAction = async (action, textOk) => {
+    const items = Array.isArray(d[cfg.itemsKey]) ? d[cfg.itemsKey] : [];
+    const batchId = String(items[0]?.batch_id || '').trim();
+    if (!batchId) return;
+    try {
+      const out = await api(`/api/video/batches/${encodeURIComponent(batchId)}/${action}`, { method: 'POST', body: JSON.stringify({}) });
+      const byJob = new Map((Array.isArray(out?.items) ? out.items : []).map((job) => [String(job.id || job.job_id || ''), job]));
+      setVideoPlanItems(items.map((item) => byJob.has(String(item.job_id || '')) ? updateVideoPlannerJob(item, byJob.get(String(item.job_id || ''))) : item));
+      state.notice = { type: 'ok', text: textOk };
+    } catch (e) {
+      state.notice = { type: 'error', text: e.message || 'Batch action failed.' };
+    }
+    render();
+  };
+  const pauseBatch = document.getElementById('plannerPauseBatch');
+  if (pauseBatch) pauseBatch.onclick = () => batchAction('pause', 'Batch paused.');
+  const resumeBatch = document.getElementById('plannerResumeBatch');
+  if (resumeBatch) resumeBatch.onclick = () => batchAction('resume', 'Batch resumed.');
+  const cancelBatch = document.getElementById('plannerCancelBatch');
+  if (cancelBatch) cancelBatch.onclick = () => batchAction('cancel', 'Batch cancelled where safe.');
+
   const plannerApplyToDirector = document.getElementById('plannerApplyToDirector');
   if (plannerApplyToDirector) plannerApplyToDirector.onclick = async () => {
     setPlanValue('Applying', true);

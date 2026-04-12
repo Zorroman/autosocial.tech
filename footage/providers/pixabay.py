@@ -23,6 +23,7 @@ def search_videos(
     min_duration: int,
     max_duration: int,
     limit: int,
+    page: int = 1,
 ) -> list[VideoResult]:
     key = _api_key()
     if not key:
@@ -36,6 +37,7 @@ def search_videos(
                 "q": cleaned_query,
                 "video_type": "all",
                 "per_page": min(200, max(30, limit * 5)),
+                "page": max(1, int(page or 1)),
                 "safesearch": "true",
                 "order": "popular",
             },
@@ -79,6 +81,8 @@ def search_videos(
                     author=str(item.get("user") or item.get("user_id") or "").strip(),
                     fps=None,
                     source_query=cleaned_query,
+                    shot_size=("wide" if max(width, height) >= 1920 else "medium"),
+                    motion_hint=("motion" if duration >= 5 else "static"),
                 )
             )
             if len(out) >= limit:

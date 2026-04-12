@@ -102,7 +102,12 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
     if not out:
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
 
+    target_seconds = max(20, min(480, int(target_seconds or 30)))
     desired_scenes = max(4, int(round(float(target_seconds) / 4.0)))
+    if target_seconds <= 30:
+        desired_scenes = max(4, min(desired_scenes, 6))
+    elif target_seconds <= 40:
+        desired_scenes = max(5, min(desired_scenes, 8))
     fillers = _topic_fillers(topic, offer)
     cursor = 0
     while len(out) < desired_scenes:
@@ -114,7 +119,12 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
 
     # Добиваем длительность, но не раздуваем бесконечно.
     loop_guard = 0
-    while _estimate_seconds_from_phrases(out) < float(target_seconds) * 0.92 and loop_guard < 24:
+    fill_target_ratio = 0.92
+    if target_seconds <= 30:
+        fill_target_ratio = 0.78
+    elif target_seconds <= 40:
+        fill_target_ratio = 0.84
+    while _estimate_seconds_from_phrases(out) < float(target_seconds) * fill_target_ratio and loop_guard < 24:
         out.append(fillers[(cursor + loop_guard) % len(fillers)])
         out = _dedupe_keep_order(out)
         loop_guard += 1
