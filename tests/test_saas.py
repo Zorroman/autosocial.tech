@@ -1,4 +1,3 @@
-# -*- coding: cp1251 -*-
 import importlib
 import os
 import sys
@@ -43,6 +42,8 @@ def client(tmp_path):
         "saas_api",
         "saas_queue",
         "saas_settings",
+        "services.entitlements",
+        "plans_catalog",
     ]:
         if name in sys.modules:
             del sys.modules[name]
@@ -129,7 +130,7 @@ def test_topic_suggestions_upsert(client):
     for _ in range(2):
         resp = client.post(
             "/api/generate",
-            json={"project_id": project_id, "topic": "Контент-план на неделю", "category": "marketing"},
+            json={"project_id": project_id, "topic": "РљРѕРЅС‚РµРЅС‚-РїР»Р°РЅ РЅР° РЅРµРґРµР»СЋ", "category": "marketing"},
             headers=auth_headers(token),
         )
         assert resp.status_code == 202
@@ -140,7 +141,7 @@ def test_topic_suggestions_upsert(client):
     )
     assert suggestions.status_code == 200
     payload = suggestions.get_json()
-    assert any(item["topic"] == "Контент-план на неделю" and item["usage_count"] >= 2 for item in payload["frequent"])
+    assert any(item["topic"] == "РљРѕРЅС‚РµРЅС‚-РїР»Р°РЅ РЅР° РЅРµРґРµР»СЋ" and item["usage_count"] >= 2 for item in payload["frequent"])
 
 
 def test_admin_can_change_plan(client):
@@ -239,16 +240,19 @@ def test_generate_creates_editable_post_until_published(client):
     reg = register_user(client, "editable@test.local", "pass12345")
     token = reg.get_json()["token"]
     headers = auth_headers(token)
+    user_id = client.get("/api/me", headers=headers).get_json()["id"]
+    from services.entitlements import sync_subscription_state
+    sync_subscription_state(user_id=user_id, plan="growth", status="active")
 
     project_id = client.get("/api/projects", headers=headers).get_json()[0]["id"]
     created = client.post(
         "/api/generate",
         json={
             "project_id": project_id,
-            "topic": "Тест редактирования",
+            "topic": "РўРµСЃС‚ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ",
             "category": "business",
             "platform": "instagram",
-            "generated_text": "Черновой текст",
+            "generated_text": "Р§РµСЂРЅРѕРІРѕР№ С‚РµРєСЃС‚",
         },
         headers=headers,
     )
@@ -258,18 +262,18 @@ def test_generate_creates_editable_post_until_published(client):
     # Should be editable before publish.
     patch_ok = client.patch(
         f"/api/posts/{post_id}",
-        json={"generated_text": "Обновленный текст"},
+        json={"generated_text": "РћР±РЅРѕРІР»РµРЅРЅС‹Р№ С‚РµРєСЃС‚"},
         headers=headers,
     )
     assert patch_ok.status_code == 200
-    assert patch_ok.get_json()["generated_text"] == "Обновленный текст"
+    assert patch_ok.get_json()["generated_text"] == "РћР±РЅРѕРІР»РµРЅРЅС‹Р№ С‚РµРєСЃС‚"
 
     # After publish (mock), editing should be blocked.
     pub = client.post(f"/api/posts/{post_id}/publish", json={}, headers=headers)
     assert pub.status_code == 200
     patch_blocked = client.patch(
         f"/api/posts/{post_id}",
-        json={"generated_text": "Попытка после публикации"},
+        json={"generated_text": "РџРѕРїС‹С‚РєР° РїРѕСЃР»Рµ РїСѓР±Р»РёРєР°С†РёРё"},
         headers=headers,
     )
     assert patch_blocked.status_code == 409
@@ -292,13 +296,13 @@ def test_delete_project_requires_exact_confirmation_and_deletes_related_data(cli
     )
     assert plan_update.status_code == 200
 
-    created = client.post("/api/projects", json={"name": "Удаляемый проект"}, headers=headers)
+    created = client.post("/api/projects", json={"name": "РЈРґР°Р»СЏРµРјС‹Р№ РїСЂРѕРµРєС‚"}, headers=headers)
     assert created.status_code == 200
     project_id = created.get_json()["id"]
 
     generated = client.post(
         "/api/generate",
-        json={"project_id": project_id, "topic": "Пост к удалению", "category": "business"},
+        json={"project_id": project_id, "topic": "РџРѕСЃС‚ Рє СѓРґР°Р»РµРЅРёСЋ", "category": "business"},
         headers=headers,
     )
     assert generated.status_code == 202
@@ -306,14 +310,14 @@ def test_delete_project_requires_exact_confirmation_and_deletes_related_data(cli
 
     bad_delete = client.delete(
         f"/api/projects/{project_id}",
-        json={"confirm_name": "Неверное название"},
+        json={"confirm_name": "РќРµРІРµСЂРЅРѕРµ РЅР°Р·РІР°РЅРёРµ"},
         headers=headers,
     )
     assert bad_delete.status_code == 400
 
     ok_delete = client.delete(
         f"/api/projects/{project_id}",
-        json={"confirm_name": "Удаляемый проект"},
+        json={"confirm_name": "РЈРґР°Р»СЏРµРјС‹Р№ РїСЂРѕРµРєС‚"},
         headers=headers,
     )
     assert ok_delete.status_code == 200
@@ -513,8 +517,8 @@ def test_create_generate_quick_returns_drafts(client):
 
     payload = {
         "mode": "quick",
-        "topic": "Как сервису увеличить входящие заявки",
-        "offer": "Бесплатный аудит",
+        "topic": "РљР°Рє СЃРµСЂРІРёСЃСѓ СѓРІРµР»РёС‡РёС‚СЊ РІС…РѕРґСЏС‰РёРµ Р·Р°СЏРІРєРё",
+        "offer": "Р‘РµСЃРїР»Р°С‚РЅС‹Р№ Р°СѓРґРёС‚",
         "language": "ru",
         "tone": "friendly",
         "goal": "sales",
@@ -538,8 +542,8 @@ def test_create_rewrite_returns_updated_caption(client):
     resp = client.post(
         "/api/create/rewrite",
         json={
-            "caption": "Мы запускаем новую услугу для малого бизнеса. Напишите в директ.",
-            "instruction": "более продающе",
+            "caption": "РњС‹ Р·Р°РїСѓСЃРєР°РµРј РЅРѕРІСѓСЋ СѓСЃР»СѓРіСѓ РґР»СЏ РјР°Р»РѕРіРѕ Р±РёР·РЅРµСЃР°. РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚.",
+            "instruction": "Р±РѕР»РµРµ РїСЂРѕРґР°СЋС‰Рµ",
             "goal": "sales",
             "tone": "sales",
             "language": "ru",
@@ -562,9 +566,9 @@ def test_create_quality_check_returns_score(client):
     resp = client.post(
         "/api/create/quality-check",
         json={
-            "caption": "Как снизить стоимость лида? 3 шага, которые можно внедрить за неделю.\n\n1. Аудит\n2. Креативы\n3. Оптимизация",
-            "cta": "Напишите в директ и получите чек-лист.",
-            "hashtags": ["#маркетинг", "#лиды", "#бизнес"],
+            "caption": "РљР°Рє СЃРЅРёР·РёС‚СЊ СЃС‚РѕРёРјРѕСЃС‚СЊ Р»РёРґР°? 3 С€Р°РіР°, РєРѕС‚РѕСЂС‹Рµ РјРѕР¶РЅРѕ РІРЅРµРґСЂРёС‚СЊ Р·Р° РЅРµРґРµР»СЋ.\n\n1. РђСѓРґРёС‚\n2. РљСЂРµР°С‚РёРІС‹\n3. РћРїС‚РёРјРёР·Р°С†РёСЏ",
+            "cta": "РќР°РїРёС€РёС‚Рµ РІ РґРёСЂРµРєС‚ Рё РїРѕР»СѓС‡РёС‚Рµ С‡РµРє-Р»РёСЃС‚.",
+            "hashtags": ["#РјР°СЂРєРµС‚РёРЅРі", "#Р»РёРґС‹", "#Р±РёР·РЅРµСЃ"],
             "goal": "sales",
         },
         headers=headers,
@@ -589,4 +593,4 @@ def test_checkout_subscription_disabled_for_public_paid_plans(client):
     )
 
     assert response.status_code == 409
-    assert "недоступ" in str((response.get_json() or {}).get("error") or "").lower()
+    assert "not configured" in str((response.get_json() or {}).get("error") or "").lower()

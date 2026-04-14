@@ -1,4 +1,4 @@
-﻿
+
 // API base:
 // - local override: localStorage.apiBase
 // - localhost dev:  http://127.0.0.1:5000
@@ -44,6 +44,7 @@ const DIRECTOR_NICHE_ENGINE = window.AutoSocialNiches || {};
 const AUTOSOCIAL_RELEASE_MARKER_2026 = 'AUTOSOCIAL_RELEASE_MARKER_2026';
 const AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1 = 'AUTOSOCIAL_DASHBOARD_QUICKACTIONS_V1';
 const AUTOSOCIAL_CREATE_FLOW_V1 = 'AUTOSOCIAL_CREATE_FLOW_V1';
+const AUTOSOCIAL_SAAS_CONVERSION_V1 = 'AUTOSOCIAL_SAAS_CONVERSION_V1';
 const DIRECTOR_TOPIC_IDEA_COUNT = 5;
 const POST_STUDIO_MONTHLY_SOURCE_IDEA_COUNT = 30;
 const DIRECTOR_NICHE_OPTIONS = typeof DIRECTOR_NICHE_ENGINE.getNicheOptions === 'function'
@@ -454,14 +455,14 @@ const APP_SHELL_I18N = {
     create_post_studio_button: 'Студия постов',
     create_post_studio_page_title: 'Создайте контент-план на 7 или 30 дней за 10 секунд',
     create_post_studio_page_subtitle: 'AI автоматически создаст темы, тексты, CTA, хештеги и оптимальное время публикации для ваших соцсетей.',
-    create_post_studio_generate: 'Создать контент-план →',
-    create_post_studio_generate_7: 'Создать план на 7 дней →',
-    create_post_studio_generate_30_cta: 'Создать план на 30 дней →',
+    create_post_studio_generate: 'Создать контент-план >',
+    create_post_studio_generate_7: 'Создать план на 7 дней >',
+    create_post_studio_generate_30_cta: 'Создать план на 30 дней >',
     create_post_studio_generate_30: 'Сформировать план на 30 дней',
-    create_post_studio_generate_pending_7: '⏳ Генерируем план на 7 дней...',
-    create_post_studio_generate_pending_30: '⏳ Генерируем план на 30 дней...',
+    create_post_studio_generate_pending_7: '? Генерируем план на 7 дней...',
+    create_post_studio_generate_pending_30: '? Генерируем план на 30 дней...',
     create_post_studio_generate_pending_inline: 'AI собирает структуру, тексты и время публикации...',
-    create_post_studio_generate_success: '✅ Контент-план готов',
+    create_post_studio_generate_success: '? Контент-план готов',
     create_post_studio_generate_error: 'Не удалось сформировать план. Попробуйте ещё раз.',
     create_post_studio_settings_title: 'Настройка',
     create_post_studio_settings_note: 'AI использует эти данные, чтобы собрать релевантный контент-план под вашу нишу.',
@@ -495,19 +496,19 @@ const APP_SHELL_I18N = {
     create_post_studio_day: 'День',
     create_post_studio_plan_ready: 'План готов. Выберите день слева и сразу просмотрите готовый пост.',
     create_post_studio_publish_pending_targets: 'Публикуем в {targets}...',
-    create_post_studio_publish_pending_button: '⏳ Публикуем...',
+    create_post_studio_publish_pending_button: '? Публикуем...',
     create_post_studio_publish_pending_inline: 'Отправляем публикацию...',
-    create_post_studio_publish_ok_targets: '✅ Опубликовано в {targets}',
+    create_post_studio_publish_ok_targets: '? Опубликовано в {targets}',
     create_post_studio_publish_error_targets: 'Не удалось опубликовать в {targets}. Попробуйте ещё раз.',
     create_post_studio_publish_partial_targets: 'Не удалось опубликовать в {failed}. Успешно: {success}.',
     create_post_studio_schedule_pending_targets: 'Планируем публикацию в {targets}...',
-    create_post_studio_publish_ok: '✅ Пост отправлен в публикацию',
-    create_post_studio_schedule_pending_button: '⏳ Планируем...',
+    create_post_studio_publish_ok: '? Пост отправлен в публикацию',
+    create_post_studio_schedule_pending_button: '? Планируем...',
     create_post_studio_schedule_pending_inline: 'Сохраняем время публикации...',
-    create_post_studio_schedule_ok_targets: '✅ Публикация запланирована для {targets}',
+    create_post_studio_schedule_ok_targets: '? Публикация запланирована для {targets}',
     create_post_studio_schedule_error_targets: 'Не удалось запланировать в {targets}. Попробуйте ещё раз.',
     create_post_studio_schedule_partial_targets: 'Не удалось запланировать в {failed}. Успешно: {success}.',
-    create_post_studio_schedule_ok: '✅ Пост запланирован',
+    create_post_studio_schedule_ok: '? Пост запланирован',
     create_post_studio_publish_error: 'Не удалось опубликовать пост. Попробуйте ещё раз.',
     create_post_studio_schedule_error: 'Не удалось запланировать пост. Попробуйте ещё раз.',
     create_video_studio_button: 'Студия видео',
@@ -741,14 +742,14 @@ const APP_SHELL_I18N = {
     create_post_studio_button: 'Post Studio',
     create_post_studio_page_title: 'Create a 7- or 30-day content plan in 10 seconds',
     create_post_studio_page_subtitle: 'AI automatically creates topics, post copy, CTA, hashtags, and the best publish timing for your social channels.',
-    create_post_studio_generate: 'Create content plan →',
-    create_post_studio_generate_7: 'Create a 7-day plan →',
-    create_post_studio_generate_30_cta: 'Create a 30-day plan →',
+    create_post_studio_generate: 'Create content plan >',
+    create_post_studio_generate_7: 'Create a 7-day plan >',
+    create_post_studio_generate_30_cta: 'Create a 30-day plan >',
     create_post_studio_generate_30: 'Build a 30-day plan',
-    create_post_studio_generate_pending_7: '⏳ Generating a 7-day plan...',
-    create_post_studio_generate_pending_30: '⏳ Generating a 30-day plan...',
+    create_post_studio_generate_pending_7: '? Generating a 7-day plan...',
+    create_post_studio_generate_pending_30: '? Generating a 30-day plan...',
     create_post_studio_generate_pending_inline: 'AI is building the structure, post copy, and publish timing...',
-    create_post_studio_generate_success: '✅ Content plan is ready',
+    create_post_studio_generate_success: '? Content plan is ready',
     create_post_studio_generate_error: 'Could not build the content plan. Please try again.',
     create_post_studio_settings_title: 'Setup',
     create_post_studio_settings_note: 'AI uses these inputs to build a relevant content plan for your niche.',
@@ -782,19 +783,19 @@ const APP_SHELL_I18N = {
     create_post_studio_day: 'Day',
     create_post_studio_plan_ready: 'Your plan is ready. Pick a day on the left to review the post instantly.',
     create_post_studio_publish_pending_targets: 'Publishing to {targets}...',
-    create_post_studio_publish_pending_button: '⏳ Publishing...',
+    create_post_studio_publish_pending_button: '? Publishing...',
     create_post_studio_publish_pending_inline: 'Sending the post for publishing...',
-    create_post_studio_publish_ok_targets: '✅ Published to {targets}',
+    create_post_studio_publish_ok_targets: '? Published to {targets}',
     create_post_studio_publish_error_targets: 'Could not publish to {targets}. Please try again.',
     create_post_studio_publish_partial_targets: 'Could not publish to {failed}. Successful: {success}.',
     create_post_studio_schedule_pending_targets: 'Scheduling publication for {targets}...',
-    create_post_studio_publish_ok: '✅ Post was sent for publishing',
-    create_post_studio_schedule_pending_button: '⏳ Scheduling...',
+    create_post_studio_publish_ok: '? Post was sent for publishing',
+    create_post_studio_schedule_pending_button: '? Scheduling...',
     create_post_studio_schedule_pending_inline: 'Saving the publish time...',
-    create_post_studio_schedule_ok_targets: '✅ Publication scheduled for {targets}',
+    create_post_studio_schedule_ok_targets: '? Publication scheduled for {targets}',
     create_post_studio_schedule_error_targets: 'Could not schedule for {targets}. Please try again.',
     create_post_studio_schedule_partial_targets: 'Could not schedule for {failed}. Successful: {success}.',
-    create_post_studio_schedule_ok: '✅ Post was scheduled',
+    create_post_studio_schedule_ok: '? Post was scheduled',
     create_post_studio_publish_error: 'Could not publish this post. Please try again.',
     create_post_studio_schedule_error: 'Could not schedule this post. Please try again.',
     create_video_studio_button: 'Video Studio',
@@ -984,65 +985,65 @@ const APP_SHELL_I18N = {
     dashboard_no_insights: 'Not enough data for insights.',
   },
   de: {
-    nav_admin: 'Admin', nav_dashboard: 'Übersicht', nav_create: 'Erstellen', nav_calendar: 'Kalender', nav_connections: 'Verbindungen', nav_history: 'Verlauf', nav_settings: 'Markeneinstellungen', nav_billing: 'Abrechnung', nav_support: 'Hilfe', nav_logout: 'Abmelden',
-    sidebar_subtitle: 'AI SMM Manager', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezählt.', footer_right: 'Stripe sichere Zahlungen · SSL geschützt · GDPR konform',
+    nav_admin: 'Admin', nav_dashboard: 'Ubersicht', nav_create: 'Erstellen', nav_calendar: 'Kalender', nav_connections: 'Verbindungen', nav_history: 'Verlauf', nav_settings: 'Markeneinstellungen', nav_billing: 'Abrechnung', nav_support: 'Hilfe', nav_logout: 'Abmelden',
+    sidebar_subtitle: 'AI SMM Manager', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezahlt.', footer_right: 'Stripe sichere Zahlungen · SSL geschutzt · GDPR konform',
     theme_light: 'Helles Design', theme_dark: 'Dunkles Design',
     plan_free: 'Kostenlose Testphase 7 Tage', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin ohne Limit',
     create_hub_label: 'Erstellungszentrale',
     create_hub_title: 'Was erstellen wir heute?',
-    create_hub_lead: 'Posts, Videos und Planung sind in eigene Studios aufgeteilt, damit die Oberfläche klar, leicht und professionell bleibt.',
+    create_hub_lead: 'Posts, Videos und Planung sind in eigene Studios aufgeteilt, damit die Oberflache klar, leicht und professionell bleibt.',
     create_hub_plan_prefix: 'Tarif',
-    create_hub_youtube_hint: 'Das YouTube-Studio bleibt ein eigener Schnellmodus für Shorts und längere Videos.',
+    create_hub_youtube_hint: 'Das YouTube-Studio bleibt ein eigener Schnellmodus fur Shorts und langere Videos.',
     create_hub_post_title: 'Post-Studio',
-    create_hub_post_subtitle: 'Ein einzelner Post, eine Post-Serie oder ein schneller Arbeitsentwurf für soziale Netzwerke.',
-    create_hub_post_cta: 'Post-Studio öffnen',
+    create_hub_post_subtitle: 'Ein einzelner Post, eine Post-Serie oder ein schneller Arbeitsentwurf fur soziale Netzwerke.',
+    create_hub_post_cta: 'Post-Studio offnen',
     create_hub_video_title: 'Video-Studio',
-    create_hub_video_subtitle: 'Universeller Kurz- und Langvideo-Content für Meta und YouTube.',
-    create_hub_video_cta: 'Video-Studio öffnen',
+    create_hub_video_subtitle: 'Universeller Kurz- und Langvideo-Content fur Meta und YouTube.',
+    create_hub_video_cta: 'Video-Studio offnen',
     create_hub_weekly_title: '7-Tage-Plan',
     create_hub_weekly_subtitle: 'Ein Wochenplan mit Themen, CTA und sofort nutzbaren Slots.',
     create_hub_weekly_cta: '7-Tage-Plan erstellen',
     create_hub_monthly_title: '30-Tage-Plan',
-    create_hub_monthly_subtitle: 'Ein monatliches Veröffentlichungssystem für einen stabilen Content-Flow.',
+    create_hub_monthly_subtitle: 'Ein monatliches Veroffentlichungssystem fur einen stabilen Content-Flow.',
     create_hub_monthly_cta: '30-Tage-Plan erstellen',
     create_hub_youtube_title: 'YouTube-Studio',
-    create_hub_youtube_subtitle: 'Ein fokussierter Modus für Shorts, längere Videos und YouTube-Veröffentlichungen.',
-    create_hub_youtube_cta: 'YouTube-Studio öffnen',
+    create_hub_youtube_subtitle: 'Ein fokussierter Modus fur Shorts, langere Videos und YouTube-Veroffentlichungen.',
+    create_hub_youtube_cta: 'YouTube-Studio offnen',
     create_hub_planner_title: 'Planungsbereich',
-    create_hub_planner_subtitle: 'Ein eigener Arbeitsbereich für Posts, Video und systematische Content-Planung.',
-    create_hub_planner_cta: 'Planer öffnen',
+    create_hub_planner_subtitle: 'Ein eigener Arbeitsbereich fur Posts, Video und systematische Content-Planung.',
+    create_hub_planner_cta: 'Planer offnen',
     create_planner_page_title: 'Content-Planer',
     create_planner_label: 'Content-Planer',
     create_planner_title: 'Bauen Sie ein System, nicht nur einen Entwurf',
-    create_planner_lead: 'Der Planer ist ein eigener Arbeitsbereich für 7- und 30-Tage-Systeme. Hier planen Sie Content, materialisieren ihn und senden ihn in den Kalender.',
-    create_planner_open: 'Öffnen',
-    create_planner_post7: 'Posts für 7 Tage',
+    create_planner_lead: 'Der Planer ist ein eigener Arbeitsbereich fur 7- und 30-Tage-Systeme. Hier planen Sie Content, materialisieren ihn und senden ihn in den Kalender.',
+    create_planner_open: 'Offnen',
+    create_planner_post7: 'Posts fur 7 Tage',
     create_planner_post7_subtitle: 'Ein schneller Wochenplan mit fertigen Themen und CTA.',
-    create_planner_post30: 'Posts für 30 Tage',
+    create_planner_post30: 'Posts fur 30 Tage',
     create_planner_post30_subtitle: 'Ein monatlicher Content-Plan, nach Wochen gruppiert.',
-    create_planner_video7: 'Videos für 7 Tage',
-    create_planner_video7_subtitle: 'Ein wöchentlicher Video-Plan für wiederkehrenden Kurzvideo-Content.',
-    create_planner_video30: 'Videos für 30 Tage',
-    create_planner_video30_subtitle: 'Ein monatlicher Video-Plan für eine stabile Content-Serie.',
+    create_planner_video7: 'Videos fur 7 Tage',
+    create_planner_video7_subtitle: 'Ein wochentlicher Video-Plan fur wiederkehrenden Kurzvideo-Content.',
+    create_planner_video30: 'Videos fur 30 Tage',
+    create_planner_video30_subtitle: 'Ein monatlicher Video-Plan fur eine stabile Content-Serie.',
     create_post_studio_button: 'Post-Studio',
     create_video_studio_button: 'Video-Studio',
     create_planner_button: 'Planer',
     create_youtube_studio_button: 'YouTube-Studio',
     studio_post_title: 'Post-Studio',
     studio_video_title: 'Video-Studio',
-    studio_post_subtitle: 'Ein separates Studio für Text und Veröffentlichung: Thema, Tonalität, CTA, Visuals, Vorschau und sicheres Scheduling in einem klaren Flow.',
-    studio_video_subtitle: 'Ein separates Studio für universelles Video: Thema, Dauer, Stimme, Untertitel, Footage und finaler Render ohne unnötigen Ballast.',
+    studio_post_subtitle: 'Ein separates Studio fur Text und Veroffentlichung: Thema, Tonalitat, CTA, Visuals, Vorschau und sicheres Scheduling in einem klaren Flow.',
+    studio_video_subtitle: 'Ein separates Studio fur universelles Video: Thema, Dauer, Stimme, Untertitel, Footage und finaler Render ohne unnotigen Ballast.',
     youtube_studio_title: 'YouTube-Studio',
-    page_dashboard: 'Übersicht',
+    page_dashboard: 'Ubersicht',
     page_connections: 'Verbindungen',
     page_history: 'Verlauf',
     page_calendar: 'Kalender',
     page_billing: 'Abrechnung',
     page_support: 'Hilfe',
-    archive_title: 'Veröffentlichungsarchiv',
+    archive_title: 'Veroffentlichungsarchiv',
     status_draft: 'Entwurf',
     status_done: 'Bereit',
-    status_published: 'Veröffentlicht',
+    status_published: 'Veroffentlicht',
     status_connected: 'Verbunden',
     status_connected_ready: 'Bereit',
     status_connected_need_page: 'Seitenauswahl erforderlich',
@@ -1057,8 +1058,8 @@ const APP_SHELL_I18N = {
     status_scheduled: 'Geplant',
     status_hidden: 'Ausgeblendet',
     status_unknown: 'Unbekannt',
-    create_director_headlines_loading: 'Überschriften werden vorbereitet…',
-    create_director_headlines_refresh: '{count} Überschriften aktualisieren',
+    create_director_headlines_loading: 'Uberschriften werden vorbereitet…',
+    create_director_headlines_refresh: '{count} Uberschriften aktualisieren',
     create_director_headlines_generate: 'Themen generieren',
     billing_current_plan_button: 'Aktueller Tarif',
     dashboard_start_content: 'Mit Content beginnen',
@@ -1068,14 +1069,14 @@ const APP_SHELL_I18N = {
     dashboard_posts_label: 'Posts',
     dashboard_videos_label: 'Videos',
     dashboard_workspaces_label: 'Workspaces',
-    dashboard_channels_label: 'Kanäle',
-    dashboard_locked_label: 'Gesperrt / nicht verfügbar',
-    dashboard_available_now: 'Jetzt verfügbar',
+    dashboard_channels_label: 'Kanale',
+    dashboard_locked_label: 'Gesperrt / nicht verfugbar',
+    dashboard_available_now: 'Jetzt verfugbar',
     dashboard_niche_templates: 'Nischenvorlagen',
-    dashboard_next_step_text: 'Nächster Schritt: Öffnen Sie Erstellen, wählen Sie ein Thema und erhalten Sie in wenigen Minuten Ihren ersten Post oder Ihre erste Videostruktur.',
-    create_director_available_now: 'Jetzt verfügbar',
+    dashboard_next_step_text: 'Nachster Schritt: Offnen Sie Erstellen, wahlen Sie ein Thema und erhalten Sie in wenigen Minuten Ihren ersten Post oder Ihre erste Videostruktur.',
+    create_director_available_now: 'Jetzt verfugbar',
     common_saving: 'Speichern…',
-    create_plan_preview_placeholder: 'Hier erscheint nach der Generierung eine Vorschau des ausgewählten Tages.',
+    create_plan_preview_placeholder: 'Hier erscheint nach der Generierung eine Vorschau des ausgewahlten Tages.',
     create_plan_schedule_day: 'Tag planen',
   },
   es: {
@@ -1085,10 +1086,10 @@ const APP_SHELL_I18N = {
     archive_title: 'Archivo de publicaciones',
     plan_free: 'Prueba gratis 7 dias', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin sin limites',
     create_hub_label: 'Centro de creacion',
-    create_hub_title: '¿Que creamos hoy?',
+    create_hub_title: '?Que creamos hoy?',
     create_hub_lead: 'Separamos posts, videos y planificacion en estudios dedicados para que la experiencia siga siendo clara y profesional.',
     create_hub_plan_prefix: 'Plan',
-    create_hub_youtube_hint: 'El estudio de YouTube sigue siendo un flujo rápido separado para Shorts y videos largos.',
+    create_hub_youtube_hint: 'El estudio de YouTube sigue siendo un flujo rapido separado para Shorts y videos largos.',
     create_hub_post_title: 'Estudio de posts',
     create_hub_post_subtitle: 'Un solo post, una serie de posts o un borrador rapido para redes sociales.',
     create_hub_post_cta: 'Abrir estudio de posts',
@@ -1144,7 +1145,7 @@ const APP_SHELL_I18N = {
     dashboard_locked_label: 'Bloqueado / no disponible',
     dashboard_available_now: 'Disponible ahora',
     dashboard_niche_templates: 'Plantillas por nicho',
-    dashboard_next_step_text: 'Siguiente paso: abre Crear, elige un tema y obtén tu primera publicación o estructura de video en pocos minutos.',
+    dashboard_next_step_text: 'Siguiente paso: abre Crear, elige un tema y obten tu primera publicacion o estructura de video en pocos minutos.',
     create_director_available_now: 'Disponible ahora',
     common_saving: 'Guardando…',
     create_plan_preview_placeholder: 'Aqui aparecera la vista previa del dia seleccionado despues de generar el plan.',
@@ -1201,26 +1202,26 @@ const APP_SHELL_I18N = {
     studio_post_subtitle: 'Un studio dedie au texte et a la publication: sujet, ton, CTA, visuels, apercu et planification securisee dans un flux clair.',
     studio_video_subtitle: 'Un studio dedie a la video universelle: sujet, duree, voix, sous-titres, footage et rendu final sans bruit supplementaire.',
     youtube_studio_title: 'Studio YouTube',
-    create_director_headlines_loading: 'Préparation des titres…',
+    create_director_headlines_loading: 'Preparation des titres…',
     create_director_headlines_refresh: 'Actualiser {count} titres',
-    create_director_headlines_generate: 'Générer des thèmes',
+    create_director_headlines_generate: 'Generer des themes',
     billing_current_plan_button: 'Forfait actuel',
     dashboard_start_content: 'Commencer par le contenu',
     dashboard_current_plan_title: 'Forfait actuel',
     dashboard_plan_label: 'Forfait',
-    dashboard_upgrade: 'Mettre à niveau',
+    dashboard_upgrade: 'Mettre a niveau',
     dashboard_posts_label: 'Publications',
-    dashboard_videos_label: 'Vidéos',
+    dashboard_videos_label: 'Videos',
     dashboard_workspaces_label: 'Espaces de travail',
     dashboard_channels_label: 'Canaux',
-    dashboard_locked_label: 'Bloqué / indisponible',
+    dashboard_locked_label: 'Bloque / indisponible',
     dashboard_available_now: 'Disponible maintenant',
-    dashboard_niche_templates: 'Modèles par niche',
-    dashboard_next_step_text: 'Étape suivante : ouvrez Créer, choisissez un sujet et obtenez votre premier post ou votre première structure vidéo en quelques minutes.',
+    dashboard_niche_templates: 'Modeles par niche',
+    dashboard_next_step_text: 'Etape suivante : ouvrez Creer, choisissez un sujet et obtenez votre premier post ou votre premiere structure video en quelques minutes.',
     create_director_available_now: 'Disponible maintenant',
     common_saving: 'Enregistrement…',
-    create_plan_preview_placeholder: 'L’aperçu du jour sélectionné apparaîtra ici après la génération du plan.',
-    create_plan_schedule_day: 'Planifier la journée',
+    create_plan_preview_placeholder: 'L’apercu du jour selectionne apparaitra ici apres la generation du plan.',
+    create_plan_schedule_day: 'Planifier la journee',
   },
   uk: {
     nav_admin: 'Адмін', nav_dashboard: 'Панель', nav_create: 'Створити', nav_calendar: 'Календар', nav_connections: 'Підключення', nav_history: 'Історія', nav_settings: 'Налаштування бренду', nav_billing: 'Білінг', nav_support: 'Підтримка', nav_logout: 'Вийти',
@@ -1296,54 +1297,54 @@ const APP_SHELL_I18N = {
   },
 };
 Object.assign(APP_SHELL_I18N.de, {
-  footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Beiträgen gezählt.',
+  footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Beitragen gezahlt.',
   common_language: 'Sprache',
   common_generate: 'Generieren',
   common_schedule: 'Planen',
   common_status: 'Status',
-  common_posts_month: 'Beiträge / Monat',
+  common_posts_month: 'Beitrage / Monat',
   common_videos_month: 'Videos / Monat',
   common_workspaces: 'Arbeitsbereiche',
-  common_connected_channels: 'Verbundene Kanäle',
+  common_connected_channels: 'Verbundene Kanale',
   common_price_month: 'Preis / Monat',
   common_today: 'Heute',
-  common_publish: 'Veröffentlichen',
-  common_delete: 'Löschen',
+  common_publish: 'Veroffentlichen',
+  common_delete: 'Loschen',
   common_edit: 'Bearbeiten',
-  common_open: 'Öffnen',
+  common_open: 'Offnen',
   common_retry: 'Erneut versuchen',
   billing_title: 'Tarife und Abrechnung',
   billing_current_plan: 'Aktueller Tarif',
   billing_usage_title: 'Nutzung',
   billing_manage_subscription: 'Abo verwalten',
-  billing_checkout_disabled: 'Zahlungen sind vorübergehend nicht verfügbar',
-  billing_checkout_disabled_admin: 'Für das Admin-Konto ist kein Checkout nötig: der interne unbegrenzte Tarif ist aktiv.',
+  billing_checkout_disabled: 'Zahlungen sind vorubergehend nicht verfugbar',
+  billing_checkout_disabled_admin: 'Fur das Admin-Konto ist kein Checkout notig: der interne unbegrenzte Tarif ist aktiv.',
   billing_workspace_hint: 'Ein Arbeitsbereich entspricht meist einer Marke oder einem Kunden.',
   billing_compare_title: 'Tarifvergleich',
   billing_feature_title: 'Funktion',
   billing_analytics_label: 'Analytik',
-  billing_available_on_signup: 'Bei der Registrierung verfügbar',
-  billing_coming_soon: 'Demnächst verfügbar',
+  billing_available_on_signup: 'Bei der Registrierung verfugbar',
+  billing_coming_soon: 'Demnachst verfugbar',
   billing_admin_internal: 'interner Tarif',
   billing_plan_free_title: 'Kostenlose Testphase 7 Tage',
-  billing_plan_free_desc: 'Testen Sie den Ablauf ohne Karte und ohne unnötige Kosten.',
-  billing_plan_starter_desc: 'Für kleine Unternehmen und Solo-Spezialisten.',
-  billing_plan_growth_desc: 'Für regelmäßigen Content, Videos und Autoposting.',
-  billing_plan_agency_desc: 'Für Agenturen und mehrere Kundenprojekte.',
+  billing_plan_free_desc: 'Testen Sie den Ablauf ohne Karte und ohne unnotige Kosten.',
+  billing_plan_starter_desc: 'Fur kleine Unternehmen und Solo-Spezialisten.',
+  billing_plan_growth_desc: 'Fur regelma?igen Content, Videos und Autoposting.',
+  billing_plan_agency_desc: 'Fur Agenturen und mehrere Kundenprojekte.',
   billing_trial_7_days: '7 Tage',
   status_done: 'Fertig',
   status_connected: 'Verbunden',
   status_connected_ready: 'Bereit',
   status_not_connected: 'Nicht verbunden',
-  status_published: 'Veröffentlicht',
+  status_published: 'Veroffentlicht',
   connections_title: 'Verbundene Konten',
   connections_lead: 'Verbinden Sie Meta und YouTube. Auf jeder Karte sehen Sie das echte Logo der verbundenen Seite oder des Kanals.',
   connections_refresh_token: 'Token aktualisieren',
   connections_disconnect: 'Trennen',
   connections_disconnect_youtube: 'YouTube trennen',
-  connections_open_studio: 'Studio öffnen',
-  connections_test_publication: 'Testveröffentlichung',
-  connections_publication_state: 'Veröffentlichungsstatus',
+  connections_open_studio: 'Studio offnen',
+  connections_test_publication: 'Testveroffentlichung',
+  connections_publication_state: 'Veroffentlichungsstatus',
   connections_sync_status: 'Synchronisationsstatus',
   connections_autoposting: 'Autoposting',
   connections_youtube_caption: 'Video und Shorts',
@@ -1351,20 +1352,20 @@ Object.assign(APP_SHELL_I18N.de, {
   connections_multiformat: 'Mehrformat',
   connections_youtube_multiformat: 'Shorts und lange Videos',
   connections_youtube_connected: 'YouTube verbunden',
-  connections_youtube_hint: 'Öffnen Sie das YouTube-Studio und wählen Sie Thema, Format und Dauer.',
-  history_posts_month: 'Beiträge in diesem Monat',
-  history_published_month: 'Veröffentlicht',
-  history_outside_month: 'Außerhalb des Monats / ohne Datum',
+  connections_youtube_hint: 'Offnen Sie das YouTube-Studio und wahlen Sie Thema, Format und Dauer.',
+  history_posts_month: 'Beitrage in diesem Monat',
+  history_published_month: 'Veroffentlicht',
+  history_outside_month: 'Au?erhalb des Monats / ohne Datum',
   history_remove_site: 'Von der Website entfernen',
   history_date: 'Datum',
   history_platform: 'Plattform',
   history_topic: 'Thema',
-  history_publication: 'Veröffentlichung',
+  history_publication: 'Veroffentlichung',
   history_actions: 'Aktionen',
-  history_published_prefix: 'Veröffentlicht',
-  history_published_label: 'Veröffentlicht',
+  history_published_prefix: 'Veroffentlicht',
+  history_published_label: 'Veroffentlicht',
   create_director_title: 'AI-Content-Direktor',
-  create_director_intro: 'Wählen Sie den Geschäftsbereich, damit AI passende Ideen, Formulierungen und Vorlagen für Ihre Nische vorbereitet.',
+  create_director_intro: 'Wahlen Sie den Geschaftsbereich, damit AI passende Ideen, Formulierungen und Vorlagen fur Ihre Nische vorbereitet.',
   create_director_goal: 'Ziel *',
   create_director_offer: 'Angebot (optional)',
   create_director_offer_placeholder: 'Zum Beispiel: kostenlose 15-Minuten-Analyse',
@@ -1374,36 +1375,36 @@ Object.assign(APP_SHELL_I18N.de, {
   create_director_render_video: 'Video erstellen',
   create_director_rendering_video: 'Video wird erstellt…',
   create_director_result: 'Ergebnis',
-  create_director_result_lead: 'Holen Sie zuerst Themenvorschläge und lassen Sie AI danach direkt die Vorschau aufbauen.',
+  create_director_result_lead: 'Holen Sie zuerst Themenvorschlage und lassen Sie AI danach direkt die Vorschau aufbauen.',
   create_director_headlines: 'Themenideen',
-  create_director_headlines_lead: 'Wählen Sie passende Themen für Ihre Nische und nutzen Sie sie für die Generierung.',
+  create_director_headlines_lead: 'Wahlen Sie passende Themen fur Ihre Nische und nutzen Sie sie fur die Generierung.',
   create_director_structure: 'Videostruktur',
   create_director_structure_loading: 'AI erstellt die Struktur…',
-  create_director_structure_empty: 'Klicken Sie auf „Struktur generieren“, um einen Szenenplan für die gewählte Dauer zu erhalten.',
+  create_director_structure_empty: 'Klicken Sie auf „Struktur generieren“, um einen Szenenplan fur die gewahlte Dauer zu erhalten.',
   create_director_approaches: 'Winkel',
-  create_director_approaches_lead: 'Wählen Sie den passenden Blickwinkel für diesen Post oder dieses Video.',
+  create_director_approaches_lead: 'Wahlen Sie den passenden Blickwinkel fur diesen Post oder dieses Video.',
   create_director_preview_wait_post: 'Generieren Sie Content, um das Ergebnis zu sehen.',
   create_director_preview_wait_video: 'Generieren Sie zuerst die Struktur und erstellen Sie danach das Video.',
   create_director_generate_cover: 'Cover generieren',
   create_director_generate_image: 'Bild generieren',
   create_director_content_plan_title: 'Content-Plan',
-  create_director_content_plan_lead: 'AI kann die besten Tage und Uhrzeiten für die Veröffentlichung auswählen.',
+  create_director_content_plan_lead: 'AI kann die besten Tage und Uhrzeiten fur die Veroffentlichung auswahlen.',
   create_director_structure_hint: 'Klicken Sie auf „Struktur generieren“, um Struktur, Hashtags und CTA zu erhalten.',
-  planner_generate: 'Plan für {days} Tage erstellen',
+  planner_generate: 'Plan fur {days} Tage erstellen',
   planner_generating: 'Plan wird erstellt…',
-  create_planner_post7: 'Beiträge für 7 Tage',
-  create_planner_post30: 'Beiträge für 30 Tage',
-  create_planner_video7: 'Videoplan für 7 Tage',
-  create_planner_video30: 'Videoplan für 30 Tage',
+  create_planner_post7: 'Beitrage fur 7 Tage',
+  create_planner_post30: 'Beitrage fur 30 Tage',
+  create_planner_video7: 'Videoplan fur 7 Tage',
+  create_planner_video30: 'Videoplan fur 30 Tage',
 });
 Object.assign(APP_SHELL_I18N.es, {
-  footer_left: 'Sin costes ocultos. Precios transparentes. Los límites se cuentan en publicaciones.',
+  footer_left: 'Sin costes ocultos. Precios transparentes. Los limites se cuentan en publicaciones.',
   common_language: 'Idioma',
   common_generate: 'Generar',
   common_schedule: 'Programar',
   common_status: 'Estado',
   common_posts_month: 'Publicaciones / mes',
-  common_videos_month: 'Vídeos / mes',
+  common_videos_month: 'Videos / mes',
   common_workspaces: 'Espacios de trabajo',
   common_connected_channels: 'Canales conectados',
   common_price_month: 'Precio / mes',
@@ -1413,46 +1414,46 @@ Object.assign(APP_SHELL_I18N.es, {
   common_edit: 'Editar',
   common_open: 'Abrir',
   common_retry: 'Reintentar',
-  billing_title: 'Planes y facturación',
+  billing_title: 'Planes y facturacion',
   billing_current_plan: 'Plan actual',
   billing_usage_title: 'Uso',
-  billing_manage_subscription: 'Gestionar suscripción',
-  billing_checkout_disabled: 'Los pagos no están disponibles temporalmente',
-  billing_checkout_disabled_admin: 'La cuenta admin no necesita checkout: el plan interno ilimitado ya está activo.',
+  billing_manage_subscription: 'Gestionar suscripcion',
+  billing_checkout_disabled: 'Los pagos no estan disponibles temporalmente',
+  billing_checkout_disabled_admin: 'La cuenta admin no necesita checkout: el plan interno ilimitado ya esta activo.',
   billing_workspace_hint: 'Un espacio de trabajo suele ser una marca o un cliente.',
-  billing_compare_title: 'Comparación de planes',
-  billing_feature_title: 'Función',
-  billing_analytics_label: 'Analítica',
+  billing_compare_title: 'Comparacion de planes',
+  billing_feature_title: 'Funcion',
+  billing_analytics_label: 'Analitica',
   billing_available_on_signup: 'Disponible al registrarte',
-  billing_coming_soon: 'Próximamente',
+  billing_coming_soon: 'Proximamente',
   billing_admin_internal: 'plan interno',
-  billing_plan_free_title: 'Prueba gratuita 7 días',
+  billing_plan_free_title: 'Prueba gratuita 7 dias',
   billing_plan_free_desc: 'Prueba el flujo sin tarjeta ni costes innecesarios.',
-  billing_plan_starter_desc: 'Para pequeños negocios y especialistas independientes.',
-  billing_plan_growth_desc: 'Para contenido constante, vídeo y autopublicación.',
+  billing_plan_starter_desc: 'Para pequenos negocios y especialistas independientes.',
+  billing_plan_growth_desc: 'Para contenido constante, video y autopublicacion.',
   billing_plan_agency_desc: 'Para agencias y varios clientes.',
-  billing_trial_7_days: '7 días',
+  billing_trial_7_days: '7 dias',
   status_done: 'Listo',
   status_connected: 'Conectado',
   status_connected_ready: 'Listo',
   status_not_connected: 'No conectado',
   status_published: 'Publicado',
   connections_title: 'Cuentas conectadas',
-  connections_lead: 'Conecta Meta y YouTube. Cada tarjeta muestra el logo real de la página o canal conectado.',
+  connections_lead: 'Conecta Meta y YouTube. Cada tarjeta muestra el logo real de la pagina o canal conectado.',
   connections_refresh_token: 'Actualizar token',
   connections_disconnect: 'Desconectar',
   connections_disconnect_youtube: 'Desconectar YouTube',
   connections_open_studio: 'Abrir estudio',
-  connections_test_publication: 'Publicación de prueba',
-  connections_publication_state: 'Estado de publicación',
-  connections_sync_status: 'Estado de sincronización',
-  connections_autoposting: 'Autopublicación',
-  connections_youtube_caption: 'Vídeo y Shorts',
+  connections_test_publication: 'Publicacion de prueba',
+  connections_publication_state: 'Estado de publicacion',
+  connections_sync_status: 'Estado de sincronizacion',
+  connections_autoposting: 'Autopublicacion',
+  connections_youtube_caption: 'Video y Shorts',
   connections_content_pipeline: 'Flujo de contenido',
   connections_multiformat: 'Multiformato',
-  connections_youtube_multiformat: 'Shorts y vídeo largo',
+  connections_youtube_multiformat: 'Shorts y video largo',
   connections_youtube_connected: 'YouTube conectado',
-  connections_youtube_hint: 'Abre YouTube Studio y elige el tema, formato y duración.',
+  connections_youtube_hint: 'Abre YouTube Studio y elige el tema, formato y duracion.',
   history_posts_month: 'Publicaciones este mes',
   history_published_month: 'Publicadas',
   history_outside_month: 'Fuera del mes / sin fecha',
@@ -1460,102 +1461,102 @@ Object.assign(APP_SHELL_I18N.es, {
   history_date: 'Fecha',
   history_platform: 'Plataforma',
   history_topic: 'Tema',
-  history_publication: 'Publicación',
+  history_publication: 'Publicacion',
   history_actions: 'Acciones',
   history_published_prefix: 'Publicado',
   history_published_label: 'Publicado',
   create_director_title: 'AI Director de contenido',
-  create_director_intro: 'Elige el tipo de negocio para que la IA prepare ideas, fórmulas y plantillas adaptadas a tu nicho.',
+  create_director_intro: 'Elige el tipo de negocio para que la IA prepare ideas, formulas y plantillas adaptadas a tu nicho.',
   create_director_goal: 'Objetivo *',
   create_director_offer: 'Oferta (opcional)',
-  create_director_offer_placeholder: 'Por ejemplo: auditoría gratuita de 15 minutos',
+  create_director_offer_placeholder: 'Por ejemplo: auditoria gratuita de 15 minutos',
   create_director_language: 'Idioma',
   create_director_advanced: 'Ajustes avanzados',
   create_director_generate: 'Generar contenido',
-  create_director_render_video: 'Renderizar vídeo',
-  create_director_rendering_video: 'Renderizando vídeo…',
+  create_director_render_video: 'Renderizar video',
+  create_director_rendering_video: 'Renderizando video…',
   create_director_result: 'Resultado',
-  create_director_result_lead: 'Primero obtén ideas de temas y luego deja que la IA construya el resultado en la vista previa.',
+  create_director_result_lead: 'Primero obten ideas de temas y luego deja que la IA construya el resultado en la vista previa.',
   create_director_headlines: 'Ideas de temas',
-  create_director_headlines_lead: 'Selecciona los temas adecuados para tu nicho y úsalos en la generación.',
-  create_director_structure: 'Estructura del vídeo',
-  create_director_structure_loading: 'La IA está creando la estructura…',
-  create_director_structure_empty: 'Pulsa «Generar estructura» para obtener un plan de escenas para la duración elegida.',
+  create_director_headlines_lead: 'Selecciona los temas adecuados para tu nicho y usalos en la generacion.',
+  create_director_structure: 'Estructura del video',
+  create_director_structure_loading: 'La IA esta creando la estructura…',
+  create_director_structure_empty: 'Pulsa «Generar estructura» para obtener un plan de escenas para la duracion elegida.',
   create_director_approaches: 'Enfoques',
-  create_director_approaches_lead: 'Elige el enfoque que mejor encaja con este post o vídeo.',
+  create_director_approaches_lead: 'Elige el enfoque que mejor encaja con este post o video.',
   create_director_preview_wait_post: 'Genera contenido para ver el resultado.',
-  create_director_preview_wait_video: 'Primero genera la estructura y después renderiza el vídeo.',
+  create_director_preview_wait_video: 'Primero genera la estructura y despues renderiza el video.',
   create_director_generate_cover: 'Generar portada',
   create_director_generate_image: 'Generar imagen',
   create_director_content_plan_title: 'Plan de contenido',
-  create_director_content_plan_lead: 'La IA puede elegir los mejores días y horas para publicar.',
+  create_director_content_plan_lead: 'La IA puede elegir los mejores dias y horas para publicar.',
   create_director_structure_hint: 'Pulsa «Generar estructura» para obtener la estructura, hashtags y CTA.',
-  planner_generate: 'Crear plan de {days} días',
+  planner_generate: 'Crear plan de {days} dias',
   planner_generating: 'Creando plan…',
-  create_planner_post7: 'Publicaciones para 7 días',
-  create_planner_post30: 'Publicaciones para 30 días',
-  create_planner_video7: 'Vídeos para 7 días',
-  create_planner_video30: 'Vídeos para 30 días',
+  create_planner_post7: 'Publicaciones para 7 dias',
+  create_planner_post30: 'Publicaciones para 30 dias',
+  create_planner_video7: 'Videos para 7 dias',
+  create_planner_video30: 'Videos para 30 dias',
 });
 Object.assign(APP_SHELL_I18N.fr, {
-  footer_left: 'Aucun frais caché. Des tarifs transparents. Les limites sont comptées en publications.',
+  footer_left: 'Aucun frais cache. Des tarifs transparents. Les limites sont comptees en publications.',
   common_language: 'Langue',
-  common_generate: 'Générer',
+  common_generate: 'Generer',
   common_schedule: 'Planifier',
   common_status: 'Statut',
   common_posts_month: 'Publications / mois',
-  common_videos_month: 'Vidéos / mois',
+  common_videos_month: 'Videos / mois',
   common_workspaces: 'Espaces de travail',
-  common_connected_channels: 'Canaux connectés',
+  common_connected_channels: 'Canaux connectes',
   common_price_month: 'Prix / mois',
   common_today: 'Aujourd’hui',
   common_publish: 'Publier',
   common_delete: 'Supprimer',
   common_edit: 'Modifier',
   common_open: 'Ouvrir',
-  common_retry: 'Réessayer',
+  common_retry: 'Reessayer',
   billing_title: 'Forfaits et facturation',
   billing_current_plan: 'Forfait actuel',
   billing_usage_title: 'Utilisation',
-  billing_manage_subscription: 'Gérer l’abonnement',
+  billing_manage_subscription: 'Gerer l’abonnement',
   billing_checkout_disabled: 'Les paiements sont temporairement indisponibles',
-  billing_checkout_disabled_admin: 'Le compte admin n’a pas besoin de checkout : le forfait interne illimité est actif.',
-  billing_workspace_hint: 'Un espace de travail correspond généralement à une marque ou à un client.',
+  billing_checkout_disabled_admin: 'Le compte admin n’a pas besoin de checkout : le forfait interne illimite est actif.',
+  billing_workspace_hint: 'Un espace de travail correspond generalement a une marque ou a un client.',
   billing_compare_title: 'Comparaison des forfaits',
   billing_feature_title: 'Fonction',
   billing_analytics_label: 'Analytique',
-  billing_available_on_signup: 'Disponible à l’inscription',
-  billing_coming_soon: 'Bientôt disponible',
+  billing_available_on_signup: 'Disponible a l’inscription',
+  billing_coming_soon: 'Bientot disponible',
   billing_admin_internal: 'forfait interne',
   billing_plan_free_title: 'Essai gratuit 7 jours',
-  billing_plan_free_desc: 'Essayez le scénario sans carte et sans frais inutiles.',
-  billing_plan_starter_desc: 'Pour les petites entreprises et les indépendants.',
-  billing_plan_growth_desc: 'Pour un flux régulier de contenu, vidéo et autopublication.',
+  billing_plan_free_desc: 'Essayez le scenario sans carte et sans frais inutiles.',
+  billing_plan_starter_desc: 'Pour les petites entreprises et les independants.',
+  billing_plan_growth_desc: 'Pour un flux regulier de contenu, video et autopublication.',
   billing_plan_agency_desc: 'Pour les agences et plusieurs clients.',
   billing_trial_7_days: '7 jours',
-  status_done: 'Prêt',
-  status_connected: 'Connecté',
-  status_connected_ready: 'Prêt',
-  status_not_connected: 'Non connecté',
-  status_published: 'Publié',
-  connections_title: 'Comptes connectés',
-  connections_lead: 'Connectez Meta et YouTube. Chaque carte affiche le vrai logo de la page ou de la chaîne connectée.',
+  status_done: 'Pret',
+  status_connected: 'Connecte',
+  status_connected_ready: 'Pret',
+  status_not_connected: 'Non connecte',
+  status_published: 'Publie',
+  connections_title: 'Comptes connectes',
+  connections_lead: 'Connectez Meta et YouTube. Chaque carte affiche le vrai logo de la page ou de la chaine connectee.',
   connections_refresh_token: 'Actualiser le token',
-  connections_disconnect: 'Déconnecter',
-  connections_disconnect_youtube: 'Déconnecter YouTube',
+  connections_disconnect: 'Deconnecter',
+  connections_disconnect_youtube: 'Deconnecter YouTube',
   connections_open_studio: 'Ouvrir le studio',
   connections_test_publication: 'Publication de test',
-  connections_publication_state: 'État de publication',
-  connections_sync_status: 'État de synchronisation',
+  connections_publication_state: 'Etat de publication',
+  connections_sync_status: 'Etat de synchronisation',
   connections_autoposting: 'Autopublication',
-  connections_youtube_caption: 'Vidéo et Shorts',
+  connections_youtube_caption: 'Video et Shorts',
   connections_content_pipeline: 'Pipeline de contenu',
   connections_multiformat: 'Multiformat',
   connections_youtube_multiformat: 'Shorts et format long',
-  connections_youtube_connected: 'YouTube connecté',
-  connections_youtube_hint: 'Ouvrez YouTube Studio et choisissez le sujet, le format et la durée.',
+  connections_youtube_connected: 'YouTube connecte',
+  connections_youtube_hint: 'Ouvrez YouTube Studio et choisissez le sujet, le format et la duree.',
   history_posts_month: 'Publications ce mois-ci',
-  history_published_month: 'Publiées',
+  history_published_month: 'Publiees',
   history_outside_month: 'Hors du mois / sans date',
   history_remove_site: 'Retirer du site',
   history_date: 'Date',
@@ -1563,40 +1564,40 @@ Object.assign(APP_SHELL_I18N.fr, {
   history_topic: 'Sujet',
   history_publication: 'Publication',
   history_actions: 'Actions',
-  history_published_prefix: 'Publié',
-  history_published_label: 'Publié',
+  history_published_prefix: 'Publie',
+  history_published_label: 'Publie',
   create_director_title: 'AI Directeur de contenu',
-  create_director_intro: 'Choisissez votre secteur pour que l’IA prépare des idées, des formulations et des modèles adaptés à votre niche.',
+  create_director_intro: 'Choisissez votre secteur pour que l’IA prepare des idees, des formulations et des modeles adaptes a votre niche.',
   create_director_goal: 'Objectif *',
   create_director_offer: 'Offre (optionnelle)',
   create_director_offer_placeholder: 'Par exemple : audit gratuit de 15 minutes',
   create_director_language: 'Langue',
-  create_director_advanced: 'Réglages avancés',
-  create_director_generate: 'Générer le contenu',
-  create_director_render_video: 'Rendre la vidéo',
-  create_director_rendering_video: 'Rendu de la vidéo…',
-  create_director_result: 'Résultat',
-  create_director_result_lead: 'Obtenez d’abord des idées de sujets, puis laissez l’IA assembler le résultat dans l’aperçu.',
-  create_director_headlines: 'Idées de sujets',
-  create_director_headlines_lead: 'Choisissez des sujets adaptés à votre niche et utilisez-les pour la génération.',
-  create_director_structure: 'Structure de la vidéo',
-  create_director_structure_loading: 'L’IA prépare la structure…',
-  create_director_structure_empty: 'Cliquez sur « Générer la structure » pour obtenir un plan de scènes adapté à la durée choisie.',
+  create_director_advanced: 'Reglages avances',
+  create_director_generate: 'Generer le contenu',
+  create_director_render_video: 'Rendre la video',
+  create_director_rendering_video: 'Rendu de la video…',
+  create_director_result: 'Resultat',
+  create_director_result_lead: 'Obtenez d’abord des idees de sujets, puis laissez l’IA assembler le resultat dans l’apercu.',
+  create_director_headlines: 'Idees de sujets',
+  create_director_headlines_lead: 'Choisissez des sujets adaptes a votre niche et utilisez-les pour la generation.',
+  create_director_structure: 'Structure de la video',
+  create_director_structure_loading: 'L’IA prepare la structure…',
+  create_director_structure_empty: 'Cliquez sur « Generer la structure » pour obtenir un plan de scenes adapte a la duree choisie.',
   create_director_approaches: 'Angles',
-  create_director_approaches_lead: 'Choisissez l’angle qui convient le mieux à ce post ou à cette vidéo.',
-  create_director_preview_wait_post: 'Générez le contenu pour voir le résultat.',
-  create_director_preview_wait_video: 'Générez d’abord la structure, puis lancez le rendu vidéo.',
-  create_director_generate_cover: 'Générer la couverture',
-  create_director_generate_image: 'Générer l’image',
+  create_director_approaches_lead: 'Choisissez l’angle qui convient le mieux a ce post ou a cette video.',
+  create_director_preview_wait_post: 'Generez le contenu pour voir le resultat.',
+  create_director_preview_wait_video: 'Generez d’abord la structure, puis lancez le rendu video.',
+  create_director_generate_cover: 'Generer la couverture',
+  create_director_generate_image: 'Generer l’image',
   create_director_content_plan_title: 'Plan de contenu',
   create_director_content_plan_lead: 'L’IA peut choisir les meilleurs jours et heures pour publier.',
-  create_director_structure_hint: 'Cliquez sur « Générer la structure » pour obtenir la structure, les hashtags et le CTA.',
-  planner_generate: 'Créer un plan de {days} jours',
-  planner_generating: 'Création du plan…',
+  create_director_structure_hint: 'Cliquez sur « Generer la structure » pour obtenir la structure, les hashtags et le CTA.',
+  planner_generate: 'Creer un plan de {days} jours',
+  planner_generating: 'Creation du plan…',
   create_planner_post7: 'Publications pour 7 jours',
   create_planner_post30: 'Publications pour 30 jours',
-  create_planner_video7: 'Vidéos pour 7 jours',
-  create_planner_video30: 'Vidéos pour 30 jours',
+  create_planner_video7: 'Videos pour 7 jours',
+  create_planner_video30: 'Videos pour 30 jours',
 });
 Object.assign(APP_SHELL_I18N.uk, {
   footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються у публікаціях.',
@@ -1790,54 +1791,54 @@ Object.assign(APP_SHELL_I18N.de, {
   planner_niche: 'Nische',
   create_preview_post: 'Beitragsvorschau',
   create_preview_video: 'Videovorschau',
-  create_quality_title: 'Qualitätsprüfung',
+  create_quality_title: 'Qualitatsprufung',
   create_plan_use: 'Verwenden',
   create_plan_edit: 'Bearbeiten',
-  create_plan_select_day: 'Tag auswählen',
-  nav_dashboard: 'Übersicht',
+  create_plan_select_day: 'Tag auswahlen',
+  nav_dashboard: 'Ubersicht',
   nav_support: 'Hilfe',
-  page_dashboard: 'Übersicht',
+  page_dashboard: 'Ubersicht',
   page_support: 'Hilfe',
   page_create: 'Erstellen',
   plan_admin: 'Admin ohne Limit',
   create_hub_label: 'Erstellungszentrale',
   create_hub_title: 'Was erstellen wir heute?',
-  create_hub_lead: 'Posts, Videos und Pläne sind in eigene Studios aufgeteilt, damit die Oberfläche klar und professionell bleibt.',
+  create_hub_lead: 'Posts, Videos und Plane sind in eigene Studios aufgeteilt, damit die Oberflache klar und professionell bleibt.',
   create_hub_post_title: 'Post-Studio',
-  create_hub_post_subtitle: 'Ein einzelner Post, eine Serie oder ein schneller Arbeitsentwurf für soziale Netzwerke.',
-  create_hub_post_cta: 'Post-Studio öffnen',
+  create_hub_post_subtitle: 'Ein einzelner Post, eine Serie oder ein schneller Arbeitsentwurf fur soziale Netzwerke.',
+  create_hub_post_cta: 'Post-Studio offnen',
   create_hub_video_title: 'Video-Studio',
-  create_hub_video_subtitle: 'Universelle Kurz- oder Langvideos für Meta und YouTube.',
-  create_hub_video_cta: 'Video-Studio öffnen',
+  create_hub_video_subtitle: 'Universelle Kurz- oder Langvideos fur Meta und YouTube.',
+  create_hub_video_cta: 'Video-Studio offnen',
   create_hub_weekly_title: '7-Tage-Plan',
   create_hub_weekly_subtitle: 'Ein Wochenplan mit Themen, CTA und fertigen Slots.',
   create_hub_weekly_cta: '7-Tage-Plan erstellen',
   create_hub_monthly_title: '30-Tage-Plan',
-  create_hub_monthly_subtitle: 'Ein Monatsplan für einen stabilen Content-Flow.',
+  create_hub_monthly_subtitle: 'Ein Monatsplan fur einen stabilen Content-Flow.',
   create_hub_monthly_cta: '30-Tage-Plan erstellen',
   create_hub_youtube_title: 'YouTube-Studio',
-  create_hub_youtube_subtitle: 'Ein eigener Modus für Shorts, lange Videos und YouTube-Veröffentlichungen.',
-  create_hub_youtube_cta: 'YouTube-Studio öffnen',
-  create_hub_youtube_hint: 'YouTube-Studio bleibt ein eigener Schnellmodus für Shorts und lange Videos.',
+  create_hub_youtube_subtitle: 'Ein eigener Modus fur Shorts, lange Videos und YouTube-Veroffentlichungen.',
+  create_hub_youtube_cta: 'YouTube-Studio offnen',
+  create_hub_youtube_hint: 'YouTube-Studio bleibt ein eigener Schnellmodus fur Shorts und lange Videos.',
   dashboard_quick_start: 'Schnellstart',
-  dashboard_what_create: 'Was möchten Sie erstellen?',
-  dashboard_value_lead: 'Wählen Sie eine Aktion und erhalten Sie in wenigen Klicks ein Ergebnis. Auf Basis der Nische {niche} bereitet AI Ideen, Struktur und fertige Entwürfe vor.',
-  dashboard_choose_niche_first: 'Wählen Sie zuerst eine Nische',
-  dashboard_choose_niche_button: 'Nische auswählen',
+  dashboard_what_create: 'Was mochten Sie erstellen?',
+  dashboard_value_lead: 'Wahlen Sie eine Aktion und erhalten Sie in wenigen Klicks ein Ergebnis. Auf Basis der Nische {niche} bereitet AI Ideen, Struktur und fertige Entwurfe vor.',
+  dashboard_choose_niche_first: 'Wahlen Sie zuerst eine Nische',
+  dashboard_choose_niche_button: 'Nische auswahlen',
   dashboard_first_data: 'Die ersten Ergebnisse statt leerer Analysen',
   dashboard_welcome_title: 'Starten Sie mit dem ersten Ergebnis, nicht mit leeren Metriken',
   dashboard_welcome: 'Willkommen bei AutoSocial',
   dashboard_ai_insights: 'AI-Einblicke',
   dashboard_growth_30: 'Ergebnisse der letzten 30 Tage',
-  dashboard_no_data_sync: 'Noch keine Daten. Veröffentlichen Sie Inhalte und synchronisieren Sie die Metriken.',
-  dashboard_no_insights: 'Noch nicht genug Daten für AI-Einblicke.',
-  dashboard_open_growth: 'Wachstum öffnen',
-  dashboard_published_posts: 'Veröffentlichte Posts',
+  dashboard_no_data_sync: 'Noch keine Daten. Veroffentlichen Sie Inhalte und synchronisieren Sie die Metriken.',
+  dashboard_no_insights: 'Noch nicht genug Daten fur AI-Einblicke.',
+  dashboard_open_growth: 'Wachstum offnen',
+  dashboard_published_posts: 'Veroffentlichte Posts',
   dashboard_sort_engagement: 'Nach Engagement',
   dashboard_sort_reach: 'Nach Reichweite',
   dashboard_sort_views: 'Nach Views',
   dashboard_breakdown_title: 'Woraus sich der Score zusammensetzt',
-  dashboard_select_niche_option: 'Nische auswählen',
+  dashboard_select_niche_option: 'Nische auswahlen',
   niche_smm_marketing: 'SMM und Marketing',
   niche_cosmetology: 'Kosmetologie',
   niche_barbershop: 'Barbershop',
@@ -1850,29 +1851,29 @@ Object.assign(APP_SHELL_I18N.de, {
   niche_fitness: 'Fitness',
   niche_esoterica: 'Esoterik',
   dashboard_selling_headline: 'Content mit AI schneller erstellen',
-  dashboard_selling_subtitle: 'Starten Sie Pläne, Beiträge und Videos von einem Bildschirm aus. AutoSocial bringt Sie in wenigen Minuten von der Idee zum veröffentlichungsreifen Inhalt.',
-  dashboard_recommendation_lead: 'Ein klarer AI-Hinweis, damit sofort klar ist, was als Nächstes zu tun ist.',
-  dashboard_connections_title: 'Verbindungen und Veröffentlichungsbereitschaft',
-  dashboard_connections_lead: 'Kanäle sollten die Erstellung nicht blockieren, aber für Veröffentlichung und Synchronisierung bereit bleiben.',
+  dashboard_selling_subtitle: 'Starten Sie Plane, Beitrage und Videos von einem Bildschirm aus. AutoSocial bringt Sie in wenigen Minuten von der Idee zum veroffentlichungsreifen Inhalt.',
+  dashboard_recommendation_lead: 'Ein klarer AI-Hinweis, damit sofort klar ist, was als Nachstes zu tun ist.',
+  dashboard_connections_title: 'Verbindungen und Veroffentlichungsbereitschaft',
+  dashboard_connections_lead: 'Kanale sollten die Erstellung nicht blockieren, aber fur Veroffentlichung und Synchronisierung bereit bleiben.',
   dashboard_breakdown_button: 'Woraus es besteht',
   dashboard_forecast_title: 'Prognose',
-  dashboard_insight_safe_fallback: 'Die Insight-Daten werden aktualisiert. Synchronisieren Sie die Metriken oder öffnen Sie Erstellen, um den nächsten Inhalt vorzubereiten.',
-  dashboard_quick_action_weekly_title: 'Content-Plan für 7 Tage',
-  dashboard_quick_action_weekly_desc: 'Ein schneller Wochenplan für Ihre Nische.',
-  dashboard_quick_action_monthly_title: 'Content-Plan für 30 Tage',
+  dashboard_insight_safe_fallback: 'Die Insight-Daten werden aktualisiert. Synchronisieren Sie die Metriken oder offnen Sie Erstellen, um den nachsten Inhalt vorzubereiten.',
+  dashboard_quick_action_weekly_title: 'Content-Plan fur 7 Tage',
+  dashboard_quick_action_weekly_desc: 'Ein schneller Wochenplan fur Ihre Nische.',
+  dashboard_quick_action_monthly_title: 'Content-Plan fur 30 Tage',
   dashboard_quick_action_monthly_desc: 'Ein kompletter Monatsplan mit Ideen und Struktur.',
-  dashboard_quick_action_video_week_title: 'Video-Posts für 7 Tage',
+  dashboard_quick_action_video_week_title: 'Video-Posts fur 7 Tage',
   dashboard_quick_action_video_week_desc: 'Ein Wochen-Video-Plan mit Themen, Slots und CTA.',
-  dashboard_quick_action_video_month_title: 'Video-Posts für 30 Tage',
-  dashboard_quick_action_video_month_desc: 'Ein Monats-Video-Plan für regelmäßigen Short-Form-Content.',
+  dashboard_quick_action_video_month_title: 'Video-Posts fur 30 Tage',
+  dashboard_quick_action_video_month_desc: 'Ein Monats-Video-Plan fur regelma?igen Short-Form-Content.',
   dashboard_quick_action_post_series_title: 'Beitragsserie',
-  dashboard_quick_action_post_series_desc: 'Eine fertige Serie von Posts für Ihr Geschäft und Format.',
+  dashboard_quick_action_post_series_desc: 'Eine fertige Serie von Posts fur Ihr Geschaft und Format.',
   dashboard_quick_action_video_series_title: 'Videoserie',
-  dashboard_quick_action_video_series_desc: 'Ideen und Struktur für kurze Videos.',
+  dashboard_quick_action_video_series_desc: 'Ideen und Struktur fur kurze Videos.',
   dashboard_quick_action_hooks_title: 'Hooks',
-  dashboard_quick_action_hooks_desc: 'Starke Einstiege für Posts, Reels und Shorts.',
+  dashboard_quick_action_hooks_desc: 'Starke Einstiege fur Posts, Reels und Shorts.',
   dashboard_quick_action_cta_title: 'CTA',
-  dashboard_quick_action_cta_desc: 'Handlungsaufforderungen für Engagement und Leads.',
+  dashboard_quick_action_cta_desc: 'Handlungsaufforderungen fur Engagement und Leads.',
   dashboard_quick_action_create_plan: 'Plan erstellen',
   dashboard_quick_action_generate: 'Generieren',
   dashboard_quick_action_hooks_cta: 'Hooks erstellen',
@@ -1883,71 +1884,71 @@ Object.assign(APP_SHELL_I18N.es, {
   planner_niche: 'Nicho',
   create_preview_post: 'Vista previa del post',
   create_preview_video: 'Vista previa del video',
-  create_quality_title: 'Revisión de calidad',
+  create_quality_title: 'Revision de calidad',
   create_plan_use: 'Usar',
   create_plan_edit: 'Editar',
-  create_plan_select_day: 'Selecciona un día',
+  create_plan_select_day: 'Selecciona un dia',
   page_dashboard: 'Panel',
   page_create: 'Crear',
   page_calendar: 'Calendario',
   page_connections: 'Conexiones',
   page_history: 'Historial',
-  page_billing: 'Facturación',
+  page_billing: 'Facturacion',
   page_support: 'Soporte',
-  dashboard_quick_start: 'Inicio rápido',
-  dashboard_what_create: '¿Qué quieres crear?',
-  dashboard_value_lead: 'Elige una acción y obtén un resultado en pocos clics. Según el nicho {niche}, la IA preparará ideas, estructura y borradores listos.',
+  dashboard_quick_start: 'Inicio rapido',
+  dashboard_what_create: '?Que quieres crear?',
+  dashboard_value_lead: 'Elige una accion y obten un resultado en pocos clics. Segun el nicho {niche}, la IA preparara ideas, estructura y borradores listos.',
   dashboard_choose_niche_first: 'Primero elige un nicho',
   dashboard_choose_niche_button: 'Elegir nicho',
-  dashboard_first_data: 'Primeros resultados en lugar de analítica vacía',
-  dashboard_welcome_title: 'Empieza con el primer resultado, no con métricas vacías',
+  dashboard_first_data: 'Primeros resultados en lugar de analitica vacia',
+  dashboard_welcome_title: 'Empieza con el primer resultado, no con metricas vacias',
   dashboard_welcome: 'Bienvenido a AutoSocial',
   dashboard_ai_insights: 'Insights de IA',
-  dashboard_growth_30: 'Resultados de los últimos 30 días',
-  dashboard_no_data_sync: 'Aún no hay datos. Publica contenido y sincroniza las métricas.',
-  dashboard_no_insights: 'Aún no hay suficientes datos para insights de IA.',
+  dashboard_growth_30: 'Resultados de los ultimos 30 dias',
+  dashboard_no_data_sync: 'Aun no hay datos. Publica contenido y sincroniza las metricas.',
+  dashboard_no_insights: 'Aun no hay suficientes datos para insights de IA.',
   dashboard_open_growth: 'Abrir crecimiento',
   dashboard_published_posts: 'Publicaciones publicadas',
-  dashboard_sort_engagement: 'Por interacción',
+  dashboard_sort_engagement: 'Por interaccion',
   dashboard_sort_reach: 'Por alcance',
   dashboard_sort_views: 'Por vistas',
-  dashboard_breakdown_title: 'Qué compone la puntuación',
+  dashboard_breakdown_title: 'Que compone la puntuacion',
   dashboard_select_niche_option: 'Elegir nicho',
   niche_smm_marketing: 'SMM y marketing',
-  niche_cosmetology: 'Cosmetología',
-  niche_barbershop: 'Barbería',
+  niche_cosmetology: 'Cosmetologia',
+  niche_barbershop: 'Barberia',
   niche_autoservice: 'Servicio de autos',
   niche_detailing: 'Detailing de autos',
-  niche_apartment_renovation: 'Renovación de apartamentos',
-  niche_psychology: 'Psicología',
-  niche_consulting: 'Consultoría',
+  niche_apartment_renovation: 'Renovacion de apartamentos',
+  niche_psychology: 'Psicologia',
+  niche_consulting: 'Consultoria',
   niche_online_courses: 'Cursos online',
   niche_fitness: 'Fitness',
   niche_esoterica: 'Esoterismo',
-  dashboard_selling_headline: 'Crea contenido más rápido con IA',
-  dashboard_selling_subtitle: 'Lanza planes, posts y vídeos desde una sola pantalla. AutoSocial te ayuda a pasar de la idea al contenido listo para publicar en minutos.',
-  dashboard_recommendation_lead: 'Una señal principal de IA para que sepas claramente qué hacer después.',
-  dashboard_connections_title: 'Conexiones y preparación para publicar',
-  dashboard_connections_lead: 'Los canales no deben bloquear la creación, pero sí deben estar listos para publicar y sincronizar.',
-  dashboard_breakdown_button: 'De qué se compone',
-  dashboard_forecast_title: 'Pronóstico',
-  dashboard_insight_safe_fallback: 'Los datos del insight se están actualizando. Sincroniza las métricas o abre Crear para preparar el siguiente contenido.',
-  dashboard_quick_action_weekly_title: 'Plan de contenido de 7 días',
-  dashboard_quick_action_weekly_desc: 'Un plan semanal rápido para tu nicho.',
-  dashboard_quick_action_monthly_title: 'Plan de contenido de 30 días',
+  dashboard_selling_headline: 'Crea contenido mas rapido con IA',
+  dashboard_selling_subtitle: 'Lanza planes, posts y videos desde una sola pantalla. AutoSocial te ayuda a pasar de la idea al contenido listo para publicar en minutos.',
+  dashboard_recommendation_lead: 'Una senal principal de IA para que sepas claramente que hacer despues.',
+  dashboard_connections_title: 'Conexiones y preparacion para publicar',
+  dashboard_connections_lead: 'Los canales no deben bloquear la creacion, pero si deben estar listos para publicar y sincronizar.',
+  dashboard_breakdown_button: 'De que se compone',
+  dashboard_forecast_title: 'Pronostico',
+  dashboard_insight_safe_fallback: 'Los datos del insight se estan actualizando. Sincroniza las metricas o abre Crear para preparar el siguiente contenido.',
+  dashboard_quick_action_weekly_title: 'Plan de contenido de 7 dias',
+  dashboard_quick_action_weekly_desc: 'Un plan semanal rapido para tu nicho.',
+  dashboard_quick_action_monthly_title: 'Plan de contenido de 30 dias',
   dashboard_quick_action_monthly_desc: 'Un plan mensual completo con ideas y estructura.',
-  dashboard_quick_action_video_week_title: 'Vídeos para 7 días',
-  dashboard_quick_action_video_week_desc: 'Plan semanal de vídeo con temas, franjas y CTA.',
-  dashboard_quick_action_video_month_title: 'Vídeos para 30 días',
-  dashboard_quick_action_video_month_desc: 'Plan mensual de vídeo para short-form continuo.',
+  dashboard_quick_action_video_week_title: 'Videos para 7 dias',
+  dashboard_quick_action_video_week_desc: 'Plan semanal de video con temas, franjas y CTA.',
+  dashboard_quick_action_video_month_title: 'Videos para 30 dias',
+  dashboard_quick_action_video_month_desc: 'Plan mensual de video para short-form continuo.',
   dashboard_quick_action_post_series_title: 'Serie de posts',
   dashboard_quick_action_post_series_desc: 'Serie lista de publicaciones para tu negocio.',
-  dashboard_quick_action_video_series_title: 'Serie de vídeos',
-  dashboard_quick_action_video_series_desc: 'Ideas y estructura para vídeos cortos.',
+  dashboard_quick_action_video_series_title: 'Serie de videos',
+  dashboard_quick_action_video_series_desc: 'Ideas y estructura para videos cortos.',
   dashboard_quick_action_hooks_title: 'Hooks',
   dashboard_quick_action_hooks_desc: 'Inicios potentes para posts, Reels y Shorts.',
   dashboard_quick_action_cta_title: 'CTA',
-  dashboard_quick_action_cta_desc: 'Llamadas a la acción para interacción y leads.',
+  dashboard_quick_action_cta_desc: 'Llamadas a la accion para interaccion y leads.',
   dashboard_quick_action_create_plan: 'Crear plan',
   dashboard_quick_action_generate: 'Generar',
   dashboard_quick_action_hooks_cta: 'Crear hooks',
@@ -1956,84 +1957,84 @@ Object.assign(APP_SHELL_I18N.es, {
 Object.assign(APP_SHELL_I18N.fr, {
   language_label: 'Langue',
   planner_niche: 'Niche',
-  create_preview_post: 'Aperçu du post',
-  create_preview_video: 'Aperçu de la vidéo',
-  create_quality_title: 'Contrôle qualité',
+  create_preview_post: 'Apercu du post',
+  create_preview_video: 'Apercu de la video',
+  create_quality_title: 'Controle qualite',
   create_plan_use: 'Utiliser',
   create_plan_edit: 'Modifier',
   create_plan_select_day: 'Choisissez un jour',
   nav_support: 'Assistance',
   page_dashboard: 'Tableau de bord',
-  page_create: 'Créer',
+  page_create: 'Creer',
   page_calendar: 'Calendrier',
   page_connections: 'Connexions',
   page_history: 'Historique',
   page_billing: 'Facturation',
   page_support: 'Assistance',
-  dashboard_quick_start: 'Démarrage rapide',
-  dashboard_what_create: 'Que voulez-vous créer ?',
-  dashboard_value_lead: 'Choisissez une action et obtenez un résultat en quelques clics. Selon la niche {niche}, l’IA préparera des idées, une structure et des brouillons prêts à l’emploi.',
+  dashboard_quick_start: 'Demarrage rapide',
+  dashboard_what_create: 'Que voulez-vous creer ?',
+  dashboard_value_lead: 'Choisissez une action et obtenez un resultat en quelques clics. Selon la niche {niche}, l’IA preparera des idees, une structure et des brouillons prets a l’emploi.',
   dashboard_choose_niche_first: 'Choisissez d’abord une niche',
   dashboard_choose_niche_button: 'Choisir une niche',
-  dashboard_first_data: 'Les premiers résultats plutôt qu’une analytique vide',
-  dashboard_welcome_title: 'Commencez par un premier résultat, pas par des métriques vides',
+  dashboard_first_data: 'Les premiers resultats plutot qu’une analytique vide',
+  dashboard_welcome_title: 'Commencez par un premier resultat, pas par des metriques vides',
   dashboard_welcome: 'Bienvenue dans AutoSocial',
   dashboard_ai_insights: 'Insights IA',
-  dashboard_growth_30: 'Résultats sur 30 jours',
-  dashboard_no_data_sync: 'Pas encore de données. Publiez du contenu et synchronisez les métriques.',
-  dashboard_no_insights: 'Pas encore assez de données pour les insights IA.',
+  dashboard_growth_30: 'Resultats sur 30 jours',
+  dashboard_no_data_sync: 'Pas encore de donnees. Publiez du contenu et synchronisez les metriques.',
+  dashboard_no_insights: 'Pas encore assez de donnees pour les insights IA.',
   dashboard_open_growth: 'Ouvrir la croissance',
-  dashboard_published_posts: 'Posts publiés',
+  dashboard_published_posts: 'Posts publies',
   dashboard_sort_engagement: 'Par engagement',
-  dashboard_sort_reach: 'Par portée',
+  dashboard_sort_reach: 'Par portee',
   dashboard_sort_views: 'Par vues',
   dashboard_breakdown_title: 'Ce qui compose le score',
   dashboard_select_niche_option: 'Choisir une niche',
   niche_smm_marketing: 'SMM et marketing',
-  niche_cosmetology: 'Cosmétologie',
+  niche_cosmetology: 'Cosmetologie',
   niche_barbershop: 'Barbershop',
   niche_autoservice: 'Service auto',
   niche_detailing: 'Detailing auto',
-  niche_apartment_renovation: 'Rénovation d’appartement',
+  niche_apartment_renovation: 'Renovation d’appartement',
   niche_psychology: 'Psychologie',
   niche_consulting: 'Conseil',
   niche_online_courses: 'Cours en ligne',
   niche_fitness: 'Fitness',
-  niche_esoterica: 'Ésotérisme',
-  dashboard_selling_headline: 'Créez du contenu plus vite avec l’IA',
-  dashboard_selling_subtitle: 'Lancez des plans, des posts et des vidéos depuis un seul écran. AutoSocial vous aide à passer de l’idée au contenu prêt à publier en quelques minutes.',
-  dashboard_recommendation_lead: 'Un signal IA principal pour comprendre immédiatement quoi faire ensuite.',
-  dashboard_connections_title: 'Connexions et préparation à la publication',
-  dashboard_connections_lead: 'Les canaux ne doivent pas bloquer la création, mais ils doivent rester prêts pour la publication et la synchronisation.',
+  niche_esoterica: 'Esoterisme',
+  dashboard_selling_headline: 'Creez du contenu plus vite avec l’IA',
+  dashboard_selling_subtitle: 'Lancez des plans, des posts et des videos depuis un seul ecran. AutoSocial vous aide a passer de l’idee au contenu pret a publier en quelques minutes.',
+  dashboard_recommendation_lead: 'Un signal IA principal pour comprendre immediatement quoi faire ensuite.',
+  dashboard_connections_title: 'Connexions et preparation a la publication',
+  dashboard_connections_lead: 'Les canaux ne doivent pas bloquer la creation, mais ils doivent rester prets pour la publication et la synchronisation.',
   dashboard_breakdown_button: 'Ce qui le compose',
-  dashboard_forecast_title: 'Prévision',
-  dashboard_insight_safe_fallback: 'Les données de l’insight sont en cours de mise à jour. Synchronisez les métriques ou ouvrez Créer pour préparer le prochain contenu.',
+  dashboard_forecast_title: 'Prevision',
+  dashboard_insight_safe_fallback: 'Les donnees de l’insight sont en cours de mise a jour. Synchronisez les metriques ou ouvrez Creer pour preparer le prochain contenu.',
   dashboard_quick_action_weekly_title: 'Plan de contenu sur 7 jours',
   dashboard_quick_action_weekly_desc: 'Un plan hebdomadaire rapide pour votre niche.',
   dashboard_quick_action_monthly_title: 'Plan de contenu sur 30 jours',
-  dashboard_quick_action_monthly_desc: 'Un plan mensuel complet avec idées et structure.',
-  dashboard_quick_action_video_week_title: 'Vidéos sur 7 jours',
-  dashboard_quick_action_video_week_desc: 'Plan vidéo hebdomadaire avec thèmes, créneaux et CTA.',
-  dashboard_quick_action_video_month_title: 'Vidéos sur 30 jours',
-  dashboard_quick_action_video_month_desc: 'Plan vidéo mensuel pour un flux short-form régulier.',
-  dashboard_quick_action_post_series_title: 'Série de posts',
-  dashboard_quick_action_post_series_desc: 'Une série de posts prête pour votre activité.',
-  dashboard_quick_action_video_series_title: 'Série de vidéos',
-  dashboard_quick_action_video_series_desc: 'Idées et structure pour de courtes vidéos.',
+  dashboard_quick_action_monthly_desc: 'Un plan mensuel complet avec idees et structure.',
+  dashboard_quick_action_video_week_title: 'Videos sur 7 jours',
+  dashboard_quick_action_video_week_desc: 'Plan video hebdomadaire avec themes, creneaux et CTA.',
+  dashboard_quick_action_video_month_title: 'Videos sur 30 jours',
+  dashboard_quick_action_video_month_desc: 'Plan video mensuel pour un flux short-form regulier.',
+  dashboard_quick_action_post_series_title: 'Serie de posts',
+  dashboard_quick_action_post_series_desc: 'Une serie de posts prete pour votre activite.',
+  dashboard_quick_action_video_series_title: 'Serie de videos',
+  dashboard_quick_action_video_series_desc: 'Idees et structure pour de courtes videos.',
   dashboard_quick_action_hooks_title: 'Hooks',
   dashboard_quick_action_hooks_desc: 'Accroches fortes pour posts, Reels et Shorts.',
   dashboard_quick_action_cta_title: 'CTA',
-  dashboard_quick_action_cta_desc: 'Appels à l’action pour engagement et leads.',
-  dashboard_quick_action_create_plan: 'Créer le plan',
-  dashboard_quick_action_generate: 'Générer',
-  dashboard_quick_action_hooks_cta: 'Créer des hooks',
-  dashboard_quick_action_cta_cta: 'Créer un CTA',
+  dashboard_quick_action_cta_desc: 'Appels a l’action pour engagement et leads.',
+  dashboard_quick_action_create_plan: 'Creer le plan',
+  dashboard_quick_action_generate: 'Generer',
+  dashboard_quick_action_hooks_cta: 'Creer des hooks',
+  dashboard_quick_action_cta_cta: 'Creer un CTA',
 });
 Object.assign(APP_SHELL_I18N.uk, {
   language_label: 'Мова',
   planner_niche: 'Ніша',
-  create_preview_post: 'Превʼю поста',
-  create_preview_video: 'Превʼю відео',
+  create_preview_post: 'Прев?ю поста',
+  create_preview_video: 'Прев?ю відео',
   create_quality_title: 'Перевірка якості',
   create_plan_use: 'Використати',
   create_plan_edit: 'Редагувати',
@@ -2986,6 +2987,9 @@ const state = {
     actionType: '',
     seed: 0,
   },
+  dashboardProduct: null,
+  analyticsProduct: null,
+  onboardingDraft: { step: 1, niche: '', goal: 'growth', platforms: { instagram: true, facebook: false, youtube: false }, language: 'ru', status: 'idle', result: null, error: '' },
   plans: [],
   blog: [],
   adminUsers: [],
@@ -5700,7 +5704,7 @@ function getPlannerMonetizationAccess(kind, days, plan = currentPlannerBillingPl
   const canAutopublish = ['growth', 'agency', 'admin'].includes(normalizedPlan);
   return {
     plan: normalizedPlan,
-    canGenerate: !(normalizedPlan === 'free' && (Number(days) === 30 || String(kind || 'post') === 'video')),
+    canGenerate: !(normalizedPlan === 'free' && Number(days) === 30),
     canAutopublish,
     generateMessage: Number(days) === 30 && normalizedPlan === 'free'
       ? '30 \u0434\u043d\u0435\u0439 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043e\u0442 \u20ac29'
@@ -6641,6 +6645,7 @@ function appLayout(path, title, body) {
         ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
         ['/create', shellText('nav_create'), 'create'],
         ['/calendar', shellText('nav_calendar'), 'history'],
+        ['/analytics', 'Analytics', 'dashboard'],
         ['/connections', shellText('nav_connections'), 'connections'],
         ['/history', shellText('nav_history'), 'history'],
         ['/settings', shellText('nav_settings'), 'settings'],
@@ -6837,6 +6842,69 @@ function pageLogin() {
   </div>`;
 }
 
+function productUsageMeter(label, used, limit, locked = false) {
+  const numericLimit = Number(limit || 0);
+  const numericUsed = Number(used || 0);
+  const unlimited = numericLimit >= 999999;
+  const pct = unlimited ? 12 : Math.max(0, Math.min(100, (numericUsed / Math.max(numericLimit, 1)) * 100));
+  const value = unlimited ? `${numericUsed} / unlimited` : `${numericUsed} / ${numericLimit}`;
+  return `<article class="saas-meter-card glass-card ${locked ? 'is-locked' : ''}">
+    <div class="row" style="justify-content:space-between;align-items:center;"><strong>${esc(label)}</strong><span class="pill">${esc(value)}</span></div>
+    <div class="saas-meter"><span style="width:${pct.toFixed(1)}%"></span></div>
+    ${locked ? '<p class="small">Upgrade to unlock this growth lever.</p>' : ''}
+  </article>`;
+}
+
+function ensureOnboardingDraft() {
+  if (!state.onboardingDraft || typeof state.onboardingDraft !== 'object') {
+    state.onboardingDraft = { step: 1, niche: '', goal: 'growth', platforms: { instagram: true, facebook: false, youtube: false }, language: 'ru', status: 'idle', result: null, error: '' };
+  }
+  state.onboardingDraft.platforms = { instagram: true, facebook: false, youtube: false, ...(state.onboardingDraft.platforms || {}) };
+  return state.onboardingDraft;
+}
+
+function onboardingModalHtml() {
+  const product = state.dashboardProduct || {};
+  const onboard = product.onboarding || state.user?.onboarding || {};
+  if (onboard.completed) return '';
+  const dismissedKey = `autosocial:onboarding:dismissed:${String(state.user?.id || 'anon')}`;
+  if (localStorage.getItem(dismissedKey) === '1') return '';
+  const w = ensureOnboardingDraft();
+  const nicheOptions = localizedNicheOptions(DIRECTOR_NICHE_OPTIONS);
+  const step = Math.max(1, Math.min(4, Number(w.step || 1)));
+  const progress = Math.round((step / 4) * 100);
+  const platform = (key, label) => `<label class="saas-check"><input type="checkbox" data-onboard-platform="${esc(key)}" ${w.platforms?.[key] ? 'checked' : ''}/> ${esc(label)}</label>`;
+  const body = step === 1
+    ? `${selectField('onboardNiche', 'Your niche', w.niche || DEFAULT_DIRECTOR_NICHE, nicheOptions)}<p class="small">This will prefill Post Studio and Video Planner.</p>`
+    : step === 2
+      ? `<div class="saas-choice-row"><button class="btn ${w.goal === 'sales' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="sales" type="button">Sales</button><button class="btn ${w.goal === 'engagement' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="engagement" type="button">Engagement</button><button class="btn ${w.goal === 'growth' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="growth" type="button">Growth</button></div>`
+      : step === 3
+        ? `<div class="saas-check-grid">${platform('instagram', 'Instagram')}${platform('facebook', 'Facebook')}${platform('youtube', 'YouTube')}</div>`
+        : `${selectField('onboardLanguage', 'Language', w.language || state.lang || 'ru', CONTENT_LANG_OPTIONS)}<p class="small">After this, AutoSocial prepares a 7-day post plan and a draft video plan.</p>`;
+  const busy = w.status === 'submitting';
+  return `<div class="dash-modal-backdrop saas-onboarding-backdrop" id="onboardingBackdrop">
+    <div class="dash-modal glass-card saas-onboarding-modal">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div><span class="pill">First setup</span><h2>Get your first content plan in minutes</h2><p class="small">Choose four basics. We will prepare the first weekly plan without rendering heavy videos.</p></div>
+        <button id="onboardingDismissBtn" class="btn btn-ghost" type="button">Later</button>
+      </div>
+      <div class="saas-meter"><span style="width:${progress}%"></span></div>
+      <div class="saas-onboarding-body">${body}</div>
+      ${w.error ? `<div class="notice error">${esc(w.error)}</div>` : ''}
+      ${busy ? '<div class="saas-progress-copy"><strong>Preparing your strategy...</strong><span>Building your 7-day plan...</span><span>Your content is almost ready.</span></div>' : ''}
+      <div class="cta-row">
+        <button id="onboardingPrevBtn" class="btn btn-ghost" type="button" ${step <= 1 || busy ? 'disabled' : ''}>Back</button>
+        ${step < 4
+          ? `<button id="onboardingNextBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>Next</button>`
+          : `<button id="onboardingStartBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>${busy ? 'Preparing...' : 'Create my first 7-day plan'}</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function paywallLockCard(title, text, action = 'Upgrade') {
+  return `<article class="saas-lock-card glass-card"><div class="saas-lock-blur"><strong>${esc(title)}</strong><p>${esc(text)}</p></div><button class="btn btn-primary" type="button" data-link="/billing">${esc(action)}</button></article>`;
+}
 function pageDashboard() {
   const locale = uiLocale();
   const billing = state.billing || { plan: 'free', usage: {}, limits: {}, remaining: {} };
@@ -7001,6 +7069,12 @@ function pageDashboard() {
     if (access?.isPreview) return shellText('dashboard_preview');
     return shellText('dashboard_available');
   };
+  const videoWeeklyAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'video_week_plan'));
+  const hooksAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'hooks_pack'));
+  const ideasAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'post_series'));
+  const videoWeeklyAccess = getQuickActionAccess('video_week_plan', billing);
+  const hooksAccess = getQuickActionAccess('hooks_pack', billing);
+  const ideasAccess = getQuickActionAccess('post_series', billing);
   const primaryActions = [
     {
       kind: 'quick',
@@ -7013,34 +7087,33 @@ function pageDashboard() {
       primary: true,
     },
     {
-      kind: 'studio',
-      studio: 'post',
-      accent: 'POST',
-      title: shellText('create_hub_post_title'),
-      description: shellText('create_hub_post_subtitle'),
-      buttonLabel: shellText('create_hub_post_cta'),
-      access: { isLocked: false, isPreview: false },
-    },
-    {
-      kind: 'studio',
-      studio: 'video',
-      accent: 'VIDEO',
-      title: shellText('create_hub_video_title'),
-      description: shellText('create_hub_video_subtitle'),
-      buttonLabel: shellText('create_hub_video_cta'),
-      access: { isLocked: false, isPreview: false },
+      kind: 'quick',
+      key: 'video_week_plan',
+      accent: videoWeeklyAction.accent,
+      title: videoWeeklyAction.title,
+      description: videoWeeklyAction.description,
+      buttonLabel: videoWeeklyAccess.isLocked ? shellText('dashboard_upgrade') : videoWeeklyAction.buttonLabel,
+      access: videoWeeklyAccess,
     },
     {
       kind: 'quick',
-      key: 'monthly_plan',
-      accent: monthlyAction.accent,
-      title: monthlyAction.title,
-      description: monthlyAction.description,
-      buttonLabel: monthlyAccess.isLocked ? shellText('dashboard_upgrade') : monthlyAction.buttonLabel,
-      access: monthlyAccess,
+      key: 'hooks_pack',
+      accent: hooksAction.accent,
+      title: hooksAction.title,
+      description: hooksAction.description,
+      buttonLabel: hooksAccess.isLocked ? shellText('dashboard_upgrade') : hooksAction.buttonLabel,
+      access: hooksAccess,
     },
-  ];
-  const primaryActionsHtml = primaryActions.map((item) => {
+    {
+      kind: 'quick',
+      key: 'post_series',
+      accent: 'IDEAS',
+      title: 'Content ideas',
+      description: ideasAction.description || 'Generate topic ideas for your next posts.',
+      buttonLabel: ideasAccess.isLocked ? shellText('dashboard_upgrade') : 'Generate ideas',
+      access: ideasAccess,
+    },
+  ];  const primaryActionsHtml = primaryActions.map((item) => {
     const disabled = !dashboardNicheId;
     const cardClass = item.access?.isLocked ? 'is-locked' : (item.access?.isPreview ? 'is-preview' : '');
     const btnClass = item.primary ? 'btn-primary' : 'btn-secondary';
@@ -7185,6 +7258,17 @@ function pageDashboard() {
         }).join('')}</div>`
       : `<p class="small">${esc(shellText('common_no_materials_period'))}</p>`);
 
+  const product = state.dashboardProduct || {};
+  const productRecent = Array.isArray(product.recent_generated) ? product.recent_generated : [];
+  const productUpcoming = Array.isArray(product.upcoming) ? product.upcoming : [];
+  const demoCards = Array.isArray(product.demo_cards) ? product.demo_cards : [];
+  const productRecentHtml = productRecent.length
+    ? `<div class="saas-content-list">${productRecent.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Generated content')}</strong><p class="small">${esc(String(item.type || 'content').toUpperCase())} ? ${esc(item.status || 'ready')}</p></div><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`
+    : `<div class="saas-demo-grid">${demoCards.map((item) => `<article class="saas-demo-card glass-card"><span class="pill">${esc(item.type || 'demo')}</span><h4>${esc(item.title || 'Ready preview')}</h4><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`;
+  const lastGeneratedSection = `<section class="dash-card glass-card saas-last-generated"><div class="dash-section-head"><div><h3>Last Generated Content</h3><p class="small">A real workspace never starts from a blank page.</p></div><button class="btn btn-ghost" type="button" data-link="/history">Open history</button></div>${productRecentHtml}</section>`;
+  const upcomingSection = `<section class="dash-card glass-card saas-upcoming"><div class="dash-section-head"><div><h3>Upcoming queue</h3><p class="small">Scheduled posts and videos stay visible before publishing.</p></div><button class="btn btn-ghost" type="button" data-link="/calendar">Open calendar</button></div>${productUpcoming.length ? `<div class="saas-content-list">${productUpcoming.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Scheduled item')}</strong><p class="small">${esc(item.type || 'post')} ? ${esc(item.platform || '')}</p></div><span class="pill">${esc(item.scheduled_at ? new Date(item.scheduled_at).toLocaleString(locale) : item.status || 'planned')}</span></article>`).join('')}</div>` : '<p class="small">Your scheduled queue will appear here after the first plan.</p>'}</section>`;
+  const paywallMeters = `<section class="saas-meter-grid">${productUsageMeter('Posts this month', billing?.usage?.posts_per_month || 0, billing?.limits?.posts_per_month || 0)}${productUsageMeter('Videos this month', billing?.usage?.videos_per_month || 0, billing?.limits?.videos_per_month || 0)}${productUsageMeter('Projects', billing?.usage?.projects || 0, billing?.limits?.projects || 0)}${productUsageMeter('Autopublishing', billing?.limits?.can_autopublish ? 1 : 0, 1, !billing?.limits?.can_autopublish)}</section>`;
+
   const connectionsSection = `<section class="dash-card glass-card">
       <div class="dash-section-head">
         <div>
@@ -7288,11 +7372,17 @@ function pageDashboard() {
             ${recentListHtml}
           </article>
         </section>
+        ${paywallMeters}
+        <section class="grid-2 dash-dashboard-row">
+          ${lastGeneratedSection}
+          ${upcomingSection}
+        </section>
         <section class="grid-2 dash-dashboard-row">
           ${performanceSection || `<section class="dash-card glass-card"><h3>${esc(shellText('dashboard_growth_30'))}</h3><p class="small">${esc(shellText('dashboard_no_data_sync'))}</p></section>`}
           ${connectionsSection}
         </section>
       </main>
+      ${onboardingModalHtml()}
       ${(stats.aiBreakdownOpen && !advancedAnalyticsLocked) ? `<div class="dash-modal-backdrop" id="dashAiModalBackdrop">
         <div class="dash-modal glass-card">
           <div class="row" style="justify-content:space-between;align-items:center;">
@@ -8158,6 +8248,43 @@ function pageHistory(showCalendar = false) {
 
   const calendarSection = showCalendar ? plannerBoard : '';
   return appLayout(showCalendar ? '/calendar' : '/history', showCalendar ? shellText('page_calendar') : shellText('page_history'), `${calendarSection}<section class="card"><h2>${esc(shellText('archive_title') || 'Archive')}</h2>${table}</section>${modal}${editModal}`);
+}
+
+
+function pageAnalytics() {
+  const billing = state.billing || { plan: 'free', usage: {}, limits: {}, remaining: {} };
+  const product = state.dashboardProduct || state.analyticsProduct || {};
+  const stats = state.dashboardMetrics || {};
+  const summary = stats.summary?.current || stats.summary || { reach: 0, views: 0, items: 0, engagement_rate: 0 };
+  const canAdvanced = hasAdvancedAnalyticsAccess(billing.plan || state.user?.plan || 'free');
+  const points = Array.isArray(stats?.timeseries?.points) && stats.timeseries.points.length
+    ? stats.timeseries.points
+    : Array.from({ length: 14 }, (_, idx) => ({ day: `D${idx + 1}`, reach: 120 + idx * 38, views: 80 + idx * 25, engagement_rate: 0.025 + idx * 0.001 }));
+  const maxReach = Math.max(1, ...points.map((p) => Number(p.reach || 0)));
+  const bars = points.map((p) => `<span title="${esc(p.day || '')}" style="height:${Math.max(8, (Number(p.reach || 0) / maxReach) * 100).toFixed(1)}%"></span>`).join('');
+  const generatedPosts = Number(billing?.usage?.posts_per_month || 0);
+  const generatedVideos = Number(billing?.usage?.videos_per_month || 0);
+  const estimatedReach = Number(summary.reach || 0) || Math.max(500, (generatedPosts * 180) + (generatedVideos * 450) + 900);
+  return appLayout('/analytics', 'Analytics', `
+    <section class="dash-client-shell dash-v2-shell saas-analytics-shell">
+      <header class="dash-card dash-hero glass-card">
+        <div class="dash-hero-copy"><div class="dash-hero-topline">Perceived growth</div><h1 class="dash-sales-title">Analytics that make the product feel alive</h1><p class="dash-sales-subtitle">Real metrics appear when channels are connected. Until then, AutoSocial shows useful estimates from your content activity.</p></div>
+        <div class="dash-hero-kpis">
+          <article class="dash-kpi-card glass-card"><p>Posts generated</p><strong>${generatedPosts}</strong><small>${esc(billing?.remaining?.posts_per_month ?? 0)} remaining</small></article>
+          <article class="dash-kpi-card glass-card"><p>Videos generated</p><strong>${generatedVideos}</strong><small>${esc(billing?.remaining?.videos_per_month ?? 0)} remaining</small></article>
+          <article class="dash-kpi-card glass-card"><p>Estimated reach</p><strong>${Number(estimatedReach || 0).toLocaleString(uiLocale())}</strong><small>projection</small></article>
+          <article class="dash-kpi-card glass-card"><p>Activity graph</p><strong>${points.length} days</strong><small>${canAdvanced ? 'advanced' : 'basic estimate'}</small></article>
+        </div>
+      </header>
+      <section class="grid-2 dash-dashboard-row">
+        <article class="dash-card glass-card"><div class="dash-section-head"><div><h3>Activity graph</h3><p class="small">Estimated reach trend from generation and publishing activity.</p></div></div><div class="saas-bar-chart">${bars}</div></article>
+        ${canAdvanced ? `<article class="dash-card glass-card"><h3>Advanced insights</h3><p class="small">Growth/Agency analytics are unlocked. Use dashboard sync to refresh real platform data.</p><div class="cta-row"><button class="btn btn-primary" data-link="/dashboard" type="button">Open dashboard</button></div></article>` : paywallLockCard('Advanced analytics', 'Upgrade to Growth to unlock AI score, recommendations and best posting time insights.')}
+      </section>
+      <section class="grid-2 dash-dashboard-row">
+        <article class="dash-card glass-card"><h3>Recent generated content</h3>${(Array.isArray(product.recent_generated) && product.recent_generated.length) ? `<div class="saas-content-list">${product.recent_generated.slice(0, 6).map((item) => `<article class="dash-recent-item"><strong>${esc(item.title || 'Generated content')}</strong><span class="pill">${esc(item.type || 'content')}</span></article>`).join('')}</div>` : '<p class="small">Generate your first plan to populate this block.</p>'}</article>
+        <article class="dash-card glass-card"><h3>Next monetization step</h3><p class="small">Connect channels, schedule content, then upgrade when automation and advanced analytics become valuable.</p><div class="cta-row"><button class="btn btn-primary" data-link="/billing" type="button">View plans</button><button class="btn btn-ghost" data-link="/create/post" type="button">Create content</button></div></article>
+      </section>
+    </section>`);
 }
 
 function pageCalendar() {
@@ -10609,7 +10736,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -10694,11 +10821,12 @@ async function preload(path) {
     if (campaignId > 0) state.campaignDetails = await api(`/api/campaigns/${campaignId}`);
   }
   if (path === '/history' || path === '/calendar') state.posts = await api('/api/posts');
-  if (path === '/billing' || path === '/dashboard') state.plans = await api('/api/plans');
-  if (path === '/dashboard') {
+  if (path === '/billing' || path === '/dashboard' || path === '/analytics') state.plans = await api('/api/plans');
+  if (path === '/dashboard' || path === '/analytics') {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
     state.dashboardMetrics = {
       ...(state.dashboardMetrics || {}),
       loading: true,
@@ -10711,7 +10839,7 @@ async function preload(path) {
   }
   if (path === '/admin' && state.user?.role === 'admin') { state.adminUsers = await api('/api/admin/users'); state.adminRevenue = await api('/api/admin/revenue'); }
 }
-async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.projects = await api('/api/projects'); }
+async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.onboarding = state.user.onboarding || null; state.projects = await api('/api/projects'); }
 function bindCommon() {
   const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
   if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
@@ -16144,6 +16272,67 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     if (nextType === 'video') query.set('type', 'video');
     nav(createStudioUrl(nextType, Object.fromEntries(query.entries())), { keepNotice: true });
   };
+  const bindOnboardingModal = () => {
+    const w = ensureOnboardingDraft();
+    const dismissKey = `autosocial:onboarding:dismissed:${String(state.user?.id || 'anon')}`;
+    const syncFields = () => {
+      const nicheEl = document.getElementById('onboardNiche');
+      if (nicheEl) w.niche = nicheEl.value || w.niche || DEFAULT_DIRECTOR_NICHE;
+      const langEl = document.getElementById('onboardLanguage');
+      if (langEl) w.language = langEl.value || w.language || state.lang || 'ru';
+    };
+    const dismissBtn = document.getElementById('onboardingDismissBtn');
+    if (dismissBtn) dismissBtn.onclick = () => { localStorage.setItem(dismissKey, '1'); render(); };
+    const prevBtn = document.getElementById('onboardingPrevBtn');
+    if (prevBtn) prevBtn.onclick = () => { syncFields(); w.step = Math.max(1, Number(w.step || 1) - 1); render(); };
+    const nextBtn = document.getElementById('onboardingNextBtn');
+    if (nextBtn) nextBtn.onclick = () => { syncFields(); w.step = Math.min(4, Number(w.step || 1) + 1); render(); };
+    document.querySelectorAll('[data-onboard-goal]').forEach((btn) => {
+      btn.onclick = () => { w.goal = String(btn.getAttribute('data-onboard-goal') || 'growth'); render(); };
+    });
+    document.querySelectorAll('[data-onboard-platform]').forEach((input) => {
+      input.onchange = () => { w.platforms[String(input.getAttribute('data-onboard-platform') || '')] = !!input.checked; };
+    });
+    const startBtn = document.getElementById('onboardingStartBtn');
+    if (startBtn) startBtn.onclick = async () => {
+      try {
+        syncFields();
+        w.status = 'submitting';
+        w.error = '';
+        render();
+        const payload = {
+          niche: w.niche || DEFAULT_DIRECTOR_NICHE,
+          goal: w.goal || 'growth',
+          platforms: w.platforms || { instagram: true },
+          language: w.language || state.lang || 'ru',
+        };
+        const result = await api('/api/onboarding/start', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 20000 });
+        w.status = 'ready';
+        w.result = result;
+        state.onboarding = result.onboarding;
+        state.dashboardProduct = await api('/api/dashboard/product');
+        const prefill = result.prefill || payload;
+        state.createDirector = {
+          ...state.createDirector,
+          topicPreset: normalizeNicheIdSafe(prefill.niche) || DEFAULT_DIRECTOR_NICHE,
+          goal: prefill.goal || 'growth',
+          language: prefill.language || 'ru',
+          platforms: { facebook: !!prefill.platforms?.includes?.('facebook'), instagram: !!prefill.platforms?.includes?.('instagram'), youtube: !!prefill.platforms?.includes?.('youtube') },
+          postWeekItems: Array.isArray(result.post_plan?.items) ? result.post_plan.items.map((item) => ({ ...item, scheduled_at: item.scheduled_at, generated_text: item.caption || item.topic })) : state.createDirector.postWeekItems,
+          videoWeekItems: Array.isArray(result.video_plan?.items) ? result.video_plan.items : state.createDirector.videoWeekItems,
+        };
+        localStorage.setItem(dismissKey, '1');
+        state.notice = { type: 'ok', text: 'Your first 7-day post plan and draft video plan are ready.' };
+        render();
+      } catch (e) {
+        ensureOnboardingDraft().status = 'idle';
+        ensureOnboardingDraft().error = e.message || 'Could not prepare onboarding plan.';
+        render();
+      }
+    };
+  };
+  bindOnboardingModal();
+
   const dashFirstPostBtn = document.getElementById('dashFirstPostBtn');
   if (dashFirstPostBtn) dashFirstPostBtn.onclick = () => openCreateFromDashboard('post');
   const dashFirstVideoBtn = document.getElementById('dashFirstVideoBtn');
@@ -17091,6 +17280,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     try {
       await api(`/api/posts/${post.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
       state.notice = { type: 'ok', text: 'Пост обновлен.' };
       state.postEditor = { open: false, saving: false, post: null, error: '' };
       render();
@@ -17215,6 +17405,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     if (!p) return;
     await api('/api/generate', { method: 'POST', body: JSON.stringify({ project_id: p.project_id, topic: p.topic, category: p.category || 'business' }) });
     state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
     render();
   });
 
@@ -17225,6 +17416,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     try {
       await api(`/api/posts/${id}/publish`, { method: 'POST', body: '{}' });
       state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
       state.notice = { type: 'ok', text: 'Пост отправлен в публикацию.' };
       render();
     } catch (e) {
@@ -17240,6 +17432,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     try {
       await api(`/api/posts/${id}`, { method: 'DELETE' });
       state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
       state.notice = { type: 'ok', text: 'Пост удален.' };
       render();
     } catch (e) {
@@ -17255,6 +17448,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     try {
       await api(`/api/posts/${id}/hide`, { method: 'POST', body: '{}' });
       state.posts = await api('/api/posts');
+    state.dashboardProduct = await api('/api/dashboard/product');
       state.notice = { type: 'ok', text: 'Пост скрыт с сайта.' };
       render();
     } catch (e) {

@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import os
 import random
@@ -21,7 +21,7 @@ from email.message import EmailMessage
 
 import requests
 from flask import Blueprint, current_app, g, jsonify, redirect, request, send_from_directory
-from sqlalchemy import text
+from sqlalchemy import text, func
 
 from dashboard_metrics import (
     dashboard_ai_score,
@@ -2053,6 +2053,141 @@ def oauth_facebook_callback():
     return _finalize_oauth_login(email, "facebook", facebook_id)
 
 
+
+_ONBOARDING_GOALS = {"sales", "engagement", "growth"}
+_ONBOARDING_LANGUAGES = {"ru", "en", "de", "es", "fr", "uk"}
+_ONBOARDING_PLATFORMS = {"facebook", "instagram", "youtube"}
+
+
+def _onboarding_clean_payload(data: dict) -> dict:
+    niche = str(data.get("niche") or data.get("niche_id") or "").strip()[:120]
+    goal = str(data.get("goal") or "growth").strip().lower()
+    language = str(data.get("language") or "ru").strip().lower()
+    raw_platforms = data.get("platforms")
+    if isinstance(raw_platforms, dict):
+        platforms = [key for key, enabled in raw_platforms.items() if enabled]
+    elif isinstance(raw_platforms, list):
+        platforms = raw_platforms
+    else:
+        platforms = ["instagram"]
+    platforms = [str(p).strip().lower() for p in platforms if str(p or "").strip().lower() in _ONBOARDING_PLATFORMS]
+    return {
+        "niche": niche or "services",
+        "goal": goal if goal in _ONBOARDING_GOALS else "growth",
+        "platforms": platforms or ["instagram"],
+        "language": language if language in _ONBOARDING_LANGUAGES else "ru",
+    }
+
+
+def _onboarding_state_payload(user: AppUser) -> dict:
+    raw = getattr(user, "onboarding_json", None) or "{}"
+    try:
+        data = json.loads(raw) if raw else {}
+    except Exception:
+        data = {}
+    completed_at = getattr(user, "onboarding_completed_at", None)
+    return {
+        "completed": bool(completed_at),
+        "completed_at": completed_at.isoformat() if completed_at else None,
+        "data": data if isinstance(data, dict) else {},
+    }
+
+
+def _demo_content_cards(niche: str, language: str = "ru") -> list[dict]:
+    base = str(niche or "business").strip() or "business"
+    if str(language).lower().startswith("en"):
+        return [
+            {"type": "post", "title": f"7-day {base} content plan", "preview": "A ready weekly plan with hooks, CTA and visuals."},
+            {"type": "video", "title": f"Short video series for {base}", "preview": "Draft video ideas with queue-safe rendering."},
+            {"type": "analytics", "title": "Estimated reach forecast", "preview": "Projected reach appears as soon as content is scheduled."},
+        ]
+    return [
+        {"type": "post", "title": f"7-дневный план: {base}", "preview": "Готовые темы, CTA и визуальный предпросмотр для первой недели."},
+        {"type": "video", "title": f"Серия коротких видео: {base}", "preview": "Черновики видео с безопасной очередью рендера."},
+        {"type": "analytics", "title": "Прогноз охвата", "preview": "Оценка роста появится сразу после планирования контента."},
+    ]
+
+
+def _create_onboarding_post_plan(db, *, user: AppUser, project_id: int, payload: dict) -> list[dict]:
+    niche = str(payload.get("niche") or "services").strip()
+    goal = str(payload.get("goal") or "growth").strip()
+    language = str(payload.get("language") or "ru").strip()
+    now = datetime.utcnow()
+    goal_label = {"sales": "sales", "engagement": "engagement", "growth": "growth"}.get(goal, "growth")
+    items = []
+    for idx in range(7):
+        scheduled_at = (now + timedelta(days=idx)).replace(hour=10, minute=0, second=0, microsecond=0)
+        topic = f"{niche}: {goal_label} content idea {idx + 1}"
+        existing = (
+            db.query(ContentPlan)
+            .filter(
+                ContentPlan.user_id == user.id,
+                ContentPlan.project_id == project_id,
+                ContentPlan.topic == topic,
+            )
+            .first()
+        )
+        row = existing or ContentPlan(
+            user_id=user.id,
+            project_id=project_id,
+            business_type=niche,
+            goal=goal,
+            language=language,
+            topic=topic,
+            caption=f"Draft angle for {topic}. Adapt the message to the selected platform and add a clear next step.",
+            hashtags="#autosocial #content #marketing",
+            cta="Invite the audience to take the next step.",
+            scheduled_at=scheduled_at,
+            status="planned",
+        )
+        if not existing:
+            db.add(row)
+            db.flush()
+        items.append({
+            "id": int(row.id),
+            "day": idx + 1,
+            "topic": row.topic,
+            "caption": row.caption,
+            "scheduled_at": row.scheduled_at.isoformat(),
+            "status": row.status,
+        })
+    return items
+
+
+def _build_onboarding_video_plan(*, user_id: int, payload: dict) -> dict:
+    niche = str(payload.get("niche") or "services").strip()
+    language = str(payload.get("language") or "ru").strip().lower() or "ru"
+    preset = _video_style_preset("educational_clean")
+    batch_id = f"onboarding-video-{user_id}-{int(time.time())}-{secrets.token_hex(3)}"
+    now = datetime.utcnow()
+    items = []
+    for idx in range(7):
+        day = idx + 1
+        topic = f"{niche}: short video idea {day}"
+        concept = f"A concise educational video for {niche} with one practical takeaway."
+        items.append({
+            "id": f"{batch_id}-{day}",
+            "batch_id": batch_id,
+            "day": day,
+            "batch_order": day,
+            "scheduled_at": (now + timedelta(days=idx)).replace(hour=14, minute=0, second=0, microsecond=0).isoformat() + "Z",
+            "topic": topic,
+            "hook": f"One useful {niche} tip for day {day}",
+            "concept": concept,
+            "voice_gender": "male",
+            "voice_tone": str(preset.get("voice_tone") or "neutral"),
+            "speech_speed": str(preset.get("speech_speed") or "normal"),
+            "subtitle_style": str(preset.get("subtitle_style") or settings.VIDEO_SUBTITLE_STYLE),
+            "duration_sec": 30,
+            "orientation": "vertical",
+            "style_preset": str(preset.get("id") or "educational_clean"),
+            "footage_intent": _video_footage_intent(topic, concept, niche, preset),
+            "status": "draft",
+            "stage": "draft",
+            "queue": {"position": None, "estimated_start_at": None, "estimated_completion_at": None},
+        })
+    return {"batch_id": batch_id, "days": 7, "items": items}
+
 @saas_api.route("/me", methods=["GET"])
 @require_auth
 def me():
@@ -2067,9 +2202,126 @@ def me():
             "role": user.role,
             "plan": normalized_plan,
             "billing": get_billing_summary(user),
+            "onboarding": _onboarding_state_payload(user),
         }
     )
 
+
+
+@saas_api.route("/onboarding/state", methods=["GET"])
+@require_auth
+def onboarding_state():
+    user = _current_user_refetched()
+    return jsonify(_onboarding_state_payload(user))
+
+
+@saas_api.route("/onboarding/complete", methods=["POST"])
+@require_auth
+def onboarding_complete():
+    user = _current_user_refetched()
+    payload = _onboarding_clean_payload(request.get_json(silent=True) or {})
+    db = SessionLocal()
+    try:
+        row = db.query(AppUser).filter_by(id=user.id).first()
+        if not row:
+            return jsonify({"error": "user_not_found"}), 404
+        row.onboarding_json = json.dumps(payload, ensure_ascii=False)
+        row.onboarding_completed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(row)
+        return jsonify({"ok": True, "onboarding": _onboarding_state_payload(row)})
+    finally:
+        db.close()
+
+
+@saas_api.route("/onboarding/start", methods=["POST"])
+@require_auth
+def onboarding_start():
+    user = _current_user_refetched()
+    payload = _onboarding_clean_payload(request.get_json(silent=True) or {})
+    project = get_or_create_default_project(user.id)
+    db = SessionLocal()
+    try:
+        row = db.query(AppUser).filter_by(id=user.id).first()
+        if not row:
+            return jsonify({"error": "user_not_found"}), 404
+        row.onboarding_json = json.dumps(payload, ensure_ascii=False)
+        row.onboarding_completed_at = datetime.utcnow()
+        post_plan = _create_onboarding_post_plan(db, user=row, project_id=int(project.id), payload=payload)
+        db.commit()
+        video_plan = _build_onboarding_video_plan(user_id=row.id, payload=payload)
+        return jsonify({
+            "ok": True,
+            "project_id": int(project.id),
+            "onboarding": _onboarding_state_payload(row),
+            "post_plan": {"days": 7, "items": post_plan},
+            "video_plan": video_plan,
+            "prefill": payload,
+            "message": "Your first 7-day plan is ready.",
+        })
+    finally:
+        db.close()
+
+
+@saas_api.route("/dashboard/product", methods=["GET"])
+@require_auth
+def dashboard_product():
+    user = _current_user_refetched()
+    db = SessionLocal()
+    try:
+        posts_q = db.query(Post).filter(Post.user_id == user.id, Post.status != "deleted")
+        recent_posts = posts_q.order_by(Post.created_at.desc()).limit(6).all()
+        upcoming_posts = posts_q.filter(Post.schedule_at.isnot(None)).order_by(Post.schedule_at.asc()).limit(12).all()
+        jobs = (
+            db.query(GenerationJob, Campaign)
+            .join(Campaign, GenerationJob.campaign_id == Campaign.id)
+            .filter(Campaign.user_id == user.id, GenerationJob.job_type == "generate_video")
+            .order_by(GenerationJob.created_at.desc())
+            .limit(6)
+            .all()
+        )
+        recent = []
+        for p in recent_posts:
+            recent.append({
+                "type": "post",
+                "id": int(p.id),
+                "title": p.topic or "Generated post",
+                "preview": (p.generated_text or "")[:220],
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+                "scheduled_at": p.schedule_at.isoformat() if p.schedule_at else None,
+            })
+        for job, campaign in jobs:
+            recent.append({
+                "type": "video",
+                "id": int(job.id),
+                "title": campaign.topic or "Generated video",
+                "preview": campaign.caption_master or campaign.objective or "Video job",
+                "status": job.status,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+            })
+        recent.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+        upcoming = [{
+            "type": "post",
+            "id": int(p.id),
+            "title": p.topic or "Scheduled post",
+            "status": p.status,
+            "scheduled_at": p.schedule_at.isoformat() if p.schedule_at else None,
+            "platform": p.platform,
+        } for p in upcoming_posts]
+        onboarding = _onboarding_state_payload(user)
+        demo_niche = (onboarding.get("data") or {}).get("niche") or "your niche"
+        return jsonify({
+            "onboarding": onboarding,
+            "recent_generated": recent[:8],
+            "upcoming": upcoming,
+            "demo_preview": not bool(recent),
+            "demo_cards": _demo_content_cards(demo_niche, (onboarding.get("data") or {}).get("language") or "ru"),
+            "billing": get_billing_summary(user),
+            "onboarding": _onboarding_state_payload(user),
+        })
+    finally:
+        db.close()
 
 @saas_api.route("/plans", methods=["GET"])
 def plans():
@@ -7645,8 +7897,8 @@ def billing_checkout_subscription():
     plan_name = normalize_plan_code((data.get("plan") or "").strip().lower())
     if plan_name not in {"starter", "growth", "agency"}:
         return jsonify({"error": "Выберите тариф starter, growth или agency"}), 400
-    if not get_plan_spec(plan_name).payment_available:
-        return jsonify({"error": "Оплата этого тарифа пока недоступна. Тариф появится в оплате позже."}), 409
+    if not get_plan_spec(plan_name).payment_available or not settings.STRIPE_SECRET_KEY:
+        return jsonify({"error": "Checkout is not configured for this plan yet."}), 409
 
     user = _current_user_refetched()
     try:

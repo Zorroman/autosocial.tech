@@ -127,7 +127,7 @@ def test_expired_trial_cannot_generate_or_publish(client):
     assert video_result["http_status"] == 402
 
 
-def test_starter_can_publish_and_limit_spent(client):
+def test_starter_autopublish_is_locked(client):
     data = _register(client, "starter-publish@test.local")
     from database import SessionLocal
     from saas_models import AppUser, UsageCounter
@@ -168,25 +168,9 @@ def test_starter_can_publish_and_limit_spent(client):
         ok = authorizeAction(user, ACTION_POST_PUBLISH, {})
     finally:
         db.close()
-    assert ok["allowed"] is True
-
-    db = SessionLocal()
-    try:
-        row = db.query(UsageCounter).filter_by(user_id=user_id).first()
-        row.posts_published = 150
-        row.updated_at = now
-        db.commit()
-    finally:
-        db.close()
-
-    db = SessionLocal()
-    try:
-        user = db.query(AppUser).filter_by(id=user_id).first()
-        blocked = authorizeAction(user, ACTION_POST_PUBLISH, {})
-    finally:
-        db.close()
-    assert blocked["allowed"] is False
-    assert blocked["error_payload"]["error"] == "PAYWALL_LIMIT"
+    assert ok["allowed"] is False
+    assert ok["error_payload"]["error"] == "PAYWALL_FEATURE"
+    assert ok["error_payload"]["required_plan"] == "growth"
 
 
 def test_growth_limits_config(client):

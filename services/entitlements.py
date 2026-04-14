@@ -1,4 +1,4 @@
-﻿import json
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -36,6 +36,8 @@ COUNTER_FIELDS = {
     "VIDEOS_PUBLISHED": "videos_published",
 }
 ACTION_LIMIT_FIELD = {
+    ACTION_POST_GENERATE: "posts_generated",
+    ACTION_VIDEO_GENERATE: "videos_generated",
     ACTION_POST_PUBLISH: "posts_published",
     ACTION_VIDEO_PUBLISH: "videos_published",
     ACTION_PROJECT_CREATE: "projects",

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
@@ -68,7 +68,7 @@ PLAN_SPECS: dict[str, PlanSpec] = {
         max_projects=1,
         max_posts_month=30,
         max_daily_posts=5,
-        max_videos_period=0,
+        max_videos_period=3,
         can_schedule=False,
         can_autopublish=False,
         templates_enabled=False,
@@ -104,7 +104,7 @@ PLAN_SPECS: dict[str, PlanSpec] = {
         youtube_connect=True,
         public=True,
         recommended=False,
-        payment_available=False,
+        payment_available=True,
         trial_days=0,
         target="Для малого бизнеса и соло-предпринимателя",
         team_features_label="Нет",
@@ -129,7 +129,7 @@ PLAN_SPECS: dict[str, PlanSpec] = {
         youtube_connect=True,
         public=True,
         recommended=True,
-        payment_available=False,
+        payment_available=True,
         trial_days=0,
         target="Для активного бизнеса и маркетолога",
         team_features_label="Базовая командная работа",
@@ -154,7 +154,7 @@ PLAN_SPECS: dict[str, PlanSpec] = {
         youtube_connect=True,
         public=True,
         recommended=False,
-        payment_available=False,
+        payment_available=True,
         trial_days=0,
         target="Для агентств и multi-client работы",
         team_features_label="Командные функции по запросу",

@@ -4364,3 +4364,97 @@ th { color: var(--text-muted); font-weight: 600; }
     font-size: 12px;
   }
 }
+
+/* SaaS conversion layer */
+.saas-meter-grid,
+.saas-demo-grid,
+.saas-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.saas-meter-card,
+.saas-demo-card,
+.saas-lock-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+}
+.saas-meter {
+  height: 9px;
+  margin: 12px 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--surface) 70%, #94a3b8 30%);
+}
+.saas-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e, #22c55e, #f59e0b);
+}
+.saas-meter-card.is-locked,
+.saas-lock-card {
+  position: relative;
+  overflow: hidden;
+}
+.saas-meter-card.is-locked::after,
+.saas-lock-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(15,23,42,.10));
+  backdrop-filter: blur(1.5px);
+}
+.saas-content-list {
+  display: grid;
+  gap: 10px;
+}
+.saas-onboarding-modal {
+  max-width: 720px;
+}
+.saas-onboarding-body {
+  margin: 18px 0;
+}
+.saas-choice-row,
+.saas-progress-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.saas-progress-copy {
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--surface) 86%, #22c55e 14%);
+}
+.saas-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.saas-bar-chart {
+  display: flex;
+  align-items: end;
+  gap: 7px;
+  height: 240px;
+  padding: 16px;
+  border-radius: 20px;
+  background: color-mix(in oklab, var(--surface) 82%, #0f766e 18%);
+}
+.saas-bar-chart span {
+  flex: 1;
+  min-width: 8px;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, #22c55e, #0f766e);
+}
+@media (max-width: 720px) {
+  .saas-onboarding-modal { max-width: calc(100vw - 24px); }
+  .saas-meter-grid { grid-template-columns: 1fr; }
+}

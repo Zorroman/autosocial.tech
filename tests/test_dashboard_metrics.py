@@ -74,6 +74,8 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     from saas_services import encrypt_meta_token
 
     user_id = client.get("/api/me", headers=headers).get_json()["id"]
+    from services.entitlements import sync_subscription_state
+    sync_subscription_state(user_id=user_id, plan="growth", status="active")
     db = SessionLocal()
     try:
         db.add(

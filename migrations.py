@@ -1,4 +1,4 @@
-﻿from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text
 
 from database import engine
 from saas_models import SaaSBase
@@ -12,6 +12,8 @@ APP_USER_ADDITIONAL_COLUMNS = {
     "stripe_customer_id": "VARCHAR(120)",
     "stripe_subscription_id": "VARCHAR(120)",
     "current_period_end": "DATETIME",
+    "onboarding_completed_at": "DATETIME",
+    "onboarding_json": "TEXT",
     "last_login": "DATETIME",
     "google_sub": "VARCHAR(255)",
     "facebook_user_id": "VARCHAR(255)",
