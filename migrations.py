@@ -215,6 +215,8 @@ def add_missing_columns(table_name: str, columns: dict) -> None:
         for column_name, ddl_type in columns.items():
             if column_name in existing:
                 continue
+            if engine.dialect.name == "postgresql" and ddl_type == "DATETIME":
+                ddl_type = "TIMESTAMP"
             conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl_type}"))
 
 

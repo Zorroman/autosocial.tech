@@ -2942,7 +2942,9 @@ function hasBrokenVisibleText(value) {
 const state = {
   token: localStorage.getItem('token') || '',
   theme: localStorage.getItem('theme') || 'light',
-  lang: normalizeLang(localStorage.getItem('lang') || localStorage.getItem('siteLang')) || detectBrowserLang(),
+  lang: normalizeLang(localStorage.getItem('lang') || localStorage.getItem('siteLang'))
+    || normalizeLang(document.documentElement.getAttribute('lang'))
+    || detectBrowserLang(),
   authMode: 'register',
   authChallenge: null,
   authProviders: null,
@@ -6826,8 +6828,8 @@ function pageLogin() {
         <h2>${formTitle}</h2>
         <p class="small mobile-microcopy">${authHint}</p>
         ${socialBlock}
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
-    ? '\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430'
+        ${codeStep ? '' : field('authEmail', t('field_email'), 'email', '', t('placeholder_email'))}
+        ${codeStep ? '' : field('authPassword', t('field_password'), 'password', '', t('placeholder_password'))}
         ${codeStep ? field('authCode', t('field_code'), 'text', '', t('placeholder_code')) : ''}
         ${codeStep ? '' : '<input id="authWebsite" type="text" autocomplete="off" tabindex="-1" style="position:absolute;left:-10000px;opacity:0;pointer-events:none;" />'}
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
