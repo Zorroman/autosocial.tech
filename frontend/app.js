@@ -2432,7 +2432,7 @@ Object.assign(APP_SHELL_I18N.ru, {
   create_director_refreshing: 'Обновляю…',
   create_director_empty_list: 'Пока пусто',
   create_director_image_section_title: 'Режим генерации',
-  create_director_image_video_lead: 'GPT генерирует обложку без текста под тему ролика.',
+  create_director_image_video_lead: 'Обложка подбирается из фотобанка Pexels по теме ролика; текст на изображение не добавляется.',
   create_director_image_post_lead: 'Управляется в расширенных настройках. Здесь можно только сгенерировать или обновить картинку.',
   create_director_generate_cover: 'Сгенерировать обложку',
   create_director_refresh_cover: 'Обновить обложку ({count}/3)',
@@ -6722,13 +6722,13 @@ function pageLogin() {
         <h1>Генерируйте посты и видео для соцсетей и запускайте автопостинг из одного сервиса.</h1>
         <p>AutoSocial.tech помогает малому бизнесу быстрее вести соцсети: подсказывает темы, собирает контент, формирует календарь и публикует в Meta и YouTube без ручной рутины.</p>
         <div class="cta-row">
-          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Попробовать 7 дней бесплатно</button>
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
           <a class="btn btn-secondary cta__button" href="#landingPricing">Посмотреть тарифы</a>
         </div>
         <div class="landing-2026-cta-proof">
           <span class="landing-2026-cta-pill">7 дней бесплатно</span>
           <span class="landing-2026-cta-pill">Без карты</span>
-          <span class="landing-2026-cta-pill">30 постов и 3 видео в trial</span>
+          <span class="landing-2026-cta-pill">30 постов и 3 видео бесплатно</span>
         </div>
       </div>
       <div class="landing-2026-hero-visual">
@@ -6785,9 +6785,9 @@ function pageLogin() {
       </div>
       <div class="landing-2026-pricing">
         ${pricing.map((p) => `<article class="landing-2026-card landing-2026-price ${p.key === 'growth' ? 'is-featured' : ''}">
-          ${p.key === 'growth' ? '<span class="landing-2026-popular">Recommended</span>' : ''}
+          ${p.key === 'growth' ? '<span class="landing-2026-popular">Рекомендуем</span>' : ''}
           <h3>${p.name}</h3>
-          <p class="landing-2026-price-value">${p.price}<span>/month</span></p>
+          <p class="landing-2026-price-value">${p.price}<span>/месяц</span></p>
           <p class="small">${p.desc}</p>
           <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
           <button class="btn ${p.key === 'growth' ? 'btn-primary' : 'btn-secondary'} connection-btn-sm" type="button" data-pricing-cta="${p.key}">${p.cta}</button>
@@ -6796,27 +6796,27 @@ function pageLogin() {
     </section>
 
     <section class="landing-2026-trust">
-      <span class="landing-2026-trust-pill">GDPR compliant</span>
-      <span class="landing-2026-trust-pill">Secure API</span>
-      <span class="landing-2026-trust-pill">Encrypted data</span>
-      <span class="landing-2026-trust-pill">Hosted in EU</span>
+      <span class="landing-2026-trust-pill">Соответствует GDPR</span>
+      <span class="landing-2026-trust-pill">Защищённое соединение</span>
+      <span class="landing-2026-trust-pill">Данные зашифрованы</span>
+      <span class="landing-2026-trust-pill">Серверы в ЕС</span>
     </section>
 
     <section class="landing-2026-final">
       <h2>Попробуйте AutoSocial.tech на своём контенте в течение 7 дней</h2>
-      <p>Free Trial показывает сценарий работы без риска: темы, генерация постов и видео, календарь и базовые лимиты без привязки карты.</p>
-      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Запустить Free Trial</button>
+      <p>Бесплатный период даёт 7 дней, чтобы создать первые посты и видео без привязки карты.</p>
+      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
       <div class="landing-2026-cta-proof" style="justify-content:center;">
         <span class="landing-2026-cta-pill">7 дней бесплатно</span>
         <span class="landing-2026-cta-pill">Без карты</span>
-        <span class="landing-2026-cta-pill">Отмена в любой момент</span>
+        <span class="landing-2026-cta-pill">Без автоматического списания</span>
       </div>
     </section>
 
     <section class="landing-2026-auth-wrap">
       <article class="landing-2026-auth-info landing-2026-card">
-        <h3>Создайте аккаунт за минуту</h3>
-        <p>Подтверждение по email, без карты на старте. После входа вы сразу попадете в мастер создания контента и сможете использовать 7-дневный trial с лимитом 30 постов, 3 видео и 1 проекта.</p>
+        <h3>Создайте аккаунт и подтвердите email</h3>
+        <p>После подтверждения мы активируем 7 бесплатных дней и проведём вас к первому посту. Включено 30 постов, 3 видео и 1 проект. Карта не нужна.</p>
         <div class="trust-row">
           <span class="trust-chip">SSL</span>
           <span class="trust-chip">GDPR</span>
@@ -6844,6 +6844,30 @@ function pageLogin() {
   </div>`;
 }
 
+function pageTrialActivated() {
+  const billing = state.billing || {};
+  const days = Math.max(1, Number(billing.trial_days_left || 7));
+  const posts = Number(billing?.limits?.posts_per_month || 30);
+  const videos = Number(billing?.limits?.videos_per_month || 3);
+  const projects = Number(billing?.limits?.projects || 1);
+  return `<div class="landing-2026 page">
+    <header class="landing-2026-topbar">
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
+    </header>
+    <main class="landing-2026-final" style="max-width:920px;margin:48px auto;">
+      <span class="landing-2026-chip">Бесплатный период активирован</span>
+      <h1>Ваши ${days} бесплатных дней начались</h1>
+      <p>Аккаунт готов. Сейчас выберем нишу и цель, а затем создадим ваш первый пост с подходящим изображением.</p>
+      <div class="landing-2026-grid-3" style="margin:24px 0;">
+        <article class="landing-2026-card"><h3>${posts} постов</h3><p>Тексты, призывы к действию и хештеги.</p></article>
+        <article class="landing-2026-card"><h3>${videos} видео</h3><p>Планы, структуры и доступный рендер.</p></article>
+        <article class="landing-2026-card"><h3>${projects} проект</h3><p>Одно рабочее пространство для бренда.</p></article>
+      </div>
+      <button id="trialCreateFirstPostBtn" class="btn btn-primary cta__button" type="button" data-link="/dashboard?onboarding=1">Создать первый пост</button>
+      <p class="small" style="margin-top:14px;">Карта не требуется. Автоматического списания не будет.</p>
+    </main>
+  </div>`;
+}
 function productUsageMeter(label, used, limit, locked = false) {
   const numericLimit = Number(limit || 0);
   const numericUsed = Number(used || 0);
@@ -6873,37 +6897,31 @@ function onboardingModalHtml() {
   if (localStorage.getItem(dismissedKey) === '1') return '';
   const w = ensureOnboardingDraft();
   const nicheOptions = localizedNicheOptions(DIRECTOR_NICHE_OPTIONS);
-  const step = Math.max(1, Math.min(4, Number(w.step || 1)));
-  const progress = Math.round((step / 4) * 100);
-  const platform = (key, label) => `<label class="saas-check"><input type="checkbox" data-onboard-platform="${esc(key)}" ${w.platforms?.[key] ? 'checked' : ''}/> ${esc(label)}</label>`;
+  const step = Math.max(1, Math.min(2, Number(w.step || 1)));
+  const progress = Math.round((step / 2) * 100);
   const body = step === 1
-    ? `${selectField('onboardNiche', 'Your niche', w.niche || DEFAULT_DIRECTOR_NICHE, nicheOptions)}<p class="small">This will prefill Post Studio and Video Planner.</p>`
-    : step === 2
-      ? `<div class="saas-choice-row"><button class="btn ${w.goal === 'sales' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="sales" type="button">Sales</button><button class="btn ${w.goal === 'engagement' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="engagement" type="button">Engagement</button><button class="btn ${w.goal === 'growth' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="growth" type="button">Growth</button></div>`
-      : step === 3
-        ? `<div class="saas-check-grid">${platform('instagram', 'Instagram')}${platform('facebook', 'Facebook')}${platform('youtube', 'YouTube')}</div>`
-        : `${selectField('onboardLanguage', 'Language', w.language || state.lang || 'ru', CONTENT_LANG_OPTIONS)}<p class="small">After this, AutoSocial prepares a 7-day post plan and a draft video plan.</p>`;
+    ? `${selectField('onboardNiche', 'Ваша ниша', w.niche || DEFAULT_DIRECTOR_NICHE, nicheOptions)}<p class="small">Это поможет подобрать темы и изображения под ваш бизнес.</p>`
+    : `<p class="small">Что должен сделать ваш первый пост?</p><div class="saas-choice-row"><button class="btn ${w.goal === 'sales' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="sales" type="button">Привлечь клиентов</button><button class="btn ${w.goal === 'engagement' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="engagement" type="button">Получить отклик</button><button class="btn ${w.goal === 'growth' ? 'btn-primary' : 'btn-ghost'}" data-onboard-goal="growth" type="button">Увеличить охват</button></div><p class="small">Остальные настройки уже выбраны. Их можно изменить позже.</p>`;
   const busy = w.status === 'submitting';
   return `<div class="dash-modal-backdrop saas-onboarding-backdrop" id="onboardingBackdrop">
     <div class="dash-modal glass-card saas-onboarding-modal">
       <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
-        <div><span class="pill">First setup</span><h2>Get your first content plan in minutes</h2><p class="small">Choose four basics. We will prepare the first weekly plan without rendering heavy videos.</p></div>
-        <button id="onboardingDismissBtn" class="btn btn-ghost" type="button">Later</button>
+        <div><span class="pill">Первый запуск</span><h2>Подготовим ваш первый пост</h2><p class="small">Два коротких шага. Публиковать или подключать соцсети сейчас не нужно.</p></div>
+        <button id="onboardingDismissBtn" class="btn btn-ghost" type="button">Пропустить пока</button>
       </div>
       <div class="saas-meter"><span style="width:${progress}%"></span></div>
       <div class="saas-onboarding-body">${body}</div>
       ${w.error ? `<div class="notice error">${esc(w.error)}</div>` : ''}
-      ${busy ? '<div class="saas-progress-copy"><strong>Preparing your strategy...</strong><span>Building your 7-day plan...</span><span>Your content is almost ready.</span></div>' : ''}
+      ${busy ? '<div class="saas-progress-copy"><strong>Сохраняем настройки...</strong><span>Готовим Post Studio...</span><span>Почти готово.</span></div>' : ''}
       <div class="cta-row">
-        <button id="onboardingPrevBtn" class="btn btn-ghost" type="button" ${step <= 1 || busy ? 'disabled' : ''}>Back</button>
-        ${step < 4
-          ? `<button id="onboardingNextBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>Next</button>`
-          : `<button id="onboardingStartBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>${busy ? 'Preparing...' : 'Create my first 7-day plan'}</button>`}
+        <button id="onboardingPrevBtn" class="btn btn-ghost" type="button" ${step <= 1 || busy ? 'disabled' : ''}>Назад</button>
+        ${step < 2
+          ? `<button id="onboardingNextBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>Далее</button>`
+          : `<button id="onboardingStartBtn" class="btn btn-primary" type="button" ${busy ? 'disabled' : ''}>${busy ? 'Сохраняем...' : 'Перейти к созданию'}</button>`}
       </div>
     </div>
   </div>`;
 }
-
 function paywallLockCard(title, text, action = 'Upgrade') {
   return `<article class="saas-lock-card glass-card"><div class="saas-lock-blur"><strong>${esc(title)}</strong><p>${esc(text)}</p></div><button class="btn btn-primary" type="button" data-link="/billing">${esc(action)}</button></article>`;
 }
@@ -6963,6 +6981,29 @@ function pageDashboard() {
     || points.some((p) => Number(p?.reach || 0) > 0 || Number(p?.views || 0) > 0 || Number(p?.engagement_rate || 0) > 0)
     || ['facebook', 'instagram', 'youtube'].some((key) => Number(byPlatform?.[key]?.items || 0) > 0 || Number(byPlatform?.[key]?.reach || 0) > 0 || Number(byPlatform?.[key]?.views || 0) > 0);
   const shouldShowAnalyticsEmptyState = !stats.loading && !hasAnalyticsData;
+  const isFirstUserDashboard = !hasGeneratedContent && !hasAnalyticsData;
+  if (isFirstUserDashboard) {
+    const trialDays = Math.max(0, Number(billing.trial_days_left || 0));
+    return appLayout('/dashboard', shellText('page_dashboard'), `
+      <section class="dash-client-shell dash-v2-shell">
+        <header class="dash-card dash-hero glass-card">
+          <div class="dash-hero-copy">
+            <div class="dash-hero-topline">Первый шаг</div>
+            <h1 class="dash-sales-title">Создайте первый пост</h1>
+            <p class="dash-sales-subtitle">Выберите нишу и цель. AutoSocial подготовит текст, CTA, хештеги и подходящее изображение. Подключать соцсети можно позже.</p>
+            <div class="cta-row" style="margin-top:18px;">
+              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первый пост</button>
+            </div>
+          </div>
+          <div class="dash-hero-kpis">
+            <article class="dash-kpi-card glass-card"><p>Бесплатный период</p><strong>${trialDays} дней</strong><small>Карта не требуется</small></article>
+            <article class="dash-kpi-card glass-card"><p>Следующий результат</p><strong>Пост + изображение</strong><small>Обычно занимает несколько минут</small></article>
+          </div>
+        </header>
+      </section>
+      ${onboardingModalHtml()}
+    `);
+  }
 
   const resolveSeries = () => {
     if (chartMetric === 'ai_score') {
@@ -9117,6 +9158,7 @@ function pageCreateDirector() {
   const locale = uiLocale();
   const d = state.createDirector || {};
   const studioRoute = getCreateStudioRoute();
+  const isFirstRun = new URLSearchParams(location.search).get('first') === '1';
   const forcedContentType = studioRoute?.mode === 'video' ? 'video' : 'post';
   const generationMode = String(d.generationMode || 'manual').trim() === 'plan' ? 'plan' : 'manual';
   if (!d._contentTypeBootstrapped) {
@@ -9448,8 +9490,9 @@ function pageCreateDirector() {
             </article>`}
       </details>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
-        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>${loading ? esc(shellText('create_director_generate')) : directorIdeasButtonLabel(d, loading)}</button>
-        ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${esc(d.videoRenderLoading ? shellText('create_director_rendering_video') : shellText('create_director_render_video'))}</button>` : ''}
+        ${isVideo ? '<p class="small">Сначала создайте план и проверьте сцены. Рендер запускается отдельно и только по вашей команде.</p>' : ''}
+        <button id="cdGenerateSelected" class="btn btn-primary" type="button" ${(loading || !String(baseTopic || '').trim()) ? 'disabled' : ''}>${esc(isVideo ? (loading ? 'Создаём план...' : 'Создать план видео') : (loading ? shellText('create_director_generate') : directorIdeasButtonLabel(d, loading)))}</button>
+        ${isVideo ? `<button id="cdRenderVideo" class="btn btn-secondary" type="button" ${(loading || d.videoRenderLoading || !d.videoStructure) ? 'disabled' : ''}>${esc(d.videoRenderLoading ? shellText('create_director_rendering_video') : 'Запустить рендер')}</button>` : ''}
       </div>
             <p class="small muted" style="margin-top:8px;">\u0420\u0430\u0431\u043e\u0447\u0435\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e \u2014 \u043e\u0431\u044b\u0447\u043d\u043e \u043e\u0434\u0438\u043d \u0431\u0440\u0435\u043d\u0434 \u0438\u043b\u0438 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u0435\u043d\u0442.</p>
       ${isVideo ? `<div class="create-step-label">${esc(shellText('create_director_video'))}</div>` : ''}
@@ -9506,7 +9549,7 @@ function pageCreateDirector() {
       <article class="card" style="margin-top:10px;padding:10px;">
         ${isVideo
           ? `<div class="small" style="margin-bottom:8px;font-weight:700;">\u0420\u0435\u0436\u0438\u043c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u0438</div>
-             <p class="small" style="margin:6px 0 8px 0;">GPT генерирует обложку без текста под тему ролика.</p>
+             <p class="small" style="margin:6px 0 8px 0;">Обложка подбирается из фотобанка Pexels по теме ролика; текст на изображение не добавляется.</p>
              <div class="row" style="gap:8px;flex-wrap:wrap;">
                <button id="cdGenerateImage" type="button" class="btn btn-secondary" ${(loading || d.imageLoading) ? 'disabled' : ''}>${d.imageLoading ? esc(shellText('common_generate')) : esc(shellText('create_director_generate_cover'))}</button>
                <button id="cdRefreshImage" type="button" class="btn btn-ghost" ${(loading || d.imageLoading || (Number(d.imageRefreshCount || 0) >= 3)) ? 'disabled' : ''}>${esc(shellTextFmt('create_director_refresh_cover', { count: Math.min(Number(d.imageRefreshCount || 0), 3) }))}</button>
@@ -9877,14 +9920,14 @@ function pageCreateDirector() {
   if (isPostStudioFlow) {
     const postStudioProgressSteps = ['create_plan_progress_1', 'create_plan_progress_2', 'create_plan_progress_3', 'create_plan_progress_4', 'create_plan_progress_5'].map((key) => shellText(key));
     const postStudioCurrentProgressIdx = Math.max(0, Math.min(postStudioProgressSteps.length, Number(d.planFlowProgressStep || 0)));
-    const postStudioPlanDays = Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7;
+    const postStudioPlanDays = isFirstRun ? 7 : (Math.max(7, Math.min(30, Number(d.postStudioPlanDays || 7) || 7)) === 30 ? 30 : 7);
     const postStudioPendingAction = String(d.postStudioPendingAction || '').trim();
     const postStudioGeneratePending = postStudioPendingAction === 'generate';
     const postStudioHydrating = postStudioGeneratePending && postStudioGenerated;
     const postStudioPreviewActionPending = postStudioPendingAction === 'publish' || postStudioPendingAction === 'schedule' || postStudioHydrating;
     const postStudioPrimaryCta = postStudioGeneratePending
-      ? (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7'))
-      : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
+      ? 'Готовим первый пост...'
+      : (isFirstRun ? 'Создать первый пост с изображением' : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7')));
     const postStudioResultTitleKey = postStudioItems.length >= 30 ? 'create_planner_post30' : 'create_planner_post7';
     const postStudioGenerateFeedbackType = String(d.postStudioGenerateFeedbackType || '').trim();
     const postStudioGenerateFeedbackText = String(d.postStudioGenerateFeedbackText || '').trim();
@@ -9915,8 +9958,8 @@ function pageCreateDirector() {
     const postStudioHeroCard = `
       <article class="card glass-card create-director-card plan-flow-hero-card">
         <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
-        <h1 class="plan-flow-hero-title">${esc(shellText('create_post_studio_page_title'))}</h1>
-        <p class="plan-flow-hero-subtitle">${esc(shellText('create_post_studio_page_subtitle'))}</p>
+        <h1 class="plan-flow-hero-title">${esc(isFirstRun ? 'Создайте первый пост' : shellText('create_post_studio_page_title'))}</h1>
+        <p class="plan-flow-hero-subtitle">${esc(isFirstRun ? 'Выберите нишу и цель. Текст, CTA, хештеги и изображение подготовятся автоматически.' : shellText('create_post_studio_page_subtitle'))}</p>
         <div class="post-studio-benefits">
           <div class="small"><strong>${esc(shellText('create_post_studio_benefits_title'))}</strong></div>
           <ul class="post-studio-benefits-list">
@@ -9931,22 +9974,22 @@ function pageCreateDirector() {
     const postStudioSettingsCard = `
       <article class="card glass-card create-director-card plan-flow-settings-card">
         <div class="create-step-label">${esc(shellText('create_post_studio_settings_title'))}</div>
-        <div class="field">
+        ${isFirstRun ? '' : `<div class="field">
           <label>${esc(shellText('create_post_studio_length_label'))}</label>
           <div class="create-segmented-control post-studio-plan-toggle">
             <button id="cdPostStudioDays7" type="button" class="pill pill-btn ${postStudioPlanDays === 7 ? 'active' : ''}" ${postStudioGeneratePending ? 'disabled' : ''}>${esc(shellText('create_post_studio_length_7'))}</button>
             <button id="cdPostStudioDays30" type="button" class="pill pill-btn ${postStudioPlanDays === 30 ? 'active' : ''}" ${postStudioGeneratePending ? 'disabled' : ''}>${esc(shellText('create_post_studio_length_30'))}</button>
           </div>
-        </div>
+        </div>`}
         <div class="grid-2">
           ${selectField('cdTopicPreset', shellText('planner_niche'), d.topicPreset || DEFAULT_DIRECTOR_NICHE, DIRECTOR_NICHE_OPTIONS)}
           ${selectField('cdGoal', shellText('common_goal') || 'Цель', d.goal || 'engagement', [{ value: 'awareness', label: shellText('common_goal_awareness') }, { value: 'engagement', label: shellText('common_goal_engagement') }, { value: 'lead', label: shellText('common_goal_sales') }, { value: 'sales', label: shellText('common_goal_sales') }])}
-          ${selectField('cdLang', shellText('planner_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
-          ${field('cdOffer', shellText('create_director_offer'), 'text', d.offer || '', shellText('create_director_offer_placeholder'))}
+          ${isFirstRun ? '' : selectField('cdLang', shellText('planner_language'), d.language || 'ru', CONTENT_LANG_OPTIONS)}
+          ${isFirstRun ? '' : field('cdOffer', shellText('create_director_offer'), 'text', d.offer || '', shellText('create_director_offer_placeholder'))}
         </div>
-        <label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> ${esc(shellText('create_director_custom_niche'))}</label>
-        ${d.customTopicMode ? field('cdTopic', shellText('create_director_custom_niche'), 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : ''}
-        <details class="create-pro-accordion" style="margin-top:12px;">
+        ${isFirstRun ? '' : `<label class="create-toggle" style="margin-top:10px;"><input id="cdTopicCustomEnabled" type="checkbox" ${d.customTopicMode ? 'checked' : ''}/> ${esc(shellText('create_director_custom_niche'))}</label>`}
+        ${isFirstRun ? '' : (d.customTopicMode ? field('cdTopic', shellText('create_director_custom_niche'), 'text', d.customBaseTopicInput || '', 'Например: продвижение студии массажа в Берлине') : '')}
+        <details class="create-pro-accordion" style="margin-top:12px;" ${isFirstRun ? 'hidden' : ''}>
           <summary>${esc(shellText('create_director_advanced'))}</summary>
           <div class="grid-2" style="margin-top:12px;">
             ${field('cdAudience', shellText('planner_topic_focus'), 'text', d.audienceSegment || '', 'Например: владельцы малого бизнеса')}
@@ -9987,16 +10030,16 @@ function pageCreateDirector() {
       <article class="card glass-card create-director-card plan-flow-results-card">
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div>
-            <div class="create-step-label">${esc(shellText('create_post_studio_days_title'))}</div>
-            <h3 style="margin:0 0 8px 0;">${esc(shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText(postStudioResultTitleKey) }) : shellText(postStudioResultTitleKey))}</h3>
-            <p class="small" style="margin:0;">${esc(shellText('create_post_studio_plan_ready'))}</p>
+            <div class="create-step-label">${esc(isFirstRun ? 'Готово' : shellText('create_post_studio_days_title'))}</div>
+            <h3 style="margin:0 0 8px 0;">${esc(isFirstRun ? 'Ваш первый пост готов' : (shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText(postStudioResultTitleKey) }) : shellText(postStudioResultTitleKey)))}</h3>
+            <p class="small" style="margin:0;">${esc(isFirstRun ? 'Текст, CTA, хештеги и изображение подготовлены. Проверьте результат справа.' : shellText('create_post_studio_plan_ready'))}</p>
           </div>
           <div class="cta-row">
-            <span class="pill active">${esc(shellText('create_post_studio_auto_time'))}</span>
+            ${isFirstRun ? '' : `<span class="pill active">${esc(shellText('create_post_studio_auto_time'))}</span>`}
           </div>
         </div>
         <div class="post-studio-day-list">
-          ${postStudioItems.map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-image="${esc(encodeURIComponent(String(item.media_url || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
+          ${postStudioItems.slice(0, isFirstRun ? 1 : postStudioItems.length).map((item) => `<button type="button" class="plan-flow-day-card ${Number(item.day || 0) === Number(d.planFlowSelectedDay || 1) ? 'is-selected' : ''}" data-cd-poststudio-day="${Number(item.day || 0)}" data-cd-poststudio-topic="${esc(encodeURIComponent(String(item.topic || '')))}" data-cd-poststudio-format="${esc(encodeURIComponent(String(item.format_hint || item.contentFormat || 'post')))}" data-cd-poststudio-text="${esc(encodeURIComponent(String(item.post_text || item.caption_text || item.caption || item.angle || '')))}" data-cd-poststudio-cta="${esc(encodeURIComponent(String(item.cta || '')))}" data-cd-poststudio-tags="${esc(encodeURIComponent(String(item.hashtags || '')))}" data-cd-poststudio-image="${esc(encodeURIComponent(String(item.media_url || '')))}" data-cd-poststudio-scheduled="${esc(encodeURIComponent(String(item.scheduled_at || '')))}">
             <div class="small">${esc(shellText('create_post_studio_day'))} ${Number(item.day || 0)}</div>
             <strong>${esc(item.topic || '—')}</strong>
             <p class="small truncate" style="margin:0;">${esc(postStudioCardSublines.get(Number(item.day || 0)) || derivePostStudioCardSubline(item))}</p>
@@ -10016,8 +10059,9 @@ function pageCreateDirector() {
               <div id="cdPostStudioPreviewImageWrap" style="${String(selectedPostStudioItem.media_url || '').trim() ? 'display:block;' : 'display:none;'}margin:0 0 12px 0;">
                 <img id="cdPostStudioPreviewImage" src="${esc(String(selectedPostStudioItem.media_url || '').trim())}" alt="${esc(selectedPostStudioItem.topic || 'Post image')}" style="width:100%;max-height:240px;object-fit:cover;border-radius:16px;display:block;" />
               </div>
-              <label class="create-toggle" style="margin-bottom:10px;"><input id="cdPostStudioManualTimeToggle" type="checkbox" ${d.postStudioManualTimeEnabled ? 'checked' : ''}/> ${esc(shellText('create_post_studio_manual_time_toggle'))}</label>
-              <div id="cdPostStudioManualTimeFields" style="display:block;opacity:${d.postStudioManualTimeEnabled ? '1' : '0.56'};">
+              ${String(selectedPostStudioItem.media_url || '').trim() ? '<p class="small" style="margin:0 0 10px 0;">Изображение подобрано из фотобанка Pexels по теме поста. Проверьте, что оно подходит вашему бренду.</p>' : ''}
+              <label class="create-toggle" style="margin-bottom:10px;" ${isFirstRun ? 'hidden' : ''}><input id="cdPostStudioManualTimeToggle" type="checkbox" ${d.postStudioManualTimeEnabled ? 'checked' : ''}/> ${esc(shellText('create_post_studio_manual_time_toggle'))}</label>
+              <div id="cdPostStudioManualTimeFields" ${isFirstRun ? 'hidden' : ''} style="display:block;opacity:${d.postStudioManualTimeEnabled ? '1' : '0.56'};">
                 <div class="field">
                   <label for="cdPostStudioGlobalTime">${esc(shellText('create_post_studio_manual_time_global'))}</label>
                   <input id="cdPostStudioGlobalTime" type="time" value="${esc(String(d.postStudioManualTimeValue || '12:00'))}" ${d.postStudioManualTimeEnabled ? '' : 'disabled'} />
@@ -10032,7 +10076,7 @@ function pageCreateDirector() {
                 <p class="small" style="margin:0 0 6px 0;"><strong>CTA:</strong> <span id="cdPostStudioPreviewCtaText">${esc(selectedPostStudioItem.cta || '—')}</span></p>
                 <div id="cdPostStudioPreviewTags" class="create-preview-tags">${String(selectedPostStudioItem.hashtags || '').split(/\s+/).filter(Boolean).slice(0, 10).map((tag) => `<span class="pill">${esc(tag)}</span>`).join('') || `<span class="small">—</span>`}</div>
               </div>
-              <div id="cdPostStudioPlatformTargets" class="post-studio-platforms">
+              <div id="cdPostStudioPlatformTargets" class="post-studio-platforms" ${isFirstRun ? 'hidden' : ''}>
                 <div class="small post-studio-platforms-label">${esc(shellText('create_post_studio_publish_targets_label'))}</div>
                 <div class="post-studio-platforms-options">
                   <label class="post-studio-platform-chip ${d.platforms?.facebook ? 'is-active' : ''}">
@@ -10047,11 +10091,12 @@ function pageCreateDirector() {
                 <p id="cdPostStudioPlatformTargetsHint" class="small post-studio-platforms-hint">${esc(postStudioPublishTargetsHint)}</p>
               </div>
               ${postStudioActionFeedback}
-              <div id="cdPostStudioActions" class="cta-row post-studio-action-row" style="margin-top:12px;justify-content:flex-end;">
+              <div id="cdPostStudioActions" class="cta-row post-studio-action-row" ${isFirstRun ? 'hidden' : ''} style="margin-top:12px;justify-content:flex-end;">
                 <button id="cdPostStudioPublishNow" type="button" class="btn btn-secondary" ${postStudioActionsDisabled ? 'disabled' : ''}>${esc(postStudioPendingAction === 'publish' ? shellText('create_post_studio_publish_pending_button') : shellText('create_post_studio_publish_now'))}</button>
                 <button id="cdPostStudioSchedule" type="button" class="btn btn-primary" ${postStudioActionsDisabled ? 'disabled' : ''}>${esc(postStudioPendingAction === 'schedule' ? shellText('create_post_studio_schedule_pending_button') : shellText('create_post_studio_schedule'))}</button>
                 <button id="cdPostStudioGenerate30" type="button" class="btn btn-ghost">${esc(shellText('create_post_studio_generate_30'))}</button>
               </div>
+              ${isFirstRun ? `<div class="notice ok" style="margin-top:12px;">Первый пост и изображение готовы. Вы сможете вернуться к ним из истории.</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button type="button" class="btn btn-primary" data-link="/dashboard">Перейти в панель</button></div>` : ''}
             `
             : `
               <h3 style="margin-top:0;">${esc(shellText('create_post_studio_preview_title'))}</h3>
@@ -10738,7 +10783,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -15800,7 +15845,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
         state.authChallenge = null;
         await loadBase();
         state.notice = { type: 'ok', text: challenge.flow === 'register' ? 'Регистрация успешно завершена.' : 'Вход выполнен успешно.' };
-        nav('/connections', { keepNotice: true });
+        nav(challenge.flow === 'register' ? '/trial-activated' : '/dashboard', { keepNotice: true });
       } catch (e) {
         const raw = String(e.message || 'Ошибка авторизации');
         state.notice = { type: 'error', text: raw || 'Неверный код или код просрочен.' };
@@ -16288,7 +16333,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
     const prevBtn = document.getElementById('onboardingPrevBtn');
     if (prevBtn) prevBtn.onclick = () => { syncFields(); w.step = Math.max(1, Number(w.step || 1) - 1); render(); };
     const nextBtn = document.getElementById('onboardingNextBtn');
-    if (nextBtn) nextBtn.onclick = () => { syncFields(); w.step = Math.min(4, Number(w.step || 1) + 1); render(); };
+    if (nextBtn) nextBtn.onclick = () => { syncFields(); w.step = Math.min(2, Number(w.step || 1) + 1); render(); };
     document.querySelectorAll('[data-onboard-goal]').forEach((btn) => {
       btn.onclick = () => { w.goal = String(btn.getAttribute('data-onboard-goal') || 'growth'); render(); };
     });
@@ -16308,7 +16353,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
           platforms: w.platforms || { instagram: true },
           language: w.language || state.lang || 'ru',
         };
-        const result = await api('/api/onboarding/start', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 20000 });
+        const result = await api('/api/onboarding/complete', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 20000 });
         w.status = 'ready';
         w.result = result;
         state.onboarding = result.onboarding;
@@ -16324,11 +16369,11 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
           videoWeekItems: Array.isArray(result.video_plan?.items) ? result.video_plan.items : state.createDirector.videoWeekItems,
         };
         localStorage.setItem(dismissKey, '1');
-        state.notice = { type: 'ok', text: 'Your first 7-day post plan and draft video plan are ready.' };
-        render();
+        state.notice = { type: 'ok', text: 'Настройки готовы. Создайте первый пост с изображением.' };
+        nav('/create/post?first=1', { keepNotice: true });
       } catch (e) {
         ensureOnboardingDraft().status = 'idle';
-        ensureOnboardingDraft().error = e.message || 'Could not prepare onboarding plan.';
+        ensureOnboardingDraft().error = e.message || 'Не удалось подготовить первый пост. Попробуйте ещё раз.';
         render();
       }
     };
