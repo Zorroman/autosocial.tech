@@ -46,6 +46,58 @@ def test_free_trial_cta_routes_to_registration_without_stripe_checkout():
     assert "checkout" not in free_branch.lower()
 
 
+def test_registration_routes_through_trial_activation_and_russian_onboarding():
+    route_map = _section(APP_JS, "function page(path)", "async function loadDashboardMetrics")
+    auth_handler = _section(APP_JS, "const authSubmitBtn", "const authResendBtn")
+    trial_page = _section(APP_JS, "function pageTrialActivated()", "function productUsageMeter")
+    onboarding = _section(APP_JS, "function onboardingModalHtml()", "function paywallLockCard")
+    onboarding_handler = _section(APP_JS, "const bindOnboardingModal", "bindOnboardingModal();")
+
+    assert "'/trial-activated': pageTrialActivated" in route_map
+    assert "challenge.flow === 'register' ? '/trial-activated' : '/dashboard'" in auth_handler
+    assert "Бесплатный период активирован" in trial_page
+    assert "Ваши ${days} бесплатных дней" in trial_page
+    assert 'data-link="/dashboard?onboarding=1"' in trial_page
+    assert "Создать первый пост" in trial_page
+
+    assert "Math.min(2" in onboarding
+    assert "Ваша ниша" in onboarding
+    assert "Что должен сделать ваш первый пост?" in onboarding
+    assert "Перейти к созданию" in onboarding
+    for forbidden in (
+        "First setup",
+        "Get your first content plan",
+        ">Later<",
+        ">Next<",
+        ">Back<",
+        "Create my first 7-day plan",
+        "Preparing your strategy",
+    ):
+        assert forbidden not in onboarding
+    assert "api('/api/onboarding/complete'" in onboarding_handler
+    assert "api('/api/onboarding/start'" not in onboarding_handler
+    assert "nav('/create/post?first=1'" in onboarding_handler
+
+
+def test_first_user_dashboard_and_studio_prioritize_first_post_and_image():
+    dashboard = _section(APP_JS, "function pageDashboard()", "function pageConnections()")
+    studio = _section(APP_JS, "function pageCreateDirector()", "function pageCreatePlanner")
+
+    assert "const isFirstUserDashboard = !hasGeneratedContent && !hasAnalyticsData" in dashboard
+    assert 'data-link="/create/post?first=1"' in dashboard
+    assert "Создайте первый пост" in dashboard
+    assert "Подключать соцсети можно позже" in dashboard
+
+    assert "const isFirstRun" in studio
+    assert "Создать первый пост с изображением" in studio
+    assert "Ваш первый пост готов" in studio
+    assert 'data-link="/dashboard"' in studio
+    assert "Изображение подобрано из фотобанка Pexels" in studio
+    assert "GPT генерирует обложку" not in APP_JS
+    assert "Создать план видео" in studio
+    assert "Запустить рендер" in studio
+    assert "Рендер запускается отдельно" in studio
+
 def test_postgres_migration_keeps_datetime_compatibility_hotfix():
     assert 'engine.dialect.name == "postgresql" and ddl_type == "DATETIME"' in MIGRATIONS
     assert 'ddl_type = "TIMESTAMP"' in MIGRATIONS
