@@ -17,19 +17,70 @@ if settings.STRIPE_SECRET_KEY:
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-PLAN_TO_PRICE = {
-    "starter": getattr(settings, "STRIPE_PRICE_STARTER", ""),
-    "growth": getattr(settings, "STRIPE_PRICE_GROWTH", ""),
-    "agency": getattr(settings, "STRIPE_PRICE_AGENCY_V2", "") or getattr(settings, "STRIPE_PRICE_AGENCY", ""),
+PLAN_PRICE_ENV = {
+    "starter": "STRIPE_PRICE_STARTER",
+    "growth": "STRIPE_PRICE_GROWTH",
+    "agency": "STRIPE_PRICE_AGENCY_V2",
 }
 
-PACK_TO_PRICE = {
-    "pack_s": settings.STRIPE_PACK_S_PRICE,
-    "pack_m": settings.STRIPE_PACK_M_PRICE,
-    "pack_l": settings.STRIPE_PACK_L_PRICE,
+PACK_PRICE_ENV = {
+    "pack_s": "STRIPE_PACK_S_PRICE",
+    "pack_m": "STRIPE_PACK_M_PRICE",
+    "pack_l": "STRIPE_PACK_L_PRICE",
 }
 
 PLAN_NAME_RE = re.compile(r"^autosocial_([a-z_]+)_eur_month_v(\d+)$")
+
+
+class CheckoutNotConfiguredError(RuntimeError):
+    def __init__(self, item_field: str, item_id: str, required_env: str):
+        self.item_field = item_field
+        self.item_id = item_id
+        self.required_env = required_env
+        super().__init__(f"Stripe checkout is not configured. Set {required_env}.")
+
+    def to_payload(self) -> dict:
+        return {
+            "error": "checkout_not_configured",
+            self.item_field: self.item_id,
+            "required_env": self.required_env,
+            "message": str(self),
+        }
+
+
+def configured_subscription_price_id(plan_name: str) -> str:
+    env_name = PLAN_PRICE_ENV.get(normalize_plan_code(plan_name), "")
+    return str(getattr(settings, env_name, "") or "").strip() if env_name else ""
+
+
+def subscription_payment_available(plan_name: str) -> bool:
+    spec = get_plan_spec(plan_name)
+    return bool(spec.payment_available and settings.STRIPE_SECRET_KEY and configured_subscription_price_id(spec.code))
+
+
+def _require_subscription_price_id(plan_name: str) -> str:
+    normalized_plan = normalize_plan_code(plan_name)
+    env_name = PLAN_PRICE_ENV.get(normalized_plan, "")
+    if not env_name:
+        raise CheckoutNotConfiguredError("plan_id", normalized_plan, "STRIPE_PRICE_ID")
+    price_id = configured_subscription_price_id(normalized_plan)
+    if not price_id:
+        raise CheckoutNotConfiguredError("plan_id", normalized_plan, env_name)
+    if not settings.STRIPE_SECRET_KEY:
+        raise CheckoutNotConfiguredError("plan_id", normalized_plan, "STRIPE_SECRET_KEY")
+    return price_id
+
+
+def _require_pack_price_id(pack_code: str) -> str:
+    env_name = PACK_PRICE_ENV.get(pack_code, "")
+    if not env_name:
+        raise CheckoutNotConfiguredError("pack_id", pack_code, "STRIPE_PACK_PRICE_ID")
+    price_id = str(getattr(settings, env_name, "") or "").strip()
+    if not price_id:
+        raise CheckoutNotConfiguredError("pack_id", pack_code, env_name)
+    if not settings.STRIPE_SECRET_KEY:
+        raise CheckoutNotConfiguredError("pack_id", pack_code, "STRIPE_SECRET_KEY")
+    return price_id
 
 
 def _frontend_url() -> str:
@@ -79,92 +130,12 @@ def ensure_customer(user: AppUser) -> str:
         db.close()
 
 
-def _plan_price_eur(plan_name: str) -> float:
-    db = SessionLocal()
-    try:
-        plan = db.query(Plan).filter_by(name=plan_name).first()
-        if not plan:
-            raise RuntimeError(f"Unknown plan: {plan_name}")
-        return float(plan.price_eur_month or 0)
-    finally:
-        db.close()
-
-
-def _resolve_or_create_subscription_price_id(plan_name: str, prefer_env: bool = True) -> str:
-    normalized_plan = normalize_plan_code(plan_name)
-    if prefer_env:
-        configured = PLAN_TO_PRICE.get(normalized_plan)
-        if configured:
-            return configured
-    if not settings.STRIPE_SECRET_KEY:
-        raise RuntimeError("Stripe is not configured")
-
-    spec = get_plan_spec(normalized_plan)
-    lookup_key = spec.stripe_lookup_key
-    try:
-        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
-        data = (listed or {}).get("data", [])
-        if data:
-            return data[0]["id"]
-    except Exception:
-        pass
-
-    amount_eur = _plan_price_eur(normalized_plan)
-    if amount_eur <= 0:
-        raise RuntimeError("Selected plan has non-positive price")
-    price = stripe.Price.create(
-        currency="eur",
-        unit_amount=int(round(amount_eur * 100)),
-        recurring={"interval": "month"},
-        nickname=f"AutoSocial {normalized_plan.title()} Monthly",
-        lookup_key=lookup_key,
-        transfer_lookup_key=True,
-        product_data={"name": f"AutoSocial {normalized_plan.title()}"},
-        metadata={"plan_name": normalized_plan},
-    )
-    return price.id
-
-
-def _resolve_or_create_pack_price_id(pack_code: str, prefer_env: bool = True) -> str:
-    if prefer_env:
-        configured = PACK_TO_PRICE.get(pack_code)
-        if configured:
-            return configured
-    if not settings.STRIPE_SECRET_KEY:
-        raise RuntimeError("Stripe is not configured")
-    cfg = CREDIT_PACKS.get(pack_code)
-    if not cfg:
-        raise RuntimeError("Unknown credit pack")
-
-    lookup_key = f"autosocial_{pack_code}_eur_once_v1"
-    try:
-        listed = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
-        data = (listed or {}).get("data", [])
-        if data:
-            return data[0]["id"]
-    except Exception:
-        pass
-
-    amount_eur = float(cfg.get("price_eur") or 0)
-    if amount_eur <= 0:
-        raise RuntimeError("Selected credit pack has non-positive price")
-    price = stripe.Price.create(
-        currency="eur",
-        unit_amount=int(round(amount_eur * 100)),
-        nickname=f"AutoSocial {pack_code.upper()} Top-up",
-        lookup_key=lookup_key,
-        transfer_lookup_key=True,
-        product_data={"name": f"AutoSocial Credits {pack_code.upper()}"},
-        metadata={"pack_code": pack_code},
-    )
-    return price.id
-
-
 def _plan_name_from_price_id(price_id: Optional[str]) -> Optional[str]:
     if not price_id:
         return None
 
-    for name, pid in PLAN_TO_PRICE.items():
+    for name in PLAN_PRICE_ENV:
+        pid = configured_subscription_price_id(name)
         if pid and pid == price_id:
             return normalize_plan_code(name)
 
@@ -199,62 +170,33 @@ def create_subscription_checkout(user: AppUser, plan_name: str) -> str:
     if spec.price_eur_month <= 0:
         raise RuntimeError("Selected plan has non-positive price")
 
-    price_id = _resolve_or_create_subscription_price_id(normalized_plan, prefer_env=True)
+    price_id = _require_subscription_price_id(normalized_plan)
     customer_id = ensure_customer(user)
-    try:
-        session = stripe.checkout.Session.create(
-            mode="subscription",
-            customer=customer_id,
-            payment_method_types=["card"],
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=_success_url(),
-            cancel_url=_cancel_url(),
-            metadata={"user_id": str(user.id), "plan_name": normalized_plan},
-            subscription_data={"metadata": {"user_id": str(user.id), "plan_name": normalized_plan}},
-        )
-    except stripe.error.InvalidRequestError as exc:
-        if "No such price" not in str(exc):
-            raise
-        fallback_price = _resolve_or_create_subscription_price_id(normalized_plan, prefer_env=False)
-        session = stripe.checkout.Session.create(
-            mode="subscription",
-            customer=customer_id,
-            payment_method_types=["card"],
-            line_items=[{"price": fallback_price, "quantity": 1}],
-            success_url=_success_url(),
-            cancel_url=_cancel_url(),
-            metadata={"user_id": str(user.id), "plan_name": normalized_plan},
-            subscription_data={"metadata": {"user_id": str(user.id), "plan_name": normalized_plan}},
-        )
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        customer=customer_id,
+        payment_method_types=["card"],
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=_success_url(),
+        cancel_url=_cancel_url(),
+        metadata={"user_id": str(user.id), "plan_name": normalized_plan},
+        subscription_data={"metadata": {"user_id": str(user.id), "plan_name": normalized_plan}},
+    )
     return session.url
 
 
 def create_credit_pack_checkout(user: AppUser, pack_code: str) -> str:
-    price_id = _resolve_or_create_pack_price_id(pack_code, prefer_env=True)
+    price_id = _require_pack_price_id(pack_code)
     customer_id = ensure_customer(user)
-    try:
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            customer=customer_id,
-            payment_method_types=["card"],
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=_success_url(),
-            cancel_url=_cancel_url(),
-            metadata={"user_id": str(user.id), "pack_code": pack_code},
-        )
-    except stripe.error.InvalidRequestError as exc:
-        if "No such price" not in str(exc):
-            raise
-        fallback_price = _resolve_or_create_pack_price_id(pack_code, prefer_env=False)
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            customer=customer_id,
-            payment_method_types=["card"],
-            line_items=[{"price": fallback_price, "quantity": 1}],
-            success_url=_success_url(),
-            cancel_url=_cancel_url(),
-            metadata={"user_id": str(user.id), "pack_code": pack_code},
-        )
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        customer=customer_id,
+        payment_method_types=["card"],
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=_success_url(),
+        cancel_url=_cancel_url(),
+        metadata={"user_id": str(user.id), "pack_code": pack_code},
+    )
     return session.url
 
 

@@ -582,15 +582,108 @@ def test_create_quality_check_returns_score(client):
 
 
 
-def test_checkout_subscription_disabled_for_public_paid_plans(client):
-    reg = register_user(client, "billing-disabled@test.local", "pass12345")
+def _forbid_runtime_stripe_catalog_calls(monkeypatch, stripe_service):
+    def fail(name):
+        def _unexpected(*args, **kwargs):
+            pytest.fail(f"Unexpected Stripe runtime call: {name}")
+
+        return _unexpected
+
+    monkeypatch.setattr(stripe_service.stripe.Product, "create", fail("Product.create"))
+    monkeypatch.setattr(stripe_service.stripe.Price, "create", fail("Price.create"))
+    monkeypatch.setattr(stripe_service.stripe.Price, "list", fail("Price.list"))
+    monkeypatch.setattr(stripe_service.stripe.Customer, "create", fail("Customer.create"))
+    monkeypatch.setattr(stripe_service.stripe.checkout.Session, "create", fail("checkout.Session.create"))
+
+
+@pytest.mark.parametrize(
+    ("plan_id", "required_env"),
+    [
+        ("starter", "STRIPE_PRICE_STARTER"),
+        ("growth", "STRIPE_PRICE_GROWTH"),
+        ("agency", "STRIPE_PRICE_AGENCY_V2"),
+    ],
+)
+def test_checkout_subscription_disabled_for_public_paid_plans(client, monkeypatch, plan_id, required_env):
+    import stripe_service
+
+    reg = register_user(client, f"billing-{plan_id}-disabled@test.local", "pass12345")
     token = reg.get_json()["token"]
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_SECRET_KEY", "sk_test_configured")
+    monkeypatch.setattr(stripe_service.settings, required_env, "")
+    _forbid_runtime_stripe_catalog_calls(monkeypatch, stripe_service)
 
     response = client.post(
         "/api/billing/checkout/subscription",
-        json={"plan": "growth"},
+        json={"plan": plan_id},
         headers=auth_headers(token),
     )
 
     assert response.status_code == 409
-    assert "not configured" in str((response.get_json() or {}).get("error") or "").lower()
+    assert response.get_json() == {
+        "error": "checkout_not_configured",
+        "message": f"Stripe checkout is not configured. Set {required_env}.",
+        "plan_id": plan_id,
+        "required_env": required_env,
+    }
+
+
+@pytest.mark.parametrize(
+    ("pack_id", "required_env"),
+    [
+        ("pack_s", "STRIPE_PACK_S_PRICE"),
+        ("pack_m", "STRIPE_PACK_M_PRICE"),
+        ("pack_l", "STRIPE_PACK_L_PRICE"),
+    ],
+)
+def test_checkout_credit_pack_fails_closed_without_price(client, monkeypatch, pack_id, required_env):
+    import stripe_service
+
+    reg = register_user(client, f"billing-{pack_id}-disabled@test.local", "pass12345")
+    token = reg.get_json()["token"]
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_SECRET_KEY", "sk_test_configured")
+    monkeypatch.setattr(stripe_service.settings, required_env, "")
+    _forbid_runtime_stripe_catalog_calls(monkeypatch, stripe_service)
+
+    response = client.post(
+        "/api/billing/checkout/credits",
+        json={"pack": pack_id},
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 409
+    assert response.get_json() == {
+        "error": "checkout_not_configured",
+        "message": f"Stripe checkout is not configured. Set {required_env}.",
+        "pack_id": pack_id,
+        "required_env": required_env,
+    }
+
+
+def test_free_trial_and_plans_do_not_call_stripe_without_prices(client, monkeypatch):
+    import stripe_service
+
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_SECRET_KEY", "sk_test_configured")
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_PRICE_STARTER", "")
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_PRICE_GROWTH", "")
+    monkeypatch.setattr(stripe_service.settings, "STRIPE_PRICE_AGENCY_V2", "")
+    _forbid_runtime_stripe_catalog_calls(monkeypatch, stripe_service)
+
+    plans_response = client.get("/api/plans")
+    assert plans_response.status_code == 200
+    plans = {item["name"]: item for item in plans_response.get_json()}
+    assert plans["free"]["catalog_available"] is True
+    assert plans["free"]["payment_available"] is False
+    for plan_id in ("starter", "growth", "agency"):
+        assert plans[plan_id]["catalog_available"] is True
+        assert plans[plan_id]["payment_available"] is False
+
+    reg = register_user(client, "free-trial-no-stripe@test.local", "pass12345")
+    assert reg.status_code == 200
+    token = reg.get_json()["token"]
+    free_checkout = client.post(
+        "/api/billing/checkout/subscription",
+        json={"plan": "free"},
+        headers=auth_headers(token),
+    )
+    assert free_checkout.status_code == 400

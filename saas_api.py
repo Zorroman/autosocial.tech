@@ -128,10 +128,12 @@ from saas_services import (
 from saas_settings import settings
 from style_packs import DEFAULT_STYLE_PACK_ID, get_style_pack, list_style_packs
 from stripe_service import (
+    CheckoutNotConfiguredError,
     create_credit_pack_checkout,
     create_portal_link,
     create_subscription_checkout,
     process_stripe_event,
+    subscription_payment_available,
     verify_and_construct_event,
 )
 from video_pipeline import generate_video_job_payload
@@ -2326,7 +2328,13 @@ def dashboard_product():
 @saas_api.route("/plans", methods=["GET"])
 def plans():
     seed_plans()
-    return jsonify([to_plan_payload(spec) for spec in all_public_plan_specs()])
+    payload = []
+    for spec in all_public_plan_specs():
+        item = to_plan_payload(spec)
+        item["catalog_available"] = bool(spec.public)
+        item["payment_available"] = subscription_payment_available(spec.code)
+        payload.append(item)
+    return jsonify(payload)
 
 
 @saas_api.route("/platform-rules", methods=["GET"])
@@ -7897,13 +7905,12 @@ def billing_checkout_subscription():
     plan_name = normalize_plan_code((data.get("plan") or "").strip().lower())
     if plan_name not in {"starter", "growth", "agency"}:
         return jsonify({"error": "Выберите тариф starter, growth или agency"}), 400
-    if not get_plan_spec(plan_name).payment_available or not settings.STRIPE_SECRET_KEY:
-        return jsonify({"error": "Checkout is not configured for this plan yet."}), 409
-
     user = _current_user_refetched()
     try:
         checkout_url = create_subscription_checkout(user, plan_name)
         return jsonify({"checkout_url": checkout_url})
+    except CheckoutNotConfiguredError as exc:
+        return jsonify(exc.to_payload()), 409
     except Exception as exc:
         return jsonify({"error": f"Stripe checkout error: {str(exc)}"}), 400
 
@@ -7920,6 +7927,8 @@ def billing_checkout_credits():
     try:
         checkout_url = create_credit_pack_checkout(user, pack_code)
         return jsonify({"checkout_url": checkout_url})
+    except CheckoutNotConfiguredError as exc:
+        return jsonify(exc.to_payload()), 409
     except Exception as exc:
         return jsonify({"error": f"Stripe checkout error: {str(exc)}"}), 400
 
