@@ -92,8 +92,8 @@ def test_first_user_dashboard_and_studio_prioritize_first_post_and_image():
 
     assert "const isFirstUserDashboard = !hasGeneratedContent && !hasAnalyticsData" in dashboard
     assert 'data-link="/create/post?first=1"' in dashboard
-    assert _u("0KHQvtC30LTQsNC50YLQtSDQv9C10YDQstGL0Lkg0L/QvtGB0YI=") in dashboard
-    assert _u("0J/QvtC00LrQu9GO0YfQsNGC0Ywg0YHQvtGG0YHQtdGC0Lgg0LzQvtC20L3QviDQv9C+0LfQttC1") in dashboard
+    assert _u("0KHQvtC30LTQsNC50YLQtSDQv9C10YDQstGL0LUg0L/Rg9Cx0LvQuNC60LDRhtC40Lgg0LfQsCDQvNC40L3Rg9GC0YM=") in dashboard
+    assert _u("0J/QvtC00LrQu9GO0YfQuNGC0LUg0YHQvtGG0YHQtdGC0LgsINC60L7Qs9C00LAg0LHRg9C00LXRgtC1INCz0L7RgtC+0LLRiyDQv9GD0LHQu9C40LrQvtCy0LDRgtGMLg==") in dashboard
 
     assert "const isFirstRun" in studio
     assert _u("0KHQvtC30LTQsNGC0Ywg0L/QtdGA0LLRi9C1INC/0YPQsdC70LjQutCw0YbQuNC4") in studio
@@ -126,8 +126,70 @@ def test_first_user_result_actions_and_dashboard_banner_are_clear():
     assert "new URLSearchParams(location.search).get('first') === '1' ? 7" in bind_studio
     assert "cdPostStudioGenerate30FirstRun" in bind_studio
     assert "firstContentReady" in dashboard
-    assert _u("0JLQsNGI0Lgg0L/QtdGA0LLRi9C1IDcg0L/Rg9Cx0LvQuNC60LDRhtC40Lkg0LPQvtGC0L7QstGLLiDQktGLINC80L7QttC10YLQtSDQvtC/0YPQsdC70LjQutC+0LLQsNGC0Ywg0LjRhSDRgdC10LnRh9Cw0YEg0LjQu9C4INGB0L7Qt9C00LDRgtGMINC10YnRkS4=") in dashboard
+    assert _u("0JLQsNGI0Lgg0L/QtdGA0LLRi9C1INC/0YPQsdC70LjQutCw0YbQuNC4INCz0L7RgtC+0LLRiyDwn46J") in dashboard
 
+
+
+def test_dashboard_new_user_hides_empty_analytics_and_keeps_one_primary_action():
+    dashboard = _section(APP_JS, "function pageDashboard()", "function pageCreate()")
+    new_user = _section(dashboard, "if (isFirstUserDashboard)", "const isFirstContentDashboard")
+
+    assert _u("0KHQvtC30LTQsNC50YLQtSDQv9C10YDQstGL0LUg0L/Rg9Cx0LvQuNC60LDRhtC40Lgg0LfQsCDQvNC40L3Rg9GC0YM=") in new_user
+    assert _u("0JLRi9Cx0LXRgNC40YLQtSDQvdC40YjRgyDQuCDRhtC10LvRjCDigJQgQXV0b1NvY2lhbCDQv9C+0LTQs9C+0YLQvtCy0LjRgiDRgtC10LrRgdGC0YssINC40LfQvtCx0YDQsNC20LXQvdC40Y8sINGF0LXRiNGC0LXQs9C4INC4INCy0YDQtdC80Y8g0L/Rg9Cx0LvQuNC60LDRhtC40Lgu") in new_user
+    assert 'data-link="/create/post?first=1"' in new_user
+    assert "recommendationSection" not in new_user
+    assert "upcomingSection" not in new_user
+    assert "performanceSection" not in new_user
+    assert "dashboard_growth_30" not in new_user
+    assert "published_posts" not in new_user
+
+
+def test_dashboard_first_content_success_hero_and_connections_cta():
+    dashboard = _section(APP_JS, "function pageDashboard()", "function pageCreate()")
+    first_content = _section(dashboard, "if (isFirstContentDashboard)", "const resolveSeries")
+
+    assert _u("0JLQsNGI0Lgg0L/QtdGA0LLRi9C1INC/0YPQsdC70LjQutCw0YbQuNC4INCz0L7RgtC+0LLRiyDwn46J") in first_content
+    assert _u("0JLRiyDRg9C20LUg0L/QvtC70YPRh9C40LvQuCDQutC+0L3RgtC10L3RgiDQtNC70Y8g0YHRgtCw0YDRgtCwLiDQotC10L/QtdGA0Ywg0LzQvtC20L3QviDQvtGC0YDQtdC00LDQutGC0LjRgNC+0LLQsNGC0Ywg0L/Rg9Cx0LvQuNC60LDRhtC40LgsINC/0L7QtNC60LvRjtGH0LjRgtGMINGB0L7RhtGB0LXRgtC4INC40LvQuCDRgdC+0LfQtNCw0YLRjCDQtdGJ0ZEu") in first_content
+    assert _u("0J7RgtC60YDRi9GC0Ywg0L/Rg9Cx0LvQuNC60LDRhtC40Lg=") in first_content
+    assert _u("0J/QvtC00LrQu9GO0YfQuNGC0YwgRmFjZWJvb2s=") in dashboard
+    assert _u("0J/QvtC00LrQu9GO0YfQuNGC0YwgSW5zdGFncmFt") in dashboard
+    assert _u("0J/QvtC00LrQu9GO0YfQuNGC0YwgWW91VHViZQ==") in dashboard
+    assert "upcomingSection" not in first_content
+    assert "performanceSection" not in first_content
+
+
+def test_dashboard_active_user_labels_and_limits_are_polished():
+    dashboard = _section(APP_JS, "function pageDashboard()", "function pageCreate()")
+
+    for forbidden in (
+        "Last Generated Content",
+        "Upcoming queue",
+        "Posts this month",
+        "Videos this month",
+        "Projects'",
+        "Autopublishing",
+        "Open history",
+        "Open calendar",
+        "Upgrade to unlock this growth lever",
+    ):
+        assert forbidden not in dashboard
+    assert _u("0J/QvtGB0LvQtdC00L3QuNC1INC80LDRgtC10YDQuNCw0LvRiw==") in dashboard
+    assert _u("0J7Rh9C10YDQtdC00Ywg0L/Rg9Cx0LvQuNC60LDRhtC40Lk=") in dashboard
+    assert _u("0J/QvtGB0YLRiyDQsiDRjdGC0L7QvCDQvNC10YHRj9GG0LU=") in dashboard
+    assert _u("0JLQuNC00LXQviDQsiDRjdGC0L7QvCDQvNC10YHRj9GG0LU=") in dashboard
+    assert _u("0J/RgNC+0LXQutGC0Ys=") in dashboard
+    assert _u("0JDQstGC0L7Qv9GD0LHQu9C40LrQsNGG0LjRjw==") in dashboard
+    meter = _section(APP_JS, "function productUsageMeter", "function ensureOnboardingDraft")
+    assert _u("JHtudW1lcmljVXNlZH0g0LjQtyAke251bWVyaWNMaW1pdH0=") in meter
+    assert _u("0L/RgNC+0LXQutGCINCw0LrRgtC40LLQtdC9") in meter
+
+
+def test_dashboard_generation_routes_are_not_changed():
+    bind_studio = _section(APP_JS, "const genPostStudioPlanBtn", "const postStudioDays7Btn")
+    assert "await buildPostStudioPlan(daysCount)" in bind_studio
+    assert "setPostStudioPendingAction('generate')" in bind_studio
+    assert "data-link=\"/create/post?mode=plan&days=30\"" in APP_JS
+    assert "api('/api/generate" not in _section(APP_JS, "function pageDashboard()", "function pageCreate()")
 
 def test_postgres_migration_keeps_datetime_compatibility_hotfix():
     assert 'engine.dialect.name == "postgresql" and ddl_type == "DATETIME"' in MIGRATIONS

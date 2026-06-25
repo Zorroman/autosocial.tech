@@ -6872,11 +6872,14 @@ function productUsageMeter(label, used, limit, locked = false) {
   const numericUsed = Number(used || 0);
   const unlimited = numericLimit >= 999999;
   const pct = unlimited ? 12 : Math.max(0, Math.min(100, (numericUsed / Math.max(numericLimit, 1)) * 100));
-  const value = unlimited ? `${numericUsed} / unlimited` : `${numericUsed} / ${numericLimit}`;
+  let value = unlimited ? `${numericUsed} / unlimited` : `${numericUsed} / ${numericLimit}`;
+  if (label === 'Посты в этом месяце') value = unlimited ? `${numericUsed} постов использовано` : `${numericUsed} из ${numericLimit} постов использовано`;
+  if (label === 'Видео в этом месяце') value = unlimited ? `${numericUsed} видео использовано` : `${numericUsed} из ${numericLimit} видео использовано`;
+  if (label === 'Проекты') value = `${numericUsed} проект активен`;
+  if (label === 'Автопубликация') value = locked ? 'не подключена' : 'готова после подключения соцсетей';
   return `<article class="saas-meter-card glass-card ${locked ? 'is-locked' : ''}">
     <div class="row" style="justify-content:space-between;align-items:center;"><strong>${esc(label)}</strong><span class="pill">${esc(value)}</span></div>
     <div class="saas-meter"><span style="width:${pct.toFixed(1)}%"></span></div>
-    ${locked ? '<p class="small">Upgrade to unlock this growth lever.</p>' : ''}
   </article>`;
 }
 
@@ -6981,24 +6984,47 @@ function pageDashboard() {
     || ['facebook', 'instagram', 'youtube'].some((key) => Number(byPlatform?.[key]?.items || 0) > 0 || Number(byPlatform?.[key]?.reach || 0) > 0 || Number(byPlatform?.[key]?.views || 0) > 0);
   const shouldShowAnalyticsEmptyState = !stats.loading && !hasAnalyticsData;
   const isFirstUserDashboard = !hasGeneratedContent && !hasAnalyticsData;
+  const firstContentReady = new URLSearchParams(location.search).get('first_content') === 'ready';
+  const connectionsQuickBlock = `<section class="dash-card glass-card"><div class="dash-section-head"><div><h3>Подключите соцсети</h3><p class="small">Подключите соцсети, когда будете готовы публиковать.</p></div></div><div class="cta-row"><button class="btn btn-secondary" type="button" data-link="/connections">Подключить Facebook</button><button class="btn btn-secondary" type="button" data-link="/connections">Подключить Instagram</button><button class="btn btn-secondary" type="button" data-link="/connections">Подключить YouTube</button></div></section>`;
   if (isFirstUserDashboard) {
-    const trialDays = Math.max(0, Number(billing.trial_days_left || 0));
     return appLayout('/dashboard', shellText('page_dashboard'), `
       <section class="dash-client-shell dash-v2-shell">
         <header class="dash-card dash-hero glass-card">
           <div class="dash-hero-copy">
-            <div class="dash-hero-topline">Первый шаг</div>
-            <h1 class="dash-sales-title">Создайте первый пост</h1>
-            <p class="dash-sales-subtitle">Выберите нишу и цель. AutoSocial подготовит текст, CTA, хештеги и подходящее изображение. Подключать соцсети можно позже.</p>
+            <div class="dash-hero-topline">Следующий шаг</div>
+            <h1 class="dash-sales-title">Создайте первые публикации за минуту</h1>
+            <p class="dash-sales-subtitle">Выберите нишу и цель — AutoSocial подготовит тексты, изображения, хештеги и время публикации.</p>
             <div class="cta-row" style="margin-top:18px;">
-              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первый пост</button>
+              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первые публикации</button>
             </div>
           </div>
-          <div class="dash-hero-kpis">
-            <article class="dash-kpi-card glass-card"><p>Бесплатный период</p><strong>${trialDays} дней</strong><small>Карта не требуется</small></article>
-            <article class="dash-kpi-card glass-card"><p>Следующий результат</p><strong>Пост + изображение</strong><small>Обычно занимает несколько минут</small></article>
+        </header>
+        ${connectionsQuickBlock}
+      </section>
+      ${onboardingModalHtml()}
+    `);
+  }
+  const isFirstContentDashboard = firstContentReady || (hasGeneratedContent && !hasAnalyticsData);
+  if (isFirstContentDashboard) {
+    return appLayout('/dashboard', shellText('page_dashboard'), `
+      <section class="dash-client-shell dash-v2-shell">
+        <header class="dash-card dash-hero glass-card">
+          <div class="dash-hero-copy">
+            <div class="dash-hero-topline">Что уже готово</div>
+            <h1 class="dash-sales-title">Ваши первые публикации готовы 🎉</h1>
+            <p class="dash-sales-subtitle">Вы уже получили контент для старта. Теперь можно отредактировать публикации, подключить соцсети или создать ещё.</p>
+            <div class="cta-row" style="margin-top:18px;">
+              <button class="btn btn-primary" type="button" data-link="/history">Открыть публикации</button>
+              <button class="btn btn-secondary" type="button" data-link="/connections">Подключите соцсети</button>
+              <button class="btn btn-ghost" type="button" data-link="/create/post?mode=plan&days=30">Создать ещё 30 публикаций</button>
+            </div>
           </div>
         </header>
+        <section class="grid-2 dash-dashboard-row">
+          <article class="dash-card glass-card"><h3>Что уже готово</h3><div class="saas-meter-grid"><article class="dash-kpi-card glass-card"><strong>7 публикаций</strong></article><article class="dash-kpi-card glass-card"><strong>изображения</strong></article><article class="dash-kpi-card glass-card"><strong>хештеги</strong></article><article class="dash-kpi-card glass-card"><strong>время публикации</strong></article></div></article>
+          <article class="dash-card glass-card"><h3>Следующий шаг</h3><ol class="small"><li>Проверьте публикации</li><li>Подключите соцсети</li><li>Запланируйте публикацию</li></ol></article>
+        </section>
+        ${connectionsQuickBlock}
       </section>
       ${onboardingModalHtml()}
     `);
@@ -7305,17 +7331,17 @@ function pageDashboard() {
   const productUpcoming = Array.isArray(product.upcoming) ? product.upcoming : [];
   const demoCards = Array.isArray(product.demo_cards) ? product.demo_cards : [];
   const productRecentHtml = productRecent.length
-    ? `<div class="saas-content-list">${productRecent.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Generated content')}</strong><p class="small">${esc(String(item.type || 'content').toUpperCase())} ? ${esc(item.status || 'ready')}</p></div><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`
-    : `<div class="saas-demo-grid">${demoCards.map((item) => `<article class="saas-demo-card glass-card"><span class="pill">${esc(item.type || 'demo')}</span><h4>${esc(item.title || 'Ready preview')}</h4><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`;
-  const lastGeneratedSection = `<section class="dash-card glass-card saas-last-generated"><div class="dash-section-head"><div><h3>Last Generated Content</h3><p class="small">A real workspace never starts from a blank page.</p></div><button class="btn btn-ghost" type="button" data-link="/history">Open history</button></div>${productRecentHtml}</section>`;
-  const upcomingSection = `<section class="dash-card glass-card saas-upcoming"><div class="dash-section-head"><div><h3>Upcoming queue</h3><p class="small">Scheduled posts and videos stay visible before publishing.</p></div><button class="btn btn-ghost" type="button" data-link="/calendar">Open calendar</button></div>${productUpcoming.length ? `<div class="saas-content-list">${productUpcoming.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Scheduled item')}</strong><p class="small">${esc(item.type || 'post')} ? ${esc(item.platform || '')}</p></div><span class="pill">${esc(item.scheduled_at ? new Date(item.scheduled_at).toLocaleString(locale) : item.status || 'planned')}</span></article>`).join('')}</div>` : '<p class="small">Your scheduled queue will appear here after the first plan.</p>'}</section>`;
-  const paywallMeters = `<section class="saas-meter-grid">${productUsageMeter('Posts this month', billing?.usage?.posts_per_month || 0, billing?.limits?.posts_per_month || 0)}${productUsageMeter('Videos this month', billing?.usage?.videos_per_month || 0, billing?.limits?.videos_per_month || 0)}${productUsageMeter('Projects', billing?.usage?.projects || 0, billing?.limits?.projects || 0)}${productUsageMeter('Autopublishing', billing?.limits?.can_autopublish ? 1 : 0, 1, !billing?.limits?.can_autopublish)}</section>`;
+    ? `<div class="saas-content-list">${productRecent.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Материал')}</strong><p class="small">${esc(String(item.type || 'материал').toUpperCase())} &middot; ${esc(item.status || 'готово')}</p></div><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`
+    : `<div class="saas-demo-grid">${demoCards.map((item) => `<article class="saas-demo-card glass-card"><span class="pill">${esc(item.type || 'пример')}</span><h4>${esc(item.title || 'Готовый пример')}</h4><p class="small">${esc(item.preview || '')}</p></article>`).join('')}</div>`;
+  const lastGeneratedSection = `<section class="dash-card glass-card saas-last-generated"><div class="dash-section-head"><div><h3>Последние материалы</h3><p class="small">Готовые публикации и черновики будут храниться здесь.</p></div><button class="btn btn-ghost" type="button" data-link="/history">Открыть историю</button></div>${productRecentHtml}</section>`;
+  const upcomingSection = `<section class="dash-card glass-card saas-upcoming"><div class="dash-section-head"><div><h3>Очередь публикаций</h3><p class="small">Запланированные публикации будут появляться здесь перед выходом.</p></div><button class="btn btn-ghost" type="button" data-link="/calendar">Открыть календарь</button></div>${productUpcoming.length ? `<div class="saas-content-list">${productUpcoming.slice(0, 6).map((item) => `<article class="dash-recent-item"><div><strong>${esc(item.title || 'Запланированная публикация')}</strong><p class="small">${esc(item.type || 'пост')} &middot; ${esc(item.platform || '')}</p></div><span class="pill">${esc(item.scheduled_at ? new Date(item.scheduled_at).toLocaleString(locale) : item.status || 'запланировано')}</span></article>`).join('')}</div>` : '<p class="small">Очередь появится здесь после первого расписания.</p>'}</section>`;
+  const paywallMeters = `<section class="saas-meter-grid">${productUsageMeter('Посты в этом месяце', billing?.usage?.posts_per_month || 0, billing?.limits?.posts_per_month || 0)}${productUsageMeter('Видео в этом месяце', billing?.usage?.videos_per_month || 0, billing?.limits?.videos_per_month || 0)}${productUsageMeter('Проекты', billing?.usage?.projects || 0, billing?.limits?.projects || 0)}${productUsageMeter('Автопубликация', billing?.limits?.can_autopublish ? 1 : 0, 1, !billing?.limits?.can_autopublish)}</section>`;
 
   const connectionsSection = `<section class="dash-card glass-card">
       <div class="dash-section-head">
         <div>
           <h3>${esc(shellText('dashboard_connections_title'))}</h3>
-          <p class="small">${esc(shellText('dashboard_connections_lead'))}</p>
+          <p class="small">Подключите соцсети, когда будете готовы публиковать.</p>
         </div>
         <button id="dashSyncMetricsBtn" class="btn btn-secondary" ${stats.syncing ? 'disabled' : ''}>${stats.syncing ? esc(shellText('dashboard_syncing')) : esc(shellText('dashboard_sync_now'))}</button>
       </div>
@@ -7372,8 +7398,7 @@ function pageDashboard() {
       </div>
     </section>`;
 
-  const firstContentReady = new URLSearchParams(location.search).get('first_content') === 'ready';
-  const firstContentBanner = firstContentReady ? `<div class="notice ok" style="margin-bottom:16px;">Ваши первые 7 публикаций готовы. Вы можете опубликовать их сейчас или создать ещё.</div>` : '';
+  const firstContentBanner = '';
 
   return appLayout('/dashboard', shellText('page_dashboard'), `
     ${firstContentBanner}
