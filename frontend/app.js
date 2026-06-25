@@ -15879,8 +15879,11 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       render();
     } catch (e) {
       const raw = String(e.message || 'Ошибка авторизации');
+      let text = raw;
 
-      if (raw.toLowerCase().includes('существует') || raw.toLowerCase().includes('already')) {
+      if (e?.payload?.error === 'email_delivery_failed') {
+        text = 'Не удалось отправить код подтверждения. Попробуйте позже или обратитесь в поддержку.';
+      } else if (raw.toLowerCase().includes('существует') || raw.toLowerCase().includes('already')) {
         text = 'Этот email уже зарегистрирован. Войдите в аккаунт.';
       } else if (raw.toLowerCase().includes('не короче') || raw.toLowerCase().includes('short')) {
         text = 'Пароль должен быть не короче 8 символов.';
@@ -15913,7 +15916,10 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       state.notice = { type: 'ok', text: `Новый код отправлен.${suffix}` };
       render();
     } catch (e) {
-      state.notice = { type: 'error', text: String(e.message || 'Не удалось отправить код повторно.') };
+      const text = e?.payload?.error === 'email_delivery_failed'
+        ? 'Не удалось отправить код подтверждения. Попробуйте позже или обратитесь в поддержку.'
+        : String(e.message || 'Не удалось отправить код повторно.');
+      state.notice = { type: 'error', text };
       render();
     }
   };

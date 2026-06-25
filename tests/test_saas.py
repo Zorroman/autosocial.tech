@@ -687,3 +687,45 @@ def test_free_trial_and_plans_do_not_call_stripe_without_prices(client, monkeypa
         headers=auth_headers(token),
     )
     assert free_checkout.status_code == 400
+
+
+def test_auth_challenge_fails_closed_when_smtp_delivery_fails(client, monkeypatch):
+    import saas_api
+
+    monkeypatch.setattr(saas_api.settings, "ENV", "production")
+    monkeypatch.setattr(saas_api, "_send_auth_email_code", lambda **kwargs: False)
+
+    response = client.post(
+        "/api/auth/challenge",
+        json={"flow": "register", "email": "smtp-fail@test.local", "password": "pass12345"},
+    )
+
+    assert response.status_code == 503
+    body = response.get_json() or {}
+    assert body == {
+        "error": "email_delivery_failed",
+        "message": "Не удалось отправить код подтверждения. Попробуйте позже или обратитесь в поддержку.",
+        "flow": "register",
+    }
+    assert "dev_code" not in body
+    assert "dev_verify_url" not in body
+    assert body.get("delivery") != "dev"
+
+
+def test_auth_challenge_successful_smtp_path_returns_email_delivery(client, monkeypatch):
+    import saas_api
+
+    monkeypatch.setattr(saas_api.settings, "ENV", "production")
+    monkeypatch.setattr(saas_api, "_send_auth_email_code", lambda **kwargs: True)
+
+    response = client.post(
+        "/api/auth/challenge",
+        json={"flow": "register", "email": "smtp-ok@test.local", "password": "pass12345"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json() or {}
+    assert body.get("delivery") == "email"
+    assert body.get("challenge_token")
+    assert "dev_code" not in body
+    assert "dev_verify_url" not in body

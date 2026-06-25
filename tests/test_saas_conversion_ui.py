@@ -153,3 +153,10 @@ def test_login_renders_russian_and_free_trial_opens_registration():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_auth_challenge_smtp_failure_shows_honest_error_message():
+    auth_handler = _section(APP_JS, "const authSubmitBtn", "const authCodeInput")
+    assert "email_delivery_failed" in auth_handler
+    assert "Не удалось отправить код подтверждения. Попробуйте позже или обратитесь в поддержку." in auth_handler
+    assert "let text = raw" in auth_handler

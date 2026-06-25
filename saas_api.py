@@ -1593,11 +1593,17 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
     is_dev = (settings.ENV or "").lower() in {"dev", "development", "local"}
     if not delivered and not is_dev:
         current_app.logger.warning(
-            "auth email delivery unavailable; fallback to on-screen code flow=%s email=%s ip=%s",
+            "auth email delivery unavailable; fail closed flow=%s email=%s ip=%s",
             flow,
             email,
             ip_addr,
         )
+        log_event("auth_code_created", context=f"flow={flow};email={email};ip={ip_addr};delivered={delivered}")
+        return {
+            "error": "email_delivery_failed",
+            "message": "Не удалось отправить код подтверждения. Попробуйте позже или обратитесь в поддержку.",
+            "flow": flow,
+        }, 503
 
     payload = {
         "challenge_token": challenge_token,
