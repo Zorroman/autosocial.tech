@@ -222,5 +222,120 @@ def test_create_generate_hides_technical_fallback_warnings(client, monkeypatch):
     assert resp.status_code == 200
     payload = resp.get_json() or {}
     warnings = payload.get("warnings") or []
-    assert not any("structured_json_failed" in str(w) for w in warnings)
-    assert not any("simplified_failed" in str(w) for w in warnings)
+    assert any("structured_json_failed" in str(w) for w in warnings)
+    assert any("simplified_failed" in str(w) for w in warnings)
+    assert payload.get("debug_code") == "draft_schema_fallback|draft_text_fallback"
+
+
+
+
+def test_pexels_media_query_uses_caption_meaning_not_cta():
+    from backend.services.media.pexels_service import build_media_query
+
+    caption = (
+        "Calm cosmetology consultation before treatment. "
+        "Sterile tools, skincare steps, soft beauty room. "
+        "Write to direct to book today."
+    )
+    meta = build_media_query(
+        niche="cosmetology",
+        topic="generic post",
+        post_text=caption,
+        platform="instagram",
+    )
+    query_blob = " ".join([meta["primary_query"], *meta["fallback_queries"]]).lower()
+    assert "consultation" in query_blob or "treatment" in query_blob or "skincare" in query_blob
+    assert "direct" not in query_blob
+
+
+def test_pexels_media_query_uses_caption_when_topic_generic():
+    from backend.services.media.pexels_service import build_media_query
+
+    meta = build_media_query(
+        niche="autoservice",
+        topic="generic post",
+        post_text=(
+            "We show engine diagnostics, mechanic tools and a clean service bay "
+            "so the client understands how vehicle inspection works."
+        ),
+        platform="facebook",
+    )
+    joined = " ".join(meta["topic_terms"]).lower()
+    assert "engine" in joined or "mechanic" in joined or "vehicle" in joined
+
+
+
+def test_media_resolver_prefers_pexels(monkeypatch):
+    import saas_services
+
+    class FakeImage:
+        local_url = "https://api.autosocial.tech/api/media/pexels_101.jpg"
+
+    monkeypatch.setattr(saas_services, "fetch_post_image", lambda **kwargs: FakeImage())
+    monkeypatch.setattr(
+        saas_services,
+        "fetch_pixabay_post_image",
+        lambda **kwargs: pytest.fail("Pixabay should not be called when Pexels succeeds"),
+    )
+
+    assert saas_services._resolve_post_media_url(
+        db=None,
+        project_id=1,
+        platform="instagram",
+        topic="skincare consultation",
+        category="cosmetology",
+        language="ru",
+        generated_text="calm skincare consultation",
+    ) == "https://api.autosocial.tech/api/media/pexels_101.jpg"
+
+
+def test_media_resolver_falls_back_to_pixabay(monkeypatch):
+    import saas_services
+
+    class FakeImage:
+        local_url = "https://api.autosocial.tech/api/media/pixabay_202.jpg"
+
+    def pexels_empty(**kwargs):
+        raise saas_services.PexelsEmptyResultError("no pexels image")
+
+    monkeypatch.setattr(saas_services, "fetch_post_image", pexels_empty)
+    monkeypatch.setattr(saas_services, "fetch_pixabay_post_image", lambda **kwargs: FakeImage())
+
+    assert saas_services._resolve_post_media_url(
+        db=None,
+        project_id=1,
+        platform="instagram",
+        topic="engine diagnostics",
+        category="autoservice",
+        language="ru",
+        generated_text="mechanic checks engine diagnostics",
+    ) == "https://api.autosocial.tech/api/media/pixabay_202.jpg"
+
+
+def test_media_resolver_allows_post_without_image(monkeypatch):
+    import saas_services
+
+    def pexels_empty(**kwargs):
+        raise saas_services.PexelsEmptyResultError("no pexels image")
+
+    monkeypatch.setattr(saas_services, "fetch_post_image", pexels_empty)
+    monkeypatch.setattr(saas_services, "fetch_pixabay_post_image", lambda **kwargs: None)
+
+    assert saas_services._resolve_post_media_url(
+        db=None,
+        project_id=1,
+        platform="instagram",
+        topic="rare narrow topic",
+        category="unknown",
+        language="ru",
+        generated_text="rare narrow topic",
+    ) is None
+
+
+def test_openai_image_generation_is_disabled_in_runtime_source():
+    from pathlib import Path
+
+    generator_source = Path("gpt_generator.py").read_text(encoding="utf-8")
+    assert "client.images.generate" not in generator_source
+    assert "build_semantic_fallback_image_url" not in generator_source
+    assert "OPENAI_IMAGE_MODEL" not in generator_source

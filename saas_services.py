@@ -1,4 +1,4 @@
-﻿
+
 import base64
 import hashlib
 import json
@@ -10,10 +10,16 @@ from typing import Dict, List, Optional
 from cryptography.fernet import Fernet
 from sqlalchemy import and_, desc, extract, func
 
+from backend.services.media import (
+    PexelsConfigError,
+    PexelsEmptyResultError,
+    PexelsRateLimitError,
+    PexelsRequestError,
+    fetch_pixabay_post_image,
+    fetch_post_image,
+)
 from database import SessionLocal
 from gpt_generator import (
-    build_semantic_fallback_image_url,
-    generate_image_url,
     generate_post_with_usage,
     generate_structured_text_with_usage,
 )
@@ -38,6 +44,47 @@ from saas_settings import settings
 from plans_catalog import PLAN_SPECS, get_plan_spec, normalize_plan_code
 from services.entitlements import getEntitlementsPayload
 from niche_catalog import build_niche_catalog_seed
+
+
+def _resolve_post_media_url(
+    *,
+    db,
+    project_id: int,
+    platform: str,
+    topic: str,
+    category: str | None,
+    language: str,
+    generated_text: str,
+) -> str | None:
+    _ = language
+    if platform == "youtube":
+        return None
+    try:
+        image = fetch_post_image(
+            niche=category or topic,
+            topic=topic,
+            platform=platform,
+            post_text=generated_text,
+            db=db,
+            project_id=project_id,
+        )
+        if image and image.local_url:
+            return image.local_url
+    except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
+        pass
+
+    try:
+        fallback = fetch_pixabay_post_image(
+            niche=category or topic,
+            topic=topic,
+            platform=platform,
+            post_text=generated_text,
+            db=db,
+            project_id=project_id,
+        )
+        return fallback.local_url if fallback else None
+    except Exception:
+        return None
 
 DEFAULT_CATEGORIES = {
     "business": ["Как привлечь первых 100 клиентов", "Ошибки малого бизнеса в рекламе", "Личный бренд основателя"],
@@ -761,22 +808,17 @@ def create_post_and_charge(
             user.posts_used_month += 1
 
         final_text = (generated_text_override or "").strip() or structured_text
-        image_context = f"{topic}. {final_text[:220]}".strip()
         resolved_media_url = (media_url or "").strip()
-        if platform != "youtube":
-            resolved_media_url = resolved_media_url or generate_image_url(
-                topic=image_context,
+        if platform != "youtube" and not resolved_media_url:
+            resolved_media_url = _resolve_post_media_url(
+                db=db,
+                project_id=project_id,
+                platform=platform,
+                topic=topic,
                 category=category,
-                tone=tone,
                 language=language,
+                generated_text=final_text,
             )
-            if not resolved_media_url:
-                resolved_media_url = build_semantic_fallback_image_url(
-                    topic=image_context,
-                    category=category,
-                    tone=tone,
-                    language=language,
-                )
         # New posts should be queued first; real publish endpoint sets done/published_at.
         post_status = "scheduled" if schedule_at else "queued"
         published_at = None
@@ -944,20 +986,15 @@ def run_generation_job(post_id: int) -> None:
         user.credits_left -= delta  # may add credits back when delta < 0
 
         post.generated_text = structured_text
-        image_context = f"{post.topic}. {structured_text[:220]}".strip()
         if post.platform != "youtube" and not (post.media_url or "").strip():
-            post.media_url = generate_image_url(
-                topic=image_context,
+            post.media_url = _resolve_post_media_url(
+                db=db,
+                project_id=int(post.project_id or 0),
+                platform=post.platform,
+                topic=post.topic,
                 category=post.category,
-                tone=post.tone,
                 language=post.language,
-            )
-        if post.platform != "youtube" and not (post.media_url or "").strip():
-            post.media_url = build_semantic_fallback_image_url(
-                topic=image_context,
-                category=post.category,
-                tone=post.tone,
-                language=post.language,
+                generated_text=structured_text,
             )
         post.tokens_input = result.input_tokens
         post.tokens_output = result.output_tokens
@@ -1102,6 +1139,33 @@ def _slugify(title: str) -> str:
     return slug[:300].strip("-") or f"post-{int(datetime.utcnow().timestamp())}"
 
 
+def _normalize_content_plan_platforms(platforms: Optional[List[str]], default: Optional[List[str]] = None) -> List[str]:
+    out: List[str] = []
+    for item in platforms or []:
+        key = str(item or "").strip().lower()
+        if key in {"facebook", "instagram", "youtube"} and key not in out:
+            out.append(key)
+    if out:
+        return out
+    return [p for p in (default or ["instagram"]) if p in {"facebook", "instagram", "youtube"}]
+
+
+def _find_existing_materialized_post(db, *, user_id: int, project_id: int, platform: str, topic: str, schedule_at):
+    return (
+        db.query(Post)
+        .filter(
+            Post.user_id == user_id,
+            Post.project_id == project_id,
+            Post.platform == platform,
+            Post.topic == topic,
+            Post.schedule_at == schedule_at,
+            Post.status != "deleted",
+        )
+        .order_by(Post.id.asc())
+        .first()
+    )
+
+
 def create_monthly_content_plan(
     user: AppUser,
     project_id: int,
@@ -1109,9 +1173,11 @@ def create_monthly_content_plan(
     niche: str,
     goal: str,
     language: str,
+    platforms: Optional[List[str]] = None,
 ) -> Dict[str, int]:
     if not can_access_project(user, project_id):
         raise RuntimeError("No access to project")
+    effective_platforms = _normalize_content_plan_platforms(platforms, default=["instagram"])
 
     db = SessionLocal()
     try:
@@ -1140,32 +1206,51 @@ def create_monthly_content_plan(
                         ContentPlan.project_id == project_id,
                         ContentPlan.scheduled_at >= now - timedelta(days=1),
                         ContentPlan.status.in_(["planned", "scheduled"]),
-                        ContentPlan.post_id.is_(None),
                     )
                     .order_by(ContentPlan.scheduled_at.asc())
                     .limit(prefetch_days)
                     .all()
                 )
                 for item in upcoming:
-                    post = create_post_and_charge(
-                        user_id=user.id,
-                        project_id=project_id,
-                        platform="instagram",
-                        topic=item.topic,
-                        category=niche,
-                        tone="friendly",
-                        language=language,
-                        prompt_text=f"Goal: {goal}",
-                        media_url=None,
-                        schedule_at=item.scheduled_at,
-                        variant_count=1,
-                        translation=False,
-                        long_post_mode=False,
-                    )
-                    item.post_id = post.id
-                    item.caption = (post.generated_text or "")[:1000]
-                    item.status = "scheduled"
-                    generated_posts += 1
+                    first_post_id = None
+                    first_caption = ""
+                    for platform in effective_platforms:
+                        existing_post = _find_existing_materialized_post(
+                            db,
+                            user_id=user.id,
+                            project_id=project_id,
+                            platform=platform,
+                            topic=item.topic,
+                            schedule_at=item.scheduled_at,
+                        )
+                        if existing_post:
+                            if first_post_id is None:
+                                first_post_id = existing_post.id
+                                first_caption = (existing_post.generated_text or "")[:1000]
+                            continue
+                        post = create_post_and_charge(
+                            user_id=user.id,
+                            project_id=project_id,
+                            platform=platform,
+                            topic=item.topic,
+                            category=niche,
+                            tone="friendly",
+                            language=language,
+                            prompt_text=f"Goal: {goal}",
+                            media_url=None,
+                            schedule_at=item.scheduled_at,
+                            variant_count=1,
+                            translation=False,
+                            long_post_mode=False,
+                        )
+                        if first_post_id is None:
+                            first_post_id = post.id
+                            first_caption = (post.generated_text or "")[:1000]
+                        generated_posts += 1
+                    if first_post_id:
+                        item.post_id = first_post_id
+                        item.caption = first_caption
+                        item.status = "scheduled"
                 db.commit()
             finally:
                 db.close()
@@ -1255,25 +1340,45 @@ def create_monthly_content_plan(
         # Optionally pre-generate the first N days so History isn't empty after onboarding.
         if prefetch_days > 0:
             for item in plan_rows[:prefetch_days]:
-                post = create_post_and_charge(
-                    user_id=user.id,
-                    project_id=project_id,
-                    platform="instagram",
-                    topic=item.topic,
-                    category=niche,
-                    tone="friendly",
-                    language=language,
-                    prompt_text=f"Goal: {goal}",
-                    media_url=None,
-                    schedule_at=item.scheduled_at,
-                    variant_count=1,
-                    translation=False,
-                    long_post_mode=False,
-                )
-                item.post_id = post.id
-                item.caption = (post.generated_text or "")[:1000]
-                item.status = "scheduled"
-                generated_posts += 1
+                first_post_id = None
+                first_caption = ""
+                for platform in effective_platforms:
+                    existing_post = _find_existing_materialized_post(
+                        db,
+                        user_id=user.id,
+                        project_id=project_id,
+                        platform=platform,
+                        topic=item.topic,
+                        schedule_at=item.scheduled_at,
+                    )
+                    if existing_post:
+                        if first_post_id is None:
+                            first_post_id = existing_post.id
+                            first_caption = (existing_post.generated_text or "")[:1000]
+                        continue
+                    post = create_post_and_charge(
+                        user_id=user.id,
+                        project_id=project_id,
+                        platform=platform,
+                        topic=item.topic,
+                        category=niche,
+                        tone="friendly",
+                        language=language,
+                        prompt_text=f"Goal: {goal}",
+                        media_url=None,
+                        schedule_at=item.scheduled_at,
+                        variant_count=1,
+                        translation=False,
+                        long_post_mode=False,
+                    )
+                    if first_post_id is None:
+                        first_post_id = post.id
+                        first_caption = (post.generated_text or "")[:1000]
+                    generated_posts += 1
+                if first_post_id:
+                    item.post_id = first_post_id
+                    item.caption = first_caption
+                    item.status = "scheduled"
             db.commit()
 
         return {"created_plan_items": created, "generated_posts": generated_posts, "existing_future_items": existing_future}
@@ -1286,7 +1391,7 @@ def materialize_content_plan(
     project_id: int,
     days: int = 7,
     limit: int = 20,
-    platform: str = "instagram",
+    platforms: Optional[List[str]] = None,
 ) -> Dict[str, int]:
     """
     Create QUEUED Post rows for planned content-plan items and reserve credits up-front.
@@ -1297,9 +1402,7 @@ def materialize_content_plan(
 
     days = max(1, min(int(days or 7), 30))
     limit = max(1, min(int(limit or 20), 50))
-    platform = (platform or "instagram").strip().lower()
-    if platform not in ("instagram", "facebook", "youtube"):
-        platform = "instagram"
+    effective_platforms = _normalize_content_plan_platforms(platforms, default=["instagram"])
 
     db = SessionLocal()
     try:
@@ -1311,7 +1414,6 @@ def materialize_content_plan(
                 ContentPlan.user_id == user.id,
                 ContentPlan.project_id == project_id,
                 ContentPlan.status.in_(["planned", "scheduled"]),
-                ContentPlan.post_id.is_(None),
                 ContentPlan.scheduled_at >= now - timedelta(days=1),
                 ContentPlan.scheduled_at <= end,
             )
@@ -1329,64 +1431,86 @@ def materialize_content_plan(
 
         created_posts = 0
         post_ids: List[int] = []
+        stop_materialization = False
         for item in rows:
-            if item.post_id:
-                continue
-
-            # Monthly limits are enforced by counting Posts, so creating queued posts still consumes the quota.
-            limits = check_post_limits(app_user)
-            if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
+            if stop_materialization:
                 break
-
-            # Reserve credits so users can't queue unlimited jobs with the same balance.
-            reserve = estimate_credits(item.topic or "", long_post_mode=False, variant_count=1, translation=False)
-            if enforce_limits and app_user.credits_left < int(reserve * 1.2):
-                break
-            if enforce_limits and app_user.credits_left <= settings.OVERDRAFT_LIMIT:
-                break
-
-            if enforce_limits:
-                app_user.credits_left -= reserve
-                app_user.posts_used_month += 1
-
-            post = Post(
-                user_id=app_user.id,
-                project_id=project_id,
-                platform=platform,
-                prompt_text=f"Goal: {item.goal or ''}",
-                generated_text=None,
-                topic=item.topic,
-                category=item.business_type or "",
-                language=item.language or "ru",
-                tone="friendly",
-                media_url=None,
-                tokens_input=0,
-                tokens_output=0,
-                tokens_total=0,
-                credits_charged=reserve,  # reserved amount; final amount is reconciled in job
-                status="queued",
-                schedule_at=item.scheduled_at,
-                published_at=None,
-            )
-            db.add(post)
-            db.flush()
-
-            if enforce_limits:
-                db.add(
-                    CreditLedger(
-                        user_id=app_user.id,
-                        type="usage_reserve",
-                        delta_credits=-reserve,
-                        post_id=post.id,
-                        meta_json=json.dumps({"topic": item.topic, "reserve": reserve}, ensure_ascii=False),
-                    )
+            first_post_id = item.post_id if item.post_id else None
+            for platform in effective_platforms:
+                existing_post = _find_existing_materialized_post(
+                    db,
+                    user_id=app_user.id,
+                    project_id=project_id,
+                    platform=platform,
+                    topic=item.topic,
+                    schedule_at=item.scheduled_at,
                 )
+                if existing_post:
+                    if first_post_id is None:
+                        first_post_id = existing_post.id
+                    continue
 
-            item.post_id = post.id
-            item.caption = ""
-            item.status = "queued"
-            created_posts += 1
-            post_ids.append(int(post.id))
+                # Monthly limits are enforced by counting Posts, so creating queued posts still consumes the quota.
+                limits = check_post_limits(app_user)
+                if enforce_limits and limits["monthly_used"] >= limits["monthly_limit"]:
+                    stop_materialization = True
+                    break
+
+                # Reserve credits so users can't queue unlimited jobs with the same balance.
+                reserve = estimate_credits(item.topic or "", long_post_mode=False, variant_count=1, translation=False)
+                if enforce_limits and app_user.credits_left < int(reserve * 1.2):
+                    stop_materialization = True
+                    break
+                if enforce_limits and app_user.credits_left <= settings.OVERDRAFT_LIMIT:
+                    stop_materialization = True
+                    break
+
+                if enforce_limits:
+                    app_user.credits_left -= reserve
+                    app_user.posts_used_month += 1
+
+                post = Post(
+                    user_id=app_user.id,
+                    project_id=project_id,
+                    platform=platform,
+                    prompt_text=f"Goal: {item.goal or ''}",
+                    generated_text=None,
+                    topic=item.topic,
+                    category=item.business_type or "",
+                    language=item.language or "ru",
+                    tone="friendly",
+                    media_url=None,
+                    tokens_input=0,
+                    tokens_output=0,
+                    tokens_total=0,
+                    credits_charged=reserve,  # reserved amount; final amount is reconciled in job
+                    status="queued",
+                    schedule_at=item.scheduled_at,
+                    published_at=None,
+                )
+                db.add(post)
+                db.flush()
+
+                if enforce_limits:
+                    db.add(
+                        CreditLedger(
+                            user_id=app_user.id,
+                            type="usage_reserve",
+                            delta_credits=-reserve,
+                            post_id=post.id,
+                            meta_json=json.dumps({"topic": item.topic, "reserve": reserve, "platform": platform}, ensure_ascii=False),
+                        )
+                    )
+
+                if first_post_id is None:
+                    first_post_id = post.id
+                item.caption = item.caption or ""
+                item.status = "queued"
+                created_posts += 1
+                post_ids.append(int(post.id))
+
+            if first_post_id:
+                item.post_id = first_post_id
 
         db.commit()
         return {"materialized": created_posts, "post_ids": post_ids}

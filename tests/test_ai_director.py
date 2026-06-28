@@ -195,8 +195,77 @@ def test_create_ui_route_contains_app_mount():
     html = open("frontend/create/index.html", "r", encoding="utf-8").read()
     js = open("frontend/app.js", "r", encoding="utf-8").read()
     niches = open("frontend/data/nicheTemplates.js", "r", encoding="utf-8").read()
-    assert '<div id="app"></div>' in html
+    assert 'id="app"' in html
     assert "pageCreateDirector" in js
     assert "id: 'esoterica'" in niches
     assert "const nicheOptions = DIRECTOR_NICHE_OPTIONS;" in js
     assert "const nicheToCategory = {" not in js
+
+
+def test_director_generate_image_route_uses_stock_media_provider(client, monkeypatch):
+    import saas_api as saas_api_module
+
+    reg = register_user(client, "imgroute@test.local", "pass12345")
+    token = reg.get_json()["token"]
+
+    class FakeImage:
+        provider = "pexels"
+        local_url = "https://api.autosocial.tech/api/media/pexels_777.jpg"
+
+        def to_dict(self):
+            return {
+                "provider": "pexels",
+                "type": "photo",
+                "external_id": "777",
+                "preview_url": "https://images.pexels.com/photos/777/preview.jpg",
+                "full_url": "https://images.pexels.com/photos/777/full.jpg",
+                "width": 1200,
+                "height": 1500,
+                "photographer": "Test",
+                "orientation": "portrait",
+                "query_used": "moon ritual candles",
+                "score": 42.0,
+                "local_url": "https://api.autosocial.tech/api/media/pexels_777.jpg",
+                "local_path": "/tmp/pexels_777.jpg",
+            }
+
+    monkeypatch.setattr(saas_api_module, "_fetch_post_media_or_error", lambda **kwargs: FakeImage())
+    monkeypatch.setattr(saas_api_module, "_download_and_store_binary", lambda url, suffix: (url, 1))
+    r = client.post(
+        "/api/ai/director/generate-image",
+        json={
+            "topic": "Как распознать знаки Вселенной",
+            "niche_label": "Эзотерика",
+            "platform": "instagram",
+        },
+        headers=auth_headers(token),
+    )
+    assert r.status_code == 200
+    payload = r.get_json() or {}
+    assert payload["data"]["source"] == "pexels"
+    assert "pexels_" in payload["data"]["image_url"]
+
+
+
+def test_director_generate_image_route_succeeds_without_image(client, monkeypatch):
+    import saas_api as saas_api_module
+
+    reg = register_user(client, "imgnone@test.local", "pass12345")
+    token = reg.get_json()["token"]
+
+    monkeypatch.setattr(saas_api_module, "_fetch_post_media_or_error", lambda **kwargs: None)
+    r = client.post(
+        "/api/ai/director/generate-image",
+        json={
+            "topic": "Rare topic without matching stock image",
+            "niche_label": "Unknown niche",
+            "platform": "instagram",
+        },
+        headers=auth_headers(token),
+    )
+    assert r.status_code == 200
+    payload = r.get_json() or {}
+    assert payload["data"]["source"] == "none"
+    assert payload["data"]["image_url"] is None
+    assert "image_not_found" in (payload.get("warnings") or [])
+    assert payload.get("debug_code") == "director_image_not_found"

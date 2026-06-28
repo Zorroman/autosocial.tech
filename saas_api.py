@@ -40,14 +40,15 @@ from facebook_api import (
     publish_to_facebook,
     publish_to_instagram,
 )
-from backend.services.media.pexels_service import (
+from backend.services.media import (
     PexelsConfigError,
     PexelsEmptyResultError,
     PexelsRateLimitError,
     PexelsRequestError,
+    fetch_pixabay_post_image,
     fetch_post_image,
 )
-from gpt_generator import build_semantic_fallback_image_url, generate_structured_text_with_usage
+from gpt_generator import generate_structured_text_with_usage
 from plans_catalog import all_public_plan_specs, get_plan_spec, normalize_plan_code, to_plan_payload
 from content_pipeline import (
     OpenAIClientError,
@@ -3424,7 +3425,7 @@ def ai_director_generate_image():
     }
 
     warnings = []
-    source = "pexels"
+    source = "none"
     search_context = "\n".join(part for part in [caption, *asset_ideas, *niche_hint_parts] if part).strip() or None
     image_url = None
     media = None
@@ -3443,26 +3444,17 @@ def ai_director_generate_image():
             )
         finally:
             db.close()
-        image_url = str(media.local_url or "").strip() or None
+        image_url = str(getattr(media, "local_url", "") or "").strip() or None
     except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
         image_url = None
 
-    if not image_url:
-        source = "fallback"
-        warnings.append("image_fallback_used")
-        image_url = build_semantic_fallback_image_url(
-            topic=prompt_topic,
-            category=niche_context or niche_label or "business",
-            tone=tone,
-            language=language,
-            caption=caption or None,
-            asset_ideas=asset_ideas,
-        )
-
-    mirrored = None
-    if not str(image_url or "").strip().lower().endswith(".svg"):
+    if image_url:
+        source = str(getattr(media, "provider", "stock") or "stock").strip() or "stock"
         mirrored = _download_and_store_binary(image_url, ".jpg")
-    final_url = mirrored[0] if mirrored else image_url
+        final_url = mirrored[0] if mirrored else image_url
+    else:
+        warnings.append("image_not_found")
+        final_url = None
     return jsonify(
         {
             "status": "ok",
@@ -3472,7 +3464,7 @@ def ai_director_generate_image():
                 "external_id": str(getattr(media, "external_id", "") or "").strip() or None,
             },
             "warnings": warnings,
-            "debug_code": "director_image_ok" if source == "pexels" else "director_image_fallback",
+            "debug_code": "director_image_ok" if final_url else "director_image_not_found",
         }
     )
 
@@ -3885,17 +3877,25 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                     prompt_topic += " Без текста, без надписей, без логотипов, без водяных знаков."
                 if no_fantasy:
                     prompt_topic += " Без фантастики, без нереалистичных персонажей."
-                image_url = generate_image_url(
-                    topic=prompt_topic,
-                    category="business",
-                    tone=tone,
-                    language=campaign.language or "ru",
-                ) or build_semantic_fallback_image_url(
-                    topic=prompt_topic,
-                    category="business",
-                    tone=tone,
-                    language=campaign.language or "ru",
+                media = _fetch_post_media_or_error(
+                    niche="business",
+                    topic=topic,
+                    platform="instagram",
+                    post_text=prompt_topic,
+                    db=db,
+                    project_id=None,
                 )
+                image_url = str(getattr(media, "local_url", "") or "").strip() or None
+                if not image_url:
+                    campaign.status = "ready"
+                    campaign.updated_at = datetime.utcnow()
+                    job.status = "done"
+                    job.progress = 100
+                    job.result_json = json.dumps({"asset": None, "type": "image", "image_url": None}, ensure_ascii=False)
+                    job.error_message = None
+                    job.updated_at = datetime.utcnow()
+                    db.commit()
+                    return
                 mirrored = _download_and_store_binary(image_url, ".jpg")
                 final_url = mirrored[0] if mirrored else image_url
                 size_bytes = mirrored[1] if mirrored else 0
@@ -4027,26 +4027,30 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 db.add(video_asset)
                 thumb_asset = None
                 if gen_thumbnail:
-                    thumb_url = build_semantic_fallback_image_url(
-                        topic=f"Обложка для видео: {topic}",
-                        category="business",
-                        tone="expert",
-                        language=campaign.language or "ru",
+                    thumb_media = _fetch_post_media_or_error(
+                        niche="business",
+                        topic=f"Video thumbnail: {topic}",
+                        platform="facebook",
+                        post_text=topic,
+                        db=db,
+                        project_id=None,
                     )
-                    thumb_mirror = _download_and_store_binary(thumb_url, ".jpg")
-                    thumb_final = thumb_mirror[0] if thumb_mirror else thumb_url
-                    thumb_asset = CampaignAsset(
-                        campaign_id=campaign.id,
-                        type="thumbnail",
-                        storage_url=thumb_final,
-                        mime_type=_guess_mime(thumb_final, "image/jpeg"),
-                        width=1280,
-                        height=720,
-                        duration_sec=None,
-                        size_bytes=(thumb_mirror[1] if thumb_mirror else 0),
-                        created_at=datetime.utcnow(),
-                    )
-                    db.add(thumb_asset)
+                    thumb_url = str(getattr(thumb_media, "local_url", "") or "").strip() or None
+                    if thumb_url:
+                        thumb_mirror = _download_and_store_binary(thumb_url, ".jpg")
+                        thumb_final = thumb_mirror[0] if thumb_mirror else thumb_url
+                        thumb_asset = CampaignAsset(
+                            campaign_id=campaign.id,
+                            type="thumbnail",
+                            storage_url=thumb_final,
+                            mime_type=_guess_mime(thumb_final, "image/jpeg"),
+                            width=1280,
+                            height=720,
+                            duration_sec=None,
+                            size_bytes=(thumb_mirror[1] if thumb_mirror else 0),
+                            created_at=datetime.utcnow(),
+                        )
+                        db.add(thumb_asset)
                 _set_video_job_progress(db, job, status="uploading", progress=95, step="upload", message="Сохраняем ассеты и метаданные")
                 campaign.status = "ready"
                 campaign.updated_at = datetime.utcnow()
@@ -5855,13 +5859,18 @@ def publish_post(post_id: int):
 
         image_url = (post.media_url or "").strip() or None
         if post.platform == "instagram" and not image_url:
-            image_context = f"{post.topic or post.prompt_text or 'social media'}. {(post.generated_text or '')[:220]}".strip()
-            image_url = build_semantic_fallback_image_url(
-                topic=image_context,
-                category=getattr(post, "category", None),
-                tone=getattr(post, "tone", "friendly") or "friendly",
-                language=getattr(post, "language", "ru") or "ru",
+            media = _fetch_post_media_or_error(
+                niche=getattr(post, "category", None) or post.topic,
+                topic=post.topic or post.prompt_text or "social media",
+                platform="instagram",
+                post_text=post.generated_text or "",
+                db=db,
+                project_id=int(getattr(post, "project_id", 0) or 0) or None,
             )
+            if media:
+                image_url = media.local_url
+                post.media_url = media.local_url
+                db.flush()
         now = datetime.utcnow()
         post.retry_count += 1
 
@@ -6092,7 +6101,7 @@ def bulk_schedule_posts():
                             db=db,
                             project_id=project_id,
                         )
-                        media_url = media.local_url
+                        media_url = media.local_url if media else None
                     except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
                         media_url = None
 
@@ -6241,16 +6250,34 @@ def _fetch_post_media_or_error(
     used_external_ids: set[str] | None = None,
     used_urls: set[str] | None = None,
 ):
-    return fetch_post_image(
-        niche=niche,
-        topic=topic,
-        platform=platform,
-        post_text=post_text,
-        db=db,
-        project_id=project_id,
-        used_external_ids=used_external_ids,
-        used_urls=used_urls,
-    )
+    try:
+        image = fetch_post_image(
+            niche=niche,
+            topic=topic,
+            platform=platform,
+            post_text=post_text,
+            db=db,
+            project_id=project_id,
+            used_external_ids=used_external_ids,
+            used_urls=used_urls,
+        )
+        if image and image.local_url:
+            return image
+    except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
+        pass
+    try:
+        return fetch_pixabay_post_image(
+            niche=niche,
+            topic=topic,
+            platform=platform,
+            post_text=post_text,
+            db=db,
+            project_id=project_id,
+            used_external_ids=used_external_ids,
+            used_urls=used_urls,
+        )
+    except Exception:
+        return None
 
 
 def _latest_meta_connection(db, user_id: int):
@@ -6293,9 +6320,10 @@ def _publish_post_via_meta(db, post: Post, *, publish_to_linked_instagram: bool 
                 db=db,
                 project_id=int(getattr(post, "project_id", 0) or 0) or None,
             )
-            image_url = media.local_url
-            post.media_url = media.local_url
-            db.flush()
+            if media:
+                image_url = media.local_url
+                post.media_url = media.local_url
+                db.flush()
         except (PexelsConfigError, PexelsRateLimitError, PexelsRequestError, PexelsEmptyResultError):
             image_url = None
 
@@ -7739,15 +7767,9 @@ def test_publish_connection(connection_id: int):
         # If IG is linked, test Instagram by default (or when requested explicitly).
         should_test_instagram = bool(row.ig_user_id) and requested in {"", "instagram"}
         if should_test_instagram:
-            ig_image_url = (
-                (request.get_json(silent=True) or {}).get("image_url")
-                or build_semantic_fallback_image_url(
-                    topic="Тест публикации для соцсетей",
-                    category="business",
-                    tone="friendly",
-                    language="ru",
-                )
-            ).strip()
+            ig_image_url = str((request.get_json(silent=True) or {}).get("image_url") or "").strip()
+            if not ig_image_url:
+                return jsonify({"error": "Instagram test publish requires image_url"}), 400
             # Instagram publish should use USER access token.
             result = publish_to_instagram(row.ig_user_id, access_token, ig_image_url, caption)
             meta_error = result.get("error") if isinstance(result, dict) else None
