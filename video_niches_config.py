@@ -1,0 +1,503 @@
+import copy
+import re
+
+GENERIC_TOPIC_TOKENS = {
+    "content",
+    "контент",
+    "business",
+    "бизнес",
+    "service",
+    "services",
+    "услуги",
+    "brand",
+    "бренд",
+    "marketing",
+    "маркетинг",
+}
+
+DEFAULT_VIDEO_NICHE_PROFILE = {
+    "id": "generic",
+    "title": "Generic",
+    "aliases": [],
+    "primary_keywords": ["real life", "people", "environment", "process", "details"],
+    "secondary_keywords": ["authentic", "natural light", "close up", "wide shot"],
+    "related_keywords": ["hands", "workflow", "motion", "everyday life"],
+    "mood_keywords": ["clean", "professional", "natural"],
+    "exclusion_keywords": ["fantasy", "anime", "cgi", "3d render", "illustration"],
+    "preferred_scenes": ["people", "work", "city", "nature", "home", "product", "abstract_real"],
+    "visual_buckets": {
+        "hook": ["strong opening", "motion detail", "real life action"],
+        "people": ["person portrait", "people interaction"],
+        "hands": ["hands close up", "process hands"],
+        "environment": ["workspace environment", "real location"],
+        "object": ["object close up", "detail shot"],
+        "process": ["workflow action", "real process"],
+        "atmosphere": ["natural light atmosphere", "abstract real background"],
+        "closing": ["calm closing shot", "clean ending frame"],
+    },
+    "visual_sequence": ["hook", "people", "hands", "environment", "object", "process", "atmosphere", "closing"],
+    "preferred_pacing": "balanced",
+    "visual_subjects": ["people", "workflow", "details"],
+    "visual_actions": ["working", "explaining", "using"],
+    "visual_locations": ["real location", "workspace"],
+    "visual_props": ["tools", "objects", "materials"],
+    "negative_queries": ["cartoon", "illustration", "cgi", "3d render"],
+    "forbidden_visuals": ["fantasy creature", "anime character", "abstract neon cgi"],
+}
+
+
+VIDEO_NICHE_PROFILES = {
+    "generic": DEFAULT_VIDEO_NICHE_PROFILE,
+    "esoteric": {
+        "id": "esoteric",
+        "title": "Esoteric",
+        "aliases": ["эзотерика", "spiritual", "mystic", "tarot", "астрология", "meditation"],
+        "primary_keywords": ["spiritual", "meditation", "mystic", "cosmic", "moon", "energy", "aura", "galaxy"],
+        "secondary_keywords": ["ritual", "candle", "stars", "universe", "chakra", "celestial", "night sky"],
+        "related_keywords": ["sacred", "incense", "astrology", "zodiac", "temple", "silence", "transcendence"],
+        "mood_keywords": ["atmospheric", "calm", "mysterious", "ethereal"],
+        "exclusion_keywords": ["office", "corporate", "laptop", "meeting", "startup", "cartoon"],
+        "preferred_scenes": ["abstract_real", "nature", "home", "travel"],
+        "visual_buckets": {
+            "cosmos": ["cosmic stars galaxy", "celestial universe", "galaxy stars universe"],
+            "candles": ["candle ritual spiritual", "sacred candle smoke", "incense candle light"],
+            "meditation": ["meditation calm spiritual", "person meditating peaceful", "mindfulness aura"],
+            "moon": ["moon night sky", "moonlight clouds", "crescent moon stars"],
+            "energy": ["energy aura hands", "chakra healing light", "spiritual energy field"],
+            "night_sky": ["night sky stars universe", "astrology zodiac celestial", "deep night stars"],
+        },
+        "visual_sequence": ["cosmos", "candles", "meditation", "moon", "energy", "night_sky"],
+        "preferred_pacing": "meditative_dynamic",
+        "visual_subjects": ["meditating person", "hands", "candles", "moon", "night sky"],
+        "visual_actions": ["meditating", "lighting candle", "breathing", "holding tarot"],
+        "visual_locations": ["calm room", "spiritual corner", "nature at night"],
+        "visual_props": ["candles", "cards", "incense", "crystals"],
+        "negative_queries": ["office", "business meeting", "laptop presentation", "startup team"],
+        "forbidden_visuals": ["corporate office", "sales dashboard", "conference room"],
+    },
+    "smm_marketing": {
+        "id": "smm_marketing",
+        "title": "Marketing",
+        "aliases": ["marketing", "smm", "маркетинг", "контент", "branding"],
+        "primary_keywords": ["business", "analytics", "team", "laptop", "smartphone", "strategy"],
+        "secondary_keywords": ["social media", "branding", "content planning", "growth", "office", "meeting"],
+        "related_keywords": ["documents", "brainstorm", "campaign", "dashboard", "phone screen"],
+        "mood_keywords": ["clean", "professional", "smart", "modern"],
+        "exclusion_keywords": ["fantasy", "anime", "mystic"],
+        "preferred_scenes": ["work", "people", "city", "product"],
+        "visual_buckets": {
+            "hook": ["business growth chart", "smartphone social media", "analytics dashboard"],
+            "people": ["team discussion office", "business person speaking"],
+            "hands": ["hands typing laptop", "smartphone content scrolling"],
+            "environment": ["modern office workspace", "creative meeting room"],
+            "object": ["laptop charts close up", "branding desk details"],
+            "process": ["content planning workflow", "strategy session action"],
+            "closing": ["professional office ending shot", "confident business close"],
+        },
+        "visual_sequence": ["hook", "people", "hands", "environment", "object", "process", "people", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["marketer", "business owner", "smartphone", "laptop", "dashboard"],
+        "visual_actions": ["planning", "analyzing", "scrolling", "recording content"],
+        "visual_locations": ["office", "meeting room", "workspace"],
+        "visual_props": ["phone", "laptop", "analytics dashboard", "content calendar"],
+        "negative_queries": ["mystic", "repair shop", "medical procedure", "gym workout"],
+        "forbidden_visuals": ["engine repair", "beauty treatment bed", "tarot table"],
+    },
+    "fitness": {
+        "id": "fitness",
+        "title": "Fitness",
+        "aliases": ["fitness", "gym", "workout", "тренировки", "спорт"],
+        "primary_keywords": ["workout", "running", "gym", "training", "strength", "active body"],
+        "secondary_keywords": ["stretching", "healthy lifestyle", "motion", "coach", "exercise"],
+        "related_keywords": ["warmup", "recovery", "cardio", "focus", "sport routine"],
+        "mood_keywords": ["energetic", "disciplined", "focused"],
+        "exclusion_keywords": ["fantasy", "office", "cartoon"],
+        "preferred_scenes": ["people", "nature", "home", "product"],
+        "visual_buckets": {
+            "hook": ["intense workout close up", "running motion strong"],
+            "people": ["athlete training", "fitness coach guidance"],
+            "hands": ["hands gripping weights", "training detail close up"],
+            "environment": ["gym environment", "outdoor running scene"],
+            "process": ["exercise movement", "stretching routine"],
+            "closing": ["cooldown calm athlete", "confident finish fitness"],
+        },
+        "visual_sequence": ["hook", "process", "people", "hands", "environment", "process", "people", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["athlete", "coach", "body", "weights", "treadmill"],
+        "visual_actions": ["training", "stretching", "running", "lifting"],
+        "visual_locations": ["gym", "fitness studio", "outdoor track"],
+        "visual_props": ["dumbbells", "mat", "barbell", "water bottle"],
+        "negative_queries": ["office", "car workshop", "restaurant kitchen", "tarot"],
+        "forbidden_visuals": ["business meeting", "vehicle repair", "salon treatment"],
+    },
+    "beauty": {
+        "id": "beauty",
+        "title": "Beauty",
+        "aliases": ["beauty", "cosmetology", "cosmetic", "salon", "косметология", "beauty-salon"],
+        "primary_keywords": ["skincare", "makeup", "cosmetic", "salon", "beauty routine", "self care"],
+        "secondary_keywords": ["facial", "mirror", "luxury detail", "serum", "clean skin"],
+        "related_keywords": ["wellness", "spa", "beauty close up", "care ritual"],
+        "mood_keywords": ["soft", "premium", "clean", "elegant"],
+        "exclusion_keywords": ["fantasy", "anime", "mechanic"],
+        "preferred_scenes": ["people", "home", "product", "abstract_real"],
+        "visual_buckets": {
+            "hook": ["beauty routine close up", "clean skin detail"],
+            "people": ["woman skincare portrait", "beautician consultation"],
+            "hands": ["serum hands close up", "beauty treatment detail"],
+            "environment": ["salon interior beauty", "soft mirror atmosphere"],
+            "object": ["cosmetic product close up", "luxury beauty details"],
+            "closing": ["fresh skin calm close", "beauty glow ending"],
+        },
+        "visual_sequence": ["hook", "people", "hands", "object", "environment", "hands", "people", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["cosmetologist", "client", "skin", "cosmetic product"],
+        "visual_actions": ["applying serum", "consulting", "treatment", "showing result"],
+        "visual_locations": ["beauty salon", "treatment room", "mirror zone"],
+        "visual_props": ["serum", "cream", "gloves", "beauty tools"],
+        "negative_queries": ["garage", "construction site", "laptop presentation", "tattoo machine"],
+        "forbidden_visuals": ["engine bay", "dirty workshop", "office charts"],
+    },
+    "autoservice": {
+        "id": "autoservice",
+        "title": "Auto Service",
+        "aliases": ["autoservice", "auto", "car service", "mechanic", "автосервис", "sto"],
+        "primary_keywords": ["mechanic", "car repair", "workshop", "engine", "diagnostics", "tools"],
+        "secondary_keywords": ["garage", "vehicle inspection", "oil change", "detailing", "service bay"],
+        "related_keywords": ["technician", "car interior", "wheel", "hood open"],
+        "mood_keywords": ["practical", "trustworthy", "clean workshop"],
+        "exclusion_keywords": ["fantasy", "beauty", "mystic"],
+        "preferred_scenes": ["work", "product", "people", "city"],
+        "visual_buckets": {
+            "hook": ["car diagnostics workshop", "engine close up mechanic"],
+            "people": ["mechanic explaining repair", "technician working car"],
+            "hands": ["tools hands detail", "mechanic hands close up"],
+            "environment": ["auto workshop interior", "garage vehicle inspection"],
+            "object": ["engine detail close up", "dashboard warning lights"],
+            "process": ["repair process action", "vehicle inspection motion"],
+            "closing": ["car ready service ending", "clean repaired car"],
+        },
+        "visual_sequence": ["hook", "process", "hands", "people", "environment", "object", "process", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["mechanic", "car", "engine", "dashboard", "wheel"],
+        "visual_actions": ["diagnosing", "repairing", "checking", "lifting hood", "explaining issue"],
+        "visual_locations": ["auto workshop", "service bay", "garage", "under hood"],
+        "visual_props": ["diagnostic scanner", "wrench", "tool cart", "lift", "warning lights"],
+        "negative_queries": ["office meeting", "marketing team", "beauty salon", "restaurant kitchen", "tarot"],
+        "forbidden_visuals": ["corporate laptop meeting", "makeup table", "spa room", "mystic altar"],
+    },
+    "barbershop": {
+        "id": "barbershop",
+        "title": "Barbershop",
+        "aliases": ["barbershop", "barber", "barber shop", "??????????????????", "????????????"],
+        "primary_keywords": ["barber", "haircut", "beard", "barbershop", "clippers", "fade haircut"],
+        "secondary_keywords": ["men grooming", "shape up", "trim", "scissors", "barber chair", "hairstyle"],
+        "related_keywords": ["beard care", "hairline", "clipper work", "grooming process", "mirror"],
+        "mood_keywords": ["clean", "confident", "masculine", "premium"],
+        "exclusion_keywords": ["forest", "train", "road", "traffic", "landscape", "mountain", "office", "fantasy", "beauty facial"],
+        "preferred_scenes": ["people", "work", "product", "home"],
+        "visual_buckets": {
+            "hook": ["barber haircut close up", "beard trim detail", "clipper fade close up"],
+            "people": ["barber cutting hair", "client in barber chair", "barber consultation mirror"],
+            "hands": ["barber hands with clippers", "scissors haircut detail", "beard line up hands"],
+            "environment": ["barbershop interior", "barber station mirror", "grooming studio"],
+            "object": ["clippers close up", "scissors comb detail", "beard oil product"],
+            "process": ["haircut process", "beard shaping process", "barber styling hair"],
+            "closing": ["fresh haircut reveal", "barber final look", "confident grooming close"],
+        },
+        "visual_sequence": ["hook", "process", "hands", "people", "environment", "object", "process", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["barber", "client", "haircut", "beard", "barber chair"],
+        "visual_actions": ["cutting hair", "trimming beard", "styling", "consulting client"],
+        "visual_locations": ["barbershop", "barber station", "mirror zone"],
+        "visual_props": ["clippers", "scissors", "comb", "razor", "beard oil"],
+        "negative_queries": ["train", "road", "forest", "mountain", "traffic", "office meeting", "beauty treatment bed", "car service"],
+        "forbidden_visuals": ["landscape drone", "railway station", "highway traffic", "spa facial room", "garage lift"],
+    },
+    "detailing": {
+        "id": "detailing",
+        "title": "Detailing",
+        "aliases": ["detailing", "car detailing", "??????????????????"],
+        "primary_keywords": ["car detailing", "car wash", "paint protection", "interior cleaning", "car polish"],
+        "secondary_keywords": ["foam wash", "coating", "microfiber", "wheel cleaning", "interior vacuum"],
+        "related_keywords": ["paint shine", "ceramic coating", "clean car interior", "detailing studio"],
+        "mood_keywords": ["clean", "premium", "precise", "reflective"],
+        "exclusion_keywords": ["forest", "road trip", "train", "office", "fantasy"],
+        "preferred_scenes": ["work", "product", "people", "home"],
+        "visual_buckets": {
+            "hook": ["car detailing close up", "foam wash car", "paint shine detail"],
+            "people": ["detailer working on car", "client receiving clean car"],
+            "hands": ["hands polishing car", "microfiber detailing close up"],
+            "environment": ["detailing studio", "car wash bay", "interior detailing zone"],
+            "object": ["car paint close up", "wheel detailing detail", "interior controls clean"],
+            "process": ["detailing process", "polishing paint", "cleaning car interior"],
+            "closing": ["clean car reveal", "glossy finish ending", "detailed interior final shot"],
+        },
+        "visual_sequence": ["hook", "process", "hands", "object", "environment", "process", "people", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["detailer", "car", "paintwork", "interior", "wheel"],
+        "visual_actions": ["washing", "polishing", "coating", "vacuuming", "wiping surfaces"],
+        "visual_locations": ["detailing studio", "wash bay", "garage"],
+        "visual_props": ["microfiber", "polisher", "foam gun", "coating bottle", "brush"],
+        "negative_queries": ["forest", "train", "mountain road", "office meeting", "barbershop"],
+        "forbidden_visuals": ["road trip drone", "railway", "conference room", "hair salon chair"],
+    },
+    "consulting": {
+        "id": "consulting",
+        "title": "Consulting",
+        "aliases": ["consulting", "business consulting", "????????????????????", "????????????????????????????????"],
+        "primary_keywords": ["consultant", "strategy session", "business review", "meeting table", "documents"],
+        "secondary_keywords": ["audit", "planning", "presentation", "analytics", "laptop review"],
+        "related_keywords": ["board discussion", "business notes", "process map", "decision making"],
+        "mood_keywords": ["clear", "confident", "structured"],
+        "exclusion_keywords": ["forest", "mountain", "train", "tarot", "garage", "fantasy"],
+        "preferred_scenes": ["work", "people", "product", "city"],
+        "visual_buckets": {
+            "hook": ["business audit close up", "strategy meeting table", "documents and laptop"],
+            "people": ["consultant speaking with client", "business owner discussion"],
+            "hands": ["hands pointing at reports", "notebook strategy notes"],
+            "environment": ["meeting room", "office desk setup", "consulting workspace"],
+            "object": ["report close up", "chart on laptop", "business documents"],
+            "process": ["planning session", "reviewing metrics", "mapping processes"],
+            "closing": ["confident consultant ending", "business meeting wrap up"],
+        },
+        "visual_sequence": ["hook", "people", "hands", "object", "environment", "process", "people", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["consultant", "client", "reports", "laptop", "meeting table"],
+        "visual_actions": ["explaining", "reviewing", "planning", "analyzing"],
+        "visual_locations": ["office", "meeting room", "workspace"],
+        "visual_props": ["reports", "charts", "notebook", "laptop"],
+        "negative_queries": ["train", "forest", "mountain", "tarot table", "barber chair"],
+        "forbidden_visuals": ["railway station", "landscape drone", "mystic altar", "salon mirror"],
+    },
+    "online_courses": {
+        "id": "online_courses",
+        "title": "Online Courses",
+        "aliases": ["online_courses", "online course", "course creator", "????????????-??????????", "????????", "????????????????"],
+        "primary_keywords": ["online course", "teacher", "lesson recording", "student learning", "laptop lesson"],
+        "secondary_keywords": ["webinar", "tutorial", "study notes", "camera setup", "digital learning"],
+        "related_keywords": ["microphone", "presentation slides", "course platform", "home studio"],
+        "mood_keywords": ["clear", "educational", "helpful"],
+        "exclusion_keywords": ["forest", "train", "highway", "garage", "fantasy"],
+        "preferred_scenes": ["people", "work", "home", "product"],
+        "visual_buckets": {
+            "hook": ["online lesson setup", "teacher recording video", "laptop course screen"],
+            "people": ["teacher speaking to camera", "student studying online"],
+            "hands": ["hands writing notes", "typing lesson notes", "switching slides"],
+            "environment": ["home studio workspace", "learning desk", "course recording setup"],
+            "object": ["microphone close up", "laptop course dashboard", "study materials"],
+            "process": ["recording lesson", "explaining on camera", "student following tutorial"],
+            "closing": ["finished lesson ending", "confident tutor close", "study success mood"],
+        },
+        "visual_sequence": ["hook", "people", "hands", "environment", "object", "process", "people", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["teacher", "student", "laptop", "camera", "desk"],
+        "visual_actions": ["recording lesson", "teaching", "studying", "taking notes"],
+        "visual_locations": ["home office", "recording corner", "study desk"],
+        "visual_props": ["microphone", "laptop", "notebook", "camera", "slides"],
+        "negative_queries": ["forest", "train", "highway", "car workshop", "tarot"],
+        "forbidden_visuals": ["railway track", "mountain drone", "garage engine", "mystic altar"],
+    },
+    "restaurant": {
+        "id": "restaurant",
+        "title": "Restaurant / Cafe",
+        "aliases": ["restaurant", "cafe", "coffee", "restaurant/cafe", "кафе", "ресторан", "кофейня", "кофейни", "бариста", "barista"],
+        "primary_keywords": ["coffee", "barista", "serving food", "restaurant interior", "chef", "cooking"],
+        "secondary_keywords": ["table", "dish closeup", "guests", "kitchen action", "cafe atmosphere"],
+        "related_keywords": ["latte art", "plating", "service", "dessert", "menu"],
+        "mood_keywords": ["warm", "inviting", "tasty", "lively"],
+        "exclusion_keywords": ["fantasy", "office", "repair"],
+        "preferred_scenes": ["food", "home", "people", "city"],
+        "visual_buckets": {
+            "hook": ["dish close up steam", "barista coffee motion"],
+            "people": ["chef cooking kitchen", "guests restaurant table"],
+            "hands": ["hands plating food", "coffee pour close up"],
+            "environment": ["restaurant interior atmosphere", "cafe cozy interior"],
+            "object": ["dish detail close up", "coffee cup detail"],
+            "process": ["serving food action", "cooking process kitchen"],
+            "closing": ["table ready final shot", "warm cafe ending"],
+        },
+        "visual_sequence": ["hook", "process", "hands", "people", "object", "environment", "people", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["chef", "barista", "guest", "dish", "coffee"],
+        "visual_actions": ["cooking", "serving", "pouring", "plating"],
+        "visual_locations": ["restaurant", "cafe", "kitchen", "bar counter"],
+        "visual_props": ["plate", "cup", "menu", "latte art"],
+        "negative_queries": ["office team", "mechanic repair", "gym workout", "tarot"],
+        "forbidden_visuals": ["engine bay", "business meeting", "treatment bed"],
+    },
+    "tattoo": {
+        "id": "tattoo",
+        "title": "Tattoo",
+        "aliases": ["tattoo", "tattoo-studio", "тату", "ink"],
+        "primary_keywords": ["tattoo artist", "ink", "studio", "needle", "design sketch", "blackwork"],
+        "secondary_keywords": ["arm detail", "workstation", "tattoo machine", "stencil", "tattoo process"],
+        "related_keywords": ["close up lines", "artist hands", "studio atmosphere"],
+        "mood_keywords": ["bold", "focused", "craft"],
+        "exclusion_keywords": ["fantasy", "beauty salon", "office"],
+        "preferred_scenes": ["people", "work", "home", "abstract_real"],
+        "visual_buckets": {
+            "hook": ["tattoo needle close up", "ink design detail"],
+            "people": ["tattoo artist working", "client tattoo session"],
+            "hands": ["artist hands tattoo", "design sketch hands"],
+            "environment": ["tattoo studio atmosphere", "workstation detail"],
+            "object": ["ink bottle close up", "tattoo machine detail"],
+            "process": ["tattoo process action", "stencil application"],
+            "closing": ["finished tattoo reveal", "studio final shot"],
+        },
+        "visual_sequence": ["hook", "process", "hands", "people", "environment", "object", "people", "closing"],
+        "preferred_pacing": "dynamic",
+        "visual_subjects": ["tattoo artist", "client", "design sketch", "needle", "ink"],
+        "visual_actions": ["tattooing", "preparing stencil", "drawing", "cleaning workspace"],
+        "visual_locations": ["tattoo studio", "artist station"],
+        "visual_props": ["tattoo machine", "ink bottle", "stencil", "gloves"],
+        "negative_queries": ["office charts", "beauty facial", "car diagnostics", "restaurant kitchen"],
+        "forbidden_visuals": ["conference room", "spa bed", "garage lift"],
+    },
+    "psychology": {
+        "id": "psychology",
+        "title": "Psychology / Coaching",
+        "aliases": ["psychology", "coaching", "психология", "коучинг", "therapy"],
+        "primary_keywords": ["calm person", "journaling", "reflection", "thinking", "walking", "focus"],
+        "secondary_keywords": ["sunrise", "therapy atmosphere", "mindfulness", "conversation", "quiet room"],
+        "related_keywords": ["inner balance", "notebook", "breathing", "self reflection"],
+        "mood_keywords": ["calm", "safe", "thoughtful", "gentle"],
+        "exclusion_keywords": ["fantasy", "mechanic", "aggressive action"],
+        "preferred_scenes": ["people", "nature", "home", "abstract_real"],
+        "visual_buckets": {
+            "hook": ["calm person close up", "sunrise reflection scene"],
+            "people": ["person journaling", "thoughtful conversation"],
+            "hands": ["notebook writing close up", "hands holding cup calm"],
+            "environment": ["quiet room atmosphere", "walking alone nature"],
+            "process": ["breathing meditation process", "reflective walking"],
+            "closing": ["calm ending portrait", "soft atmosphere closing"],
+        },
+        "visual_sequence": ["hook", "people", "hands", "environment", "process", "people", "environment", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["person", "therapist", "notebook", "calm face"],
+        "visual_actions": ["talking", "listening", "writing", "walking", "breathing"],
+        "visual_locations": ["quiet room", "therapy office", "park", "home"],
+        "visual_props": ["notebook", "tea cup", "chair", "journal"],
+        "negative_queries": ["engine repair", "sales meeting", "beauty treatment", "gym workout"],
+        "forbidden_visuals": ["workshop tools", "trading charts", "kitchen plating"],
+    },
+    "finance": {
+        "id": "finance",
+        "title": "Finance",
+        "aliases": ["finance", "финансы", "investing", "investment", "money"],
+        "primary_keywords": ["money", "charts", "investing", "laptop", "graphs", "office desk"],
+        "secondary_keywords": ["planning", "business growth", "documents", "calculator", "analysis"],
+        "related_keywords": ["budget", "market chart", "financial plan", "notebook"],
+        "mood_keywords": ["smart", "confident", "clean", "precise"],
+        "exclusion_keywords": ["fantasy", "mystic", "restaurant"],
+        "preferred_scenes": ["work", "product", "people", "city"],
+        "visual_buckets": {
+            "hook": ["financial chart close up", "money planning desk"],
+            "people": ["person analyzing graphs", "business finance meeting"],
+            "hands": ["calculator hands detail", "writing finance notes"],
+            "environment": ["office finance setup", "documents on desk"],
+            "object": ["chart screen close up", "currency and documents"],
+            "process": ["reviewing reports action", "planning budget workflow"],
+            "closing": ["clean finance ending", "confident business close"],
+        },
+        "visual_sequence": ["hook", "object", "hands", "people", "environment", "process", "people", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["analyst", "documents", "calculator", "laptop", "chart"],
+        "visual_actions": ["reviewing", "calculating", "planning", "analyzing"],
+        "visual_locations": ["office desk", "meeting room", "workspace"],
+        "visual_props": ["reports", "charts", "calculator", "spreadsheet"],
+        "negative_queries": ["mystic", "mechanic", "salon", "tattoo"],
+        "forbidden_visuals": ["candles altar", "engine bay", "beauty cabinet"],
+    },
+    "real_estate": {
+        "id": "real_estate",
+        "title": "Real Estate",
+        "aliases": ["real_estate", "real estate", "property", "недвижимость", "apartment_renovation", "renovation"],
+        "primary_keywords": ["modern house", "apartment", "interior", "keys", "architecture", "living room"],
+        "secondary_keywords": ["kitchen", "property tour", "home", "real estate agent", "open door"],
+        "related_keywords": ["window light", "interior details", "hallway", "new home"],
+        "mood_keywords": ["bright", "modern", "aspirational", "clean"],
+        "exclusion_keywords": ["fantasy", "mystic", "gym"],
+        "preferred_scenes": ["home", "city", "people", "product"],
+        "visual_buckets": {
+            "hook": ["modern interior reveal", "keys home close up"],
+            "people": ["agent showing apartment", "person entering new home"],
+            "hands": ["keys in hands close up", "door handle detail"],
+            "environment": ["living room interior", "modern kitchen apartment"],
+            "object": ["property detail close up", "architecture lines detail"],
+            "process": ["walking through apartment", "opening door sequence"],
+            "closing": ["bright interior ending", "home final calm shot"],
+        },
+        "visual_sequence": ["hook", "environment", "people", "hands", "object", "process", "environment", "closing"],
+        "preferred_pacing": "balanced",
+        "visual_subjects": ["apartment", "agent", "keys", "interior", "builder detail"],
+        "visual_actions": ["showing property", "opening door", "walking through", "inspecting finish"],
+        "visual_locations": ["apartment", "living room", "kitchen", "building exterior"],
+        "visual_props": ["keys", "door handle", "interior details", "blueprints"],
+        "negative_queries": ["gym workout", "restaurant kitchen", "tarot", "engine repair"],
+        "forbidden_visuals": ["barbell rack", "car engine", "mystic altar"],
+    },
+}
+
+
+_ALIAS_INDEX = {}
+for _profile in VIDEO_NICHE_PROFILES.values():
+    for _key in [str(_profile.get("id") or "").strip().lower(), *[str(x).strip().lower() for x in (_profile.get("aliases") or []) if str(x).strip()]]:
+        if _key:
+            _ALIAS_INDEX[_key] = _profile["id"]
+
+
+def _normalize(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _tokenize(value: str) -> list[str]:
+    return re.findall(r"[^\W_]+", _normalize(value), flags=re.UNICODE)
+
+
+def resolve_video_niche_profile(niche_id: str | None = None, topic: str = "", extra_text: str = "") -> dict:
+    explicit = _normalize(niche_id or "")
+    if explicit in _ALIAS_INDEX:
+        return _complete_profile(copy.deepcopy(VIDEO_NICHE_PROFILES[_ALIAS_INDEX[explicit]]))
+    hay = " ".join([_normalize(topic), _normalize(extra_text)]).strip()
+    tokens = {t for t in _tokenize(hay) if t not in GENERIC_TOPIC_TOKENS}
+    best_id = "generic"
+    best_score = 0
+    for profile_id, profile in VIDEO_NICHE_PROFILES.items():
+        score = 0
+        alias_tokens = set()
+        primary_tokens = set()
+        secondary_tokens = set()
+        related_tokens = set()
+        for value in [profile_id, *profile.get("aliases", [])]:
+            alias_tokens |= set(_tokenize(str(value)))
+        for value in profile.get("primary_keywords", []):
+            primary_tokens |= set(_tokenize(str(value)))
+        for value in profile.get("secondary_keywords", []):
+            secondary_tokens |= set(_tokenize(str(value)))
+        for value in profile.get("related_keywords", []):
+            related_tokens |= set(_tokenize(str(value)))
+        score += 4 * len(tokens & alias_tokens)
+        score += 3 * len(tokens & primary_tokens)
+        score += 2 * len(tokens & secondary_tokens)
+        score += 1 * len(tokens & related_tokens)
+        if profile_id != "generic" and score > best_score:
+            best_id = profile_id
+            best_score = score
+    return _complete_profile(copy.deepcopy(VIDEO_NICHE_PROFILES.get(best_id, DEFAULT_VIDEO_NICHE_PROFILE)))
+
+
+def list_video_niche_profiles() -> list[dict]:
+    return [_complete_profile(copy.deepcopy(x)) for x in VIDEO_NICHE_PROFILES.values()]
+
+
+def _complete_profile(profile: dict) -> dict:
+    for key in (
+        "visual_subjects",
+        "visual_actions",
+        "visual_locations",
+        "visual_props",
+        "negative_queries",
+        "forbidden_visuals",
+    ):
+        profile.setdefault(key, list(DEFAULT_VIDEO_NICHE_PROFILE.get(key) or []))
+    return profile
