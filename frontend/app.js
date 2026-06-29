@@ -9990,7 +9990,15 @@ function pageCreateDirector() {
         <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
         <h1 class="plan-flow-hero-title">${esc(isFirstRun ? 'Создадим ваш первый пост' : shellText('create_post_studio_page_title'))}</h1>
         <p class="plan-flow-hero-subtitle">${esc(isFirstRun ? 'Выберите нишу и цель. AI подготовит ваш первый пост с изображением.' : shellText('create_post_studio_page_subtitle'))}</p>
-        <div class="post-studio-benefits">
+        ${isFirstRun ? `<div class="post-studio-benefits">
+          <div class="small"><strong>${esc(shellText('create_post_studio_benefits_title'))}</strong></div>
+          <ul class="post-studio-benefits-list">
+            <li>готовый текст первого поста</li>
+            <li>CTA и хештеги</li>
+            <li>релевантное изображение</li>
+            <li>оптимальное время публикации</li>
+          </ul>
+        </div>` : `<div class="post-studio-benefits">
           <div class="small"><strong>${esc(shellText('create_post_studio_benefits_title'))}</strong></div>
           <ul class="post-studio-benefits-list">
             <li>${esc(shellText('create_post_studio_benefit_1'))}</li>
@@ -9998,7 +10006,7 @@ function pageCreateDirector() {
             <li>${esc(shellText('create_post_studio_benefit_3'))}</li>
             <li>${esc(shellText('create_post_studio_benefit_4'))}</li>
           </ul>
-        </div>
+        </div>`}
       </article>
     `;
     const postStudioSettingsCard = `
