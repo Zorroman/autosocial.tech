@@ -13896,9 +13896,9 @@ async function bindCreateDirector(path) {
     if (days30Btn) days30Btn.disabled = pendingAction === 'generate';
     if (generateBtn) generateBtn.disabled = pendingAction === 'generate' || d.planFlowState === 'loading';
     if (generateBtn && d.planFlowState !== 'loading' && pendingAction !== 'generate') {
-      generateBtn.textContent = currentDays === 30
-        ? shellText('create_post_studio_generate_30_cta')
-        : shellText('create_post_studio_generate_7');
+      generateBtn.textContent = isFirstRun
+        ? 'Создать первый пост'
+        : (currentDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
     }
   };
   const clearPostStudioGenerateFeedback = () => {
@@ -13940,8 +13940,8 @@ async function bindCreateDirector(path) {
     if (generateBtn) {
       generateBtn.disabled = pendingAction === 'generate' || d.planFlowState === 'loading';
       generateBtn.textContent = pendingAction === 'generate'
-        ? (currentDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7'))
-        : (currentDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7'));
+        ? (isFirstRun ? 'Создаём ваш первый пост...' : (currentDays === 30 ? shellText('create_post_studio_generate_pending_30') : shellText('create_post_studio_generate_pending_7')))
+        : (isFirstRun ? 'Создать первый пост' : (currentDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7')));
     }
     if (days7Btn) days7Btn.disabled = pendingAction === 'generate';
     if (days30Btn) days30Btn.disabled = pendingAction === 'generate';
