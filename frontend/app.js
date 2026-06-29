@@ -6856,13 +6856,13 @@ function pageTrialActivated() {
     <main class="landing-2026-final" style="max-width:920px;margin:48px auto;">
       <span class="landing-2026-chip">Бесплатный период активирован</span>
       <h1>Ваш бесплатный период на 7 дней активирован</h1>
-      <p>Сейчас создадим ваши первые публикации с изображениями.</p>
+      <p>Сейчас создадим ваш первый пост с изображением.</p>
       <div class="landing-2026-grid-3" style="margin:24px 0;">
         <article class="landing-2026-card"><h3>${posts} постов</h3><p>Тексты, призывы к действию и хештеги.</p></article>
         <article class="landing-2026-card"><h3>${videos} видео</h3><p>Планы, структуры и доступный рендер.</p></article>
         <article class="landing-2026-card"><h3>${projects} проект</h3><p>Одно рабочее пространство для бренда.</p></article>
       </div>
-      <button id="trialCreateFirstPostBtn" class="btn btn-primary cta__button" type="button" data-link="/dashboard?onboarding=1">Создать первые публикации</button>
+      <button id="trialCreateFirstPostBtn" class="btn btn-primary cta__button" type="button" data-link="/dashboard?onboarding=1">Создать первый пост</button>
       <p class="small" style="margin-top:14px;">Карта не требуется. Автоматического списания не будет.</p>
     </main>
   </div>`;
@@ -6992,10 +6992,10 @@ function pageDashboard() {
         <header class="dash-card dash-hero glass-card">
           <div class="dash-hero-copy">
             <div class="dash-hero-topline">Следующий шаг</div>
-            <h1 class="dash-sales-title">Создайте первые публикации за минуту</h1>
+            <h1 class="dash-sales-title">Создайте ваш первый пост</h1>
             <p class="dash-sales-subtitle">Выберите нишу и цель — AutoSocial подготовит тексты, изображения, хештеги и время публикации.</p>
             <div class="cta-row" style="margin-top:18px;">
-              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первые публикации</button>
+              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первый пост</button>
             </div>
           </div>
         </header>
@@ -7011,7 +7011,7 @@ function pageDashboard() {
         <header class="dash-card dash-hero glass-card">
           <div class="dash-hero-copy">
             <div class="dash-hero-topline">Что уже готово</div>
-            <h1 class="dash-sales-title">Ваши первые публикации готовы 🎉</h1>
+            <h1 class="dash-sales-title">Ваш первый пост готов 🎉</h1>
             <p class="dash-sales-subtitle">Вы уже получили контент для старта. Теперь можно отредактировать публикации, подключить соцсети или создать ещё.</p>
             <div class="cta-row" style="margin-top:18px;">
               <button class="btn btn-primary" type="button" data-link="/history">Открыть публикации</button>
@@ -7021,7 +7021,7 @@ function pageDashboard() {
           </div>
         </header>
         <section class="grid-2 dash-dashboard-row">
-          <article class="dash-card glass-card"><h3>Что уже готово</h3><div class="saas-meter-grid"><article class="dash-kpi-card glass-card"><strong>7 публикаций</strong></article><article class="dash-kpi-card glass-card"><strong>изображения</strong></article><article class="dash-kpi-card glass-card"><strong>хештеги</strong></article><article class="dash-kpi-card glass-card"><strong>время публикации</strong></article></div></article>
+          <article class="dash-card glass-card"><h3>Что уже готово</h3><div class="saas-meter-grid"><article class="dash-kpi-card glass-card"><strong>1 публикация</strong></article><article class="dash-kpi-card glass-card"><strong>изображения</strong></article><article class="dash-kpi-card glass-card"><strong>хештеги</strong></article><article class="dash-kpi-card glass-card"><strong>время публикации</strong></article></div></article>
           <article class="dash-card glass-card"><h3>Следующий шаг</h3><ol class="small"><li>Проверьте публикации</li><li>Подключите соцсети</li><li>Запланируйте публикацию</li></ol></article>
         </section>
         ${connectionsQuickBlock}
@@ -9956,8 +9956,8 @@ function pageCreateDirector() {
     const postStudioHydrating = postStudioGeneratePending && postStudioGenerated;
     const postStudioPreviewActionPending = postStudioPendingAction === 'publish' || postStudioPendingAction === 'schedule' || postStudioHydrating;
     const postStudioPrimaryCta = postStudioGeneratePending
-      ? 'Создаём первые публикации...'
-      : (isFirstRun ? 'Создать первые публикации' : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7')));
+      ? 'Создаём ваш первый пост...'
+      : (isFirstRun ? 'Создать первый пост' : (postStudioPlanDays === 30 ? shellText('create_post_studio_generate_30_cta') : shellText('create_post_studio_generate_7')));
     const postStudioResultTitleKey = postStudioItems.length >= 30 ? 'create_planner_post30' : 'create_planner_post7';
     const postStudioGenerateFeedbackType = String(d.postStudioGenerateFeedbackType || '').trim();
     const postStudioGenerateFeedbackText = String(d.postStudioGenerateFeedbackText || '').trim();
@@ -9988,8 +9988,8 @@ function pageCreateDirector() {
     const postStudioHeroCard = `
       <article class="card glass-card create-director-card plan-flow-hero-card">
         <div class="create-step-label">${esc(shellText('create_plan_quick_start'))}</div>
-        <h1 class="plan-flow-hero-title">${esc(isFirstRun ? 'Создадим первые публикации' : shellText('create_post_studio_page_title'))}</h1>
-        <p class="plan-flow-hero-subtitle">${esc(isFirstRun ? 'Выберите нишу и цель. AI подготовит 7 публикаций с изображениями, а затем покажет первую.' : shellText('create_post_studio_page_subtitle'))}</p>
+        <h1 class="plan-flow-hero-title">${esc(isFirstRun ? 'Создадим ваш первый пост' : shellText('create_post_studio_page_title'))}</h1>
+        <p class="plan-flow-hero-subtitle">${esc(isFirstRun ? 'Выберите нишу и цель. AI подготовит ваш первый пост с изображением.' : shellText('create_post_studio_page_subtitle'))}</p>
         <div class="post-studio-benefits">
           <div class="small"><strong>${esc(shellText('create_post_studio_benefits_title'))}</strong></div>
           <ul class="post-studio-benefits-list">
@@ -10062,8 +10062,8 @@ function pageCreateDirector() {
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div>
             <div class="create-step-label">${esc(isFirstRun ? 'Готово' : shellText('create_post_studio_days_title'))}</div>
-            <h3 style="margin:0 0 8px 0;">${esc(isFirstRun ? 'Первые 7 публикаций готовы 🎉' : (shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText(postStudioResultTitleKey) }) : shellText(postStudioResultTitleKey)))}</h3>
-            <p class="small" style="margin:0;">${esc(isFirstRun ? 'Ниже показана публикация №1 из 7. Остальные доступны в панели.' : shellText('create_post_studio_plan_ready'))}</p>
+            <h3 style="margin:0 0 8px 0;">${esc(isFirstRun ? 'Ваш первый пост готов 🎉' : (shellText('create_plan_ready_title').includes('{title}') ? shellTextFmt('create_plan_ready_title', { title: shellText(postStudioResultTitleKey) }) : shellText(postStudioResultTitleKey)))}</h3>
+            <p class="small" style="margin:0;">${esc(isFirstRun ? 'Ниже показан ваш первый пост.' : shellText('create_post_studio_plan_ready'))}</p>
           </div>
           <div class="cta-row">
             ${isFirstRun ? '' : `<span class="pill active">${esc(shellText('create_post_studio_auto_time'))}</span>`}
@@ -10086,11 +10086,11 @@ function pageCreateDirector() {
             ? `
               <h3 id="cdPostStudioPreviewTitle" style="margin-top:0;">${esc(selectedPostStudioItem.topic || '—')}</h3>
               <p id="cdPostStudioPreviewState" class="small create-preview-state">${esc(planFormatLabel(selectedPostStudioItem.format_hint || selectedPostStudioItem.contentFormat || 'post'))}</p>
-              <p class="small" style="margin:0 0 10px 0;">${esc(isFirstRun ? 'Публикация №1 из 7' : shellText('create_post_studio_auto_time'))}</p>
+              <p class="small" style="margin:0 0 10px 0;">${esc(isFirstRun ? 'Ваш первый пост' : shellText('create_post_studio_auto_time'))}</p>
               <div id="cdPostStudioPreviewImageWrap" style="${String(selectedPostStudioItem.media_url || '').trim() ? 'display:block;' : 'display:none;'}margin:0 0 12px 0;">
                 <img id="cdPostStudioPreviewImage" src="${esc(String(selectedPostStudioItem.media_url || '').trim())}" alt="${esc(selectedPostStudioItem.topic || 'Post image')}" style="width:100%;max-height:240px;object-fit:cover;border-radius:16px;display:block;" />
               </div>
-              ${String(selectedPostStudioItem.media_url || '').trim() ? '<p class="small" style="margin:0 0 10px 0;">AI автоматически подобрал изображение для этой публикации.</p><div class="cta-row" style="margin:0 0 10px 0;"><button type="button" class="btn btn-ghost" data-image-action="replace">↻ Заменить изображение</button><button type="button" class="btn btn-ghost" data-image-action="generate-ai">🎨 Сгенерировать AI-изображение</button></div>' : ''}
+              ${String(selectedPostStudioItem.media_url || '').trim() ? '<p class="small" style="margin:0 0 10px 0;">AI автоматически подобрал изображение для этой публикации.</p><div class="cta-row" style="margin:0 0 10px 0;"><button type="button" class="btn btn-ghost" data-image-action="replace">↻ Заменить изображение</button></div>' : ''}
               <label class="create-toggle" style="margin-bottom:10px;" ${isFirstRun ? 'hidden' : ''}><input id="cdPostStudioManualTimeToggle" type="checkbox" ${d.postStudioManualTimeEnabled ? 'checked' : ''}/> ${esc(shellText('create_post_studio_manual_time_toggle'))}</label>
               <div id="cdPostStudioManualTimeFields" ${isFirstRun ? 'hidden' : ''} style="display:block;opacity:${d.postStudioManualTimeEnabled ? '1' : '0.56'};">
                 <div class="field">
@@ -10127,7 +10127,7 @@ function pageCreateDirector() {
                 <button id="cdPostStudioSchedule" type="button" class="btn btn-primary" ${postStudioActionsDisabled ? 'disabled' : ''}>${esc(postStudioPendingAction === 'schedule' ? shellText('create_post_studio_schedule_pending_button') : shellText('create_post_studio_schedule'))}</button>
                 <button id="cdPostStudioGenerate30" type="button" class="btn btn-ghost">${esc(shellText('create_post_studio_generate_30'))}</button>
               </div>
-              ${isFirstRun ? `<div class="notice ok" style="margin-top:12px;">Первые 7 публикаций готовы. Вы можете опубликовать первую сейчас, запланировать её или перейти в панель.</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button type="button" class="btn btn-primary">📤 Опубликовать сейчас</button><button type="button" class="btn btn-secondary">📅 Запланировать</button><button type="button" class="btn btn-ghost" data-link="/connections">🔗 Подключить соцсети</button><button type="button" class="btn btn-ghost" data-link="/dashboard?first_content=ready">📊 Перейти в панель</button><button id="cdPostStudioGenerate30FirstRun" type="button" class="btn btn-ghost">Создать ещё 30 публикаций</button></div>` : ''}
+              ${isFirstRun ? `<div class="notice ok" style="margin-top:12px;">Ваш первый пост готов. Вы можете опубликовать его сейчас, запланировать или перейти в панель.</div><div class="cta-row" style="margin-top:12px;justify-content:flex-end;"><button type="button" class="btn btn-primary">📤 Опубликовать сейчас</button><button type="button" class="btn btn-secondary">📅 Запланировать</button><button type="button" class="btn btn-ghost" data-link="/connections">🔗 Подключить соцсети</button><button type="button" class="btn btn-ghost" data-link="/dashboard?first_content=ready">📊 Перейти в панель</button></div>` : ''}
             `
             : `
               <h3 style="margin-top:0;">${esc(shellText('create_post_studio_preview_title'))}</h3>
@@ -16406,7 +16406,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
           videoWeekItems: Array.isArray(result.video_plan?.items) ? result.video_plan.items : state.createDirector.videoWeekItems,
         };
         localStorage.setItem(dismissKey, '1');
-        state.notice = { type: 'ok', text: 'Настройки готовы. Сейчас создадим первые публикации с изображениями.' };
+        state.notice = { type: 'ok', text: 'Настройки готовы. Сейчас создадим ваш первый пост.' };
         nav('/create/post?first=1', { keepNotice: true });
       } catch (e) {
         ensureOnboardingDraft().status = 'idle';

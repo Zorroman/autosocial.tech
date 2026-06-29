@@ -2124,7 +2124,7 @@ def _create_onboarding_post_plan(db, *, user: AppUser, project_id: int, payload:
     now = datetime.utcnow()
     goal_label = {"sales": "sales", "engagement": "engagement", "growth": "growth"}.get(goal, "growth")
     items = []
-    for idx in range(7):
+    for idx in range(1):
         scheduled_at = (now + timedelta(days=idx)).replace(hour=10, minute=0, second=0, microsecond=0)
         topic = f"{niche}: {goal_label} content idea {idx + 1}"
         existing = (
@@ -2263,10 +2263,10 @@ def onboarding_start():
             "ok": True,
             "project_id": int(project.id),
             "onboarding": _onboarding_state_payload(row),
-            "post_plan": {"days": 7, "items": post_plan},
+            "post_plan": {"days": 1, "items": post_plan},
             "video_plan": video_plan,
             "prefill": payload,
-            "message": "Your first 7-day plan is ready.",
+            "message": "Your first post is ready.",
         })
     finally:
         db.close()
