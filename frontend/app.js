@@ -6984,18 +6984,48 @@ function pageDashboard() {
     || ['facebook', 'instagram', 'youtube'].some((key) => Number(byPlatform?.[key]?.items || 0) > 0 || Number(byPlatform?.[key]?.reach || 0) > 0 || Number(byPlatform?.[key]?.views || 0) > 0);
   const shouldShowAnalyticsEmptyState = !stats.loading && !hasAnalyticsData;
   const isFirstUserDashboard = !hasGeneratedContent && !hasAnalyticsData;
+
+  // Niche setup — needed in both early-return branches and the full dashboard
+  ensureDashboardQuickStartState();
+  const resolvedQuickNicheId = resolveDashboardActiveNicheId();
+  if (resolvedQuickNicheId && state.dashboardQuickStart.nicheId !== resolvedQuickNicheId) {
+    state.dashboardQuickStart.nicheId = resolvedQuickNicheId;
+  }
+  const dashboardNicheId = String(state.dashboardQuickStart.nicheId || '').trim();
+  const dashboardNicheMeta = dashboardNicheId ? dashboardQuickNicheMeta(dashboardNicheId) : null;
+  const dashboardNicheLabel = dashboardNicheMeta?.label || shellText('dashboard_select_niche_option');
+  const dashboardNicheOptions = [{ value: '', label: shellText('dashboard_select_niche_option') }].concat(localizedNicheOptions(DIRECTOR_NICHE_OPTIONS));
   const firstContentReady = new URLSearchParams(location.search).get('first_content') === 'ready';
   const connectionsQuickBlock = `<section class="dash-card glass-card"><div class="dash-section-head"><div><h3>Подключите соцсети</h3><p class="small">Подключите соцсети, когда будете готовы публиковать.</p></div></div><div class="cta-row"><button class="btn btn-secondary" type="button" data-link="/connections">Подключить Facebook</button><button class="btn btn-secondary" type="button" data-link="/connections">Подключить Instagram</button><button class="btn btn-secondary" type="button" data-link="/connections">Подключить YouTube</button></div></section>`;
   if (isFirstUserDashboard) {
+    const frGoalOptions = [
+      { value: 'engagement', label: 'Получить отклик' },
+      { value: 'awareness', label: 'Увеличить охват' },
+      { value: 'lead', label: 'Привлечь клиентов' },
+      { value: 'sales', label: 'Продажи' },
+    ];
+    const frGoalId = String(state.createDirector?.goal || 'engagement');
     return appLayout('/dashboard', shellText('page_dashboard'), `
       <section class="dash-client-shell dash-v2-shell">
         <header class="dash-card dash-hero glass-card">
           <div class="dash-hero-copy">
-            <div class="dash-hero-topline">Следующий шаг</div>
-            <h1 class="dash-sales-title">Создайте ваш первый пост</h1>
-            <p class="dash-sales-subtitle">Выберите нишу и цель — AutoSocial подготовит тексты, изображения, хештеги и время публикации.</p>
+            <div class="dash-hero-topline">Первый запуск</div>
+            <h1 class="dash-sales-title">Создайте первый пост</h1>
+            <p class="dash-sales-subtitle">Ответьте на 2 вопроса, и мы подготовим текст и изображение.</p>
+            <div class="dash-hero-inline" style="margin-top:16px;">
+              <div class="dash-quick-controls">
+                ${selectField('frNiche', 'Ниша', dashboardNicheId, dashboardNicheOptions)}
+                ${selectField('frGoal', 'Цель', frGoalId, frGoalOptions)}
+              </div>
+            </div>
+            <ul class="post-studio-benefits-list" style="margin:12px 0;">
+              <li>Текст поста</li>
+              <li>Изображение</li>
+              <li>Хэштеги</li>
+              <li>CTA</li>
+            </ul>
             <div class="cta-row" style="margin-top:18px;">
-              <button class="btn btn-primary" type="button" data-link="/create/post?first=1">Создать первый пост</button>
+              <button id="frCreateFirstPostBtn" class="btn btn-primary" type="button">Создать первый пост</button>
             </div>
           </div>
         </header>
@@ -7006,24 +7036,31 @@ function pageDashboard() {
   }
   const isFirstContentDashboard = firstContentReady || (hasGeneratedContent && !hasAnalyticsData);
   if (isFirstContentDashboard) {
+    const isTrialUser = billing.plan === 'free';
+    const trialUpsellHtml = isTrialUser ? `
+      <article class="dash-card glass-card" style="margin-top:16px;text-align:center;">
+        <p class="small">Хотите получать ещё 30 постов каждый месяц?</p>
+        <button class="btn btn-primary" type="button" data-link="/billing">Попробовать Growth</button>
+      </article>` : '';
     return appLayout('/dashboard', shellText('page_dashboard'), `
       <section class="dash-client-shell dash-v2-shell">
         <header class="dash-card dash-hero glass-card">
           <div class="dash-hero-copy">
-            <div class="dash-hero-topline">Что уже готово</div>
-            <h1 class="dash-sales-title">Ваш первый пост готов 🎉</h1>
-            <p class="dash-sales-subtitle">Вы уже получили контент для старта. Теперь можно отредактировать публикации, подключить соцсети или создать ещё.</p>
+            <div class="dash-hero-topline">Готово</div>
+            <h1 class="dash-sales-title">🎉 Ваш первый пост готов</h1>
+            <p class="dash-sales-subtitle">Теперь вы можете опубликовать его, запланировать или создать ещё.</p>
             <div class="cta-row" style="margin-top:18px;">
-              <button class="btn btn-primary" type="button" data-link="/history">Открыть публикации</button>
-              <button class="btn btn-secondary" type="button" data-link="/connections">Подключите соцсети</button>
-              <button class="btn btn-ghost" type="button" data-link="/create/post?mode=plan&days=30">Создать ещё 30 публикаций</button>
+              <button class="btn btn-primary" type="button" data-link="/history">Опубликовать сейчас</button>
+              <button class="btn btn-secondary" type="button" data-link="/calendar">Запланировать</button>
+              <button class="btn btn-ghost" type="button" data-link="/create/post">Создать ещё</button>
             </div>
           </div>
         </header>
         <section class="grid-2 dash-dashboard-row">
-          <article class="dash-card glass-card"><h3>Что уже готово</h3><div class="saas-meter-grid"><article class="dash-kpi-card glass-card"><strong>1 публикация</strong></article><article class="dash-kpi-card glass-card"><strong>изображения</strong></article><article class="dash-kpi-card glass-card"><strong>хештеги</strong></article><article class="dash-kpi-card glass-card"><strong>время публикации</strong></article></div></article>
-          <article class="dash-card glass-card"><h3>Следующий шаг</h3><ol class="small"><li>Проверьте публикации</li><li>Подключите соцсети</li><li>Запланируйте публикацию</li></ol></article>
+          <article class="dash-card glass-card"><h3>Что уже готово</h3><div class="saas-meter-grid"><article class="dash-kpi-card glass-card"><strong>текст поста</strong></article><article class="dash-kpi-card glass-card"><strong>изображение</strong></article><article class="dash-kpi-card glass-card"><strong>хештеги</strong></article><article class="dash-kpi-card glass-card"><strong>время публикации</strong></article></div></article>
+          <article class="dash-card glass-card"><h3>Следующий шаг</h3><ol class="small"><li>Откройте публикацию в истории</li><li>Подключите соцсети</li><li>Запланируйте или опубликуйте</li></ol></article>
         </section>
+        ${trialUpsellHtml}
         ${connectionsQuickBlock}
       </section>
       ${onboardingModalHtml()}
@@ -7116,16 +7153,6 @@ function pageDashboard() {
   const nextBestStep = hasGeneratedContent
     ? (hasConnectedChannels ? shellText('dashboard_next_sync_or_publish') : shellText('dashboard_connect_later_keep_generating'))
     : shellText('dashboard_start_first_topic');
-
-  ensureDashboardQuickStartState();
-  const resolvedQuickNicheId = resolveDashboardActiveNicheId();
-  if (resolvedQuickNicheId && state.dashboardQuickStart.nicheId !== resolvedQuickNicheId) {
-    state.dashboardQuickStart.nicheId = resolvedQuickNicheId;
-  }
-  const dashboardNicheId = String(state.dashboardQuickStart.nicheId || '').trim();
-  const dashboardNicheMeta = dashboardNicheId ? dashboardQuickNicheMeta(dashboardNicheId) : null;
-  const dashboardNicheLabel = dashboardNicheMeta?.label || shellText('dashboard_select_niche_option');
-  const dashboardNicheOptions = [{ value: '', label: shellText('dashboard_select_niche_option') }].concat(localizedNicheOptions(DIRECTOR_NICHE_OPTIONS));
 
   const weeklyAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'weekly_plan'));
   const monthlyAction = localizedDashboardQuickAction(DASHBOARD_QUICK_ACTIONS.find((item) => item.key === 'monthly_plan'));
@@ -16460,6 +16487,24 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
       state.notice = { type: 'error', text: 'Сначала выберите нишу.' };
     }
     render();
+  };
+  // First-run wizard bindings (isFirstUserDashboard branch)
+  const frNiche = document.getElementById('frNiche');
+  if (frNiche) frNiche.onchange = () => {
+    setDashboardQuickNiche(frNiche.value);
+    render();
+  };
+  const frGoal = document.getElementById('frGoal');
+  if (frGoal) frGoal.onchange = () => {
+    state.createDirector = { ...(state.createDirector || {}), goal: frGoal.value };
+  };
+  const frCreateFirstPostBtn = document.getElementById('frCreateFirstPostBtn');
+  if (frCreateFirstPostBtn) frCreateFirstPostBtn.onclick = () => {
+    const nicheVal = document.getElementById('frNiche')?.value || '';
+    const goalVal = document.getElementById('frGoal')?.value || 'engagement';
+    if (nicheVal) setDashboardQuickNiche(nicheVal);
+    state.createDirector = { ...(state.createDirector || {}), topicPreset: nicheVal || DEFAULT_DIRECTOR_NICHE, goal: goalVal };
+    nav('/create/post?first=1');
   };
   document.querySelectorAll('[data-dash-quick-action]').forEach((btn) => {
     btn.onclick = () => {
