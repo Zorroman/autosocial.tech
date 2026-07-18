@@ -25,7 +25,11 @@ PY
 echo "== 6. critical tests =="
 python -m pytest tests/test_private_admin.py tests/test_video_projects.py \
   tests/test_publications.py tests/test_analytics_costs.py \
-  tests/test_render_fixture.py -q
+  tests/test_factory_dashboard.py tests/test_render_fixture.py -q
+
+echo "== 6b. git diff --check =="
+git diff --check
+git diff --cached --check
 
 echo "== 7. migrations check (dry import) =="
 python3 -c "import migrations; print('migrations module OK (applied automatically on app start)')"
