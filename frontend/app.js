@@ -6687,6 +6687,7 @@ function pageChannels() {
       <div class="row" style="margin-top:10px;gap:8px;">
         <button id="chSaveBtn" class="btn btn-primary" type="button" data-channel-id="${detail.id}">Сохранить настройки</button>
       </div>
+      ${channelYouTubeHtml(detail)}
       <h3>Идеи</h3>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;">
         <input id="ideaTitleInput" class="input" placeholder="Тема или заголовок идеи" style="flex:1;min-width:220px;"/>
@@ -6878,6 +6879,7 @@ function pageProjects() {
         <video controls style="max-width:270px;border-radius:12px;" src="${API_BASE}${esc(detail.output_url)}"></video>
         <div><a class="btn btn-primary" style="margin-top:8px;" href="${API_BASE}${esc(detail.output_url)}" download>Скачать MP4</a></div>
       </div>` : ''}
+      ${publicationEditorHtml(detail)}
       <h3>Сцены</h3>
       ${scenesHtml}
     </section>`;
@@ -7095,6 +7097,219 @@ function bindProjectsPage() {
   }
 }
 
+const PUB_STATUS_LABELS = { draft: 'Черновик', ready: 'Готова', uploading: 'Загружается', published: 'Опубликована', failed: 'Ошибка', cancelled: 'Отменена' };
+const PUB_MODE_LABELS = { manual: 'вручную', immediate: 'сразу', scheduled: 'по расписанию' };
+
+function pagePublications() {
+  const pubs = Array.isArray(state.publicationsList) ? state.publicationsList : [];
+  const channels = Object.fromEntries((state.channelsData || []).map((c) => [c.id, c.name]));
+  const rows = pubs.length
+    ? pubs.map((p) => `<tr>
+        <td>#${p.id}</td>
+        <td>${esc(channels[p.channel_id] || String(p.channel_id))}</td>
+        <td>${p.project_id}</td>
+        <td class="small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">${esc(p.title)}</td>
+        <td>${esc(PUB_STATUS_LABELS[p.status] || p.status)}${p.scheduled_at ? `<div class="small">${esc(p.scheduled_at.slice(0, 16).replace('T', ' '))}</div>` : ''}</td>
+        <td>${esc(PUB_MODE_LABELS[p.publish_mode] || p.publish_mode)}</td>
+        <td class="small">${esc((p.published_at || p.created_at || '').slice(0, 16).replace('T', ' '))}</td>
+        <td>${p.youtube_url ? `<a href="${esc(p.youtube_url)}" target="_blank" rel="noreferrer">YouTube</a>` : ''}</td>
+        <td class="small" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${esc(p.last_error || '')}">${esc((p.last_error || '').slice(0, 50))}</td>
+        <td>${p.status === 'failed' && !p.youtube_video_id ? `<button class="btn btn-ghost connection-btn-sm" data-pub-retry="${p.id}" type="button">Повторить</button>` : ''}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" class="small">Публикаций пока нет. Подготовьте публикацию из готового видео-проекта.</td></tr>';
+  const body = `<section class="card">
+    <h3 style="margin-top:0;">Публикации YouTube</h3>
+    <div style="overflow-x:auto;">
+      <table class="small" style="width:100%;border-collapse:collapse;">
+        <thead><tr><th>ID</th><th>Канал</th><th>Проект</th><th>Заголовок</th><th>Статус</th><th>Режим</th><th>Дата</th><th>Ссылка</th><th>Ошибка</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </section>`;
+  return appLayout('/publications', 'Публикации', body);
+}
+
+function bindPublicationsPage() {
+  document.querySelectorAll('[data-pub-retry]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await api(`/api/publications/${Number(btn.getAttribute('data-pub-retry'))}/retry`, { method: 'POST', body: JSON.stringify({}) });
+      } catch (e) {
+        state.notice = { type: 'error', text: String(e?.message || 'Ошибка') };
+      }
+      render();
+    };
+  });
+}
+
+function publicationEditorHtml(detail) {
+  const pub = state.projectPublication;
+  if (!pub) {
+    return detail.status === 'rendered'
+      ? `<div class="row" style="margin:8px 0;"><button id="pubPrepareBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Подготовить публикацию</button></div>`
+      : '';
+  }
+  const tags = (pub.tags || []).join(', ');
+  const editable = !['published', 'uploading'].includes(pub.status);
+  return `<section class="card" style="margin-top:10px;">
+    <h3 style="margin-top:0;">Публикация #${pub.id} · ${esc(PUB_STATUS_LABELS[pub.status] || pub.status)}</h3>
+    ${pub.last_error ? `<div class="notice error">${esc(pub.last_error)}</div>` : ''}
+    ${pub.youtube_url ? `<p class="small">Видео: <a href="${esc(pub.youtube_url)}" target="_blank" rel="noreferrer">${esc(pub.youtube_url)}</a></p>` : ''}
+    ${editable ? `
+    <label class="small">Заголовок<input id="pubTitle" class="input" style="width:100%;" maxlength="100" value="${esc(pub.title)}"/></label>
+    <label class="small">Описание<textarea id="pubDesc" class="input" rows="3" style="width:100%;">${esc(pub.description || '')}</textarea></label>
+    <label class="small">Теги (через запятую)<input id="pubTags" class="input" style="width:100%;" value="${esc(tags)}"/></label>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;">
+      <label class="small">Приватность:
+        <select id="pubPrivacy">
+          <option value="private" ${pub.privacy_status === 'private' ? 'selected' : ''}>private</option>
+          <option value="unlisted" ${pub.privacy_status === 'unlisted' ? 'selected' : ''}>unlisted</option>
+          <option value="public" ${pub.privacy_status === 'public' ? 'selected' : ''}>public</option>
+        </select>
+      </label>
+      <label class="small">Режим:
+        <select id="pubMode">
+          <option value="manual" ${pub.publish_mode === 'manual' ? 'selected' : ''}>вручную</option>
+          <option value="immediate" ${pub.publish_mode === 'immediate' ? 'selected' : ''}>авто сразу</option>
+          <option value="scheduled" ${pub.publish_mode === 'scheduled' ? 'selected' : ''}>по расписанию</option>
+        </select>
+      </label>
+      <label class="small">Дата (для расписания): <input id="pubSchedule" class="input" type="datetime-local" value="${pub.scheduled_at ? esc(pub.scheduled_at.slice(0, 16)) : ''}"/></label>
+      <button id="pubSaveBtn" class="btn btn-secondary" type="button" data-pub-id="${pub.id}">Сохранить</button>
+    </div>
+    ${detail.output_url ? `<a class="btn btn-ghost" href="${API_BASE}${esc(detail.output_url)}" download>Скачать MP4 для ручной загрузки</a>` : ''}
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+      <input id="pubManualUrl" class="input" placeholder="Вставьте YouTube URL после ручной загрузки" style="flex:1;min-width:240px;"/>
+      <button id="pubManualBtn" class="btn btn-primary" type="button" data-pub-id="${pub.id}">Отметить как опубликованное</button>
+      <button id="pubUploadBtn" class="btn btn-secondary" type="button" data-pub-id="${pub.id}">Автозагрузка на YouTube</button>
+    </div>
+    <p class="small">Автозагрузка требует подключённого YouTube-канала (см. Каналы → YouTube).</p>
+    ` : ''}
+  </section>`;
+}
+
+function channelYouTubeHtml(detail) {
+  const yt = state.channelYouTube;
+  if (!yt) return '';
+  const status = yt.youtube_connection_status || 'not_connected';
+  const statusLabels = { not_connected: 'Не подключён', connected: 'Подключён', token_expired: 'Токен истёк', error: 'Ошибка' };
+  const avail = state.ytAvailableChannels;
+  return `<h3>YouTube</h3>
+    ${!yt.oauth_configured ? `<div class="notice error">Google OAuth не настроен. Отсутствуют: ${esc((yt.oauth_missing_vars || []).join(', '))}</div>` : ''}
+    <p class="small">Статус: <strong>${esc(statusLabels[status] || status)}</strong>
+      ${yt.youtube_channel_title ? ` · ${esc(yt.youtube_channel_title)} (${esc(yt.youtube_channel_id || '')})` : ''}
+      ${yt.youtube_last_verified_at ? ` · проверен ${esc(yt.youtube_last_verified_at.slice(0, 16).replace('T', ' '))}` : ''}</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap;">
+      ${yt.account_connected ? '' : `<button id="ytConnectBtn" class="btn btn-primary" type="button">Подключить YouTube</button>`}
+      ${yt.account_connected && status !== 'connected' ? `<button id="ytPickBtn" class="btn btn-secondary" type="button" data-channel-id="${detail.id}">Выбрать канал</button>` : ''}
+      ${status === 'connected' ? `<button id="ytVerifyBtn" class="btn btn-ghost" type="button" data-channel-id="${detail.id}">Проверить подключение</button>` : ''}
+      ${yt.account_connected ? `<button id="ytReconnectBtn" class="btn btn-ghost" type="button">Переподключить</button>` : ''}
+      ${status === 'connected' ? `<button id="ytUnlinkBtn" class="btn btn-ghost" type="button" data-channel-id="${detail.id}">Отключить</button>` : ''}
+    </div>
+    ${Array.isArray(avail) ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center;">
+      <select id="ytChannelSelect">${avail.map((c) => `<option value="${esc(c.id)}">${esc(c.title)} (${esc(c.id)})</option>`).join('')}</select>
+      <button id="ytLinkBtn" class="btn btn-primary connection-btn-sm" type="button" data-channel-id="${detail.id}">Привязать</button>
+    </div>` : ''}`;
+}
+
+function bindChannelYouTube() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const connectBtn = document.getElementById('ytConnectBtn') || document.getElementById('ytReconnectBtn');
+  const startOauth = withErr(async () => {
+    const out = await api('/api/integrations/youtube/start', { method: 'POST', body: JSON.stringify({}) });
+    if (out?.oauth_url) location.href = out.oauth_url;
+  });
+  const cBtn = document.getElementById('ytConnectBtn');
+  if (cBtn) cBtn.onclick = startOauth;
+  const rBtn = document.getElementById('ytReconnectBtn');
+  if (rBtn) rBtn.onclick = startOauth;
+  const pickBtn = document.getElementById('ytPickBtn');
+  if (pickBtn) pickBtn.onclick = withErr(async () => {
+    const id = Number(pickBtn.getAttribute('data-channel-id'));
+    const out = await api(`/api/channels/${id}/youtube/available`, { timeoutMs: 30000 });
+    state.ytAvailableChannels = out?.channels || [];
+    render();
+  });
+  const linkBtn = document.getElementById('ytLinkBtn');
+  if (linkBtn) linkBtn.onclick = withErr(async () => {
+    const id = Number(linkBtn.getAttribute('data-channel-id'));
+    const ytId = document.getElementById('ytChannelSelect')?.value;
+    await api(`/api/channels/${id}/youtube/link`, { method: 'POST', body: JSON.stringify({ youtube_channel_id: ytId }) });
+    state.ytAvailableChannels = null;
+    state.notice = { type: 'ok', text: 'YouTube-канал привязан.' };
+    render();
+  });
+  const verifyBtn = document.getElementById('ytVerifyBtn');
+  if (verifyBtn) verifyBtn.onclick = withErr(async () => {
+    const id = Number(verifyBtn.getAttribute('data-channel-id'));
+    await api(`/api/channels/${id}/youtube/verify`, { method: 'POST', body: JSON.stringify({}), timeoutMs: 30000 });
+    state.notice = { type: 'ok', text: 'Подключение проверено.' };
+    render();
+  });
+  const unlinkBtn = document.getElementById('ytUnlinkBtn');
+  if (unlinkBtn) unlinkBtn.onclick = withErr(async () => {
+    const id = Number(unlinkBtn.getAttribute('data-channel-id'));
+    await api(`/api/channels/${id}/youtube/unlink`, { method: 'POST', body: JSON.stringify({}) });
+    state.notice = { type: 'ok', text: 'YouTube отключён от канала.' };
+    render();
+  });
+}
+
+function bindProjectPublication() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const prepBtn = document.getElementById('pubPrepareBtn');
+  if (prepBtn) prepBtn.onclick = withErr(async () => {
+    const id = Number(prepBtn.getAttribute('data-project-id'));
+    await api(`/api/video-projects/${id}/prepare-publication`, { method: 'POST', body: JSON.stringify({}) });
+    state.notice = { type: 'ok', text: 'Публикация подготовлена. Отредактируйте метаданные.' };
+    render();
+  });
+  const saveBtn = document.getElementById('pubSaveBtn');
+  if (saveBtn) saveBtn.onclick = withErr(async () => {
+    const id = Number(saveBtn.getAttribute('data-pub-id'));
+    const schedRaw = document.getElementById('pubSchedule')?.value || '';
+    await api(`/api/publications/${id}`, { method: 'PATCH', body: JSON.stringify({
+      title: document.getElementById('pubTitle')?.value || '',
+      description: document.getElementById('pubDesc')?.value || '',
+      tags: document.getElementById('pubTags')?.value || '',
+      privacy_status: document.getElementById('pubPrivacy')?.value || 'private',
+      publish_mode: document.getElementById('pubMode')?.value || 'manual',
+      scheduled_at: schedRaw ? new Date(schedRaw).toISOString() : '',
+    }) });
+    state.notice = { type: 'ok', text: 'Публикация сохранена.' };
+    render();
+  });
+  const manualBtn = document.getElementById('pubManualBtn');
+  if (manualBtn) manualBtn.onclick = withErr(async () => {
+    const id = Number(manualBtn.getAttribute('data-pub-id'));
+    const url = document.getElementById('pubManualUrl')?.value?.trim();
+    if (!url) { state.notice = { type: 'error', text: 'Вставьте YouTube URL или video ID.' }; render(); return; }
+    await api(`/api/publications/${id}/manual-complete`, { method: 'POST', body: JSON.stringify({ youtube_url: url }) });
+    state.notice = { type: 'ok', text: 'Публикация отмечена как опубликованная.' };
+    render();
+  });
+  const uploadBtn = document.getElementById('pubUploadBtn');
+  if (uploadBtn) uploadBtn.onclick = withErr(async () => {
+    const id = Number(uploadBtn.getAttribute('data-pub-id'));
+    if (!confirm('Запустить автозагрузку этого видео на подключённый YouTube-канал?')) return;
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Загружаем…';
+    await api(`/api/publications/${id}/upload`, { method: 'POST', body: JSON.stringify({}), timeoutMs: 60000 });
+    state.notice = { type: 'ok', text: 'Загрузка поставлена в очередь.' };
+    render();
+  });
+}
+
 function appLayout(path, title, body) {
   const isAdminArea = path.startsWith('/admin');
   const langOptionsHtml = SUPPORTED_LANGS.map((lang) => `<option value="${esc(lang)}">${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
@@ -7105,6 +7320,7 @@ function appLayout(path, title, body) {
         ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
         ['/channels', 'Каналы', 'connections'],
         ['/projects', 'Видео-проекты', 'create'],
+        ['/publications', 'Публикации', 'history'],
         ['/create', shellText('nav_create'), 'create'],
         ['/calendar', shellText('nav_calendar'), 'history'],
         ['/analytics', 'Analytics', 'dashboard'],
@@ -11268,7 +11484,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -11328,6 +11544,10 @@ async function preload(path) {
       try {
         const d = await api(`/api/video-projects/${openId}`);
         state.projectDetail = d?.project || null;
+        try {
+          const pubs = await api('/api/publications');
+          state.projectPublication = (pubs?.publications || []).find((x) => x.project_id === openId && x.status !== 'cancelled') || null;
+        } catch { state.projectPublication = null; }
       } catch {
         state.projectDetail = null;
         state.projectOpenId = null;
@@ -11344,6 +11564,12 @@ async function preload(path) {
       } catch { state.ttsVoices = []; }
     }
   }
+  if (path === '/publications') {
+    const chOut = await api('/api/channels');
+    state.channelsData = Array.isArray(chOut?.channels) ? chOut.channels : [];
+    const pubOut = await api('/api/publications');
+    state.publicationsList = Array.isArray(pubOut?.publications) ? pubOut.publications : [];
+  }
   if (path === '/channels') {
     const out = await api('/api/channels');
     state.channelsData = Array.isArray(out?.channels) ? out.channels : [];
@@ -11352,6 +11578,9 @@ async function preload(path) {
       try {
         const detail = await api(`/api/channels/${openId}`);
         state.channelDetail = detail?.channel || null;
+        try {
+          state.channelYouTube = await api(`/api/channels/${openId}/youtube/status`);
+        } catch { state.channelYouTube = null; }
       } catch {
         state.channelDetail = null;
         state.channelsOpenId = null;
@@ -16265,8 +16494,9 @@ async function bindCreatePostWeek(path) {
 
 async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   bindCommon();
-  if (path === '/channels') bindChannelsPage();
-  if (path === '/projects') bindProjectsPage();
+  if (path === '/channels') { bindChannelsPage(); bindChannelYouTube(); }
+  if (path === '/projects') { bindProjectsPage(); bindProjectPublication(); }
+  if (path === '/publications') bindPublicationsPage();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);
   if (!directorBound) await bindCreateWizardV2(path);

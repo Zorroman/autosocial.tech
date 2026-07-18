@@ -238,6 +238,17 @@ def run_migrations() -> None:
     tables = set(inspector.get_table_names())
     if "video_scenes" in tables:
         add_missing_columns("video_scenes", {"media_meta_json": "TEXT"})
+    if "channels" in tables:
+        add_missing_columns(
+            "channels",
+            {
+                "youtube_channel_title": "VARCHAR(255)",
+                "youtube_connection_status": "VARCHAR(30)",
+                "youtube_connected_at": "DATETIME",
+                "youtube_social_account_id": "INTEGER",
+                "youtube_last_verified_at": "DATETIME",
+            },
+        )
     if "posts" in tables:
         add_missing_columns("posts", POSTS_ADDITIONAL_COLUMNS)
     if "plans" in tables:

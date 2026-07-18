@@ -592,6 +592,11 @@ class Channel(SaaSBase):
     timezone = Column(String(64), nullable=False, default="Europe/Berlin")
     status = Column(String(20), nullable=False, default="testing", index=True)
     youtube_channel_id = Column(String(120), nullable=True)
+    youtube_channel_title = Column(String(255), nullable=True)
+    youtube_connection_status = Column(String(30), nullable=True)
+    youtube_connected_at = Column(DateTime, nullable=True)
+    youtube_social_account_id = Column(Integer, ForeignKey("social_accounts.id"), nullable=True)
+    youtube_last_verified_at = Column(DateTime, nullable=True)
     connected_account_id = Column(Integer, ForeignKey("connected_accounts.id"), nullable=True)
     generation_settings_json = Column(Text, nullable=True)
     video_template_json = Column(Text, nullable=True)
@@ -673,3 +678,25 @@ class RenderJob(SaaSBase):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
+
+
+class Publication(SaaSBase):
+    __tablename__ = "publications"
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    tags_json = Column(Text, nullable=True)
+    privacy_status = Column(String(20), nullable=False, default="private")
+    publish_mode = Column(String(20), nullable=False, default="manual")
+    scheduled_at = Column(DateTime, nullable=True)
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    youtube_video_id = Column(String(40), nullable=True)
+    youtube_url = Column(String(255), nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    published_at = Column(DateTime, nullable=True)

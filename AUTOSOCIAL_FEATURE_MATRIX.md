@@ -20,8 +20,9 @@ Statuses: working | partial | stub | broken | disabled | not implemented
 | Video projects w/ scenes per channel | /projects/ | video_projects_api.py | video_projects, video_scenes | — | pytest + browser E2E | working | сценарий→сцены→медиа→рендер→MP4→download |
 | Scene fixture media (local) | yes | yes | files | ffmpeg | E2E | working | честная фикстура, visual_type='fixture' |
 | Media library UI | no | /api/media serve | files | — | live | partial | serve hardened (dotfiles, root allowlist) |
-| YouTube OAuth connect | /connections/ | yes | connected_accounts | Google OAuth | no | partial | код есть, не тестирован в сессии |
-| YouTube publish | legacy | _publish_youtube_video_from_url | yes | YouTube API | no | partial | ручной download-путь работает |
+| YouTube OAuth connect | /connections/ + /channels/ (link/verify) | saas_api + publications_api | social_accounts + channels | Google OAuth | UI (без реального OAuth-клика) | partial | scope upload добавлен; refresh_token сохраняется; нужно переподключение |
+| YouTube publications (manual-first) | /publications/ + редактор в проекте | publications_api.py | publications | — | live UI E2E | working | prepare→edit→download→manual-complete→published |
+| YouTube auto-upload | кнопка в публикации | publications_api.py (resumable upload, refresh, quota) | publications | YouTube Data API | mocked tests only | partial | реальный upload не выполнялся (по правилу этапа) |
 | Channel analytics | no | no | no | YouTube Analytics | — | not implemented | |
 | AI cost tracking per channel | no | token counts in openai_client | no | — | — | not implemented | |
 | Public registration | removed | 403 | — | — | pytest | disabled | |

@@ -1926,6 +1926,9 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
         row.ig_user_id = None
         row.ig_username = None
         row.token_encrypted = encrypt_meta_token(access_token)
+        refresh_token = str(token_data.get("refresh_token") or "").strip()
+        if refresh_token:
+            row.refresh_token_encrypted = encrypt_meta_token(refresh_token)
         row.token_expires_at = datetime.utcnow() + timedelta(seconds=max(0, expires_in))
         row.status = "connected_ready"
         row.status_reason_code = None
@@ -7252,7 +7255,7 @@ def youtube_start():
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/youtube.readonly",
+        "scope": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
         "access_type": "offline",
         "include_granted_scopes": "true",
         "prompt": "consent select_account",

@@ -194,6 +194,54 @@ ffprobe: **h264 1080×1920 yuv420p 30 fps, aac 24000 Hz, 18.34 s, 5 933 502 byte
 - Fix: `worker.py` теперь загружает `.env` (иначе RQ-worker писал вывод в
   другой BASE_DIR); RQ-worker слушает очереди generation+render.
 
+## YouTube publication workflow (2026-07-18, четвёртая итерация)
+
+### Аудит существовавшей интеграции — статус: partial
+Реально работало: OAuth start/callback/connect/disconnect/status,
+Fernet-шифрование токена (TOKEN_ENCRYPTION_KEY), чтение snippet канала,
+resumable-upload-функция в коде. Пробелы: scope только `youtube.readonly`
+(upload невозможен), refresh_token не сохранялся, выбор из нескольких
+YouTube-каналов отсутствовал, связи с внутренним Channel не было.
+
+### Исправлено / добавлено
+- Scope OAuth: + `youtube.upload`; refresh_token теперь сохраняется
+  (зашифрованным) — **существующие подключения нужно переподключить**, чтобы
+  получить новый scope и refresh_token.
+- Channel ↔ YouTube: поля `youtube_channel_title`, `youtube_connection_status`,
+  `youtube_connected_at`, `youtube_social_account_id`, `youtube_last_verified_at`
+  (additive-миграция). Endpoints: `/channels/<id>/youtube/status|available|
+  link|verify|unlink` — реальный список каналов аккаунта (maxResults 50),
+  выбор канала, защита от привязки одного YT-канала к двум внутренним.
+- Модель `Publication` (все требуемые поля; статусы draft/ready/uploading/
+  published/failed/cancelled; режимы manual/immediate/scheduled).
+- API `publications_api.py`: prepare-publication (валидации: render completed,
+  MP4 существует, дубликаты → 409), CRUD, manual-complete (парсинг URL/ID,
+  проверка формата, дубликат video_id → 409), upload (очередь; guards:
+  YouTube подключён, файл есть, не published/uploading, scheduled_at в будущем),
+  retry только для failed без сохранённого video_id.
+- Upload job: resumable upload YouTube Data API v3, token refresh через
+  refresh_token, честная обработка quota (`quota_exceeded`), published только
+  после подтверждения API (video id).
+- UI: раздел «Публикации» (таблица со статусами/режимом/ссылкой/ошибкой/retry),
+  редактор публикации в проекте (title/description/tags/privacy/режим/дата,
+  «Скачать MP4», manual-complete, «Автозагрузка» с confirm), YouTube-блок в
+  настройках канала (статус, подключить/выбрать канал/проверить/переподключить/
+  отключить; при отсутствии OAuth показываются имена недостающих переменных).
+- Токены не попадают в ответы API, UI и логи (проверено grep-сканом).
+
+### Manual-first flow — проверен в UI end-to-end
+Проект «Свечи и лунный свет» → «Подготовить публикацию» → редактор → «Скачать
+MP4» → ввод YouTube URL → «Отметить как опубликованное» → статус
+«Опубликована» в разделе Публикации.
+
+### Реальный upload НЕ выполнялся
+По правилу этапа: реальная загрузка на канал требует отдельной явной команды.
+Автозагрузка покрыта mocked-тестами (success, quota error, token failure).
+Для реальной загрузки нужно: переподключить YouTube (новый scope), привязать
+канал в «Каналы → YouTube», затем «Автозагрузка» в публикации.
+
+Тесты: tests/test_publications.py — 8 тестов; всего 24 passed.
+
 ## Рекомендации следующего этапа
 
 1. Пополнить квоту OpenAI → end-to-end тест идея→сценарий→TTS→рендер.
