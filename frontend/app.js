@@ -7097,6 +7097,132 @@ function bindProjectsPage() {
   }
 }
 
+function pageFactoryAnalytics() {
+  const period = state.faPeriod || 'all';
+  const chans = Array.isArray(state.faChannels) ? state.faChannels : [];
+  const costs = state.faCosts;
+  const published = Array.isArray(state.faPublished) ? state.faPublished : [];
+  const fmt = (v, suffix = '') => (v === null || v === undefined) ? '<span class="small" style="opacity:.6;">нет данных</span>' : `${esc(String(v))}${suffix}`;
+
+  const periodBtns = ['7', '30', '90', 'all'].map((p) => `<button class="btn ${p === period ? 'btn-primary' : 'btn-ghost'} connection-btn-sm" data-fa-period="${p}" type="button">${p === 'all' ? 'Всё время' : p + ' дней'}</button>`).join('');
+
+  const rows = chans.length ? chans.map((c) => `<tr>
+      <td><strong>${esc(c.name)}</strong><div class="small">${esc(c.niche || '')} · ${esc(c.status)}</div></td>
+      <td>${c.published_videos}${c.videos_with_data ? `<div class="small">${c.videos_with_data} с данными</div>` : ''}</td>
+      <td>${fmt(c.total_views)}</td>
+      <td>${fmt(c.median_views)}</td>
+      <td>${fmt(c.views_per_video)}</td>
+      <td>${fmt(c.engagement_rate, '%')}</td>
+      <td>${fmt(c.subscribers_gained)}</td>
+      <td>${fmt(c.ai_cost, ' $')}</td>
+      <td>${fmt(c.cost_per_video, ' $')}</td>
+      <td>${fmt(c.cost_per_1k_views, ' $')}</td>
+      <td>${fmt(c.estimated_revenue)}</td>
+      <td class="small">${c.last_published_at ? esc(c.last_published_at.slice(0, 10)) : '—'}</td>
+      <td><button class="btn btn-ghost connection-btn-sm" data-fa-sync="${c.channel_id}" type="button">Sync</button></td>
+    </tr>`).join('') : '<tr><td colspan="13" class="small">Каналов нет.</td></tr>';
+
+  const bestOverall = chans.filter((c) => c.best_video).sort((a, b) => (b.best_video?.views || 0) - (a.best_video?.views || 0))[0];
+
+  const costRows = (costs?.records || []).slice(0, 15).map((r) => `<tr>
+      <td class="small">${esc((r.created_at || '').slice(5, 16).replace('T', ' '))}</td>
+      <td>${esc(r.operation_type)}</td>
+      <td class="small">${esc(r.provider)}${r.model ? '/' + esc(r.model) : ''}</td>
+      <td>${r.actual_cost !== null && r.actual_cost !== undefined ? esc(String(r.actual_cost)) + ' $ (факт)' : (r.estimated_cost !== null && r.estimated_cost !== undefined ? esc(String(r.estimated_cost)) + ' $ (оценка)' : '<span class="small" style="opacity:.6;">нет данных</span>')}</td>
+      <td>${esc(r.status)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="small">Операций пока нет.</td></tr>';
+
+  const pubOptions = published.map((p) => `<option value="${p.id}">#${p.id} · ${esc(p.title.slice(0, 50))}</option>`).join('');
+
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;">
+        <h3 style="margin:0;">Сравнение каналов</h3>
+        <div class="row" style="gap:6px;">${periodBtns}</div>
+      </div>
+      <p class="small">Период: ${period === 'all' ? 'всё время' : `последние ${period} дней`}. Метрики считаются по последнему snapshot каждого видео.</p>
+      <div style="overflow-x:auto;">
+        <table class="small" style="width:100%;border-collapse:collapse;">
+          <thead><tr><th>Канал</th><th>Видео</th><th>Views</th><th>Median</th><th>Views/видео</th><th>Engagement</th><th>+Подписчики</th><th>AI cost</th><th>$/видео</th><th>$/1k views</th><th>Revenue</th><th>Последняя</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${bestOverall ? `<p class="small">Лучший ролик: канал «${esc(bestOverall.name)}», публикация #${bestOverall.best_video.publication_id} — ${bestOverall.best_video.views} views.</p>` : ''}
+    </section>
+
+    <section class="card">
+      <h3 style="margin-top:0;">Ручной ввод статистики</h3>
+      ${published.length ? `
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <label class="small">Публикация<br/><select id="faPubSelect">${pubOptions}</select></label>
+        <label class="small">Views<br/><input id="faViews" class="input" type="number" min="0" style="width:90px;"/></label>
+        <label class="small">Likes<br/><input id="faLikes" class="input" type="number" min="0" style="width:80px;"/></label>
+        <label class="small">Comments<br/><input id="faComments" class="input" type="number" min="0" style="width:80px;"/></label>
+        <label class="small">+Подписчики<br/><input id="faSubs" class="input" type="number" min="0" style="width:80px;"/></label>
+        <label class="small">Watch time (мин)<br/><input id="faWatch" class="input" type="number" min="0" style="width:100px;"/></label>
+        <label class="small">Avg %<br/><input id="faAvp" class="input" type="number" min="0" max="100" style="width:70px;"/></label>
+        <label class="small">Revenue<br/><input id="faRevenue" class="input" type="number" min="0" step="0.01" style="width:80px;"/></label>
+        <button id="faAddSnapshotBtn" class="btn btn-primary" type="button">Сохранить замер</button>
+      </div>
+      <p class="small">Записи с ручным вводом помечаются как <strong>manual</strong>; данные API — как <strong>youtube_api</strong>.</p>
+      ` : '<p class="small">Нет опубликованных видео. Опубликуйте ролик, чтобы вводить статистику.</p>'}
+    </section>
+
+    <section class="card">
+      <h3 style="margin-top:0;">Расходы AI</h3>
+      ${costs ? `<div class="row" style="gap:16px;flex-wrap:wrap;">
+        <div><div class="small">Сегодня</div><strong>${costs.summary.spent_today} $</strong> <span class="small">из ${costs.summary.daily_budget}</span></div>
+        <div><div class="small">За 30 дней</div><strong>${costs.summary.spent_month} $</strong> <span class="small">из ${costs.summary.monthly_budget}</span></div>
+        <div><div class="small">Остаток дня</div><strong>${costs.summary.daily_remaining} $</strong></div>
+        <div><div class="small">Остаток месяца</div><strong>${costs.summary.monthly_remaining} $</strong></div>
+        ${costs.failed_recent ? `<div><div class="small">Неудачные платные операции</div><strong>${costs.failed_recent}</strong></div>` : ''}
+      </div>
+      <div style="overflow-x:auto;margin-top:8px;">
+        <table class="small" style="width:100%;border-collapse:collapse;">
+          <thead><tr><th>Когда</th><th>Операция</th><th>Провайдер</th><th>Стоимость</th><th>Статус</th></tr></thead>
+          <tbody>${costRows}</tbody>
+        </table>
+      </div>` : '<p class="small">Нет данных о расходах.</p>'}
+    </section>
+  </section>`;
+  return appLayout('/factory-analytics', 'Аналитика каналов', body);
+}
+
+function bindFactoryAnalytics() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
+      render();
+    }
+  };
+  document.querySelectorAll('[data-fa-period]').forEach((btn) => {
+    btn.onclick = () => { state.faPeriod = btn.getAttribute('data-fa-period'); render(); };
+  });
+  document.querySelectorAll('[data-fa-sync]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const id = Number(btn.getAttribute('data-fa-sync'));
+      btn.disabled = true;
+      btn.textContent = '…';
+      const out = await api(`/api/channels/${id}/analytics/sync`, { method: 'POST', body: JSON.stringify({}), timeoutMs: 60000 });
+      state.notice = { type: 'ok', text: `Синхронизировано видео: ${out.synced}.` };
+      render();
+    });
+  });
+  const addBtn = document.getElementById('faAddSnapshotBtn');
+  if (addBtn) addBtn.onclick = withErr(async () => {
+    const pubId = Number(document.getElementById('faPubSelect')?.value);
+    const val = (id) => { const v = document.getElementById(id)?.value; return v === '' || v === undefined ? null : Number(v); };
+    const payload = {
+      views: val('faViews'), likes: val('faLikes'), comments: val('faComments'),
+      subscribers_gained: val('faSubs'), watch_time_minutes: val('faWatch'),
+      average_view_percentage: val('faAvp'), estimated_revenue: val('faRevenue'),
+    };
+    await api(`/api/publications/${pubId}/analytics`, { method: 'POST', body: JSON.stringify(payload) });
+    state.notice = { type: 'ok', text: 'Замер сохранён (manual).' };
+    render();
+  });
+}
+
 const PUB_STATUS_LABELS = { draft: 'Черновик', ready: 'Готова', uploading: 'Загружается', published: 'Опубликована', failed: 'Ошибка', cancelled: 'Отменена' };
 const PUB_MODE_LABELS = { manual: 'вручную', immediate: 'сразу', scheduled: 'по расписанию' };
 
@@ -7321,6 +7447,7 @@ function appLayout(path, title, body) {
         ['/channels', 'Каналы', 'connections'],
         ['/projects', 'Видео-проекты', 'create'],
         ['/publications', 'Публикации', 'history'],
+        ['/factory-analytics', 'Аналитика каналов', 'dashboard'],
         ['/create', shellText('nav_create'), 'create'],
         ['/calendar', shellText('nav_calendar'), 'history'],
         ['/analytics', 'Analytics', 'dashboard'],
@@ -11484,7 +11611,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -11563,6 +11690,15 @@ async function preload(path) {
         state.ttsVoices = Array.isArray(vOut?.voices) ? vOut.voices : [];
       } catch { state.ttsVoices = []; }
     }
+  }
+  if (path === '/factory-analytics') {
+    const period = state.faPeriod || 'all';
+    const cmp = await api(`/api/analytics/channels?period=${period}`);
+    state.faChannels = Array.isArray(cmp?.channels) ? cmp.channels : [];
+    const costs = await api('/api/analytics/costs');
+    state.faCosts = costs || null;
+    const pubs = await api('/api/publications?status=published');
+    state.faPublished = Array.isArray(pubs?.publications) ? pubs.publications : [];
   }
   if (path === '/publications') {
     const chOut = await api('/api/channels');
@@ -16497,6 +16633,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (path === '/channels') { bindChannelsPage(); bindChannelYouTube(); }
   if (path === '/projects') { bindProjectsPage(); bindProjectPublication(); }
   if (path === '/publications') bindPublicationsPage();
+  if (path === '/factory-analytics') bindFactoryAnalytics();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);
   if (!directorBound) await bindCreateWizardV2(path);

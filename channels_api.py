@@ -387,6 +387,13 @@ def generate_ideas(channel_id: int):
             {"channel": channel_ctx, "count": count, "topic_hint": topic_hint or None, "category": category or None},
             ensure_ascii=False,
         )
+        from ai_pricing import BudgetExceeded, check_budget, estimate_cost, record_cost
+        import os as _os
+        model_name = (_os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
+        try:
+            check_budget(db, estimated_cost=estimate_cost("openai", model_name, 1000, 1800))
+        except BudgetExceeded as exc:
+            return jsonify({"error": str(exc)}), 429
         try:
             result = generate_json_with_retry(
                 system_prompt=system_prompt,
@@ -396,7 +403,13 @@ def generate_ideas(channel_id: int):
                 temperature=0.8,
             )
         except OpenAIClientError as exc:
+            record_cost(provider="openai", model=model_name, operation_type="idea_generation",
+                        channel_id=c.id, status="failed", error=str(exc)[:400], db=db)
             return jsonify({"error": f"Idea generation failed: {exc}"}), 502
+        record_cost(provider="openai", model=model_name, operation_type="idea_generation",
+                    channel_id=c.id,
+                    input_units=float(result.input_tokens or 0),
+                    output_units=float(result.output_tokens or 0), db=db)
 
         payload = result.payload or {}
         created = []

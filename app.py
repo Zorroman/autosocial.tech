@@ -82,6 +82,9 @@ app.register_blueprint(video_projects_api)
 from publications_api import publications_api  # noqa: E402
 app.register_blueprint(publications_api)
 
+from analytics_api import analytics_api  # noqa: E402
+app.register_blueprint(analytics_api)
+
 if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
     _msg = (
         "PRIVATE_ADMIN_MODE=true but ADMIN_ALLOWLIST_EMAILS is empty: "

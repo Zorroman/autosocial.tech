@@ -624,6 +624,10 @@ def run_upload_job(pub_id: int) -> None:
             pub.last_error = None
             pub.updated_at = datetime.utcnow()
             db.commit()
+            from ai_pricing import record_cost
+            record_cost(provider="google", model="youtube-data-api", operation_type="YouTube upload",
+                        channel_id=pub.channel_id, project_id=pub.project_id,
+                        request_id=f"upload:{pub.id}:{video_id}", db=db)
         except Exception as exc:
             pub = db.query(Publication).filter_by(id=pub_id).first()
             if pub and pub.status == "uploading":

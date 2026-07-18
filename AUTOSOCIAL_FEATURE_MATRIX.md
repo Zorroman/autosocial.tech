@@ -23,8 +23,8 @@ Statuses: working | partial | stub | broken | disabled | not implemented
 | YouTube OAuth connect | /connections/ + /channels/ (link/verify) | saas_api + publications_api | social_accounts + channels | Google OAuth | UI (без реального OAuth-клика) | partial | scope upload добавлен; refresh_token сохраняется; нужно переподключение |
 | YouTube publications (manual-first) | /publications/ + редактор в проекте | publications_api.py | publications | — | live UI E2E | working | prepare→edit→download→manual-complete→published |
 | YouTube auto-upload | кнопка в публикации | publications_api.py (resumable upload, refresh, quota) | publications | YouTube Data API | mocked tests only | partial | реальный upload не выполнялся (по правилу этапа) |
-| Channel analytics | no | no | no | YouTube Analytics | — | not implemented | |
-| AI cost tracking per channel | no | token counts in openai_client | no | — | — | not implemented | |
+| Channel analytics (manual + Data API sync) | /factory-analytics/ | analytics_api.py | video_analytics_snapshots | YouTube Data API (readonly, mocked) | pytest + browser | working | manual live; API sync mocked (реальный OAuth не запускался); watch time/revenue только manual |
+| AI cost tracking + budgets | /factory-analytics/ | ai_pricing.py + record_cost hooks | ai_cost_records | — | pytest + browser | working | цены централизованы (env-override); unknown=NULL; free ops=0; бюджеты блокируют платные операции |
 | Public registration | removed | 403 | — | — | pytest | disabled | |
 | Pricing / trial / billing UI | removed | legacy routes остались | yes | Stripe | grep | disabled | UI убран; endpoints за require_auth |
 | Stripe subscriptions | hidden | stripe_service.py | yes | Stripe | no | disabled | legacy code |

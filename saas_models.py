@@ -700,3 +700,54 @@ class Publication(SaaSBase):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     published_at = Column(DateTime, nullable=True)
+
+
+class VideoAnalyticsSnapshot(SaaSBase):
+    __tablename__ = "video_analytics_snapshots"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "captured_at", "data_source", name="uq_analytics_pub_captured_source"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    publication_id = Column(Integer, ForeignKey("publications.id"), nullable=False, index=True)
+    youtube_video_id = Column(String(40), nullable=True)
+    data_source = Column(String(20), nullable=False, default="manual")  # manual | youtube_api
+    captured_at = Column(DateTime, nullable=False, index=True)
+    views = Column(Integer, nullable=True)
+    likes = Column(Integer, nullable=True)
+    comments = Column(Integer, nullable=True)
+    shares = Column(Integer, nullable=True)
+    subscribers_gained = Column(Integer, nullable=True)
+    watch_time_minutes = Column(Float, nullable=True)
+    average_view_duration = Column(Float, nullable=True)
+    average_view_percentage = Column(Float, nullable=True)
+    impressions = Column(Integer, nullable=True)
+    click_through_rate = Column(Float, nullable=True)
+    estimated_revenue = Column(Float, nullable=True)
+    currency = Column(String(3), nullable=True)
+    raw_data_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AICostRecord(SaaSBase):
+    __tablename__ = "ai_cost_records"
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=True, index=True)
+    provider = Column(String(40), nullable=False)
+    model = Column(String(80), nullable=True)
+    operation_type = Column(String(40), nullable=False, index=True)
+    request_id = Column(String(120), nullable=True, index=True)
+    input_units = Column(Float, nullable=True)
+    output_units = Column(Float, nullable=True)
+    audio_characters = Column(Integer, nullable=True)
+    image_count = Column(Integer, nullable=True)
+    video_seconds = Column(Float, nullable=True)
+    estimated_cost = Column(Float, nullable=True)
+    actual_cost = Column(Float, nullable=True)
+    currency = Column(String(3), nullable=True)
+    status = Column(String(20), nullable=False, default="success")
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

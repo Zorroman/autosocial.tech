@@ -574,6 +574,11 @@ def run_render_job(job_id: int) -> None:
                 db, job_id, status="completed", progress=100,
                 output_path=out_rel, finished_at=datetime.utcnow(),
             )
+            from ai_pricing import record_cost
+            record_cost(provider="local", model="ffmpeg", operation_type="render",
+                        channel_id=project.channel_id, project_id=project.id,
+                        video_seconds=sum(float(s.estimated_duration or 0) for s in scenes),
+                        request_id=f"render:{job_id}", db=db)
             project.status = "rendered"
             project.output_path = out_rel
             project.error = None
@@ -852,6 +857,19 @@ def generate_project_tts(project_id: int):
         total = probe_duration(voice_str)
         if total < 0.5:
             return jsonify({"error": "TTS produced empty audio"}), 502
+        from ai_pricing import record_cost
+        provider = _tts_provider_for_voice(voice_name)
+        chars = sum(len(ph) for ph in phrases)
+        record_cost(
+            provider=provider,
+            model="edge-tts" if provider == "edge" else "gpt-4o-mini-tts",
+            operation_type="TTS",
+            channel_id=p.channel_id, project_id=p.id,
+            audio_characters=chars,
+            input_units=float(chars) if provider == "openai" else None,
+            request_id=f"tts:{p.id}:{voice_name}:{chars}",
+            db=db,
+        )
         for s, d in zip(scenes, durations):
             if d and d > 0:
                 s.actual_duration = float(d)
@@ -960,6 +978,10 @@ def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
     s.visual_type = "stock"
     s.status = "ready"
     s.media_meta_json = json.dumps(_stock_result_dict(match), ensure_ascii=False)
+    from ai_pricing import record_cost
+    record_cost(provider="pexels", model="stock", operation_type="stock_download",
+                project_id=s.project_id, image_count=1,
+                request_id=f"stock:{match.provider}:{match.video_id}:{s.id}", db=db)
     return match, None
 
 

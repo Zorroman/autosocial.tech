@@ -242,6 +242,71 @@ MP4» → ввод YouTube URL → «Отметить как опубликов�
 
 Тесты: tests/test_publications.py — 8 тестов; всего 24 passed.
 
+## Аналитика каналов и AI cost tracking (2026-07-18, пятая итерация)
+
+### Аудит
+Собственной YouTube-аналитики не было (legacy dashboard-метрики — Meta-посты,
+не относятся к фабрике). Расходных моделей не было (только счётчики токенов в
+openai_client). YouTube Analytics API не подключён.
+
+### Модели (additive, create_all; dev-БД забэкаплена)
+- `VideoAnalyticsSnapshot`: nullable-метрики (views/likes/comments/shares/
+  subscribers/watch time/avg duration/avg %/impressions/CTR/revenue/currency),
+  `data_source` manual|youtube_api, unique(publication, captured_at, source).
+  Отсутствующая метрика = NULL, не ноль.
+- `AICostRecord`: provider/model/operation_type/units/estimated+actual cost/
+  currency/status/request_id (idempotency).
+
+### API (`analytics_api.py`, всё за require_auth + owner-изоляция)
+- Manual: POST `/publications/<id>/analytics`, GET `/analytics/snapshots`,
+  PATCH/DELETE `/analytics/snapshots/<id>` (только manual-записи; API-snapshot
+  редактировать/удалять нельзя). Валидация: неотрицательные, конечные,
+  диапазоны, currency ISO-3, avg% ≤ 100.
+- Sync: POST `/channels/<id>/analytics/sync` — YouTube Data API
+  (scope `youtube.readonly` уже выдан, **новых scopes не требуется**):
+  views/likes/comments по опубликованным видео канала; honest-ошибки
+  quota→429, revoked token→409; manual-записи не трогаются; snapshots
+  историчны (не перезаписываются). Watch time/revenue через Data API
+  недоступны — вводятся вручную (YouTube Analytics API не подключался).
+- Сравнение: GET `/analytics/channels?period=7|30|90|all` — по последнему
+  snapshot каждого видео: total/avg/median/max/min views, engagement (guard
+  деления на ноль), подписчики, watch time, revenue, AI cost,
+  нормализованные: views/video, subs/video, cost/video, cost/1k views,
+  views per dollar, revenue/video, net result; best/worst ролик.
+- Расходы: GET `/analytics/costs` — бюджеты, потрачено день/месяц, остатки,
+  failed-операции, последние записи.
+
+### AI cost (`ai_pricing.py`)
+- Центральная таблица цен (provider/model/unit/prices/currency/effective_date/
+  source_note); override через env `AI_PRICING_JSON` без правки кода.
+- Неизвестная модель → cost **NULL** («нет данных»), не ноль. Известно
+  бесплатные: edge-tts, Pexels, локальный ffmpeg-рендер → честный 0.
+- `record_cost` после реального выполнения (success/failed), идемпотентность
+  по (operation_type, request_id) — retry не создаёт второй записи.
+- Подключено: генерация идей (реальные токены из OpenAI-ответа), TTS
+  (edge=0 / openai по символам), stock download, render (0, local),
+  YouTube upload, analytics sync.
+- Бюджеты (env): AI_DAILY_BUDGET, AI_MONTHLY_BUDGET, AI_MAX_COST_PER_VIDEO,
+  AI_MAX_REGENERATIONS_PER_PROJECT, AI_MAX_VIDEOS_PER_DAY,
+  AI_CONFIRM_COST_THRESHOLD. `check_budget` блокирует платную операцию до
+  запуска (429 с понятным сообщением); бесплатные проходят всегда.
+
+### UI `/factory-analytics/`
+Сравнение каналов (периоды 7/30/90/всё, sync-кнопка на канал), ручной ввод
+статистики (помечается manual), блок расходов (сегодня/месяц/остатки,
+последние операции, «оценка» vs «факт», «нет данных» при неизвестной цене).
+Пустые состояния вместо demo-цифр. Проверено в браузере: manual-замер 450
+views сохранён, engagement 8.44% рассчитан.
+
+### Реальный sync не выполнялся
+Требует подключённого YouTube-канала (реальный OAuth — по отдельной команде).
+Sync покрыт mocked-тестами: success, quota 429, revoked 409.
+
+Тесты: tests/test_analytics_costs.py — 11; всего критических 35 passed.
+Ограничение: старый Dashboard не переделан (legacy SaaS-метрики) — фабричная
+аналитика живёт на «Аналитика каналов»; retention/watch time доступны только
+manual, пока не подключён YouTube Analytics API (scope yt-analytics.readonly).
+
 ## Рекомендации следующего этапа
 
 1. Пополнить квоту OpenAI → end-to-end тест идея→сценарий→TTS→рендер.
