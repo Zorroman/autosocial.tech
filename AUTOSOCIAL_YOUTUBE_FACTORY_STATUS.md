@@ -307,6 +307,54 @@ Sync покрыт mocked-тестами: success, quota 429, revoked 409.
 аналитика живёт на «Аналитика каналов»; retention/watch time доступны только
 manual, пока не подключён YouTube Analytics API (scope yt-analytics.readonly).
 
+## Factory Dashboard и production readiness (2026-07-18, шестая итерация)
+
+### Dashboard
+- `/dashboard/` полностью заменён фабричным экраном (`GET /api/factory-dashboard`
+  — один агрегированный запрос вместо десятка legacy-вызовов): каналы по
+  статусам, проекты/готовые видео, очередь (pending/processing/failed),
+  публикации 7/30д, views 7/30д (NULL → «нет данных», не ноль), AI cost
+  день/месяц/остатки, карточки каналов (views, median, cost/video, YouTube,
+  свежесть аналитики), быстрые действия (скрываются, если невозможны),
+  activity feed из реальных сущностей, блок «Требует внимания» (failed jobs,
+  публикации, каналы без YouTube/аналитики, проекты без сцен, бюджет,
+  Redis/worker) — каждый пункт ведёт на страницу исправления.
+- Из активного интерфейса удалены legacy-разделы: Создать (SaaS), Календарь,
+  Analytics (Meta), История, Настройки бренда, Поддержка. Навигация: Панель,
+  Каналы, Видео-проекты, Публикации, Аналитика каналов, Подключения, Система.
+- Старый pageDashboard остался в коде как неиспользуемый legacy (не вызывается).
+
+### Readiness и heartbeat
+- `/api/health` — минимальный публичный liveness (без конфигурации).
+- `/api/readiness` (только с auth) — 13 проверок с разделением critical
+  (база, private-admin config, encryption key, ffmpeg/ffprobe, writable
+  output, диск) / optional (Redis, worker, OpenAI, Pexels, Google OAuth,
+  edge-tts). Статусы ready/degraded/not_ready; optional-провалы не дают
+  not_ready. Секреты не возвращаются (тест).
+- Worker heartbeat — реальный, через RQ `Worker.all()` из Redis (имя, очереди,
+  last_heartbeat, alive<120s); ничего не симулируется в web-процессе.
+- UI «Система» (`/factory-settings/`): таблица проверок + read-only список
+  env-переменных (имена, не значения); редактирование .env через браузер
+  сознательно отсутствует.
+
+### Production safeguards
+- `ENV=production` fail closed: старт невозможен без ADMIN_ALLOWLIST_EMAILS,
+  TOKEN_ENCRYPTION_KEY, COOKIE_SECURE=true и с включённым debug.
+- `scripts/predeploy_check.sh`: чистый git, UTF-8/JS/`????`-гейт app.js,
+  Python syntax всех модулей, критические тесты, migrations, и явные правила
+  «не копировать .env и runtime-каталоги».
+- `scripts/cleanup_runtime.py`: dry-run по умолчанию; кандидаты — только
+  `.tmp_*` рендер-каталоги (>1д), старые tts_preview (>7д), fixture-клипы и
+  сток (>30д) без ссылок из сцен/проектов/джобов; `--execute` требует ввода
+  слова `delete`; защита от удаления используемых файлов покрыта тестом.
+- Новые документы: `DEPLOYMENT_CHECKLIST.md` (порядок деплоя, диагностика
+  pending job / worker offline / ffmpeg, rollback), `BACKUP_RESTORE.md`
+  (что бэкапить, restore-процедура, последствия потери TOKEN_ENCRYPTION_KEY).
+
+Тесты: tests/test_factory_dashboard.py — 7 (empty state, данные+алерты, 401,
+readiness без секретов, optional→degraded, critical→503 not_ready, cleanup
+не трогает используемые файлы). Реальный деплой на этом этапе не выполнялся.
+
 ## Рекомендации следующего этапа
 
 1. Пополнить квоту OpenAI → end-to-end тест идея→сценарий→TTS→рендер.

@@ -85,6 +85,9 @@ app.register_blueprint(publications_api)
 from analytics_api import analytics_api  # noqa: E402
 app.register_blueprint(analytics_api)
 
+from factory_dashboard_api import factory_dashboard_api  # noqa: E402
+app.register_blueprint(factory_dashboard_api)
+
 if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
     _msg = (
         "PRIVATE_ADMIN_MODE=true but ADMIN_ALLOWLIST_EMAILS is empty: "
@@ -94,6 +97,17 @@ if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
     if (settings.ENV or "").lower() in {"production", "prod"}:
         raise RuntimeError(_msg)
     logging.getLogger(__name__).critical(_msg)
+
+if (settings.ENV or "").lower() in {"production", "prod"}:
+    _prod_problems = []
+    if not settings.TOKEN_ENCRYPTION_KEY:
+        _prod_problems.append("TOKEN_ENCRYPTION_KEY is required in production")
+    if not settings.COOKIE_SECURE:
+        _prod_problems.append("COOKIE_SECURE must be true in production")
+    if app.debug:
+        _prod_problems.append("Flask debug must be off in production")
+    if _prod_problems:
+        raise RuntimeError("Unsafe production configuration: " + "; ".join(_prod_problems))
 
 
 def _is_set(name: str) -> bool:

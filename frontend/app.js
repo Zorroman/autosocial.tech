@@ -7097,6 +7097,137 @@ function bindProjectsPage() {
   }
 }
 
+function pageFactoryDashboard() {
+  const d = state.factoryDashboard;
+  if (!d) return appLayout('/dashboard', 'Панель', '<section class="card"><p class="small">Не удалось загрузить данные панели. Обновите страницу.</p></section>');
+  const o = d.overview || {};
+  const costs = d.costs || {};
+  const nd = '<span class="small" style="opacity:.6;">нет данных</span>';
+  const num = (v) => (v === null || v === undefined) ? nd : esc(String(v));
+  const stat = (label, value) => `<div style="min-width:110px;"><div class="small">${label}</div><strong style="font-size:18px;">${value}</strong></div>`;
+
+  const statsHtml = `<div class="row" style="gap:18px;flex-wrap:wrap;">
+    ${stat('Каналы', `${o.channels_total || 0} <span class="small">(${o.channels_active || 0} акт · ${o.channels_testing || 0} тест · ${o.channels_paused || 0} пауза)</span>`)}
+    ${stat('Проекты в работе', num(o.projects_in_progress))}
+    ${stat('Готовых видео', num(o.videos_rendered))}
+    ${stat('Очередь', `${o.jobs_pending || 0} / ${o.jobs_processing || 0}${o.jobs_failed ? ` · <span style="color:#e5484d;">${o.jobs_failed} fail</span>` : ''}`)}
+    ${stat('Публикации 7д/30д', `${o.published_7d || 0} / ${o.published_30d || 0}`)}
+    ${stat('Views 7д', num(o.views_7d))}
+    ${stat('Views 30д', num(o.views_30d))}
+    ${stat('AI сегодня', `${costs.spent_today ?? 0} $`)}
+    ${stat('AI за месяц', `${costs.spent_month ?? 0} $`)}
+    ${stat('Остаток дня', `${costs.daily_remaining ?? nd} $`)}
+  </div>`;
+
+  const hasChannels = (d.channels || []).length > 0;
+  const lastProject = (d.recent_projects || [])[0];
+  const actions = `<div class="row" style="gap:8px;flex-wrap:wrap;">
+    ${hasChannels ? `<button class="btn btn-primary" data-link="/projects" type="button">Создать видео</button>` : ''}
+    ${hasChannels ? `<button class="btn btn-secondary" data-link="/channels" type="button">Сгенерировать идеи</button>` : ''}
+    <button class="btn btn-secondary" data-link="/channels" type="button">Добавить канал</button>
+    ${lastProject ? `<button class="btn btn-ghost" id="fdOpenLastBtn" type="button">Открыть последний проект</button>` : ''}
+    <button class="btn btn-ghost" data-link="/projects" type="button">Очередь рендера</button>
+    ${hasChannels ? `<button class="btn btn-ghost" data-link="/factory-analytics" type="button">Добавить статистику</button>` : ''}
+    ${lastProject && lastProject.status === 'rendered' ? `<button class="btn btn-ghost" data-link="/publications" type="button">Публикации</button>` : ''}
+  </div>`;
+
+  const channelCards = hasChannels ? d.channels.map((c) => `<article class="card" style="min-width:230px;flex:1;">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <strong>${esc(c.name)}</strong>
+        <button class="btn btn-ghost connection-btn-sm" data-link="/channels" type="button">Открыть</button>
+      </div>
+      <div class="small">${esc(c.niche || '')} · ${esc(c.status)} · YouTube: ${c.youtube_connection_status === 'connected' ? '✓' : '—'}</div>
+      <div class="small" style="margin-top:6px;">
+        Видео: ${c.published_videos} · Views 30д: ${num(c.total_views)} · Median: ${num(c.median_views)}<br/>
+        AI cost: ${num(c.ai_cost)}${c.ai_cost !== null && c.ai_cost !== undefined ? ' $' : ''} · $/видео: ${num(c.cost_per_video)}<br/>
+        Последняя публикация: ${c.last_published_at ? esc(c.last_published_at.slice(0, 10)) : '—'} ·
+        Аналитика: ${c.analytics_fresh ? 'свежая' : '<span style="color:#b8860b;">устарела</span>'}
+      </div>
+    </article>`).join('') : '<div class="card"><p class="small">Каналов пока нет. Создайте первый канал.</p></div>';
+
+  const alertsHtml = (d.alerts || []).length
+    ? d.alerts.map((a) => `<div class="row" style="justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span class="small">${a.level === 'error' ? '⛔' : '⚠️'} ${esc(a.text)}</span>
+        <button class="btn btn-ghost connection-btn-sm" data-link="${esc(a.link)}" type="button">Исправить</button>
+      </div>`).join('')
+    : '<p class="small">Проблем не обнаружено.</p>';
+
+  const activityHtml = (d.activity || []).length
+    ? d.activity.map((a) => `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border);">${esc((a.at || '').slice(5, 16).replace('T', ' '))} · ${esc(a.text)}</div>`).join('')
+    : '<p class="small">Событий пока нет.</p>';
+
+  const infra = d.infrastructure || {};
+  const infraHtml = `<p class="small">
+    Redis: ${infra.redis?.ok ? '✓' : '✗'} ·
+    Worker: ${infra.worker?.online ? `online (${(infra.worker.workers || []).map((w) => w.queues.join('+')).join(', ')})` : '<span style="color:#e5484d;">offline</span>'} ·
+    Очередь render: ${infra.render_queue_size ?? '—'} ·
+    FFmpeg: ${infra.ffmpeg ? '✓' : '✗'} ·
+    Диск: ${infra.disk_free_gb ?? '—'} GB
+  </p>`;
+
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card">${statsHtml}</section>
+    <section class="card"><h3 style="margin-top:0;">Быстрые действия</h3>${actions}</section>
+    <section class="card"><h3 style="margin-top:0;">Каналы</h3><div class="row" style="gap:10px;flex-wrap:wrap;align-items:stretch;">${channelCards}</div></section>
+    <div class="row" style="gap:14px;align-items:flex-start;flex-wrap:wrap;">
+      <section class="card" style="flex:1;min-width:300px;"><h3 style="margin-top:0;">Требует внимания</h3>${alertsHtml}</section>
+      <section class="card" style="flex:1;min-width:300px;"><h3 style="margin-top:0;">Последняя активность</h3>${activityHtml}</section>
+    </div>
+    <section class="card"><h3 style="margin-top:0;">Инфраструктура</h3>${infraHtml}<button class="btn btn-ghost connection-btn-sm" data-link="/factory-settings" type="button">Подробнее (Система)</button></section>
+  </section>`;
+  return appLayout('/dashboard', 'Панель', body);
+}
+
+function bindFactoryDashboard() {
+  const btn = document.getElementById('fdOpenLastBtn');
+  if (btn) btn.onclick = () => {
+    const lastProject = (state.factoryDashboard?.recent_projects || [])[0];
+    if (lastProject) { state.projectOpenId = lastProject.id; nav('/projects'); }
+  };
+}
+
+function pageFactorySettings() {
+  const r = state.readiness;
+  if (!r || !r.checks) {
+    return appLayout('/factory-settings', 'Система', '<section class="card"><p class="small">Не удалось получить состояние системы.</p></section>');
+  }
+  const statusLabel = { ready: '✅ Готова', degraded: '🟡 Работает с ограничениями', not_ready: '⛔ Не готова' }[r.status] || r.status;
+  const rows = Object.entries(r.checks).map(([name, c]) => `<tr>
+      <td>${esc(name)}</td>
+      <td>${c.ok ? '✓' : '✗'}</td>
+      <td>${c.critical ? 'critical' : 'optional'}</td>
+      <td class="small">${esc(c.detail || '')}</td>
+    </tr>`).join('');
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card">
+      <h3 style="margin-top:0;">Состояние системы: ${statusLabel}</h3>
+      <p class="small">ENV: ${esc(r.env || '')}. Все секреты и ключи настраиваются только через переменные окружения на сервере (.env) — значения здесь не отображаются.</p>
+      <div style="overflow-x:auto;">
+        <table class="small" style="width:100%;border-collapse:collapse;">
+          <thead><tr><th>Проверка</th><th>OK</th><th>Тип</th><th>Детали</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <h3 style="margin-top:0;">Настройки (read-only, через env)</h3>
+      <ul class="small">
+        <li>Private admin: PRIVATE_ADMIN_MODE, ADMIN_ALLOWLIST_EMAILS</li>
+        <li>AI-бюджеты: AI_DAILY_BUDGET, AI_MONTHLY_BUDGET, AI_MAX_COST_PER_VIDEO, AI_MAX_REGENERATIONS_PER_PROJECT</li>
+        <li>Цены моделей: AI_PRICING_JSON (JSON-override)</li>
+        <li>TTS: VIDEO_TTS_PRIMARY (edge|openai), OPENAI_TTS_MODEL/VOICE</li>
+        <li>Сток: PEXELS_API_KEY</li>
+        <li>YouTube: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI</li>
+        <li>Рендер: FFMPEG_BIN, FFPROBE_BIN, VIDEO_RENDER_CONCURRENCY, BASE_DIR</li>
+        <li>Очередь: REDIS_URL, SYNC_JOBS</li>
+        <li>Шифрование токенов: TOKEN_ENCRYPTION_KEY</li>
+      </ul>
+      <p class="small">Текущий администратор: ${esc(state.user?.email || '')}. Редактирование .env через браузер сознательно не поддерживается.</p>
+    </section>
+  </section>`;
+  return appLayout('/factory-settings', 'Система', body);
+}
+
 function pageFactoryAnalytics() {
   const period = state.faPeriod || 'all';
   const chans = Array.isArray(state.faChannels) ? state.faChannels : [];
@@ -7448,13 +7579,8 @@ function appLayout(path, title, body) {
         ['/projects', 'Видео-проекты', 'create'],
         ['/publications', 'Публикации', 'history'],
         ['/factory-analytics', 'Аналитика каналов', 'dashboard'],
-        ['/create', shellText('nav_create'), 'create'],
-        ['/calendar', shellText('nav_calendar'), 'history'],
-        ['/analytics', 'Analytics', 'dashboard'],
         ['/connections', shellText('nav_connections'), 'connections'],
-        ['/history', shellText('nav_history'), 'history'],
-        ['/settings', shellText('nav_settings'), 'settings'],
-        ['/support', shellText('nav_support'), 'support'],
+        ['/factory-settings', 'Система', 'settings'],
       ];
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
   const logoutNav = !isAdminArea ? `<button type="button" id="sidebarLogoutBtn" class="nav-link nav-link-logout">${icon('logout')}<span>${esc(shellText('nav_logout'))}</span></button>` : '';
@@ -11611,7 +11737,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -11762,8 +11888,15 @@ async function preload(path) {
     if (campaignId > 0) state.campaignDetails = await api(`/api/campaigns/${campaignId}`);
   }
   if (path === '/history' || path === '/calendar') state.posts = await api('/api/posts');
-  if (path === '/billing' || path === '/dashboard' || path === '/analytics') state.plans = await api('/api/plans');
-  if (path === '/dashboard' || path === '/analytics') {
+  if (path === '/billing' || path === '/analytics') state.plans = await api('/api/plans');
+  if (path === '/dashboard') {
+    state.factoryDashboard = await api('/api/factory-dashboard', { timeoutMs: 30000 });
+  }
+  if (path === '/factory-settings') {
+    try { state.readiness = await api('/api/readiness', { timeoutMs: 30000 }); }
+    catch (e) { state.readiness = (e && e.payload && e.payload.checks) ? e.payload : null; }
+  }
+  if (path === '/analytics') {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
     state.posts = await api('/api/posts');
@@ -16634,6 +16767,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (path === '/projects') { bindProjectsPage(); bindProjectPublication(); }
   if (path === '/publications') bindPublicationsPage();
   if (path === '/factory-analytics') bindFactoryAnalytics();
+  if (path === '/dashboard') bindFactoryDashboard();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);
   if (!directorBound) await bindCreateWizardV2(path);

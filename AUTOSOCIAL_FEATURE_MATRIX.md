@@ -30,3 +30,7 @@ Statuses: working | partial | stub | broken | disabled | not implemented
 | Stripe subscriptions | hidden | stripe_service.py | yes | Stripe | no | disabled | legacy code |
 | Meta (FB/IG) posting | legacy UI | facebook_api.py | yes | Meta API | no | partial | вне scope фабрики |
 | Frontend integrity gate | — | scripts/check_frontend_integrity.sh | — | node, python | live | working | syntax + UTF-8 + '????' + sha256 |
+| Factory Dashboard (aggregated) | /dashboard/ | factory_dashboard_api.py | — | — | pytest + browser | working | один запрос; NULL вместо fake-нулей; alerts со ссылками |
+| Readiness + worker heartbeat | /factory-settings/ | /api/readiness, RQ Worker.all | — | Redis (opt) | pytest + live | working | critical/optional разделены; секреты не возвращаются |
+| Runtime cleanup | CLI | scripts/cleanup_runtime.py | — | — | pytest (dry-run) | working | dry-run default; execute требует подтверждения |
+| Pre-deploy gate | CLI | scripts/predeploy_check.sh | — | — | live | working | git clean + UTF-8 + JS + тесты; .env не копируется |
