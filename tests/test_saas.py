@@ -27,6 +27,8 @@ def client(tmp_path):
     os.environ["FB_LOGIN_APP_SECRET"] = ""
     os.environ["FB_LOGIN_SCOPE"] = "public_profile,email"
     os.environ["ENV"] = "development"
+    os.environ["PRIVATE_ADMIN_MODE"] = "false"
+    os.environ["ADMIN_ALLOWLIST_EMAILS"] = ""
     os.environ["SMTP_HOST"] = ""
     os.environ["SMTP_FROM"] = ""
     os.environ["SMTP_USER"] = ""

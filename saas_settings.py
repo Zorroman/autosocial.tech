@@ -53,6 +53,15 @@ class Settings:
     COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
     SHOW_SOCIAL_LOGIN = os.getenv("SHOW_SOCIAL_LOGIN", "false").lower() in {"1", "true", "yes"}
     ALLOW_ADMIN_DIRECT_LOGIN = os.getenv("ALLOW_ADMIN_DIRECT_LOGIN", "false").lower() in {"1", "true", "yes"}
+    # Private single-admin mode: registration disabled, every authenticated request
+    # requires the user's email to be in ADMIN_ALLOWLIST_EMAILS. Fail closed:
+    # an empty allowlist in private mode denies all access instead of opening up.
+    PRIVATE_ADMIN_MODE = os.getenv("PRIVATE_ADMIN_MODE", "true").lower() in {"1", "true", "yes"}
+    ADMIN_ALLOWLIST_EMAILS: set = {
+        e.strip().lower()
+        for e in os.getenv("ADMIN_ALLOWLIST_EMAILS", "").split(",")
+        if e.strip()
+    }
 
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_PRICE_INPUT_PER_1M = float(os.getenv("OPENAI_PRICE_INPUT_PER_1M", "0.15"))

@@ -566,3 +566,109 @@ class SystemLog(SaaSBase):
     message = Column(String(500), nullable=False)
     context = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Channel(SaaSBase):
+    __tablename__ = "channels"
+
+    id = Column(Integer, primary_key=True)
+    owner_user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
+    name = Column(String(160), nullable=False)
+    slug = Column(String(160), unique=True, nullable=False)
+    niche = Column(String(120), nullable=True)
+    description = Column(Text, nullable=True)
+    language = Column(String(16), nullable=False, default="ru")
+    target_audience = Column(Text, nullable=True)
+    content_style = Column(Text, nullable=True)
+    narration_style = Column(Text, nullable=True)
+    default_voice = Column(String(80), nullable=True)
+    visual_style = Column(Text, nullable=True)
+    categories_json = Column(Text, nullable=True)
+    allowed_topics = Column(Text, nullable=True)
+    prohibited_topics = Column(Text, nullable=True)
+    default_video_duration_seconds = Column(Integer, nullable=False, default=45)
+    default_video_format = Column(String(40), nullable=False, default="shorts")
+    publication_frequency = Column(String(80), nullable=True)
+    timezone = Column(String(64), nullable=False, default="Europe/Berlin")
+    status = Column(String(20), nullable=False, default="testing", index=True)
+    youtube_channel_id = Column(String(120), nullable=True)
+    connected_account_id = Column(Integer, ForeignKey("connected_accounts.id"), nullable=True)
+    generation_settings_json = Column(Text, nullable=True)
+    video_template_json = Column(Text, nullable=True)
+    subtitle_template_json = Column(Text, nullable=True)
+    music_settings_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class ChannelIdea(SaaSBase):
+    __tablename__ = "channel_ideas"
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    title = Column(String(300), nullable=False)
+    topic = Column(String(300), nullable=True)
+    category = Column(String(120), nullable=True)
+    hook_concept = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)
+    source = Column(String(20), nullable=False, default="manual")
+    status = Column(String(20), nullable=False, default="new", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class VideoProject(SaaSBase):
+    __tablename__ = "video_projects"
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    idea_id = Column(Integer, ForeignKey("channel_ideas.id"), nullable=True)
+    title = Column(String(300), nullable=False)
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    script_text = Column(Text, nullable=True)
+    voice_mode = Column(String(20), nullable=False, default="tts")
+    voiceover_path = Column(String(500), nullable=True)
+    subtitle_mode = Column(String(20), nullable=False, default="auto")
+    aspect_ratio = Column(String(10), nullable=False, default="9:16")
+    duration_target_seconds = Column(Integer, nullable=False, default=45)
+    output_path = Column(String(500), nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class VideoScene(SaaSBase):
+    __tablename__ = "video_scenes"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=False, index=True)
+    order_index = Column(Integer, nullable=False, default=0)
+    voiceover_text = Column(Text, nullable=True)
+    on_screen_text = Column(Text, nullable=True)
+    estimated_duration = Column(Float, nullable=False, default=4.0)
+    actual_duration = Column(Float, nullable=True)
+    visual_type = Column(String(30), nullable=False, default="stock")
+    visual_prompt = Column(Text, nullable=True)
+    stock_search_query = Column(String(300), nullable=True)
+    selected_media_path = Column(String(500), nullable=True)
+    transition = Column(String(30), nullable=True)
+    status = Column(String(20), nullable=False, default="draft")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class RenderJob(SaaSBase):
+    __tablename__ = "render_jobs"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=False, index=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    job_type = Column(String(30), nullable=False, default="render")
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    progress = Column(Integer, nullable=False, default=0)
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=2)
+    error = Column(Text, nullable=True)
+    worker = Column(String(80), nullable=True)
+    output_path = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)

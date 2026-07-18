@@ -58,7 +58,7 @@ from content_pipeline import (
     generate_strategy_and_drafts,
     rewrite_caption_safe,
 )
-from saas_auth import create_token, hash_password, require_auth, require_role, verify_password
+from saas_auth import create_token, hash_password, is_email_allowed, require_auth, require_role, verify_password
 from saas_models import (
     AuthEmailChallenge,
     AppUser,
@@ -325,16 +325,22 @@ def serve_generated_media(filename: str):
     rel = str(filename or "").strip().lstrip("/")
     if not rel:
         return jsonify({'error': 'file_not_found'}), 404
+    # Serve only from known media directories; never source files, .env or dotfiles.
+    if any(part.startswith(".") for part in Path(rel).parts):
+        return jsonify({'error': 'file_not_found'}), 404
+    allowed_roots = [
+        settings.OUTPUT_DIR.resolve(),
+        settings.CACHE_DIR.resolve(),
+        LEGACY_MEDIA_DIR.resolve(),
+    ]
     candidates = []
     rel_path = Path(rel)
     candidates.append((settings.BASE_DIR / rel_path).resolve())
     candidates.append((LEGACY_MEDIA_DIR / os.path.basename(rel)).resolve())
     for full_path in candidates:
-        if not full_path.exists():
+        if not full_path.exists() or not full_path.is_file():
             continue
-        in_base = settings.BASE_DIR == full_path or settings.BASE_DIR in full_path.parents
-        in_legacy = LEGACY_MEDIA_DIR == full_path or LEGACY_MEDIA_DIR in full_path.parents
-        if not in_base and not in_legacy:
+        if not any(root == full_path or root in full_path.parents for root in allowed_roots):
             continue
         return send_from_directory(str(full_path.parent), full_path.name)
     return jsonify({'error': 'file_not_found'}), 404
@@ -1454,6 +1460,8 @@ def _finalize_oauth_login(email: str, provider: str, provider_user_id: str):
     provider_user_id = (provider_user_id or "").strip()
     if not email or not provider_user_id:
         return _oauth_redirect({"oauth_error": "oauth_profile_incomplete"})
+    if not is_email_allowed(email):
+        return _oauth_redirect({"oauth_error": "access_restricted"})
 
     db = SessionLocal()
     try:
@@ -1552,6 +1560,10 @@ def _start_auth_challenge(flow: str, email: str, password: str, honeypot: str, i
         login_user_id = None
         pending_password_hash = None
         if flow == "register":
+            if settings.PRIVATE_ADMIN_MODE:
+                return {"error": "Registration disabled"}, 403
+            if settings.ADMIN_ALLOWLIST_EMAILS and email not in settings.ADMIN_ALLOWLIST_EMAILS:
+                return {"error": "Регистрация недоступна."}, 403
             if existing_user:
                 return {"error": "Пользователь с таким email уже существует"}, 409
             pending_password_hash = hash_password(password)
@@ -1642,6 +1654,10 @@ def _complete_auth_challenge(challenge_token: str, code: str, ip_addr: str, allo
             return {"error": "Срок действия кода истёк"}, 400
         if challenge.attempts_left <= 0:
             return {"error": "Слишком много попыток. Запросите новый код."}, 429
+        if settings.PRIVATE_ADMIN_MODE and challenge.flow == "register":
+            return {"error": "Registration disabled"}, 403
+        if not is_email_allowed(challenge.email):
+            return {"error": "Access restricted"}, 403
 
         needs_code = not (allow_register_without_code and challenge.flow == "register")
         if needs_code:
@@ -1749,6 +1765,9 @@ def login():
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
     honeypot = (data.get("website") or "").strip()
+
+    if not is_email_allowed(email):
+        return jsonify({"error": "Access restricted"}), 403
 
     # Admin emergency path: allow direct password login without email code challenge.
     # Keep OTP challenge flow in tests.

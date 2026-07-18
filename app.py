@@ -73,6 +73,22 @@ seed_niche_catalog()
 
 app.register_blueprint(saas_api)
 
+from channels_api import channels_api  # noqa: E402
+app.register_blueprint(channels_api)
+
+from video_projects_api import video_projects_api  # noqa: E402
+app.register_blueprint(video_projects_api)
+
+if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
+    _msg = (
+        "PRIVATE_ADMIN_MODE=true but ADMIN_ALLOWLIST_EMAILS is empty: "
+        "all authenticated access is denied (fail closed). "
+        "Set ADMIN_ALLOWLIST_EMAILS in the environment."
+    )
+    if (settings.ENV or "").lower() in {"production", "prod"}:
+        raise RuntimeError(_msg)
+    logging.getLogger(__name__).critical(_msg)
+
 
 def _is_set(name: str) -> bool:
     return bool((os.getenv(name) or "").strip())

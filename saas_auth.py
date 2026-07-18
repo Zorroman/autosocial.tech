@@ -7,6 +7,18 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import SessionLocal
 from saas_models import ApiToken, AppUser
+from saas_settings import settings
+
+
+def is_email_allowed(email: str) -> bool:
+    """Private-admin allowlist check. Fail closed: in private mode an empty
+    allowlist denies everyone rather than opening the system."""
+    if not settings.PRIVATE_ADMIN_MODE:
+        return True
+    normalized = (email or "").strip().lower()
+    if not settings.ADMIN_ALLOWLIST_EMAILS:
+        return False
+    return normalized in settings.ADMIN_ALLOWLIST_EMAILS
 
 
 def hash_password(password: str) -> str:
@@ -50,6 +62,8 @@ def require_auth(fn):
         user = get_user_by_token(token)
         if not user:
             return jsonify({"error": "Unauthorized"}), 401
+        if not is_email_allowed(user.email):
+            return jsonify({"error": "Access restricted"}), 403
 
         g.current_user = user
         return fn(*args, **kwargs)

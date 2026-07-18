@@ -35,20 +35,17 @@ def test_login_form_and_pricing_have_no_broken_conditional_text():
     assert "field('authEmail'" in login_render
     assert "field('authPassword'" in login_render
     assert "? '\\u0431\\u0435\\u0437 \\u043b\\u0438\\u043c\\u0438\\u0442\\u0430'" not in login_render
-    assert "data-pricing-cta=\"${p.key}\"" in login_render
+    # Private-admin mode: no public pricing cards on the landing page.
+    assert "data-pricing-cta" not in login_render
 
 
 def test_free_trial_cta_routes_to_registration_without_stripe_checkout():
-    pricing_handler = _section(
-        APP_JS,
-        "document.querySelectorAll('[data-pricing-cta]')",
-        "const authBackBtn",
-    )
-    free_branch = _section(pricing_handler, "if (plan === 'free')", "nav('/billing')")
-    assert "state.authMode = 'register'" in free_branch
-    assert "render()" in free_branch
-    assert "focusAuthEmail()" in free_branch
-    assert "checkout" not in free_branch.lower()
+    # Private-admin mode: registration is disabled; every former register CTA
+    # must switch to login mode instead.
+    assert "state.authMode = 'register'" not in APP_JS
+    login_render = _section(APP_JS, "function pageLogin()", "function productUsageMeter")
+    assert "authSwitchBtn" not in login_render
+    assert "checkout" not in login_render.lower()
 
 
 def test_registration_routes_through_trial_activation_and_russian_onboarding():

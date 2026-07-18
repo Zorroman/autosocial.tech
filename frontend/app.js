@@ -2945,7 +2945,7 @@ const state = {
   lang: normalizeLang(localStorage.getItem('lang') || localStorage.getItem('siteLang'))
     || normalizeLang(document.documentElement.getAttribute('lang'))
     || detectBrowserLang(),
-  authMode: 'register',
+  authMode: 'login',
   authChallenge: null,
   authProviders: null,
   user: null,
@@ -6637,6 +6637,366 @@ function WizardContainer(params) {
   `;
 }
 
+const CHANNEL_STATUS_LABELS = { testing: 'Тестируется', active: 'Активен', paused: 'Пауза', archived: 'Архив' };
+const IDEA_STATUS_LABELS = { new: 'Новая', saved: 'Сохранена', deferred: 'Отложена', rejected: 'Отклонена', converted: 'В сценарии' };
+
+function pageChannels() {
+  const channels = Array.isArray(state.channelsData) ? state.channelsData : [];
+  const detail = state.channelDetail;
+  const statusOptions = (current) => Object.entries(CHANNEL_STATUS_LABELS)
+    .map(([v, l]) => `<option value="${v}" ${v === current ? 'selected' : ''}>${l}</option>`).join('');
+
+  const listHtml = channels.length
+    ? channels.map((c) => `<article class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div>
+          <strong>${esc(c.name)}</strong>
+          <div class="small">${esc(c.niche || '—')} · ${esc(c.default_video_format || 'shorts')} · ${esc(CHANNEL_STATUS_LABELS[c.status] || c.status)}</div>
+        </div>
+        <div class="row" style="gap:8px;align-items:center;">
+          <select data-channel-status="${c.id}" class="notranslate">${statusOptions(c.status)}</select>
+          <button class="btn btn-secondary" data-channel-open="${c.id}" type="button">${Number(state.channelsOpenId) === c.id ? 'Закрыть' : 'Открыть'}</button>
+        </div>
+      </article>`).join('')
+    : '<div class="card"><p class="small">Каналов пока нет. Создайте первый канал ниже.</p></div>';
+
+  let detailHtml = '';
+  if (detail) {
+    const ideas = Array.isArray(detail.ideas) ? detail.ideas : [];
+    const ideasHtml = ideas.length
+      ? ideas.map((i) => `<div class="row" style="justify-content:space-between;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding:6px 0;">
+          <div>
+            <strong class="small">${esc(i.title)}</strong>
+            <div class="small">${esc(i.category || '')} · ${esc(IDEA_STATUS_LABELS[i.status] || i.status)}${i.source === 'generated' ? ' · AI' : ''}</div>
+          </div>
+          <div class="row" style="gap:6px;">
+            ${i.status !== 'saved' ? `<button class="btn btn-ghost connection-btn-sm" data-idea-status="saved" data-idea-id="${i.id}" type="button">Сохранить</button>` : ''}
+            ${i.status !== 'rejected' ? `<button class="btn btn-ghost connection-btn-sm" data-idea-status="rejected" data-idea-id="${i.id}" type="button">Отклонить</button>` : ''}
+          </div>
+        </div>`).join('')
+      : '<p class="small">Идей пока нет.</p>';
+    detailHtml = `<section class="card">
+      <h3 style="margin-top:0;">${esc(detail.name)} — настройки</h3>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+        <label class="small">Ниша<input id="chNiche" class="input" value="${esc(detail.niche || '')}"/></label>
+        <label class="small">Язык<input id="chLang" class="input" value="${esc(detail.language || 'ru')}"/></label>
+        <label class="small">Длительность (сек)<input id="chDuration" class="input" type="number" min="5" max="3600" value="${esc(String(detail.default_video_duration_seconds || 45))}"/></label>
+        <label class="small">Частота публикаций<input id="chFreq" class="input" value="${esc(detail.publication_frequency || '')}"/></label>
+        <label class="small" style="grid-column:1/-1;">Стиль контента<input id="chStyle" class="input" value="${esc(detail.content_style || '')}"/></label>
+        <label class="small" style="grid-column:1/-1;">Запрещённые темы<input id="chProhibited" class="input" value="${esc(detail.prohibited_topics || '')}"/></label>
+      </div>
+      <div class="row" style="margin-top:10px;gap:8px;">
+        <button id="chSaveBtn" class="btn btn-primary" type="button" data-channel-id="${detail.id}">Сохранить настройки</button>
+      </div>
+      <h3>Идеи</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <input id="ideaTitleInput" class="input" placeholder="Тема или заголовок идеи" style="flex:1;min-width:220px;"/>
+        <button id="ideaAddBtn" class="btn btn-secondary" type="button" data-channel-id="${detail.id}">Добавить</button>
+        <button id="ideaGenBtn" class="btn btn-primary" type="button" data-channel-id="${detail.id}">Сгенерировать идеи (AI)</button>
+      </div>
+      ${ideasHtml}
+    </section>`;
+  }
+
+  const body = `<section class="grid" style="gap:14px;">
+    ${listHtml}
+    ${detailHtml}
+    <section class="card">
+      <h3 style="margin-top:0;">Новый канал</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;">
+        <input id="newChannelName" class="input" placeholder="Название канала" style="flex:1;min-width:200px;"/>
+        <input id="newChannelNiche" class="input" placeholder="Ниша" style="flex:1;min-width:160px;"/>
+        <button id="newChannelBtn" class="btn btn-primary" type="button">Создать канал</button>
+      </div>
+      <p class="small" style="margin-bottom:0;">Максимум 10 каналов. Все настройки можно изменить после создания.</p>
+    </section>
+  </section>`;
+  return appLayout('/channels', 'Каналы', body);
+}
+
+function bindChannelsPage() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const newBtn = document.getElementById('newChannelBtn');
+  if (newBtn) newBtn.onclick = withErr(async () => {
+    const name = document.getElementById('newChannelName')?.value?.trim();
+    if (!name) return;
+    const niche = document.getElementById('newChannelNiche')?.value?.trim();
+    await api('/api/channels', { method: 'POST', body: JSON.stringify({ name, niche }) });
+    state.notice = { type: 'ok', text: 'Канал создан.' };
+    render();
+  });
+  document.querySelectorAll('[data-channel-open]').forEach((btn) => {
+    btn.onclick = () => {
+      const id = Number(btn.getAttribute('data-channel-open'));
+      state.channelsOpenId = Number(state.channelsOpenId) === id ? null : id;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-channel-status]').forEach((sel) => {
+    sel.onchange = withErr(async () => {
+      const id = Number(sel.getAttribute('data-channel-status'));
+      await api(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({ status: sel.value }) });
+      render();
+    });
+  });
+  const saveBtn = document.getElementById('chSaveBtn');
+  if (saveBtn) saveBtn.onclick = withErr(async () => {
+    const id = Number(saveBtn.getAttribute('data-channel-id'));
+    await api(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({
+      niche: document.getElementById('chNiche')?.value || '',
+      language: document.getElementById('chLang')?.value || 'ru',
+      default_video_duration_seconds: Number(document.getElementById('chDuration')?.value || 45),
+      publication_frequency: document.getElementById('chFreq')?.value || '',
+      content_style: document.getElementById('chStyle')?.value || '',
+      prohibited_topics: document.getElementById('chProhibited')?.value || '',
+    }) });
+    state.notice = { type: 'ok', text: 'Настройки канала сохранены.' };
+    render();
+  });
+  const ideaAddBtn = document.getElementById('ideaAddBtn');
+  if (ideaAddBtn) ideaAddBtn.onclick = withErr(async () => {
+    const id = Number(ideaAddBtn.getAttribute('data-channel-id'));
+    const title = document.getElementById('ideaTitleInput')?.value?.trim();
+    if (!title) return;
+    await api(`/api/channels/${id}/ideas`, { method: 'POST', body: JSON.stringify({ title }) });
+    render();
+  });
+  const ideaGenBtn = document.getElementById('ideaGenBtn');
+  if (ideaGenBtn) ideaGenBtn.onclick = withErr(async () => {
+    const id = Number(ideaGenBtn.getAttribute('data-channel-id'));
+    ideaGenBtn.disabled = true;
+    ideaGenBtn.textContent = 'Генерируем…';
+    await api(`/api/channels/${id}/ideas/generate`, { method: 'POST', body: JSON.stringify({ count: 5 }), timeoutMs: 90000 });
+    render();
+  });
+  document.querySelectorAll('[data-idea-status]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const ideaId = Number(btn.getAttribute('data-idea-id'));
+      await api(`/api/ideas/${ideaId}`, { method: 'PATCH', body: JSON.stringify({ status: btn.getAttribute('data-idea-status') }) });
+      render();
+    });
+  });
+}
+
+const JOB_STATUS_LABELS = { pending: 'В очереди', processing: 'Рендерится', completed: 'Готово', failed: 'Ошибка', cancelled: 'Отменена' };
+
+function pageProjects() {
+  const channels = Array.isArray(state.channelsData) ? state.channelsData : [];
+  const projects = Array.isArray(state.projectsList) ? state.projectsList : [];
+  const jobs = Array.isArray(state.renderJobs) ? state.renderJobs : [];
+  const detail = state.projectDetail;
+  const chId = Number(state.projectsChannelId || 0);
+
+  const channelOptions = channels.map((c) => `<option value="${c.id}" ${c.id === chId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+
+  const projectRows = projects.length
+    ? projects.map((p) => `<div class="row" style="justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--border);padding:8px 0;">
+        <div>
+          <strong class="small">${esc(p.title)}</strong>
+          <div class="small">${esc(p.status)} · ${esc((p.created_at || '').slice(0, 16).replace('T', ' '))}</div>
+        </div>
+        <div class="row" style="gap:6px;">
+          ${p.output_url ? `<a class="btn btn-ghost connection-btn-sm" href="${API_BASE}${esc(p.output_url)}" download>Скачать</a>` : ''}
+          <button class="btn btn-secondary connection-btn-sm" data-project-open="${p.id}" type="button">${Number(state.projectOpenId) === p.id ? 'Закрыть' : 'Открыть'}</button>
+        </div>
+      </div>`).join('')
+    : '<p class="small">Проектов пока нет.</p>';
+
+  let detailHtml = '';
+  if (detail) {
+    const scenes = Array.isArray(detail.scenes) ? detail.scenes : [];
+    const scenesHtml = scenes.length
+      ? scenes.map((s) => `<div class="card" style="padding:10px;margin-bottom:8px;">
+          <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <strong class="small">Сцена ${s.order_index + 1} · ${Number(s.estimated_duration).toFixed(1)}с · ${s.selected_media_path ? (s.visual_type === 'fixture' ? 'фикстура' : 'медиа ✓') : 'нет медиа'}</strong>
+            <div class="row" style="gap:6px;">
+              <button class="btn btn-ghost connection-btn-sm" data-scene-fixture="${s.id}" type="button">Локальная фикстура</button>
+              <button class="btn btn-ghost connection-btn-sm" data-scene-save="${s.id}" type="button">Сохранить</button>
+              <button class="btn btn-ghost connection-btn-sm" data-scene-del="${s.id}" type="button">Удалить</button>
+            </div>
+          </div>
+          <label class="small" style="display:block;margin-top:6px;">Озвучка<textarea data-scene-vo="${s.id}" class="input" rows="2" style="width:100%;">${esc(s.voiceover_text || '')}</textarea></label>
+          <label class="small" style="display:block;">Текст на экране<input data-scene-ost="${s.id}" class="input" style="width:100%;" value="${esc(s.on_screen_text || '')}"/></label>
+        </div>`).join('')
+      : '<p class="small">Сцен нет. Вставьте сценарий и нажмите «Разбить на сцены».</p>';
+
+    detailHtml = `<section class="card">
+      <h3 style="margin-top:0;">${esc(detail.title)}</h3>
+      <label class="small">Сценарий<textarea id="projScript" class="input" rows="4" style="width:100%;">${esc(detail.script_text || '')}</textarea></label>
+      <div class="row" style="gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center;">
+        <button id="projSaveScriptBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Сохранить сценарий</button>
+        <button id="projSplitBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Разбить на сцены</button>
+        <label class="small">Голос:
+          <select id="projVoiceMode">
+            <option value="tts" ${detail.voice_mode === 'tts' ? 'selected' : ''}>TTS</option>
+            <option value="silent" ${detail.voice_mode === 'silent' ? 'selected' : ''}>Без голоса (тишина)</option>
+            <option value="file" ${detail.voice_mode === 'file' ? 'selected' : ''}>Файл</option>
+          </select>
+        </label>
+        <button id="projRenderBtn" class="btn btn-primary" type="button" data-project-id="${detail.id}">Создать видео (рендер)</button>
+      </div>
+      ${detail.error ? `<div class="notice error">${esc(detail.error)}</div>` : ''}
+      ${detail.output_url ? `<div style="margin:10px 0;">
+        <video controls style="max-width:270px;border-radius:12px;" src="${API_BASE}${esc(detail.output_url)}"></video>
+        <div><a class="btn btn-primary" style="margin-top:8px;" href="${API_BASE}${esc(detail.output_url)}" download>Скачать MP4</a></div>
+      </div>` : ''}
+      <h3>Сцены</h3>
+      ${scenesHtml}
+    </section>`;
+  }
+
+  const jobRows = jobs.length
+    ? jobs.map((j) => `<tr>
+        <td>#${j.id}</td>
+        <td>${j.project_id}</td>
+        <td>${esc(JOB_STATUS_LABELS[j.status] || j.status)}</td>
+        <td><div style="background:var(--border);border-radius:6px;overflow:hidden;width:90px;height:10px;"><div style="width:${Math.max(0, Math.min(100, j.progress))}%;height:100%;background:${j.status === 'failed' ? '#e5484d' : 'var(--accent, #6366f1)'};"></div></div> ${j.progress}%</td>
+        <td>${j.attempts}/${j.max_attempts}</td>
+        <td class="small">${esc((j.created_at || '').slice(5, 16).replace('T', ' '))}</td>
+        <td class="small">${esc((j.finished_at || '').slice(5, 16).replace('T', ' '))}</td>
+        <td class="small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${esc(j.error || '')}">${esc((j.error || '').slice(0, 60))}</td>
+        <td>
+          ${j.status === 'failed' && j.attempts < j.max_attempts ? `<button class="btn btn-ghost connection-btn-sm" data-job-retry="${j.id}" type="button">Повторить</button>` : ''}
+          ${j.status === 'pending' ? `<button class="btn btn-ghost connection-btn-sm" data-job-cancel="${j.id}" type="button">Отменить</button>` : ''}
+          ${j.output_url ? `<a class="btn btn-ghost connection-btn-sm" href="${API_BASE}${esc(j.output_url)}" download>Скачать</a>` : ''}
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="9" class="small">Задач рендера пока нет.</td></tr>';
+
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card">
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;">
+        <label class="small">Канал: <select id="projChannelSelect">${channelOptions}</select></label>
+      </div>
+      <h3>Проекты</h3>
+      ${projectRows}
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <input id="newProjectTitle" class="input" placeholder="Название видео" style="flex:1;min-width:200px;"/>
+        <button id="newProjectBtn" class="btn btn-primary" type="button">Создать проект</button>
+      </div>
+    </section>
+    ${detailHtml}
+    <section class="card">
+      <h3 style="margin-top:0;">Очередь рендера</h3>
+      <div style="overflow-x:auto;">
+        <table class="small" style="width:100%;border-collapse:collapse;">
+          <thead><tr><th>Job</th><th>Проект</th><th>Статус</th><th>Прогресс</th><th>Попытки</th><th>Создана</th><th>Завершена</th><th>Ошибка</th><th></th></tr></thead>
+          <tbody>${jobRows}</tbody>
+        </table>
+      </div>
+    </section>
+  </section>`;
+  return appLayout('/projects', 'Видео-проекты', body);
+}
+
+function bindProjectsPage() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const chSel = document.getElementById('projChannelSelect');
+  if (chSel) chSel.onchange = () => {
+    state.projectsChannelId = Number(chSel.value);
+    state.projectOpenId = null;
+    render();
+  };
+  const newBtn = document.getElementById('newProjectBtn');
+  if (newBtn) newBtn.onclick = withErr(async () => {
+    const title = document.getElementById('newProjectTitle')?.value?.trim();
+    if (!title) return;
+    const out = await api('/api/video-projects', { method: 'POST', body: JSON.stringify({ channel_id: Number(state.projectsChannelId), title }) });
+    state.projectOpenId = out?.project?.id || null;
+    state.notice = { type: 'ok', text: 'Проект создан.' };
+    render();
+  });
+  document.querySelectorAll('[data-project-open]').forEach((btn) => {
+    btn.onclick = () => {
+      const id = Number(btn.getAttribute('data-project-open'));
+      state.projectOpenId = Number(state.projectOpenId) === id ? null : id;
+      render();
+    };
+  });
+  const saveScriptBtn = document.getElementById('projSaveScriptBtn');
+  if (saveScriptBtn) saveScriptBtn.onclick = withErr(async () => {
+    const id = Number(saveScriptBtn.getAttribute('data-project-id'));
+    await api(`/api/video-projects/${id}`, { method: 'PATCH', body: JSON.stringify({
+      script_text: document.getElementById('projScript')?.value || '',
+      voice_mode: document.getElementById('projVoiceMode')?.value || 'tts',
+    }) });
+    state.notice = { type: 'ok', text: 'Сценарий сохранён.' };
+    render();
+  });
+  const splitBtn = document.getElementById('projSplitBtn');
+  if (splitBtn) splitBtn.onclick = withErr(async () => {
+    const id = Number(splitBtn.getAttribute('data-project-id'));
+    await api(`/api/video-projects/${id}`, { method: 'PATCH', body: JSON.stringify({ script_text: document.getElementById('projScript')?.value || '' }) });
+    const hasScenes = (state.projectDetail?.scenes || []).length > 0;
+    if (hasScenes && !confirm('Сцены уже существуют. Перезаписать их из сценария?')) return;
+    await api(`/api/video-projects/${id}/split-scenes`, { method: 'POST', body: JSON.stringify({ replace: hasScenes }) });
+    render();
+  });
+  const renderBtn = document.getElementById('projRenderBtn');
+  if (renderBtn) renderBtn.onclick = withErr(async () => {
+    const id = Number(renderBtn.getAttribute('data-project-id'));
+    await api(`/api/video-projects/${id}`, { method: 'PATCH', body: JSON.stringify({ voice_mode: document.getElementById('projVoiceMode')?.value || 'tts' }) });
+    renderBtn.disabled = true;
+    renderBtn.textContent = 'Ставим в очередь…';
+    await api(`/api/video-projects/${id}/render`, { method: 'POST', body: JSON.stringify({}) });
+    state.notice = { type: 'ok', text: 'Рендер поставлен в очередь.' };
+    render();
+  });
+  document.querySelectorAll('[data-scene-save]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const sid = Number(btn.getAttribute('data-scene-save'));
+      await api(`/api/scenes/${sid}`, { method: 'PATCH', body: JSON.stringify({
+        voiceover_text: document.querySelector(`[data-scene-vo="${sid}"]`)?.value || '',
+        on_screen_text: document.querySelector(`[data-scene-ost="${sid}"]`)?.value || '',
+      }) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-scene-fixture]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const sid = Number(btn.getAttribute('data-scene-fixture'));
+      await api(`/api/scenes/${sid}/fixture-media`, { method: 'POST', body: JSON.stringify({}) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-scene-del]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const sid = Number(btn.getAttribute('data-scene-del'));
+      await api(`/api/scenes/${sid}`, { method: 'DELETE' });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-job-retry]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      await api(`/api/render-jobs/${Number(btn.getAttribute('data-job-retry'))}/retry`, { method: 'POST', body: JSON.stringify({}) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-job-cancel]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      await api(`/api/render-jobs/${Number(btn.getAttribute('data-job-cancel'))}/cancel`, { method: 'POST', body: JSON.stringify({}) });
+      render();
+    });
+  });
+  // Live status: re-render while jobs are active (real backend progress, no simulation).
+  const hasActive = (state.renderJobs || []).some((j) => j.status === 'pending' || j.status === 'processing');
+  clearTimeout(state._projectsPollTimer);
+  if (hasActive && (location.pathname.replace(/\/$/, '') === '/projects')) {
+    state._projectsPollTimer = setTimeout(() => {
+      if (location.pathname.replace(/\/$/, '') === '/projects') render();
+    }, 3000);
+  }
+}
+
 function appLayout(path, title, body) {
   const isAdminArea = path.startsWith('/admin');
   const langOptionsHtml = SUPPORTED_LANGS.map((lang) => `<option value="${esc(lang)}">${esc(LANGUAGE_LABELS[lang] || lang.toUpperCase())}</option>`).join('');
@@ -6645,13 +7005,14 @@ function appLayout(path, title, body) {
     ? [['/admin', shellText('nav_admin'), 'admin']]
     : [
         ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
+        ['/channels', 'Каналы', 'connections'],
+        ['/projects', 'Видео-проекты', 'create'],
         ['/create', shellText('nav_create'), 'create'],
         ['/calendar', shellText('nav_calendar'), 'history'],
         ['/analytics', 'Analytics', 'dashboard'],
         ['/connections', shellText('nav_connections'), 'connections'],
         ['/history', shellText('nav_history'), 'history'],
         ['/settings', shellText('nav_settings'), 'settings'],
-        ['/billing', shellText('nav_billing'), 'billing'],
         ['/support', shellText('nav_support'), 'support'],
       ];
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
@@ -6710,8 +7071,6 @@ function pageLogin() {
     <header class="landing-2026-topbar">
       <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
       <div class="landing-2026-top-actions">
-        <button class="btn btn-link" data-link="/billing" type="button">${t('footer_pricing')}</button>
-        <a class="btn btn-link" href="https://docs.google.com/document/d/1d7yV-Nxcunz4_DC9VHnCv136o1fnkUidyDhkYFhryPg" target="_blank" rel="noreferrer">${t('footer_privacy')}</a>
         <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
       </div>
     </header>
@@ -6722,13 +7081,7 @@ function pageLogin() {
         <h1>Генерируйте посты и видео для соцсетей и запускайте автопостинг из одного сервиса.</h1>
         <p>AutoSocial.tech помогает малому бизнесу быстрее вести соцсети: подсказывает темы, собирает контент, формирует календарь и публикует в Meta и YouTube без ручной рутины.</p>
         <div class="cta-row">
-          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
-          <a class="btn btn-secondary cta__button" href="#landingPricing">Посмотреть тарифы</a>
-        </div>
-        <div class="landing-2026-cta-proof">
-          <span class="landing-2026-cta-pill">7 дней бесплатно</span>
-          <span class="landing-2026-cta-pill">Без карты</span>
-          <span class="landing-2026-cta-pill">30 постов и 3 видео бесплатно</span>
+          <button id="heroRegisterBtn" class="btn btn-primary cta__button">Войти</button>
         </div>
       </div>
       <div class="landing-2026-hero-visual">
@@ -6778,23 +7131,6 @@ function pageLogin() {
       </div>
     </section>
 
-    <section id="landingPricing" class="landing-2026-section">
-      <div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-        <h2 style="margin:0;">Тарифы без перегруза и скрытых условий</h2>
-        <button id="finalPricingBtn" class="btn btn-ghost" type="button">${t('footer_pricing')}</button>
-      </div>
-      <div class="landing-2026-pricing">
-        ${pricing.map((p) => `<article class="landing-2026-card landing-2026-price ${p.key === 'growth' ? 'is-featured' : ''}">
-          ${p.key === 'growth' ? '<span class="landing-2026-popular">Рекомендуем</span>' : ''}
-          <h3>${p.name}</h3>
-          <p class="landing-2026-price-value">${p.price}<span>/месяц</span></p>
-          <p class="small">${p.desc}</p>
-          <ul>${p.points.map((pt) => `<li>${pt}</li>`).join('')}</ul>
-          <button class="btn ${p.key === 'growth' ? 'btn-primary' : 'btn-secondary'} connection-btn-sm" type="button" data-pricing-cta="${p.key}">${p.cta}</button>
-        </article>`).join('')}
-      </div>
-    </section>
-
     <section class="landing-2026-trust">
       <span class="landing-2026-trust-pill">Соответствует GDPR</span>
       <span class="landing-2026-trust-pill">Защищённое соединение</span>
@@ -6802,21 +7138,10 @@ function pageLogin() {
       <span class="landing-2026-trust-pill">Серверы в ЕС</span>
     </section>
 
-    <section class="landing-2026-final">
-      <h2>Попробуйте AutoSocial.tech на своём контенте в течение 7 дней</h2>
-      <p>Бесплатный период даёт 7 дней, чтобы создать первые посты и видео без привязки карты.</p>
-      <button id="finalRegisterBtn" class="btn btn-primary cta__button">Начать бесплатно</button>
-      <div class="landing-2026-cta-proof" style="justify-content:center;">
-        <span class="landing-2026-cta-pill">7 дней бесплатно</span>
-        <span class="landing-2026-cta-pill">Без карты</span>
-        <span class="landing-2026-cta-pill">Без автоматического списания</span>
-      </div>
-    </section>
-
     <section class="landing-2026-auth-wrap">
       <article class="landing-2026-auth-info landing-2026-card">
-        <h3>Создайте аккаунт и подтвердите email</h3>
-        <p>После подтверждения мы активируем 7 бесплатных дней и проведём вас к первому посту. Включено 30 постов, 3 видео и 1 проект. Карта не нужна.</p>
+        <h3>Вход в систему</h3>
+        <p>Закрытая система управления YouTube-каналами. Доступ только для администратора.</p>
         <div class="trust-row">
           <span class="trust-chip">SSL</span>
           <span class="trust-chip">GDPR</span>
@@ -6835,10 +7160,6 @@ function pageLogin() {
         <button id="authSubmitBtn" class="btn btn-primary auth-submit">${submitLabel}</button>
         ${codeStep ? `<button id="authResendBtn" class="btn btn-ghost auth-submit" type="button" style="margin-top:10px;">${t('resend_code')}</button>` : ''}
         ${codeStep ? `<button id="authBackBtn" class="btn btn-link" type="button">${t('back_to_auth')}</button>` : ''}
-        <div class="auth-switch-row">
-          <span class="small">${switchText}</span>
-          <button id="authSwitchBtn" class="btn btn-link" type="button" ${codeStep ? 'disabled' : ''}>${switchLabel}</button>
-        </div>
       </section>
     </section>
   </div>`;
@@ -10849,7 +11170,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/trial-activated': pageTrialActivated, '/dashboard': pageDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -10897,6 +11218,44 @@ async function preload(path) {
     return;
   }
   if (!state.token) return;
+  if (path === '/projects') {
+    const chOut = await api('/api/channels');
+    state.channelsData = Array.isArray(chOut?.channels) ? chOut.channels : [];
+    if (!state.projectsChannelId && state.channelsData.length) state.projectsChannelId = state.channelsData[0].id;
+    const chId = Number(state.projectsChannelId || 0);
+    const prOut = await api(chId ? `/api/video-projects?channel_id=${chId}` : '/api/video-projects');
+    state.projectsList = Array.isArray(prOut?.projects) ? prOut.projects : [];
+    const openId = Number(state.projectOpenId || 0);
+    if (openId > 0) {
+      try {
+        const d = await api(`/api/video-projects/${openId}`);
+        state.projectDetail = d?.project || null;
+      } catch {
+        state.projectDetail = null;
+        state.projectOpenId = null;
+      }
+    } else {
+      state.projectDetail = null;
+    }
+    const jobsOut = await api('/api/render-jobs');
+    state.renderJobs = Array.isArray(jobsOut?.jobs) ? jobsOut.jobs : [];
+  }
+  if (path === '/channels') {
+    const out = await api('/api/channels');
+    state.channelsData = Array.isArray(out?.channels) ? out.channels : [];
+    const openId = Number(state.channelsOpenId || 0);
+    if (openId > 0) {
+      try {
+        const detail = await api(`/api/channels/${openId}`);
+        state.channelDetail = detail?.channel || null;
+      } catch {
+        state.channelDetail = null;
+        state.channelsOpenId = null;
+      }
+    } else {
+      state.channelDetail = null;
+    }
+  }
   if (path === '/connections') {
     state.connections = await api('/api/connections');
     state.youtubeConnection = await api('/api/integrations/youtube/status');
@@ -15802,6 +16161,8 @@ async function bindCreatePostWeek(path) {
 
 async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   bindCommon();
+  if (path === '/channels') bindChannelsPage();
+  if (path === '/projects') bindProjectsPage();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);
   if (!directorBound) await bindCreateWizardV2(path);
@@ -15830,7 +16191,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   const authSwitchBtn = document.getElementById('authSwitchBtn');
   if (authSwitchBtn) authSwitchBtn.onclick = () => {
-    state.authMode = state.authMode === 'login' ? 'register' : 'login';
+    state.authMode = 'login';
     state.authChallenge = null;
     state.notice = null;
     render();
@@ -15848,7 +16209,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   const heroRegisterBtn = document.getElementById('heroRegisterBtn');
   if (heroRegisterBtn) heroRegisterBtn.onclick = () => {
-    state.authMode = 'register';
+    state.authMode = 'login';
     state.authChallenge = null;
     state.notice = null;
     render();
@@ -15857,7 +16218,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
 
   const finalRegisterBtn = document.getElementById('finalRegisterBtn');
   if (finalRegisterBtn) finalRegisterBtn.onclick = () => {
-    state.authMode = 'register';
+    state.authMode = 'login';
     state.authChallenge = null;
     state.notice = null;
     render();
@@ -15867,20 +16228,6 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   const finalPricingBtn = document.getElementById('finalPricingBtn');
   if (finalPricingBtn) finalPricingBtn.onclick = () => nav('/billing');
 
-  document.querySelectorAll('[data-pricing-cta]').forEach((btn) => {
-    btn.onclick = () => {
-      const plan = String(btn.getAttribute('data-pricing-cta') || '').trim();
-      if (plan === 'free') {
-        state.authMode = 'register';
-        state.authChallenge = null;
-        state.notice = null;
-        render();
-        focusAuthEmail();
-        return;
-      }
-      nav('/billing');
-    };
-  });
 
   const authBackBtn = document.getElementById('authBackBtn');
   if (authBackBtn) authBackBtn.onclick = () => {

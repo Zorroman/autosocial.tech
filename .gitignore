@@ -35,3 +35,13 @@ ChatGPT Image *.png
 unnamed.png
 Autosocial openai.txt
 
+
+# local media/build outputs and session backups
+output/
+data/
+generated_media/
+cache/
+tests/render_fixtures/
+*.bak_factory
+*.bak_mojibake
+autosocial.db.bak_*
