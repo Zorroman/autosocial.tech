@@ -42,6 +42,15 @@ from saas_settings import settings
 
 app = Flask(__name__)
 
+# Behind Passenger/nginx in production: trust one proxy hop for scheme/IP so
+# rate limits and OAuth redirects see the real client. No-op locally.
+if (os.getenv("ENV") or "").lower() in {"production", "prod"} or os.getenv("TRUST_PROXY", "").lower() in {"1", "true"}:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# Request body cap (uploads go through media endpoints; 64 MB is generous).
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH_MB", "64")) * 1024 * 1024
+
 LOG_DIR = Path(os.getenv("LOG_DIR") or Path(__file__).resolve().with_name("logs"))
 LOG_FILE = LOG_DIR / "api.log"
 _root_logger = logging.getLogger()

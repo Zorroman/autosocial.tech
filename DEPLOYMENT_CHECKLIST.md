@@ -37,6 +37,30 @@
 - **app.js повреждён**: `bash scripts/check_frontend_integrity.sh` — вернёт
   FAIL при `????`/битом UTF-8; восстановить из git.
 
+## Тестовый деплой: команды на сервере (выполнять вручную)
+```bash
+# 0. Одноразово: убедиться, что серверный .env заполнен (ENV=production,
+#    ADMIN_ALLOWLIST_EMAILS, TOKEN_ENCRYPTION_KEY, COOKIE_SECURE=true,
+#    OPENAI_API_KEY, REDIS_URL, DATABASE_URL...). .env НЕ копируется с dev.
+cd /var/www/api-dev
+export APP_DIR=/var/www/api-dev TARGET_COMMIT=<release hash>
+export API_URL=https://api-dev.autosocial.tech FRONT_URL=https://dev.autosocial.tech
+
+bash scripts/deploy_test.sh          # backup -> checkout -> deps -> integrity
+                                     # -> migrations -> restart web+worker
+                                     # -> health -> readiness -> smoke
+# при падении:
+bash scripts/rollback.sh
+
+# ручная проверка после деплоя:
+curl -fsS https://api-dev.autosocial.tech/api/health
+SMOKE_EMAIL=<admin> SMOKE_PASSWORD=<pass> \
+  python3 scripts/post_deploy_smoke.py --api https://api-dev.autosocial.tech \
+  --front https://dev.autosocial.tech
+```
+Frontend (ADM.tools): каталог `frontend/` раскладывается на dev.autosocial.tech
+из того же git-checkout; перед этим обязателен `scripts/check_frontend_integrity.sh`.
+
 ## Rollback
 `git checkout <предыдущий commit>` + рестарт web и worker. Миграции additive —
 старый код работает со свежей схемой. БД восстанавливается из бэкапа только
