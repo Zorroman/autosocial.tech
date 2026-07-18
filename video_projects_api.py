@@ -541,34 +541,159 @@ def run_render_job(job_id: int) -> None:
                     db.commit()
                 _set_job(db, job_id, progress=15)
 
-                # --- subtitles ---
+                # --- subtitles (professional ASS, safe-zone, smart splitting) ---
+                from subtitle_builder import build_cues, write_ass
                 subs_dir = settings.OUTPUT_SUBTITLES_DIR
                 subs_dir.mkdir(parents=True, exist_ok=True)
-                srt_path = subs_dir / f"project_{project.id}.srt"
-                srt_content = _build_srt(scenes)
-                srt_path.write_text(srt_content, encoding="utf-8")
+                cursor = 0.0
+                cue_scenes = []
+                for s in scenes:
+                    sdur = float(s.estimated_duration or 4.0)
+                    cue_scenes.append({
+                        "text": (s.on_screen_text or s.voiceover_text or "").strip(),
+                        "start": cursor,
+                        "duration": sdur,
+                    })
+                    cursor += sdur
+                cues = build_cues(cue_scenes)
+                ass_path = subs_dir / f"project_{project.id}.ass"
+                if cues:
+                    write_ass(cues, ass_path)
                 _set_job(db, job_id, progress=30)
+
+                # --- footage segmentation with repeat protection ---
+                from footage_library import (
+                    commit_usage, pick_local_candidates, register_asset,
+                    release_job_reservations, reserve_asset, segment_plan,
+                )
+                clips = []
+                timeline = []
+                used_asset_ids: set[int] = set()
+                used_hashes: set[str] = set()
+                t_cursor = 0.0
+                seg_index = 0
+                for s in scenes:
+                    sdur = float(s.estimated_duration or 4.0)
+                    plan = segment_plan(sdur)
+                    scene_query = (s.stock_search_query or s.visual_prompt or "").strip()
+                    # register the scene's primary media in the library
+                    primary_meta = json.loads(s.media_meta_json) if s.media_meta_json else {}
+                    primary_asset = register_asset(
+                        db,
+                        provider=primary_meta.get("provider") or ("local" if s.visual_type == "fixture" else "manual"),
+                        provider_asset_id=str(primary_meta.get("video_id") or Path(s.selected_media_path).name),
+                        local_path=Path(s.selected_media_path),
+                        download_url=primary_meta.get("preview_url") or "",
+                        original_url=primary_meta.get("page_url") or "",
+                        search_query=scene_query,
+                        author=primary_meta.get("author") or "",
+                        license_note=primary_meta.get("license") or "",
+                    )
+                    db.commit()
+                    for i, seg_dur in enumerate(plan):
+                        chosen = None
+                        reuse_reason = None
+                        search_stats = {}
+                        if i == 0 and primary_asset.id not in used_asset_ids and (primary_asset.file_hash or "") not in used_hashes:
+                            chosen = primary_asset
+                        else:
+                            from footage_library import acquire_segment_asset
+                            chosen, search_stats = acquire_segment_asset(
+                                db, query=scene_query, channel_id=project.channel_id,
+                                project_id=project.id, job_id=job_id,
+                                min_duration=seg_dur,
+                                used_asset_ids=used_asset_ids,
+                                used_hashes=used_hashes,
+                                allow_network=not settings.USE_MOCK_PROVIDERS,
+                            )
+                            if chosen and search_stats.get("reuse_was_unavoidable"):
+                                reuse_reason = "cooldown_reuse_after_exhausted_search"
+                            if chosen is None:
+                                # absolute last resort: repeat scene primary
+                                # (only after the whole search budget ran dry)
+                                chosen = primary_asset
+                                reuse_reason = "insufficient_unique_candidates_after_exhausted_search"
+                                search_stats["reuse_was_unavoidable"] = True
+                        used_asset_ids.add(chosen.id)
+                        if chosen.file_hash:
+                            used_hashes.add(chosen.file_hash)
+                        motion = "in" if seg_index % 2 == 0 else "out"
+                        clips.append({
+                            "clip_path": chosen.local_path,
+                            "duration_target": seg_dur,
+                            "motion": motion,
+                        })
+                        timeline.append({
+                            "segment": seg_index,
+                            "scene_id": s.id,
+                            "start": round(t_cursor, 2),
+                            "duration": seg_dur,
+                            "asset_id": chosen.id,
+                            "provider_asset_id": chosen.provider_asset_id,
+                            "file_hash": (chosen.file_hash or "")[:12],
+                            "motion": motion,
+                            "footage_reuse_reason": reuse_reason,
+                            "footage_reuse_age_days": (
+                                (datetime.utcnow() - chosen.last_used_at).days
+                                if reuse_reason and chosen.last_used_at else None
+                            ),
+                            "footage_candidate_count": search_stats.get("candidates_examined", 0),
+                            "search_queries_attempted": search_stats.get("search_queries_attempted", 0),
+                            "pages_attempted": search_stats.get("pages_attempted", 0),
+                            "candidates_examined": search_stats.get("candidates_examined", 0),
+                            "candidates_rejected_cooldown": search_stats.get("candidates_rejected_cooldown", 0),
+                            "candidates_rejected_duplicate": search_stats.get("candidates_rejected_duplicate", 0),
+                            "reuse_was_unavoidable": search_stats.get("reuse_was_unavoidable", False),
+                            "source": search_stats.get("source"),
+                        })
+                        t_cursor += seg_dur
+                        seg_index += 1
 
                 # --- render ---
                 from video.render.render_video import render_video
                 out_rel = f"output/videos/project_{project.id}_job_{job.id}.mp4"
                 out_abs = settings.BASE_DIR / out_rel
-                clips = [
-                    {"clip_path": s.selected_media_path, "duration_target": float(s.estimated_duration or 4.0)}
-                    for s in scenes
-                ]
                 _set_job(db, job_id, progress=40)
-                render_video(
-                    clips=clips,
-                    voiceover_path=str(voice_path),
-                    subtitles_path=str(srt_path) if srt_content.strip() else None,
-                    out_path=str(out_abs),
-                    orientation="vertical" if project.aspect_ratio == "9:16" else "horizontal",
-                    fps=30,
-                    resolution="1080x1920" if project.aspect_ratio == "9:16" else "1920x1080",
-                )
+                try:
+                    render_video(
+                        clips=clips,
+                        voiceover_path=str(voice_path),
+                        subtitles_path=str(ass_path) if cues else None,
+                        out_path=str(out_abs),
+                        orientation="vertical" if project.aspect_ratio == "9:16" else "horizontal",
+                        fps=30,
+                        resolution="1080x1920" if project.aspect_ratio == "9:16" else "1920x1080",
+                    )
+                except Exception:
+                    release_job_reservations(db, job_id)
+                    raise
                 if not out_abs.exists() or out_abs.stat().st_size < 10_000:
+                    release_job_reservations(db, job_id)
                     raise RuntimeError("render_output_invalid: output file missing or too small")
+
+                # --- commit footage usage history + manifest ---
+                assets_by_id = {}
+                for seg in timeline:
+                    a = assets_by_id.get(seg["asset_id"])
+                    if a is None:
+                        from saas_models import FootageAsset
+                        a = db.query(FootageAsset).filter_by(id=seg["asset_id"]).first()
+                        assets_by_id[seg["asset_id"]] = a
+                    if a:
+                        commit_usage(
+                            db, asset=a, project_id=project.id,
+                            channel_id=project.channel_id, scene_id=seg["scene_id"],
+                            start_time=seg["start"], duration=seg["duration"],
+                            search_query="", reuse_reason=seg["footage_reuse_reason"],
+                        )
+                release_job_reservations(db, job_id)
+                manifest_path = settings.OUTPUT_MANIFESTS_DIR / f"project_{project.id}_job_{job.id}.json"
+                manifest_path.parent.mkdir(parents=True, exist_ok=True)
+                manifest_path.write_text(
+                    json.dumps({"timeline": timeline, "cues": len(cues)}, ensure_ascii=False, indent=1),
+                    encoding="utf-8",
+                )
+                db.commit()
 
             job = _set_job(
                 db, job_id, status="completed", progress=100,
@@ -585,6 +710,11 @@ def run_render_job(job_id: int) -> None:
             db.commit()
         except Exception as exc:
             err = str(exc)[:1500]
+            try:
+                from footage_library import release_job_reservations
+                release_job_reservations(db, job_id)
+            except Exception:
+                pass
             job = db.query(RenderJob).filter_by(id=job_id).first()
             if job and job.status != "cancelled":
                 job.status = "failed"
@@ -923,6 +1053,36 @@ def _pexels_search(query: str, page: int = 1, limit: int = 8):
     return results[:limit]
 
 
+def _pexels_search_diverse(query: str, *, limit: int = 12, exclude_ids: set | None = None):
+    """Query variants + randomized pagination so we don't always consume the
+    first page of the same search. Dedupes by video_id."""
+    import random as _random
+    from footage_library import query_variants
+
+    exclude = {str(x) for x in (exclude_ids or set())}
+    out, seen = [], set()
+    for variant in query_variants(query)[:5]:
+        page = _random.randint(1, 3)
+        try:
+            batch = _pexels_search(variant, page=page, limit=limit)
+        except Exception:
+            continue
+        if not batch and page > 1:
+            try:
+                batch = _pexels_search(variant, page=1, limit=limit)
+            except Exception:
+                batch = []
+        for r in batch:
+            vid = str(r.video_id)
+            if vid in seen or vid in exclude:
+                continue
+            seen.add(vid)
+            out.append(r)
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
 @video_projects_api.route("/scenes/<int:scene_id>/stock-search", methods=["POST"])
 @require_auth
 def scene_stock_search(scene_id: int):
@@ -957,13 +1117,19 @@ def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
     from footage.providers.pexels import download_video
 
     match = None
-    for page in (1, 2):
+    for page in (1, 2, 3):
         for r in _pexels_search(query, page=page, limit=20):
             if str(r.video_id) == str(video_id):
                 match = r
                 break
         if match:
             break
+    if not match:
+        # the id may have come from a query variant / random page
+        for r in _pexels_search_diverse(query, limit=40):
+            if str(r.video_id) == str(video_id):
+                match = r
+                break
     if not match:
         return None, "Selected video not found in Pexels results; search again"
     stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
@@ -978,6 +1144,13 @@ def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
     s.visual_type = "stock"
     s.status = "ready"
     s.media_meta_json = json.dumps(_stock_result_dict(match), ensure_ascii=False)
+    from footage_library import register_asset
+    register_asset(
+        db, provider=match.provider, provider_asset_id=str(match.video_id),
+        local_path=saved, download_url=match.download_url or "",
+        original_url=match.page_url or "", search_query=query,
+        author=match.author or "", license_note="Pexels License (free to use)",
+    )
     from ai_pricing import record_cost
     record_cost(provider="pexels", model="stock", operation_type="stock_download",
                 project_id=s.project_id, image_count=1,
@@ -1044,29 +1217,137 @@ def project_auto_media(project_id: int):
             if not query:
                 words = re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", s.voiceover_text or "")
                 query = f"{base_query} {' '.join(words[:2])}".strip() or base_query
+
+            # Blacklist provider ids used recently (repeat protection at search time).
+            from datetime import timedelta as _td
+            from saas_models import FootageAsset, FootageUsage
+            recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
+            recent_ids = {
+                pid for (pid,) in (
+                    db.query(FootageAsset.provider_asset_id)
+                    .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
+                    .filter(FootageUsage.used_at >= recent_cutoff)
+                    .all()
+                )
+            }
+            if prev_video_id:
+                recent_ids.add(str(prev_video_id))
+
+            from footage_library import segment_plan
+            needed = len(segment_plan(float(s.estimated_duration or 4.0)))
             try:
-                results = _pexels_search(query, limit=10)
+                results = _pexels_search_diverse(query, limit=max(6, needed * 2), exclude_ids=recent_ids)
             except Exception as exc:
                 report.append({"scene_id": s.id, "error": f"search failed: {str(exc)[:200]}"})
                 continue
-            pick = None
-            for r in results:
-                if str(r.video_id) != str(prev_video_id):
-                    pick = r
-                    break
-            if not pick and results:
-                pick = results[0]
-            if not pick:
-                report.append({"scene_id": s.id, "error": f"no results for '{query}'"})
+            if not results:
+                report.append({"scene_id": s.id, "error": f"no fresh results for '{query}'"})
                 continue
-            match, err = _download_stock_for_scene(db, s, query, pick.video_id)
+            # primary pick for the scene + extra clips to stock the local library
+            match, err = _download_stock_for_scene(db, s, query, results[0].video_id)
             if err:
                 report.append({"scene_id": s.id, "error": err})
                 continue
+            extras = 0
+            for r in results[1:needed]:
+                try:
+                    from footage.providers.pexels import download_video
+                    from footage_library import register_asset
+                    saved = Path(download_video(r, settings.FOOTAGE_CACHE_DIR / "stock" / f"pexels_{r.video_id}.mp4"))
+                    if saved.exists():
+                        register_asset(
+                            db, provider=r.provider, provider_asset_id=str(r.video_id),
+                            local_path=saved, download_url=r.download_url or "",
+                            original_url=r.page_url or "", search_query=query,
+                            author=r.author or "", license_note="Pexels License (free to use)",
+                        )
+                        db.commit()
+                        extras += 1
+                except Exception:
+                    continue
             prev_video_id = str(match.video_id)
             report.append({"scene_id": s.id, "query": query, "video_id": prev_video_id,
-                           "orientation": match.orientation, "author": match.author})
+                           "orientation": match.orientation, "author": match.author,
+                           "extra_clips_cached": extras, "segments_planned": needed})
         db.commit()
         return jsonify({"report": report})
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------- media library
+
+@video_projects_api.route("/media-library/stats", methods=["GET"])
+@require_auth
+def media_library_stats():
+    from datetime import timedelta as _td
+
+    from sqlalchemy import func
+
+    from saas_models import FootageAsset, FootageUsage
+
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        total_assets = db.query(func.count(FootageAsset.id)).scalar() or 0
+        used_today = (
+            db.query(func.count(func.distinct(FootageUsage.footage_asset_id)))
+            .filter(FootageUsage.used_at >= now - _td(days=1)).scalar() or 0
+        )
+        top_used = (
+            db.query(FootageAsset)
+            .filter(FootageAsset.total_use_count > 0)
+            .order_by(FootageAsset.total_use_count.desc()).limit(10).all()
+        )
+        recent = (
+            db.query(FootageAsset)
+            .filter(FootageAsset.last_used_at.isnot(None))
+            .order_by(FootageAsset.last_used_at.desc()).limit(10).all()
+        )
+        # duplicates: same file_hash appearing under multiple provider ids is
+        # prevented at registration; report hash collisions if any slipped in
+        dup_hashes = (
+            db.query(FootageAsset.file_hash, func.count(FootageAsset.id))
+            .filter(FootageAsset.file_hash.isnot(None))
+            .group_by(FootageAsset.file_hash)
+            .having(func.count(FootageAsset.id) > 1).all()
+        )
+        channel_id = request.args.get("channel_id", type=int)
+        cooldown_cutoff = now - _td(days=settings.FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS)
+        cd_q = (
+            db.query(func.count(func.distinct(FootageUsage.footage_asset_id)))
+            .filter(FootageUsage.used_at >= cooldown_cutoff)
+        )
+        if channel_id:
+            cd_q = cd_q.filter(FootageUsage.channel_id == channel_id)
+        on_cooldown = cd_q.scalar() or 0
+
+        def _a(a):
+            return {
+                "id": a.id, "provider": a.provider, "provider_asset_id": a.provider_asset_id,
+                "search_query": a.search_query, "orientation": a.orientation,
+                "duration": a.duration, "use_count": a.total_use_count,
+                "last_used_at": a.last_used_at.isoformat() if a.last_used_at else None,
+            }
+
+        return jsonify({
+            "total_assets": total_assets,
+            "used_today": used_today,
+            "on_cooldown": on_cooldown,
+            "duplicate_hashes": len(dup_hashes),
+            "top_used": [_a(a) for a in top_used],
+            "recently_used": [_a(a) for a in recent],
+            "settings": {
+                "segment_seconds": settings.FOOTAGE_SEGMENT_SECONDS,
+                "segment_min": settings.FOOTAGE_SEGMENT_MIN_SECONDS,
+                "segment_max": settings.FOOTAGE_SEGMENT_MAX_SECONDS,
+                "same_channel_cooldown_days": settings.FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS,
+                "global_cooldown_days": settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS,
+                "allow_reuse_fallback": settings.FOOTAGE_ALLOW_REUSE_FALLBACK,
+                "subtitle_max_line_chars": settings.SUBTITLE_MAX_LINE_CHARS,
+                "subtitle_margin_bottom_px": settings.SUBTITLE_MARGIN_BOTTOM_PX,
+                "subtitle_highlight_keyword": settings.SUBTITLE_HIGHLIGHT_KEYWORD,
+            },
+        })
     finally:
         db.close()

@@ -7299,6 +7299,18 @@ function pageFactoryAnalytics() {
       ` : '<p class="small">Нет опубликованных видео. Опубликуйте ролик, чтобы вводить статистику.</p>'}
     </section>
 
+    ${state.mediaLibrary ? `<section class="card">
+      <h3 style="margin-top:0;">Медиатека футажей</h3>
+      <div class="row" style="gap:16px;flex-wrap:wrap;">
+        <div><div class="small">Всего клипов</div><strong>${state.mediaLibrary.total_assets}</strong></div>
+        <div><div class="small">Использовано за 24ч</div><strong>${state.mediaLibrary.used_today}</strong></div>
+        <div><div class="small">На cooldown (${state.mediaLibrary.settings.same_channel_cooldown_days}д)</div><strong>${state.mediaLibrary.on_cooldown}</strong></div>
+        <div><div class="small">Дубликаты по hash</div><strong>${state.mediaLibrary.duplicate_hashes}</strong></div>
+      </div>
+      <p class="small" style="margin:8px 0 4px;">Настройки (env, read-only): смена футажа каждые ${state.mediaLibrary.settings.segment_seconds}с (${state.mediaLibrary.settings.segment_min}–${state.mediaLibrary.settings.segment_max}с) · cooldown канала ${state.mediaLibrary.settings.same_channel_cooldown_days}д · глобальный ${state.mediaLibrary.settings.global_cooldown_days}д · reuse-fallback: ${state.mediaLibrary.settings.allow_reuse_fallback ? 'вкл' : 'выкл'} · субтитры: ${state.mediaLibrary.settings.subtitle_max_line_chars} симв/строка, отступ снизу ${state.mediaLibrary.settings.subtitle_margin_bottom_px}px, подсветка слова: ${state.mediaLibrary.settings.subtitle_highlight_keyword ? 'вкл' : 'выкл'}</p>
+      ${(state.mediaLibrary.top_used || []).length ? `<div class="small"><strong>Часто используемые:</strong> ${state.mediaLibrary.top_used.slice(0, 5).map((a) => `${esc(a.provider)}:${esc(String(a.provider_asset_id)).slice(0, 12)} (${a.use_count}×)`).join(' · ')}</div>` : ''}
+      ${(state.mediaLibrary.recently_used || []).length ? `<div class="small"><strong>Недавние:</strong> ${state.mediaLibrary.recently_used.slice(0, 5).map((a) => `${esc(String(a.provider_asset_id)).slice(0, 12)}${a.orientation === 'vertical' ? '' : ' (crop)'}`).join(' · ')}</div>` : ''}
+    </section>` : ''}
     <section class="card">
       <h3 style="margin-top:0;">Расходы AI</h3>
       ${costs ? `<div class="row" style="gap:16px;flex-wrap:wrap;">
@@ -11825,6 +11837,8 @@ async function preload(path) {
     state.faCosts = costs || null;
     const pubs = await api('/api/publications?status=published');
     state.faPublished = Array.isArray(pubs?.publications) ? pubs.publications : [];
+    try { state.mediaLibrary = await api('/api/media-library/stats'); }
+    catch { state.mediaLibrary = null; }
   }
   if (path === '/publications') {
     const chOut = await api('/api/channels');

@@ -39,11 +39,35 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
     is_short_render = sum(float(c.get("duration_target") or 0.0) for c in (clips or [])) <= 60.0
     temp_preset = "ultrafast"
     temp_crf = "30" if orientation == "vertical" else "28"
+    fade = max(0.0, min(0.5, float(getattr(settings, "VIDEO_CLIP_FADE_SECONDS", 0.2))))
+    n_clips = len(clips or [])
     for idx, clip in enumerate(clips):
         src = str(clip.get("clip_path") or "")
         target = float(clip.get("duration_target") or 2.0)
         target = max(0.8, min(40.0, target))
         dst = temp_dir / f"clip_{idx:03d}.mp4"
+        # Interior boundaries are hard cuts (no dip-to-black between segments);
+        # only the very first/last clip fade from/to black.
+        fades = []
+        if fade > 0 and idx == 0:
+            fades.append(f"fade=t=in:st=0:d={fade}")
+        if fade > 0 and idx == n_clips - 1:
+            fades.append(f"fade=t=out:st={max(0.0, target - fade)}:d={fade}")
+        motion = str(clip.get("motion") or "")
+        motion_vf = ""
+        if motion in {"in", "out"}:
+            frames = max(1, int(target * fps))
+            if motion == "in":
+                zexpr = f"min(1.10,1+0.10*on/{frames})"
+            else:
+                zexpr = f"max(1.0,1.10-0.10*on/{frames})"
+            motion_vf = (
+                f",zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":d=1:s={width}x{height}:fps={fps}"
+            )
+        vf = f"{_vf_scale_crop(width, height)},fps={fps}{motion_vf},format=yuv420p"
+        if fades:
+            vf += "," + ",".join(fades)
         _run(
             [
                 settings.FFMPEG_BIN,
@@ -55,7 +79,7 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
                 "-t",
                 str(target),
                 "-vf",
-                f"{_vf_scale_crop(width, height)},fps={fps},format=yuv420p,fade=t=in:st=0:d=0.25,fade=t=out:st={max(0.0, target-0.25)}:d=0.25",
+                vf,
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -95,7 +119,10 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
     audio_map = "1:a"
     if subtitles_path:
         sub_safe = str(subtitles_path).replace("\\", "/").replace(":", "\\:")
-        if orientation == "vertical":
+        if str(subtitles_path).lower().endswith(".ass"):
+            # ASS carries its own styles (safe-zone margins, fonts) - don't override.
+            filter_chain.append(f"[0:v]subtitles='{sub_safe}'[v]")
+        elif orientation == "vertical":
             force_style = (
                 f"FontName={subtitle_profile.get('font_name', 'Arial')},"
                 f"FontSize={int(subtitle_profile.get('font_size', 64))},"

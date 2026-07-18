@@ -751,3 +751,46 @@ class AICostRecord(SaaSBase):
     status = Column(String(20), nullable=False, default="success")
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class FootageAsset(SaaSBase):
+    __tablename__ = "footage_assets"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_asset_id", name="uq_footage_provider_asset"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    provider = Column(String(40), nullable=False, index=True)
+    provider_asset_id = Column(String(120), nullable=False, index=True)
+    original_url = Column(String(600), nullable=True)
+    download_url = Column(String(600), nullable=True)
+    local_path = Column(String(500), nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)
+    duration = Column(Float, nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    orientation = Column(String(20), nullable=True)
+    search_query = Column(String(300), nullable=True)
+    tags_json = Column(Text, nullable=True)
+    author = Column(String(200), nullable=True)
+    license_note = Column(String(200), nullable=True)
+    reserved_by_job_id = Column(Integer, nullable=True, index=True)
+    reserved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_used_at = Column(DateTime, nullable=True, index=True)
+    total_use_count = Column(Integer, nullable=False, default=0)
+
+
+class FootageUsage(SaaSBase):
+    __tablename__ = "footage_usages"
+
+    id = Column(Integer, primary_key=True)
+    footage_asset_id = Column(Integer, ForeignKey("footage_assets.id"), nullable=False, index=True)
+    video_project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=False, index=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    scene_id = Column(Integer, ForeignKey("video_scenes.id"), nullable=True)
+    used_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    start_time = Column(Float, nullable=True)
+    duration = Column(Float, nullable=True)
+    search_query = Column(String(300), nullable=True)
+    reuse_reason = Column(String(200), nullable=True)

@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 
@@ -31,6 +31,24 @@ class Settings:
     VIDEO_ALLOW_EMERGENCY_REUSE = os.getenv("VIDEO_ALLOW_EMERGENCY_REUSE", "true").lower() in {"1", "true", "yes"}
     OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts").strip() or "gpt-4o-mini-tts"
     OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "eddy").strip() or "eddy"
+    # Dynamic footage segmentation and repeat protection.
+    FOOTAGE_SEGMENT_SECONDS = float(os.getenv("FOOTAGE_SEGMENT_SECONDS", "3.0"))
+    FOOTAGE_SEGMENT_MIN_SECONDS = float(os.getenv("FOOTAGE_SEGMENT_MIN_SECONDS", "2.5"))
+    FOOTAGE_SEGMENT_MAX_SECONDS = float(os.getenv("FOOTAGE_SEGMENT_MAX_SECONDS", "3.5"))
+    FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS = int(os.getenv("FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS", "30"))
+    FOOTAGE_GLOBAL_COOLDOWN_DAYS = int(os.getenv("FOOTAGE_GLOBAL_COOLDOWN_DAYS", "7"))
+    FOOTAGE_ALLOW_REUSE_FALLBACK = os.getenv("FOOTAGE_ALLOW_REUSE_FALLBACK", "true").lower() in {"1", "true", "yes"}
+    FOOTAGE_RESERVATION_TTL_SECONDS = int(os.getenv("FOOTAGE_RESERVATION_TTL_SECONDS", "1800"))
+    # Search budget before a reuse is ever allowed (mass-generation safety).
+    PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT", "4")))
+    PEXELS_MAX_PAGES_PER_QUERY = max(1, int(os.getenv("PEXELS_MAX_PAGES_PER_QUERY", "2")))
+    PEXELS_CANDIDATES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_CANDIDATES_PER_SEGMENT", "12")))
+    FOOTAGE_REUSE_ONLY_AFTER_EXHAUSTED_SEARCH = os.getenv("FOOTAGE_REUSE_ONLY_AFTER_EXHAUSTED_SEARCH", "true").lower() in {"1", "true", "yes"}
+    VIDEO_CLIP_FADE_SECONDS = float(os.getenv("VIDEO_CLIP_FADE_SECONDS", "0.2"))
+    SUBTITLE_MAX_LINE_CHARS = int(os.getenv("SUBTITLE_MAX_LINE_CHARS", "36"))
+    SUBTITLE_MARGIN_BOTTOM_PX = int(os.getenv("SUBTITLE_MARGIN_BOTTOM_PX", "380"))
+    SUBTITLE_FONT_NAME = os.getenv("SUBTITLE_FONT_NAME", "Arial").strip() or "Arial"
+    SUBTITLE_HIGHLIGHT_KEYWORD = os.getenv("SUBTITLE_HIGHLIGHT_KEYWORD", "false").lower() in {"1", "true", "yes"}
     VIDEO_BG_MUSIC_ENABLED = os.getenv("VIDEO_BG_MUSIC_ENABLED", "false").lower() in {"1", "true", "yes"}
     VIDEO_BG_MUSIC_PATH = os.getenv("VIDEO_BG_MUSIC_PATH", "").strip()
     MEDIA_AUTOFIX_ENABLED = os.getenv("MEDIA_AUTOFIX_ENABLED", "false").lower() in {"1", "true", "yes"}
