@@ -6810,9 +6810,26 @@ function pageProjects() {
   if (detail) {
     const scenes = Array.isArray(detail.scenes) ? detail.scenes : [];
     const scenesHtml = scenes.length
-      ? scenes.map((s) => `<div class="card" style="padding:10px;margin-bottom:8px;">
+      ? scenes.map((s) => {
+          const meta = s.media_meta;
+          let mediaLabel = 'нет медиа';
+          if (s.selected_media_path) {
+            if (s.visual_type === 'fixture') mediaLabel = 'фикстура';
+            else if (meta) mediaLabel = `${esc(meta.provider)} ${esc(String(meta.video_id))} · ${esc(meta.orientation)}${meta.orientation === 'horizontal' ? ' → crop 9:16' : ''} · ${esc(meta.author || '')}`;
+            else mediaLabel = 'медиа ✓';
+          }
+          const stockResults = (state.sceneStockResults && state.sceneStockResults.sceneId === s.id) ? state.sceneStockResults.results : null;
+          const resultsHtml = stockResults ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px;">
+            ${stockResults.length ? stockResults.map((r) => `<div class="card" style="padding:6px;">
+              <video muted preload="metadata" style="width:100%;border-radius:8px;" src="${esc(r.preview_url)}"></video>
+              <div class="small">${esc(String(r.width))}×${esc(String(r.height))} · ${esc(String(r.duration))}с${r.orientation === 'horizontal' ? ' · crop' : ''}</div>
+              <div class="small">${esc(r.author || '')} · <a href="${esc(r.page_url)}" target="_blank" rel="noreferrer">Pexels</a></div>
+              <button class="btn btn-secondary connection-btn-sm" data-stock-pick="${s.id}" data-stock-vid="${esc(String(r.video_id))}" type="button" style="margin-top:4px;">Выбрать</button>
+            </div>`).join('') : '<p class="small">Ничего не найдено.</p>'}
+          </div>` : '';
+          return `<div class="card" style="padding:10px;margin-bottom:8px;">
           <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;">
-            <strong class="small">Сцена ${s.order_index + 1} · ${Number(s.estimated_duration).toFixed(1)}с · ${s.selected_media_path ? (s.visual_type === 'fixture' ? 'фикстура' : 'медиа ✓') : 'нет медиа'}</strong>
+            <strong class="small">Сцена ${s.order_index + 1} · ${Number(s.estimated_duration).toFixed(1)}с · ${mediaLabel}</strong>
             <div class="row" style="gap:6px;">
               <button class="btn btn-ghost connection-btn-sm" data-scene-fixture="${s.id}" type="button">Локальная фикстура</button>
               <button class="btn btn-ghost connection-btn-sm" data-scene-save="${s.id}" type="button">Сохранить</button>
@@ -6821,7 +6838,13 @@ function pageProjects() {
           </div>
           <label class="small" style="display:block;margin-top:6px;">Озвучка<textarea data-scene-vo="${s.id}" class="input" rows="2" style="width:100%;">${esc(s.voiceover_text || '')}</textarea></label>
           <label class="small" style="display:block;">Текст на экране<input data-scene-ost="${s.id}" class="input" style="width:100%;" value="${esc(s.on_screen_text || '')}"/></label>
-        </div>`).join('')
+          <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;">
+            <input data-scene-query="${s.id}" class="input" placeholder="Запрос для стока (EN)" style="flex:1;min-width:160px;" value="${esc(s.stock_search_query || '')}"/>
+            <button class="btn btn-ghost connection-btn-sm" data-scene-stock="${s.id}" type="button">Найти медиа</button>
+          </div>
+          ${resultsHtml}
+        </div>`;
+        }).join('')
       : '<p class="small">Сцен нет. Вставьте сценарий и нажмите «Разбить на сцены».</p>';
 
     detailHtml = `<section class="card">
@@ -6834,10 +6857,21 @@ function pageProjects() {
           <select id="projVoiceMode">
             <option value="tts" ${detail.voice_mode === 'tts' ? 'selected' : ''}>TTS</option>
             <option value="silent" ${detail.voice_mode === 'silent' ? 'selected' : ''}>Без голоса (тишина)</option>
-            <option value="file" ${detail.voice_mode === 'file' ? 'selected' : ''}>Файл</option>
+            <option value="file" ${detail.voice_mode === 'file' ? 'selected' : ''}>Файл${detail.voiceover_path ? ' ✓' : ''}</option>
           </select>
         </label>
         <button id="projRenderBtn" class="btn btn-primary" type="button" data-project-id="${detail.id}">Создать видео (рендер)</button>
+      </div>
+      <div class="row" style="gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center;">
+        <label class="small">Диктор:
+          <select id="ttsVoiceSelect">
+            ${(state.ttsVoices || []).map((v) => `<option value="${esc(v.name)}" ${v.requires_key ? 'disabled' : ''}>${esc(v.label)}${v.requires_key ? ' (нужен ключ)' : ''}</option>`).join('')}
+          </select>
+        </label>
+        <button id="ttsPreviewBtn" class="btn btn-ghost" type="button">Тест голоса</button>
+        <button id="ttsGenerateBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Сгенерировать озвучку</button>
+        <button id="autoMediaBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Подобрать медиа для всех сцен</button>
+        <audio id="ttsPreviewAudio" controls style="height:30px;display:none;"></audio>
       </div>
       ${detail.error ? `<div class="notice error">${esc(detail.error)}</div>` : ''}
       ${detail.output_url ? `<div style="margin:10px 0;">
@@ -6950,6 +6984,70 @@ function bindProjectsPage() {
     await api(`/api/video-projects/${id}/render`, { method: 'POST', body: JSON.stringify({}) });
     state.notice = { type: 'ok', text: 'Рендер поставлен в очередь.' };
     render();
+  });
+  const ttsPreviewBtn = document.getElementById('ttsPreviewBtn');
+  if (ttsPreviewBtn) ttsPreviewBtn.onclick = withErr(async () => {
+    const voice = document.getElementById('ttsVoiceSelect')?.value || 'ru-RU-DmitryNeural';
+    ttsPreviewBtn.disabled = true;
+    ttsPreviewBtn.textContent = 'Генерируем…';
+    try {
+      const out = await api('/api/tts/preview', { method: 'POST', body: JSON.stringify({ voice_name: voice }), timeoutMs: 60000 });
+      const audio = document.getElementById('ttsPreviewAudio');
+      if (audio && out?.audio_url) {
+        audio.src = `${API_BASE}${out.audio_url}?t=${Date.now()}`;
+        audio.style.display = 'inline-block';
+        audio.play().catch(() => {});
+      }
+    } finally {
+      ttsPreviewBtn.disabled = false;
+      ttsPreviewBtn.textContent = 'Тест голоса';
+    }
+  });
+  const ttsGenerateBtn = document.getElementById('ttsGenerateBtn');
+  if (ttsGenerateBtn) ttsGenerateBtn.onclick = withErr(async () => {
+    const id = Number(ttsGenerateBtn.getAttribute('data-project-id'));
+    const voice = document.getElementById('ttsVoiceSelect')?.value || 'ru-RU-DmitryNeural';
+    ttsGenerateBtn.disabled = true;
+    ttsGenerateBtn.textContent = 'Озвучиваем…';
+    const out = await api(`/api/video-projects/${id}/tts`, { method: 'POST', body: JSON.stringify({ voice_name: voice }), timeoutMs: 180000 });
+    state.notice = { type: 'ok', text: `Озвучка готова: ${out.total_duration}с, голос ${out.voice}. Длительности сцен обновлены.` };
+    render();
+  });
+  const autoMediaBtn = document.getElementById('autoMediaBtn');
+  if (autoMediaBtn) autoMediaBtn.onclick = withErr(async () => {
+    const id = Number(autoMediaBtn.getAttribute('data-project-id'));
+    autoMediaBtn.disabled = true;
+    autoMediaBtn.textContent = 'Подбираем…';
+    const out = await api(`/api/video-projects/${id}/auto-media`, { method: 'POST', body: JSON.stringify({}), timeoutMs: 300000 });
+    const errs = (out?.report || []).filter((r) => r.error);
+    state.notice = errs.length
+      ? { type: 'error', text: `Подбор завершён с ошибками: ${errs.map((e) => `сцена ${e.scene_id}: ${e.error}`).join('; ').slice(0, 300)}` }
+      : { type: 'ok', text: 'Медиа подобраны для всех сцен.' };
+    render();
+  });
+  document.querySelectorAll('[data-scene-stock]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const sid = Number(btn.getAttribute('data-scene-stock'));
+      const query = document.querySelector(`[data-scene-query="${sid}"]`)?.value?.trim() || '';
+      btn.disabled = true;
+      btn.textContent = 'Ищем…';
+      const out = await api(`/api/scenes/${sid}/stock-search`, { method: 'POST', body: JSON.stringify({ query }), timeoutMs: 90000 });
+      state.sceneStockResults = { sceneId: sid, results: out?.results || [] };
+      render();
+    });
+  });
+  document.querySelectorAll('[data-stock-pick]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const sid = Number(btn.getAttribute('data-stock-pick'));
+      const vid = btn.getAttribute('data-stock-vid');
+      const query = document.querySelector(`[data-scene-query="${sid}"]`)?.value?.trim() || '';
+      btn.disabled = true;
+      btn.textContent = 'Скачиваем…';
+      await api(`/api/scenes/${sid}/stock-select`, { method: 'POST', body: JSON.stringify({ video_id: vid, query }), timeoutMs: 300000 });
+      state.sceneStockResults = null;
+      state.notice = { type: 'ok', text: 'Медиа привязано к сцене.' };
+      render();
+    });
   });
   document.querySelectorAll('[data-scene-save]').forEach((btn) => {
     btn.onclick = withErr(async () => {
@@ -11239,6 +11337,12 @@ async function preload(path) {
     }
     const jobsOut = await api('/api/render-jobs');
     state.renderJobs = Array.isArray(jobsOut?.jobs) ? jobsOut.jobs : [];
+    if (!state.ttsVoices) {
+      try {
+        const vOut = await api('/api/tts/voices');
+        state.ttsVoices = Array.isArray(vOut?.voices) ? vOut.voices : [];
+      } catch { state.ttsVoices = []; }
+    }
   }
   if (path === '/channels') {
     const out = await api('/api/channels');

@@ -10,8 +10,8 @@ Statuses: working | partial | stub | broken | disabled | not implemented
 | Channel ideas (manual) | yes | yes | channel_ideas | — | pytest + browser | working | статусы new/saved/deferred/rejected/converted |
 | Idea generation (AI) | yes | yes | yes | OpenAI | live (429) | partial | код рабочий; квота OpenAI исчерпана |
 | Script generation | legacy create UI | content_pipeline | yes | OpenAI | no | partial | не привязано к каналу; квота |
-| TTS | legacy | video/tts.py | files | OpenAI | no | partial | квота OpenAI |
-| Footage matching | legacy | footage_matcher | cache | Pexels (key set), Pixabay (no key) | no | partial | |
+| TTS | /projects/ (выбор голоса, тест, озвучка) | video/tts.py + video_projects_api | files + scene durations | Edge TTS (free) / OpenAI | live E2E (edge, ru-RU-DmitryNeural) | working | preflight без тихого fallback; OpenAI требует квоту |
+| Stock media per scene | /projects/ (поиск, preview, выбор, auto-подбор) | video_projects_api + footage/providers/pexels | media_meta_json | Pexels (key set) | live E2E (3 клипа) | working | SSRF-safe select; portrait приоритет; source/license сохраняются |
 | Subtitles (ASS/SRT, 9:16) | — | video/subtitles.py + render | files | — | render test | working | вожжены в тестовый MP4 |
 | FFmpeg render 1080x1920 Shorts | — | video/render | files | ffmpeg 7.1.1 | pytest + ffprobe | working | test_esoteric_short.mp4 |
 | Render queue | — | saas_queue + RQ | generation jobs | Redis (optional) | pytest (sync) | partial | thread-fallback теряет задачи при рестарте |

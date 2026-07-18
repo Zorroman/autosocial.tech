@@ -1,4 +1,11 @@
-﻿from redis import Redis
+﻿from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env before saas_settings so BASE_DIR & co. match the API process.
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+from redis import Redis
 from rq import Worker
 
 from saas_settings import settings

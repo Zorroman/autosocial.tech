@@ -236,6 +236,8 @@ def run_migrations() -> None:
 
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
+    if "video_scenes" in tables:
+        add_missing_columns("video_scenes", {"media_meta_json": "TEXT"})
     if "posts" in tables:
         add_missing_columns("posts", POSTS_ADDITIONAL_COLUMNS)
     if "plans" in tables:

@@ -92,6 +92,7 @@ def _scene_dict(s: VideoScene) -> dict:
         "visual_prompt": s.visual_prompt,
         "stock_search_query": s.stock_search_query,
         "selected_media_path": s.selected_media_path,
+        "media_meta": (json.loads(s.media_meta_json) if s.media_meta_json else None),
         "transition": s.transition,
         "status": s.status,
     }
@@ -722,5 +723,328 @@ def cancel_render_job(job_id: int):
         j.finished_at = datetime.utcnow()
         db.commit()
         return jsonify({"job": _job_dict(j)})
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------- TTS
+
+TTS_VOICES = [
+    {"provider": "edge", "name": "ru-RU-DmitryNeural", "label": "Дмитрий (муж., Edge)"},
+    {"provider": "edge", "name": "ru-RU-SvetlanaNeural", "label": "Светлана (жен., Edge)"},
+    {"provider": "openai", "name": "alloy", "label": "Alloy (OpenAI)"},
+    {"provider": "openai", "name": "onyx", "label": "Onyx (муж., OpenAI)"},
+    {"provider": "openai", "name": "nova", "label": "Nova (жен., OpenAI)"},
+]
+
+
+def _tts_provider_for_voice(voice_name: str) -> str:
+    for v in TTS_VOICES:
+        if v["name"] == voice_name:
+            return v["provider"]
+    return "edge" if "neural" in (voice_name or "").lower() else "openai"
+
+
+def _tts_preflight(voice_name: str) -> str | None:
+    """Synthesize a tiny phrase with the *specific* provider (no silent fallback).
+    Returns None on success or an honest error string."""
+    import tempfile
+    from video.tts import _tts_phrase_edge, _tts_phrase_openai, probe_duration
+
+    provider = _tts_provider_for_voice(voice_name)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "preflight.mp3"
+            if provider == "edge":
+                _tts_phrase_edge("Проверка голоса.", p, voice_name=voice_name)
+            else:
+                import os as _os
+                if not (_os.getenv("OPENAI_API_KEY") or "").strip():
+                    return "OPENAI_API_KEY is not configured"
+                _tts_phrase_openai("Проверка голоса.", p, voice_name=voice_name)
+            if probe_duration(str(p)) < 0.2:
+                return f"{provider} TTS produced empty audio"
+    except Exception as exc:
+        return f"{provider} TTS unavailable: {str(exc)[:300]}"
+    return None
+
+
+@video_projects_api.route("/tts/voices", methods=["GET"])
+@require_auth
+def tts_voices():
+    import os as _os
+    openai_ready = bool((_os.getenv("OPENAI_API_KEY") or "").strip())
+    voices = [
+        {**v, "requires_key": v["provider"] == "openai" and not openai_ready}
+        for v in TTS_VOICES
+    ]
+    return jsonify({"voices": voices, "default": "ru-RU-DmitryNeural"})
+
+
+@video_projects_api.route("/tts/preview", methods=["POST"])
+@require_auth
+def tts_preview():
+    from video.tts import _tts_phrase_edge, _tts_phrase_openai, probe_duration
+
+    data = request.get_json(silent=True) or {}
+    voice_name = str(data.get("voice_name") or "ru-RU-DmitryNeural").strip()
+    text = str(data.get("text") or "Тайны древних символов ждут вас.").strip()[:200]
+    provider = _tts_provider_for_voice(voice_name)
+    out_dir = settings.OUTPUT_AUDIO_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    safe_voice = re.sub(r"[^A-Za-z0-9_-]", "", voice_name)[:60]
+    out = out_dir / f"tts_preview_{safe_voice}.mp3"
+    try:
+        if provider == "edge":
+            _tts_phrase_edge(text, out, voice_name=voice_name)
+        else:
+            import os as _os
+            if not (_os.getenv("OPENAI_API_KEY") or "").strip():
+                return jsonify({"error": "OPENAI_API_KEY is not configured"}), 503
+            _tts_phrase_openai(text, out, voice_name=voice_name)
+    except Exception as exc:
+        return jsonify({"error": f"{provider} TTS failed: {str(exc)[:300]}"}), 502
+    duration = probe_duration(str(out))
+    if duration < 0.2:
+        return jsonify({"error": f"{provider} TTS produced empty audio"}), 502
+    rel = out.relative_to(settings.BASE_DIR)
+    return jsonify({
+        "provider": provider,
+        "voice": voice_name,
+        "duration": round(duration, 2),
+        "audio_url": f"/api/media/{rel.as_posix()}",
+    })
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/tts", methods=["POST"])
+@require_auth
+def generate_project_tts(project_id: int):
+    """Explicit user action: synthesize the full voiceover per scene, update
+    real scene durations, save the file and switch voice_mode to 'file'."""
+    from video.tts import probe_duration, synthesize_voiceover
+
+    data = request.get_json(silent=True) or {}
+    voice_name = str(data.get("voice_name") or "ru-RU-DmitryNeural").strip()
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        scenes = (
+            db.query(VideoScene).filter_by(project_id=p.id)
+            .order_by(VideoScene.order_index.asc()).all()
+        )
+        phrases = [(s.voiceover_text or "").strip() for s in scenes]
+        if not any(phrases):
+            return jsonify({"error": "Scenes have no voiceover_text"}), 400
+
+        err = _tts_preflight(voice_name)
+        if err:
+            return jsonify({"error": err}), 502
+
+        out_dir = settings.OUTPUT_AUDIO_DIR
+        try:
+            voice_str, durations = synthesize_voiceover(
+                phrases, out_dir, f"project_{p.id}", voice_name=voice_name,
+            )
+        except Exception as exc:
+            return jsonify({"error": f"TTS failed: {str(exc)[:400]}"}), 502
+        total = probe_duration(voice_str)
+        if total < 0.5:
+            return jsonify({"error": "TTS produced empty audio"}), 502
+        for s, d in zip(scenes, durations):
+            if d and d > 0:
+                s.actual_duration = float(d)
+                s.estimated_duration = round(float(d), 2)
+        p.voiceover_path = voice_str
+        p.voice_mode = "file"
+        p.updated_at = datetime.utcnow()
+        db.commit()
+        rel = Path(voice_str).relative_to(settings.BASE_DIR)
+        return jsonify({
+            "voiceover_path": voice_str,
+            "audio_url": f"/api/media/{rel.as_posix()}",
+            "voice": voice_name,
+            "total_duration": round(total, 2),
+            "scene_durations": [round(float(d), 2) for d in durations],
+        })
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------- stock media
+
+def _stock_result_dict(r) -> dict:
+    return {
+        "provider": r.provider,
+        "video_id": str(r.video_id),
+        "duration": r.duration,
+        "width": r.width,
+        "height": r.height,
+        "orientation": r.orientation,
+        "page_url": r.page_url,
+        "preview_url": r.download_url,
+        "author": r.author,
+        "title": r.title,
+        "license": "Pexels License (free to use)" if r.provider == "pexels" else r.provider,
+    }
+
+
+def _pexels_search(query: str, page: int = 1, limit: int = 8):
+    from footage.providers.pexels import search_videos
+
+    results = search_videos(
+        query=query, orientation="vertical", min_duration=3, max_duration=60,
+        limit=limit, page=page,
+    )
+    if not results:
+        results = search_videos(
+            query=query, orientation="horizontal", min_duration=3, max_duration=60,
+            limit=limit, page=page,
+        )
+    return results[:limit]
+
+
+@video_projects_api.route("/scenes/<int:scene_id>/stock-search", methods=["POST"])
+@require_auth
+def scene_stock_search(scene_id: int):
+    import os as _os
+    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
+        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        s = _own_scene(db, scene_id)
+        if not s:
+            return jsonify({"error": "Scene not found"}), 404
+        query = str(data.get("query") or s.stock_search_query or s.visual_prompt or "").strip()
+        if not query:
+            return jsonify({"error": "query is required (or set stock_search_query on the scene)"}), 400
+        page = max(1, int(data.get("page") or 1))
+        try:
+            results = _pexels_search(query, page=page)
+        except Exception as exc:
+            return jsonify({"error": f"Pexels search failed: {str(exc)[:300]}"}), 502
+        if query != s.stock_search_query:
+            s.stock_search_query = query[:300]
+            db.commit()
+        return jsonify({"query": query, "results": [_stock_result_dict(r) for r in results]})
+    finally:
+        db.close()
+
+
+def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
+    """SSRF-safe selection: re-search Pexels server-side and match by video_id;
+    the client never supplies a download URL."""
+    from footage.providers.pexels import download_video
+
+    match = None
+    for page in (1, 2):
+        for r in _pexels_search(query, page=page, limit=20):
+            if str(r.video_id) == str(video_id):
+                match = r
+                break
+        if match:
+            break
+    if not match:
+        return None, "Selected video not found in Pexels results; search again"
+    stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
+    stock_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        saved = Path(download_video(match, stock_dir / f"pexels_{match.video_id}.mp4"))
+    except Exception as exc:
+        return None, f"Download failed: {str(exc)[:300]}"
+    if not saved.exists() or saved.stat().st_size < 10_000:
+        return None, "Downloaded file is missing or too small"
+    s.selected_media_path = str(saved)
+    s.visual_type = "stock"
+    s.status = "ready"
+    s.media_meta_json = json.dumps(_stock_result_dict(match), ensure_ascii=False)
+    return match, None
+
+
+@video_projects_api.route("/scenes/<int:scene_id>/stock-select", methods=["POST"])
+@require_auth
+def scene_stock_select(scene_id: int):
+    data = request.get_json(silent=True) or {}
+    video_id = str(data.get("video_id") or "").strip()
+    if not video_id:
+        return jsonify({"error": "video_id is required"}), 400
+    db = SessionLocal()
+    try:
+        s = _own_scene(db, scene_id)
+        if not s:
+            return jsonify({"error": "Scene not found"}), 404
+        query = str(data.get("query") or s.stock_search_query or "").strip()
+        if not query:
+            return jsonify({"error": "query is required"}), 400
+        match, err = _download_stock_for_scene(db, s, query, video_id)
+        if err:
+            return jsonify({"error": err}), 502
+        db.commit()
+        db.refresh(s)
+        return jsonify({"scene": _scene_dict(s), "media": _stock_result_dict(match)})
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/auto-media", methods=["POST"])
+@require_auth
+def project_auto_media(project_id: int):
+    """Pick real stock media for every scene missing media (or all with
+    overwrite=true, which still skips manually attached files unless forced)."""
+    import os as _os
+    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
+        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
+    data = request.get_json(silent=True) or {}
+    overwrite = bool(data.get("overwrite"))
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        scenes = (
+            db.query(VideoScene).filter_by(project_id=p.id)
+            .order_by(VideoScene.order_index.asc()).all()
+        )
+        if not scenes:
+            return jsonify({"error": "Project has no scenes"}), 400
+        channel = db.query(Channel).filter_by(id=p.channel_id).first()
+        base_query = (channel.niche if channel else "") or "mystic"
+        report = []
+        prev_video_id = None
+        for s in scenes:
+            if s.selected_media_path and not overwrite:
+                report.append({"scene_id": s.id, "skipped": "already has media"})
+                prev_video_id = json.loads(s.media_meta_json)["video_id"] if s.media_meta_json else prev_video_id
+                continue
+            query = (s.stock_search_query or s.visual_prompt or "").strip()
+            if not query:
+                words = re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", s.voiceover_text or "")
+                query = f"{base_query} {' '.join(words[:2])}".strip() or base_query
+            try:
+                results = _pexels_search(query, limit=10)
+            except Exception as exc:
+                report.append({"scene_id": s.id, "error": f"search failed: {str(exc)[:200]}"})
+                continue
+            pick = None
+            for r in results:
+                if str(r.video_id) != str(prev_video_id):
+                    pick = r
+                    break
+            if not pick and results:
+                pick = results[0]
+            if not pick:
+                report.append({"scene_id": s.id, "error": f"no results for '{query}'"})
+                continue
+            match, err = _download_stock_for_scene(db, s, query, pick.video_id)
+            if err:
+                report.append({"scene_id": s.id, "error": err})
+                continue
+            prev_video_id = str(match.video_id)
+            report.append({"scene_id": s.id, "query": query, "video_id": prev_video_id,
+                           "orientation": match.orientation, "author": match.author})
+        db.commit()
+        return jsonify({"report": report})
     finally:
         db.close()

@@ -155,6 +155,45 @@ Legacy (код остался, UI убран): Stripe, тарифы, entitlement
 - Тесты: `tests/test_video_projects.py` — 5 тестов, включая полный E2E-рендер
   реального MP4 с ffprobe-валидацией и download через API.
 
+## Реальный TTS и стоковые медиа (2026-07-18, третья итерация)
+
+### TTS (протестировано с реальным провайдером)
+- Провайдер: **Edge TTS (edge-tts 7.2.8)** — бесплатный, работает без ключей.
+  Протестированный голос: **ru-RU-DmitryNeural**. OpenAI-голоса доступны в
+  списке, но требуют активной квоты (preflight честно вернёт ошибку).
+- Endpoints: `GET /api/tts/voices` (доступность провайдеров),
+  `POST /api/tts/preview` (тест голоса, только по явному действию),
+  `POST /api/video-projects/<id>/tts` — озвучка всех сцен: preflight провайдера
+  (без тихого fallback), генерация, ffprobe-проверка, обновление реальных
+  длительностей сцен, `voice_mode='file'`.
+- Реальный результат: `data/output/audio/project_2_voiceover.mp3`, 18.36 s,
+  длительности сцен 7.92 / 7.99 / 2.45 s.
+
+### Стоковые медиа (Pexels, реальный ключ)
+- `POST /api/scenes/<id>/stock-search` — реальный поиск, приоритет portrait
+  9:16, fallback landscape (в UI помечается «→ crop 9:16»).
+- `POST /api/scenes/<id>/stock-select` — SSRF-safe: клиент передаёт только
+  `video_id` + query; сервер сам повторяет поиск и скачивает по URL от Pexels
+  API (пользовательские URL не принимаются).
+- `POST /api/video-projects/<id>/auto-media` — подбор для всех сцен: query из
+  `stock_search_query`/`visual_prompt`/ключевых слов; не повторяет один клип
+  подряд; не перезаписывает уже выбранное медиа без `overwrite`.
+- Метаданные (source, author, license, w×h, duration, orientation) хранятся в
+  `video_scenes.media_meta_json` (additive-миграция) и показываются в UI.
+- Использовано в E2E: 3 реальных вертикальных клипа Pexels
+  (19997487 © Rachit Gupta; 18202294 © Enes Salih Gökçek;
+  27546122 © Ünal Karabiber; лицензия Pexels License, free to use).
+
+### Новый реальный E2E (без фикстур)
+Проект «Свечи и лунный свет» (эзотерический канал): сценарий → 3 сцены →
+edge-TTS → 3 реальных Pexels-клипа → SRT-субтитры → RQ-очередь →
+`data/output/videos/project_2_job_3.mp4` → preview в UI → download 200.
+ffprobe: **h264 1080×1920 yuv420p 30 fps, aac 24000 Hz, 18.34 s, 5 933 502 bytes**.
+- Fallback silent/fixture сохранён и по-прежнему покрыт тестами
+  (test_video_projects.py::test_full_e2e_render_real_mp4 — 16 passed).
+- Fix: `worker.py` теперь загружает `.env` (иначе RQ-worker писал вывод в
+  другой BASE_DIR); RQ-worker слушает очереди generation+render.
+
 ## Рекомендации следующего этапа
 
 1. Пополнить квоту OpenAI → end-to-end тест идея→сценарий→TTS→рендер.

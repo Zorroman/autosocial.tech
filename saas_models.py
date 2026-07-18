@@ -650,6 +650,7 @@ class VideoScene(SaaSBase):
     visual_prompt = Column(Text, nullable=True)
     stock_search_query = Column(String(300), nullable=True)
     selected_media_path = Column(String(500), nullable=True)
+    media_meta_json = Column(Text, nullable=True)
     transition = Column(String(30), nullable=True)
     status = Column(String(20), nullable=False, default="draft")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
