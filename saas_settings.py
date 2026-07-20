@@ -47,6 +47,20 @@ class Settings:
     TOPIC_COOLDOWN_DAYS = int(os.getenv("TOPIC_COOLDOWN_DAYS", "60"))
     TOPIC_DUPLICATE_THRESHOLD = float(os.getenv("TOPIC_DUPLICATE_THRESHOLD", "0.6"))
     TOPIC_MAX_GENERATION_ATTEMPTS = max(1, int(os.getenv("TOPIC_MAX_GENERATION_ATTEMPTS", "3")))
+    # Visual AI validation of footage candidates
+    VISUAL_VALIDATION_ENABLED = os.getenv("VISUAL_VALIDATION_ENABLED", "false").lower() in {"1", "true", "yes"}
+    VISUAL_VALIDATION_FAIL_OPEN = os.getenv("VISUAL_VALIDATION_FAIL_OPEN", "true").lower() in {"1", "true", "yes"}
+    VISUAL_RELEVANCE_MIN_SCORE = float(os.getenv("VISUAL_RELEVANCE_MIN_SCORE", "0.55"))
+    VISUAL_SUBJECT_MIN_SCORE = float(os.getenv("VISUAL_SUBJECT_MIN_SCORE", "0.4"))
+    VISUAL_ACTION_MIN_SCORE = float(os.getenv("VISUAL_ACTION_MIN_SCORE", "0.3"))
+    VISUAL_MAX_CANDIDATES_PER_SEGMENT = max(1, int(os.getenv("VISUAL_MAX_CANDIDATES_PER_SEGMENT", "5")))
+    VISUAL_FRAME_COUNT = max(1, int(os.getenv("VISUAL_FRAME_COUNT", "5")))
+    VISUAL_AI_DAILY_BUDGET_USD = float(os.getenv("VISUAL_AI_DAILY_BUDGET_USD", "2.0"))
+    VISUAL_AI_MAX_CHECKS_PER_VIDEO = max(1, int(os.getenv("VISUAL_AI_MAX_CHECKS_PER_VIDEO", "30")))
+    VISUAL_AI_MAX_CHECKS_PER_SEGMENT = max(1, int(os.getenv("VISUAL_AI_MAX_CHECKS_PER_SEGMENT", "3")))
+    VISUAL_AI_CACHE_TTL_DAYS = max(1, int(os.getenv("VISUAL_AI_CACHE_TTL_DAYS", "90")))
+    VISUAL_AI_MODEL = os.getenv("VISUAL_AI_MODEL", "gpt-4o-mini").strip()
+    VISUAL_AI_PROVIDER = os.getenv("VISUAL_AI_PROVIDER", "mock").strip().lower()
     VIDEO_CLIP_FADE_SECONDS = float(os.getenv("VIDEO_CLIP_FADE_SECONDS", "0.2"))
     SUBTITLE_MAX_LINE_CHARS = int(os.getenv("SUBTITLE_MAX_LINE_CHARS", "36"))
     SUBTITLE_MARGIN_BOTTOM_PX = int(os.getenv("SUBTITLE_MARGIN_BOTTOM_PX", "380"))

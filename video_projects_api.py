@@ -607,10 +607,32 @@ def run_render_job(job_id: int) -> None:
                 used_hashes: set[str] = set()
                 t_cursor = 0.0
                 seg_index = 0
+                _channel = db.query(Channel).filter_by(id=project.channel_id).first()
+                _niche = None
+                _pillar = None
+                try:
+                    from saas_models import ContentNiche, ContentPillar
+                    if _channel and _channel.niche_id:
+                        _niche = db.query(ContentNiche).filter_by(id=_channel.niche_id).first()
+                    if project.content_pillar_id:
+                        _pillar = db.query(ContentPillar).filter_by(id=project.content_pillar_id).first()
+                except Exception:
+                    pass
+                from visual_validation import build_visual_intent
                 for s in scenes:
                     sdur = float(s.estimated_duration or 4.0)
                     plan = segment_plan(sdur)
                     scene_query = (s.stock_search_query or s.visual_prompt or "").strip()
+                    scene_intent = build_visual_intent(
+                        scene_text=(s.voiceover_text or ""),
+                        niche_slug=(_niche.slug if _niche else ""),
+                        pillar={
+                            "slug": _pillar.slug, "name": _pillar.name,
+                            "visual_keywords": _pillar.visual_keywords,
+                            "forbidden_visual_keywords": _pillar.forbidden_visual_keywords,
+                        } if _pillar else None,
+                        channel_visual_style=(_channel.visual_style if _channel else ""),
+                    )
                     # register the scene's primary media in the library
                     primary_meta = json.loads(s.media_meta_json) if s.media_meta_json else {}
                     primary_asset = register_asset(
@@ -640,6 +662,7 @@ def run_render_job(job_id: int) -> None:
                                 used_asset_ids=used_asset_ids,
                                 used_hashes=used_hashes,
                                 allow_network=not settings.USE_MOCK_PROVIDERS,
+                                visual_intent=scene_intent,
                             )
                             if chosen and search_stats.get("reuse_was_unavoidable"):
                                 reuse_reason = "cooldown_reuse_after_exhausted_search"
@@ -679,6 +702,9 @@ def run_render_job(job_id: int) -> None:
                             "candidates_rejected_cooldown": search_stats.get("candidates_rejected_cooldown", 0),
                             "candidates_rejected_duplicate": search_stats.get("candidates_rejected_duplicate", 0),
                             "reuse_was_unavoidable": search_stats.get("reuse_was_unavoidable", False),
+                            "candidates_rejected_visual": search_stats.get("candidates_rejected_visual", 0),
+                            "visual_checks": search_stats.get("visual_checks", 0),
+                            "visual_degraded": search_stats.get("visual_degraded", False),
                             "source": search_stats.get("source"),
                         })
                         t_cursor += seg_dur

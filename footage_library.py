@@ -327,7 +327,8 @@ def select_and_reserve(db, scored, job_id: int, used_asset_ids: set,
 def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
                           job_id: int, min_duration: float,
                           used_asset_ids: set, used_hashes: set,
-                          allow_network: bool = True) -> tuple[FootageAsset | None, dict]:
+                          allow_network: bool = True,
+                          visual_intent: dict | None = None) -> tuple[FootageAsset | None, dict]:
     """Full fallback chain before any reuse is allowed:
     1) local library across all query variants (original -> synonyms -> broad);
     2) Pexels across a bounded budget of queries x pages, downloading fresh
@@ -341,9 +342,30 @@ def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
         "candidates_examined": 0,
         "candidates_rejected_cooldown": 0,
         "candidates_rejected_duplicate": 0,
+        "candidates_rejected_visual": 0,
+        "visual_checks": 0,
+        "visual_degraded": False,
         "reuse_was_unavoidable": False,
         "source": None,
     }
+
+    def _visual_ok(asset) -> bool:
+        """Visual AI gate (cache-first). Rejected candidates are skipped and
+        never become FootageUsage. Bounded by VISUAL_AI_MAX_CHECKS_PER_SEGMENT."""
+        if not visual_intent or not settings.VISUAL_VALIDATION_ENABLED:
+            return True
+        if stats["visual_checks"] >= settings.VISUAL_AI_MAX_CHECKS_PER_SEGMENT:
+            stats["visual_degraded"] = True
+            return settings.VISUAL_VALIDATION_FAIL_OPEN
+        from visual_validation import validate_asset
+        stats["visual_checks"] += 1
+        res = validate_asset(db, asset, visual_intent)
+        if res.degraded:
+            stats["visual_degraded"] = True
+        if not res.accepted:
+            stats["candidates_rejected_visual"] += 1
+            return False
+        return True
     variants = query_variants(query)[: max(2, settings.PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT)]
     cooldown_pool: list = []
 
@@ -363,6 +385,7 @@ def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
             (fresh if sc > -400 else cooled).append((sc, a, dbg))
         stats["candidates_rejected_cooldown"] += len(cooled)
         cooldown_pool.extend(cooled)
+        fresh = [(sc, a, dbg) for sc, a, dbg in fresh if _visual_ok(a)]
         sc, chosen, dbg = select_and_reserve(db, fresh, job_id, used_asset_ids, used_hashes)
         if chosen:
             stats["source"] = f"local:{v}"
@@ -423,6 +446,8 @@ def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
                         if sc <= -400:
                             stats["candidates_rejected_cooldown"] += 1
                             cooldown_pool.append((sc, a, dbg))
+                            continue
+                        if not _visual_ok(a):
                             continue
                         if reserve_asset(db, a, job_id):
                             stats["source"] = f"pexels:{v}:p{page}"

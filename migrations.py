@@ -263,6 +263,11 @@ def run_migrations() -> None:
             "channel_ideas",
             {"content_pillar_id": "INTEGER", "normalized_title": "VARCHAR(300)"},
         )
+    if "footage_assets" in tables:
+        add_missing_columns(
+            "footage_assets",
+            {"analysis_json": "TEXT", "analysis_model": "VARCHAR(80)", "analyzed_at": "DATETIME"},
+        )
     if "channels" in tables:
         add_missing_columns(
             "channels",

@@ -265,3 +265,113 @@ def test_topic_duplicate_score(client):
     low = _topic_duplicate_score(db, ch, "Число 11:11 на часах", "нумерология времени")
     assert high > 0.5 and low < 0.3
     db.close()
+
+
+# --------------------------------------------------- visual intent & AI
+
+def test_visual_intent_uses_niche_and_pillar(client):
+    from visual_validation import build_visual_intent
+    intent = build_visual_intent(
+        scene_text="Если человеку часто снится вода, это связывают с эмоциями",
+        niche_slug="esotericism",
+        pillar={"slug": "dream-meanings",
+                "visual_keywords": "person sleeping in bed at night, calm water waves, foggy lake",
+                "forbidden_visual_keywords": "cars traffic, office desk, party crowd"},
+        channel_visual_style="атмосферный, мистический",
+    )
+    assert intent["channel_niche"] == "esotericism"
+    assert intent["content_pillar"] == "dream-meanings"
+    assert "person sleeping in bed at night" in intent["search_queries"]
+    assert "cars traffic" in intent["avoid"]
+    assert intent["people_required"] is True
+    assert intent["time_of_day"] == "night"
+    # concrete queries, not abstract "meaning of dream"
+    assert not any("meaning" in q for q in intent["search_queries"])
+
+
+def test_visual_mock_provider_rules(client, tmp_path):
+    from visual_validation import MockVisualValidationProvider
+    provider = MockVisualValidationProvider()
+    intent = {"primary_subjects": ["sleeping person", "night bed"],
+              "search_queries": ["person sleeping night"],
+              "avoid": ["office desk"], "people_required": True,
+              "abstract_allowed": False}
+    ok = provider.evaluate([], intent, {"search_query": "person sleeping night bed", "tags": []})
+    assert ok.accepted, ok.rejection_reason
+    # forbidden keyword -> reject
+    bad = provider.evaluate([], intent, {"search_query": "office desk person computer", "tags": []})
+    assert not bad.accepted and bad.rejection_reason.startswith("avoid_matched")
+    # person required but absent -> reject
+    nop = provider.evaluate([], intent, {"search_query": "night sleeping bed room", "tags": []})
+    assert not nop.accepted and nop.rejection_reason == "people_required_absent"
+    # unrelated -> low relevance reject
+    unrel = provider.evaluate([], intent, {"search_query": "man mountain bike race", "tags": []})
+    assert not unrel.accepted
+
+
+def test_visual_validation_cache_and_frames_cleanup(client, tmp_path, monkeypatch):
+    import subprocess as sp
+    from database import SessionLocal
+    from footage_library import register_asset
+    from saas_models import VisualValidationRecord
+    from visual_validation import validate_asset
+    monkeypatch.setenv("VISUAL_VALIDATION_ENABLED", "true")
+    import saas_settings, importlib
+    importlib.reload(saas_settings)
+    import visual_validation
+    importlib.reload(visual_validation)
+    db = SessionLocal()
+    p = tmp_path / "clip.mp4"
+    sp.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x223344:s=64x114:d=2:r=10",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(p)], check=True, capture_output=True)
+    asset = register_asset(db, provider="test", provider_asset_id="vv1", local_path=p,
+                           search_query="person sleeping night")
+    db.commit()
+    intent = {"primary_subjects": ["sleeping person"], "search_queries": ["person sleeping night"],
+              "avoid": [], "people_required": False, "abstract_allowed": False}
+    r1 = visual_validation.validate_asset(db, asset, intent)
+    assert r1.accepted
+    assert db.query(VisualValidationRecord).count() == 1
+    r2 = visual_validation.validate_asset(db, asset, intent)
+    assert r2.provider.endswith(":cache")  # cache hit, no re-analysis
+    assert db.query(VisualValidationRecord).count() == 1
+    # temp frames removed (nothing left behind in system temp matching ours)
+    import glob, tempfile
+    assert not glob.glob(str(Path(tempfile.gettempdir()) / "frame_*.jpg"))
+    db.close()
+
+
+def test_render_with_visual_validation_manifest(client, monkeypatch):
+    """E2E with mock visual provider: manifest records visual stats; no network."""
+    monkeypatch.setenv("VISUAL_VALIDATION_ENABLED", "true")
+    import importlib, saas_settings
+    importlib.reload(saas_settings)
+    for m in ("visual_validation", "footage_library"):
+        if m in sys.modules:
+            importlib.reload(sys.modules[m])
+    from saas_settings import settings
+    nid = _seed_eso(client)
+    ch = client.post("/api/channels", json={"name": "ЭзоE2E"}, headers=_h(client)).get_json()["channel"]["id"]
+    client.patch(f"/api/channels/{ch}", json={"niche_id": nid}, headers=_h(client))
+    pillars = client.get(f"/api/niches/{nid}/pillars", headers=_h(client)).get_json()["pillars"]
+    dream = next(p["id"] for p in pillars if p["slug"] == "dream-meanings")
+    script = ("Если вам часто снится вода, в эзотерических традициях это связывают с эмоциональным состоянием. "
+              "Психологи объясняют такие сны переработкой дневных переживаний. "
+              "Доказанный факт лишь один: фаза быстрого сна нужна каждому человеку. "
+              "Понаблюдайте за своими снами — и сделайте собственные выводы.")
+    pid = client.post("/api/video-projects", json={
+        "channel_id": ch, "title": "Почему человеку часто снится вода",
+        "content_pillar_id": dream, "topic": "Почему человеку часто снится вода",
+        "script_text": script, "voice_mode": "silent"}, headers=_h(client)).get_json()["project"]["id"]
+    for s in client.post(f"/api/video-projects/{pid}/split-scenes", headers=_h(client)).get_json()["scenes"]:
+        client.post(f"/api/scenes/{s['id']}/fixture-media", headers=_h(client))
+    r = client.post(f"/api/video-projects/{pid}/render", headers=_h(client))
+    assert r.status_code == 202
+    proj = client.get(f"/api/video-projects/{pid}", headers=_h(client)).get_json()["project"]
+    assert proj["status"] == "rendered", proj["error"]
+    assert proj["generation_profile"]["content_pillar_name"] == "Сны и их значения"
+    job_id = proj["jobs"][0]["id"]
+    manifest = json.loads((settings.OUTPUT_MANIFESTS_DIR / f"project_{pid}_job_{job_id}.json").read_text(encoding="utf-8"))
+    non_primary = [s for s in manifest["timeline"] if s["segment"] > 0]
+    for seg in non_primary:
+        assert "visual_checks" in seg and "visual_degraded" in seg

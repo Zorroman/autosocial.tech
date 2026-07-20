@@ -787,6 +787,9 @@ class FootageAsset(SaaSBase):
     tags_json = Column(Text, nullable=True)
     author = Column(String(200), nullable=True)
     license_note = Column(String(200), nullable=True)
+    analysis_json = Column(Text, nullable=True)
+    analysis_model = Column(String(80), nullable=True)
+    analyzed_at = Column(DateTime, nullable=True)
     reserved_by_job_id = Column(Integer, nullable=True, index=True)
     reserved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -851,3 +854,23 @@ class ContentPillar(SaaSBase):
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class VisualValidationRecord(SaaSBase):
+    __tablename__ = "visual_validation_records"
+    __table_args__ = (
+        UniqueConstraint("footage_asset_id", "visual_intent_hash", "model", "prompt_version",
+                         name="uq_visual_validation_cache_key"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    footage_asset_id = Column(Integer, ForeignKey("footage_assets.id"), nullable=False, index=True)
+    visual_intent_hash = Column(String(64), nullable=False, index=True)
+    provider = Column(String(40), nullable=False)
+    model = Column(String(80), nullable=False)
+    prompt_version = Column(String(20), nullable=False, default="v1")
+    scores_json = Column(Text, nullable=True)
+    accepted = Column(Boolean, nullable=False, default=False)
+    rejection_reason = Column(String(200), nullable=True)
+    cost = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
