@@ -7253,6 +7253,161 @@ function pageFactorySettings() {
   return appLayout('/factory-settings', 'Система', body);
 }
 
+function cdEstimateHint(d) {
+  const dec = (d && d.decision) || {};
+  const hasData = !!(dec.analytics && dec.analytics.has_data);
+  return hasData
+    ? 'Оценка потенциала с учётом истории канала. Не гарантия и не прогноз YouTube.'
+    : 'Эвристическая оценка до накопления достаточной статистики канала.';
+}
+
+const CD_STATUS_LABELS = { draft: 'Черновик', approved: 'Одобрена', rejected: 'Отклонена', banned: 'Запрещена', used: 'В работе' };
+
+function pageContentDirector() {
+  const channels = Array.isArray(state.channelsData) ? state.channelsData : [];
+  const rows = Array.isArray(state.cdStrategies) ? state.cdStrategies : [];
+  const meta = state.cdMeta || {};
+  const d = state.cdDetail;
+  const chOptions = channels.map((c) => `<option value="${c.id}" ${Number(state.cdChannelId) === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  const pct = (v) => (v === null || v === undefined) ? '—' : `${(Number(v) * 100).toFixed(1)}%`;
+  const num = (v) => (v === null || v === undefined) ? '—' : Number(v).toFixed(2);
+
+  const listHtml = rows.length ? rows.map((s) => `<tr>
+      <td>${s.pinned ? '📌 ' : ''}<strong class="small">${esc(s.selected_topic)}</strong>
+        <div class="small">${esc(s.pillar_name || '')} · ${esc(s.selected_angle || '')} · ${esc(s.source)}</div></td>
+      <td>${esc(CD_STATUS_LABELS[s.status] || s.status)}</td>
+      <td>${s.priority}</td>
+      <td>${pct(s.estimated_ctr)}</td>
+      <td>${num(s.novelty_score)}</td>
+      <td class="small" style="max-width:240px;">${esc((s.selected_hook || '').slice(0, 90))}</td>
+      <td>
+        <button class="btn btn-ghost connection-btn-sm" data-cd-open="${s.id}" type="button">${Number(state.cdOpenId) === s.id ? 'Скрыть' : 'Почему'}</button>
+        ${['draft', 'approved'].includes(s.status) ? `<button class="btn btn-primary connection-btn-sm" data-cd-approve="${s.id}" type="button">Одобрить</button>` : ''}
+        ${s.status !== 'used' ? `<button class="btn btn-ghost connection-btn-sm" data-cd-reject="${s.id}" type="button">Отклонить</button>` : ''}
+        ${s.status !== 'used' ? `<button class="btn btn-ghost connection-btn-sm" data-cd-ban="${s.id}" type="button">Запретить</button>` : ''}
+        ${s.status !== 'used' ? `<button class="btn btn-ghost connection-btn-sm" data-cd-regen="${s.id}" type="button">Заново</button>` : ''}
+        ${s.status !== 'used' ? `<button class="btn btn-ghost connection-btn-sm" data-cd-pin="${s.id}" data-cd-pinned="${s.pinned ? 1 : 0}" type="button">${s.pinned ? 'Открепить' : 'Закрепить'}</button>` : ''}
+        ${s.status !== 'used' ? `<input class="input" type="number" min="1" max="100" value="${s.priority}" data-cd-priority="${s.id}" style="width:64px;" title="Приоритет"/>` : ''}
+        ${s.video_project_id ? `<button class="btn btn-ghost connection-btn-sm" data-link="/projects" type="button">Проект #${s.video_project_id}</button>` : ''}
+      </td>
+    </tr>`).join('') : '<tr><td colspan="7" class="small">Идей пока нет. Нажмите «Придумать следующий ролик».</td></tr>';
+
+  let detailHtml = '';
+  if (d) {
+    const dec = d.decision || {};
+    const stages = dec.stages || {};
+    const pillarC = (stages.pillar && stages.pillar.candidates) || [];
+    const dup = stages.duplicates || {};
+    const outline = d.outline || {};
+    detailHtml = `<section class="card">
+      <h3 style="margin-top:0;">Почему выбрана тема «${esc(d.selected_topic)}»</h3>
+      <p class="small"><strong>Причины:</strong> ${esc(d.generation_reason || '')}</p>
+      <div class="row" style="gap:16px;flex-wrap:wrap;">
+        <div><div class="small">Приоритет</div><strong>${d.priority}</strong></div>
+        <div><div class="small" title="${esc(cdEstimateHint(d))}">Потенциал CTR</div><strong>${pct(d.estimated_ctr)}</strong></div>
+        <div><div class="small" title="${esc(cdEstimateHint(d))}">Потенциал удержания</div><strong>${pct(d.estimated_retention)}</strong></div>
+        <div><div class="small">Новизна</div><strong>${num(d.novelty_score)}</strong></div>
+        <div><div class="small">Сила хука</div><strong>${num(d.hook_strength)}</strong></div>
+        <div><div class="small">Визуальный потенциал</div><strong>${num(d.visual_potential)}</strong></div>
+      </div>
+      <p class="small" style="opacity:.8;">${esc(cdEstimateHint(d))}</p>
+      <p class="small" style="margin-top:8px;"><strong>Hook:</strong> ${esc(d.selected_hook || '')}</p>
+      ${(outline.structure || []).length ? `<div class="small"><strong>Структура:</strong> ${outline.structure.map((p) => esc(p.part)).join(' → ')}</div>` : ''}
+      ${pillarC.length ? `<h3>Выбор направления</h3><div style="overflow-x:auto;"><table class="small" style="width:100%;border-collapse:collapse;">
+        <thead><tr><th>Направление</th><th>Балл</th><th>Вес</th><th>Штраф за повтор</th><th>Бонус аналитики</th></tr></thead>
+        <tbody>${pillarC.slice(0, 6).map((c) => `<tr><td>${esc(c.pillar)}</td><td>${c.score}</td><td>${c.base_weight}</td><td>-${c.recency_penalty}</td><td>${c.performance_bonus >= 0 ? '+' : ''}${c.performance_bonus}</td></tr>`).join('')}</tbody>
+      </table></div>` : ''}
+      <p class="small">Проверка повторов: рассмотрено ${dup.checked ?? '—'}, отклонено ${(dup.rejected || []).length}, порог ${dup.threshold ?? '—'}, cooldown ${dup.cooldown_days ?? '—'} дн.
+      ${(dup.rejected || []).length ? `<br/>Отклонены как похожие: ${(dup.rejected || []).map((r) => esc(r.topic) + ' (' + r.similarity + ')').join('; ')}` : ''}</p>
+      <p class="small">Аналитика: ${dec.analytics && dec.analytics.has_data ? `использована (${dec.analytics.videos} роликов)` : 'нет данных — решение по ротации, новизне и хуку'}</p>
+    </section>`;
+  }
+
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card">
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;">
+        <label class="small">Канал: <select id="cdChannelSelect">${chOptions}</select></label>
+        <button id="cdGenerateBtn" class="btn btn-primary" type="button">Придумать следующий ролик</button>
+        <span class="small">${meta.use_ai ? 'AI-идеи включены' : 'AI выключен'} · порог повтора ${meta.duplicate_threshold ?? '—'} · cooldown ${meta.topic_cooldown_days ?? '—'} дн.</span>
+      </div>
+      <p class="small">Director решает <em>что</em> снимать и <em>почему</em>. Он не пишет сценарий — после «Одобрить» задача уходит сценаристу.</p>
+      <div style="overflow-x:auto;">
+        <table class="small" style="width:100%;border-collapse:collapse;">
+          <thead><tr><th>Тема</th><th>Статус</th><th>Приоритет</th><th title="Эвристическая оценка потенциала, не прогноз YouTube">Потенциал CTR</th><th>Новизна</th><th>Hook</th><th></th></tr></thead>
+          <tbody>${listHtml}</tbody>
+        </table>
+      </div>
+    </section>
+    ${detailHtml}
+  </section>`;
+  return appLayout('/content-director', 'Content Director', body);
+}
+
+function bindContentDirector() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const sel = document.getElementById('cdChannelSelect');
+  if (sel) sel.onchange = () => { state.cdChannelId = Number(sel.value); state.cdOpenId = null; render(); };
+  const genBtn = document.getElementById('cdGenerateBtn');
+  if (genBtn) genBtn.onclick = withErr(async () => {
+    genBtn.disabled = true; genBtn.textContent = 'Думает…';
+    const out = await api('/api/content-director/generate', { method: 'POST', body: JSON.stringify({ channel_id: Number(state.cdChannelId) }), timeoutMs: 120000 });
+    state.cdOpenId = out?.strategy?.id || null;
+    state.notice = { type: 'ok', text: `Director выбрал: ${out?.strategy?.selected_topic || ''}` };
+    render();
+  });
+  document.querySelectorAll('[data-cd-open]').forEach((b) => {
+    b.onclick = () => { const id = Number(b.getAttribute('data-cd-open')); state.cdOpenId = Number(state.cdOpenId) === id ? null : id; render(); };
+  });
+  document.querySelectorAll('[data-cd-approve]').forEach((b) => {
+    b.onclick = withErr(async () => {
+      const out = await api('/api/content-director/approve', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-approve')) }) });
+      state.notice = { type: 'ok', text: `Одобрено. Создан проект #${out.video_project_id} — сценарист может писать текст.` };
+      render();
+    });
+  });
+  document.querySelectorAll('[data-cd-reject]').forEach((b) => {
+    b.onclick = withErr(async () => {
+      await api('/api/content-director/reject', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-reject')) }) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-cd-ban]').forEach((b) => {
+    b.onclick = withErr(async () => {
+      if (!confirm('Запретить эту тему навсегда? Director больше не предложит её.')) return;
+      await api('/api/content-director/reject', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-ban')), ban: true }) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-cd-regen]').forEach((b) => {
+    b.onclick = withErr(async () => {
+      b.disabled = true; b.textContent = '…';
+      const out = await api('/api/content-director/regenerate', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-regen')) }), timeoutMs: 120000 });
+      state.cdOpenId = out?.strategy?.id || null;
+      state.notice = { type: 'ok', text: `Новая идея: ${out?.strategy?.selected_topic || ''}` };
+      render();
+    });
+  });
+  document.querySelectorAll('[data-cd-pin]').forEach((b) => {
+    b.onclick = withErr(async () => {
+      const id = Number(b.getAttribute('data-cd-pin'));
+      await api(`/api/content-director/${id}`, { method: 'PATCH', body: JSON.stringify({ pinned: b.getAttribute('data-cd-pinned') !== '1' }) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-cd-priority]').forEach((inp) => {
+    inp.onchange = withErr(async () => {
+      const id = Number(inp.getAttribute('data-cd-priority'));
+      await api(`/api/content-director/${id}`, { method: 'PATCH', body: JSON.stringify({ priority: Number(inp.value) }) });
+      render();
+    });
+  });
+}
+
 function pageNiches() {
   const niches = Array.isArray(state.nichesList) ? state.nichesList : [];
   const d = state.nicheDetail;
@@ -7736,6 +7891,7 @@ function appLayout(path, title, body) {
         ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
         ['/channels', 'Каналы', 'connections'],
         ['/niches', 'Ниши', 'settings'],
+        ['/content-director', 'Content Director', 'dashboard'],
         ['/projects', 'Видео-проекты', 'create'],
         ['/publications', 'Публикации', 'history'],
         ['/factory-analytics', 'Аналитика каналов', 'dashboard'],
@@ -11897,7 +12053,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/niches': pageNiches, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/niches': pageNiches, '/content-director': pageContentDirector, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -11993,6 +12149,20 @@ async function preload(path) {
     state.channelsData = Array.isArray(chOut?.channels) ? chOut.channels : [];
     const pubOut = await api('/api/publications');
     state.publicationsList = Array.isArray(pubOut?.publications) ? pubOut.publications : [];
+  }
+  if (path === '/content-director') {
+    const chOut = await api('/api/channels');
+    state.channelsData = Array.isArray(chOut?.channels) ? chOut.channels : [];
+    if (!state.cdChannelId && state.channelsData.length) state.cdChannelId = state.channelsData[0].id;
+    const chId = Number(state.cdChannelId || 0);
+    const out = await api(chId ? `/api/content-director?channel_id=${chId}` : '/api/content-director');
+    state.cdStrategies = Array.isArray(out?.strategies) ? out.strategies : [];
+    state.cdMeta = out?.director || null;
+    const openId = Number(state.cdOpenId || 0);
+    if (openId > 0) {
+      try { state.cdDetail = (await api(`/api/content-director/${openId}`))?.strategy || null; }
+      catch { state.cdDetail = null; state.cdOpenId = null; }
+    } else { state.cdDetail = null; }
   }
   if (path === '/niches') {
     const out = await api('/api/niches');
@@ -16946,6 +17116,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (path === '/publications') bindPublicationsPage();
   if (path === '/factory-analytics') bindFactoryAnalytics();
   if (path === '/niches') bindNichesPage();
+  if (path === '/content-director') bindContentDirector();
   if (path === '/dashboard') bindFactoryDashboard();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);

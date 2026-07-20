@@ -639,6 +639,7 @@ class VideoProject(SaaSBase):
     channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
     idea_id = Column(Integer, ForeignKey("channel_ideas.id"), nullable=True)
     content_pillar_id = Column(Integer, ForeignKey("content_pillars.id"), nullable=True, index=True)
+    content_strategy_id = Column(Integer, nullable=True, index=True)
     generation_profile_json = Column(Text, nullable=True)
     title = Column(String(300), nullable=False)
     status = Column(String(20), nullable=False, default="draft", index=True)
@@ -874,3 +875,68 @@ class VisualValidationRecord(SaaSBase):
     rejection_reason = Column(String(200), nullable=True)
     cost = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class DirectorStrategy(SaaSBase):
+    """One planned video decided by the AI Content Director (ContentStrategy
+    entity in the design docs; class renamed to avoid colliding with the
+    legacy ContentStrategy model used by the older content pipeline).
+
+    Created BEFORE any script exists: the Director picks pillar -> topic ->
+    angle -> hook -> outline and records why. The script generator consumes an
+    approved strategy; the Director never writes the script itself.
+    """
+    __tablename__ = "content_strategies_director"
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
+    niche_id = Column(Integer, ForeignKey("content_niches.id"), nullable=True, index=True)
+    pillar_id = Column(Integer, ForeignKey("content_pillars.id"), nullable=True, index=True)
+    language = Column(String(16), nullable=False, default="ru")
+    target_audience = Column(Text, nullable=True)
+
+    generation_reason = Column(Text, nullable=True)
+    priority = Column(Integer, nullable=False, default=50, index=True)
+
+    estimated_ctr = Column(Float, nullable=True)
+    estimated_retention = Column(Float, nullable=True)
+    novelty_score = Column(Float, nullable=True)
+    competition_score = Column(Float, nullable=True)
+    hook_strength = Column(Float, nullable=True)
+    visual_potential = Column(Float, nullable=True)
+    educational_value = Column(Float, nullable=True)
+    entertainment_value = Column(Float, nullable=True)
+
+    selected_topic = Column(String(300), nullable=False)
+    normalized_topic = Column(String(300), nullable=True, index=True)
+    selected_angle = Column(String(200), nullable=True)
+    selected_hook = Column(Text, nullable=True)
+    outline_json = Column(Text, nullable=True)
+    decision_json = Column(Text, nullable=True)
+
+    # draft | approved | rejected | banned | used
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    pinned = Column(Boolean, nullable=False, default=False)
+    source = Column(String(20), nullable=False, default="heuristic")  # heuristic | ai
+    video_project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class ContentPerformance(SaaSBase):
+    """Realized performance of a published project, fed back to the Director."""
+    __tablename__ = "content_performance"
+
+    id = Column(Integer, primary_key=True)
+    video_project_id = Column(Integer, ForeignKey("video_projects.id"), nullable=False, index=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"), nullable=True, index=True)
+    pillar_id = Column(Integer, ForeignKey("content_pillars.id"), nullable=True, index=True)
+    ctr = Column(Float, nullable=True)
+    retention = Column(Float, nullable=True)
+    watch_time_minutes = Column(Float, nullable=True)
+    views = Column(Integer, nullable=True)
+    likes = Column(Integer, nullable=True)
+    comments = Column(Integer, nullable=True)
+    shares = Column(Integer, nullable=True)
+    published_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

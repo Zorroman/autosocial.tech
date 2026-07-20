@@ -100,6 +100,9 @@ app.register_blueprint(factory_dashboard_api)
 from content_api import content_api  # noqa: E402
 app.register_blueprint(content_api)
 
+from content_director_api import content_director_api  # noqa: E402
+app.register_blueprint(content_director_api)
+
 if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
     _msg = (
         "PRIVATE_ADMIN_MODE=true but ADMIN_ALLOWLIST_EMAILS is empty: "

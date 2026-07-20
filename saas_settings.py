@@ -47,6 +47,13 @@ class Settings:
     TOPIC_COOLDOWN_DAYS = int(os.getenv("TOPIC_COOLDOWN_DAYS", "60"))
     TOPIC_DUPLICATE_THRESHOLD = float(os.getenv("TOPIC_DUPLICATE_THRESHOLD", "0.6"))
     TOPIC_MAX_GENERATION_ATTEMPTS = max(1, int(os.getenv("TOPIC_MAX_GENERATION_ATTEMPTS", "3")))
+    # AI Content Director (decides WHAT to film next, never writes the script)
+    DIRECTOR_ENABLED = os.getenv("DIRECTOR_ENABLED", "true").lower() in {"1", "true", "yes"}
+    DIRECTOR_USE_AI = os.getenv("DIRECTOR_USE_AI", "true").lower() in {"1", "true", "yes"}
+    DIRECTOR_CANDIDATES_PER_RUN = max(1, int(os.getenv("DIRECTOR_CANDIDATES_PER_RUN", "6")))
+    DIRECTOR_DUPLICATE_THRESHOLD = float(os.getenv("DIRECTOR_DUPLICATE_THRESHOLD", "0.55"))
+    DIRECTOR_PILLAR_RECENCY_PENALTY = float(os.getenv("DIRECTOR_PILLAR_RECENCY_PENALTY", "0.5"))
+    DIRECTOR_ANALYTICS_WEIGHT = float(os.getenv("DIRECTOR_ANALYTICS_WEIGHT", "0.3"))
     # Visual AI validation of footage candidates
     VISUAL_VALIDATION_ENABLED = os.getenv("VISUAL_VALIDATION_ENABLED", "false").lower() in {"1", "true", "yes"}
     VISUAL_VALIDATION_FAIL_OPEN = os.getenv("VISUAL_VALIDATION_FAIL_OPEN", "true").lower() in {"1", "true", "yes"}

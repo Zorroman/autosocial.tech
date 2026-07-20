@@ -256,7 +256,11 @@ def run_migrations() -> None:
     if "video_projects" in tables:
         add_missing_columns(
             "video_projects",
-            {"content_pillar_id": "INTEGER", "generation_profile_json": "TEXT"},
+            {
+                "content_pillar_id": "INTEGER",
+                "generation_profile_json": "TEXT",
+                "content_strategy_id": "INTEGER",
+            },
         )
     if "channel_ideas" in tables:
         add_missing_columns(
