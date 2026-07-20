@@ -56,6 +56,14 @@ def _channel_dict(c: Channel) -> dict:
         "publication_frequency": c.publication_frequency,
         "timezone": c.timezone,
         "status": c.status,
+        "niche_id": c.niche_id,
+        "target_country": c.target_country,
+        "tone_of_voice": c.tone_of_voice,
+        "daily_video_limit": c.daily_video_limit,
+        "default_visibility": c.default_visibility,
+        "automatic_generation_enabled": bool(c.automatic_generation_enabled),
+        "automatic_publishing_enabled": bool(c.automatic_publishing_enabled),
+        "last_generated_at": c.last_generated_at.isoformat() if c.last_generated_at else None,
         "youtube_channel_id": c.youtube_channel_id,
         "connected_account_id": c.connected_account_id,
         "generation_settings": _j(c.generation_settings_json) or {},
@@ -94,7 +102,8 @@ _TEXT_FIELDS = {
     "name", "niche", "description", "language", "target_audience", "content_style",
     "narration_style", "default_voice", "visual_style", "allowed_topics",
     "prohibited_topics", "default_video_format", "publication_frequency",
-    "timezone", "youtube_channel_id",
+    "timezone", "youtube_channel_id", "target_country", "tone_of_voice",
+    "default_visibility",
 }
 _JSON_FIELDS = {
     "categories": "categories_json",
@@ -131,6 +140,28 @@ def _apply_channel_fields(c: Channel, data: dict) -> str | None:
         if status not in CHANNEL_STATUSES:
             return f"status must be one of {sorted(CHANNEL_STATUSES)}"
         c.status = status
+    if "niche_id" in data:
+        raw = data.get("niche_id")
+        if raw in (None, "", 0, "0"):
+            c.niche_id = None
+        else:
+            from saas_models import ContentNiche
+            from database import SessionLocal as _SL
+            _db = _SL()
+            try:
+                if not _db.query(ContentNiche).filter_by(id=int(raw)).first():
+                    return "niche_id does not exist"
+            finally:
+                _db.close()
+            c.niche_id = int(raw)
+    if "daily_video_limit" in data:
+        try:
+            c.daily_video_limit = max(0, int(data["daily_video_limit"]))
+        except (TypeError, ValueError):
+            return "daily_video_limit must be an integer"
+    for flag in ("automatic_generation_enabled", "automatic_publishing_enabled"):
+        if flag in data:
+            setattr(c, flag, bool(data[flag]))
     if not (c.language or "").strip():
         c.language = "ru"
     if not (c.timezone or "").strip():

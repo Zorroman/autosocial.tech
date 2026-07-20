@@ -591,6 +591,15 @@ class Channel(SaaSBase):
     publication_frequency = Column(String(80), nullable=True)
     timezone = Column(String(64), nullable=False, default="Europe/Berlin")
     status = Column(String(20), nullable=False, default="testing", index=True)
+    niche_id = Column(Integer, ForeignKey("content_niches.id"), nullable=True, index=True)
+    target_country = Column(String(80), nullable=True)
+    tone_of_voice = Column(String(200), nullable=True)
+    daily_video_limit = Column(Integer, nullable=False, default=0)
+    default_visibility = Column(String(20), nullable=False, default="private")
+    automatic_generation_enabled = Column(Boolean, nullable=False, default=False)
+    automatic_publishing_enabled = Column(Boolean, nullable=False, default=True)
+    oauth_last_error = Column(String(300), nullable=True)
+    last_generated_at = Column(DateTime, nullable=True)
     youtube_channel_id = Column(String(120), nullable=True)
     youtube_channel_title = Column(String(255), nullable=True)
     youtube_connection_status = Column(String(30), nullable=True)
@@ -618,6 +627,8 @@ class ChannelIdea(SaaSBase):
     summary = Column(Text, nullable=True)
     source = Column(String(20), nullable=False, default="manual")
     status = Column(String(20), nullable=False, default="new", index=True)
+    content_pillar_id = Column(Integer, ForeignKey("content_pillars.id"), nullable=True, index=True)
+    normalized_title = Column(String(300), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -627,6 +638,8 @@ class VideoProject(SaaSBase):
     id = Column(Integer, primary_key=True)
     channel_id = Column(Integer, ForeignKey("channels.id"), nullable=False, index=True)
     idea_id = Column(Integer, ForeignKey("channel_ideas.id"), nullable=True)
+    content_pillar_id = Column(Integer, ForeignKey("content_pillars.id"), nullable=True, index=True)
+    generation_profile_json = Column(Text, nullable=True)
     title = Column(String(300), nullable=False)
     status = Column(String(20), nullable=False, default="draft", index=True)
     script_text = Column(Text, nullable=True)
@@ -794,3 +807,47 @@ class FootageUsage(SaaSBase):
     duration = Column(Float, nullable=True)
     search_query = Column(String(300), nullable=True)
     reuse_reason = Column(String(200), nullable=True)
+
+
+class ContentNiche(SaaSBase):
+    __tablename__ = "content_niches"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(160), nullable=False)
+    slug = Column(String(160), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    default_language = Column(String(16), nullable=False, default="ru")
+    default_tone = Column(String(200), nullable=True)
+    default_visual_style = Column(Text, nullable=True)
+    allowed_topics = Column(Text, nullable=True)
+    forbidden_topics = Column(Text, nullable=True)
+    forbidden_visuals = Column(Text, nullable=True)
+    disclaimer_policy = Column(String(80), nullable=True)
+    factuality_policy = Column(String(80), nullable=True)
+    sensitive_topics_policy = Column(String(80), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class ContentPillar(SaaSBase):
+    __tablename__ = "content_pillars"
+    __table_args__ = (
+        UniqueConstraint("niche_id", "slug", name="uq_pillar_niche_slug"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    niche_id = Column(Integer, ForeignKey("content_niches.id"), nullable=False, index=True)
+    name = Column(String(160), nullable=False)
+    slug = Column(String(160), nullable=False)
+    description = Column(Text, nullable=True)
+    prompt_instructions = Column(Text, nullable=True)
+    allowed_topics = Column(Text, nullable=True)
+    forbidden_topics = Column(Text, nullable=True)
+    visual_keywords = Column(Text, nullable=True)
+    forbidden_visual_keywords = Column(Text, nullable=True)
+    weight = Column(Integer, nullable=False, default=10)
+    daily_video_limit = Column(Integer, nullable=False, default=3)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

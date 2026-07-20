@@ -6687,6 +6687,18 @@ function pageChannels() {
       <div class="row" style="margin-top:10px;gap:8px;">
         <button id="chSaveBtn" class="btn btn-primary" type="button" data-channel-id="${detail.id}">Сохранить настройки</button>
       </div>
+      <h3>Ниша и автоматика</h3>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <label class="small">Ниша<br/><select id="chNicheSelect">
+          <option value="">— не выбрана —</option>
+          ${(state.nichesList || []).map((n) => `<option value="${n.id}" ${detail.niche_id === n.id ? 'selected' : ''}>${esc(n.name)}${n.active ? '' : ' (выкл)'}</option>`).join('')}
+        </select></label>
+        <label class="small">Лимит видео/день<br/><input id="chDailyLimit" class="input" type="number" min="0" style="width:80px;" value="${detail.daily_video_limit || 0}"/></label>
+        <label class="small"><input id="chAutoGen" type="checkbox" ${detail.automatic_generation_enabled ? 'checked' : ''}/> Автогенерация</label>
+        <label class="small"><input id="chAutoPub" type="checkbox" ${detail.automatic_publishing_enabled ? 'checked' : ''}/> Автопубликация</label>
+        <button id="chAutomationSaveBtn" class="btn btn-secondary" type="button" data-channel-id="${detail.id}">Сохранить автоматику</button>
+      </div>
+      ${state.channelReadiness ? `<p class="small">Готовность генерации: ${state.channelReadiness.generation_configured ? '✅' : '⚠️ ' + esc((state.channelReadiness.generation_problems || []).join(', '))} · Публикация: ${state.channelReadiness.publishing_ready ? '✅' : '⚠️ ' + esc((state.channelReadiness.publishing_problems || []).join(', '))}</p>` : ''}
       ${channelYouTubeHtml(detail)}
       <h3>Идеи</h3>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;">
@@ -6756,6 +6768,19 @@ function bindChannelsPage() {
       prohibited_topics: document.getElementById('chProhibited')?.value || '',
     }) });
     state.notice = { type: 'ok', text: 'Настройки канала сохранены.' };
+    render();
+  });
+  const autoSaveBtn = document.getElementById('chAutomationSaveBtn');
+  if (autoSaveBtn) autoSaveBtn.onclick = withErr(async () => {
+    const id = Number(autoSaveBtn.getAttribute('data-channel-id'));
+    const nicheVal = document.getElementById('chNicheSelect')?.value;
+    await api(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({
+      niche_id: nicheVal ? Number(nicheVal) : null,
+      daily_video_limit: Number(document.getElementById('chDailyLimit')?.value || 0),
+      automatic_generation_enabled: !!document.getElementById('chAutoGen')?.checked,
+      automatic_publishing_enabled: !!document.getElementById('chAutoPub')?.checked,
+    }) });
+    state.notice = { type: 'ok', text: 'Настройки автоматики сохранены.' };
     render();
   });
   const ideaAddBtn = document.getElementById('ideaAddBtn');
@@ -7228,6 +7253,128 @@ function pageFactorySettings() {
   return appLayout('/factory-settings', 'Система', body);
 }
 
+function pageNiches() {
+  const niches = Array.isArray(state.nichesList) ? state.nichesList : [];
+  const d = state.nicheDetail;
+  const listHtml = niches.length ? niches.map((n) => `<div class="row" style="justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding:8px 0;">
+      <div><strong>${esc(n.name)}</strong> <span class="small">(${esc(n.slug)})${n.active ? '' : ' · выключена'} · направлений: ${n.pillars_count || 0} · каналов: ${(n.channels_using || []).length}</span></div>
+      <div class="row" style="gap:6px;">
+        <button class="btn btn-ghost connection-btn-sm" data-niche-toggle="${n.id}" data-niche-active="${n.active ? 1 : 0}" type="button">${n.active ? 'Выключить' : 'Включить'}</button>
+        <button class="btn btn-secondary connection-btn-sm" data-niche-open="${n.id}" type="button">${Number(state.nicheOpenId) === n.id ? 'Закрыть' : 'Открыть'}</button>
+      </div>
+    </div>`).join('') : '<p class="small">Ниш пока нет. Создайте первую нишу ниже.</p>';
+
+  let detailHtml = '';
+  if (d) {
+    const pillars = Array.isArray(d.pillars) ? d.pillars : [];
+    const pillarRows = pillars.map((p) => `<tr>
+        <td>${esc(p.name)}${p.active ? '' : ' <span class="small">(выкл)</span>'}</td>
+        <td><input data-pillar-weight="${p.id}" class="input" type="number" min="0" style="width:64px;" value="${p.weight}"/></td>
+        <td><input data-pillar-limit="${p.id}" class="input" type="number" min="0" style="width:64px;" value="${p.daily_video_limit}"/></td>
+        <td>
+          <button class="btn btn-ghost connection-btn-sm" data-pillar-save="${p.id}" type="button">Сохранить</button>
+          <button class="btn btn-ghost connection-btn-sm" data-pillar-toggle="${p.id}" data-pillar-active="${p.active ? 1 : 0}" type="button">${p.active ? 'Выкл' : 'Вкл'}</button>
+          <button class="btn btn-ghost connection-btn-sm" data-pillar-del="${p.id}" type="button">Удалить</button>
+        </td>
+      </tr>`).join('');
+    detailHtml = `<section class="card">
+      <h3 style="margin-top:0;">${esc(d.name)} — направления (content pillars)</h3>
+      <p class="small">${esc(d.description || '')}</p>
+      <p class="small">Политика: ${esc(d.disclaimer_policy || '—')} · язык: ${esc(d.default_language || '')}</p>
+      <div style="overflow-x:auto;"><table class="small" style="width:100%;border-collapse:collapse;">
+        <thead><tr><th>Направление</th><th>Вес</th><th>Лимит/день</th><th></th></tr></thead>
+        <tbody>${pillarRows || '<tr><td colspan="4" class="small">Направлений нет.</td></tr>'}</tbody>
+      </table></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <input id="newPillarName" class="input" placeholder="Название направления" style="flex:1;min-width:200px;"/>
+        <input id="newPillarKeywords" class="input" placeholder="Visual keywords (EN, через запятую)" style="flex:1;min-width:220px;"/>
+        <button id="newPillarBtn" class="btn btn-primary" type="button" data-niche-id="${d.id}">Добавить направление</button>
+      </div>
+    </section>`;
+  }
+
+  const body = `<section class="grid" style="gap:14px;">
+    <section class="card"><h3 style="margin-top:0;">Ниши</h3>${listHtml}
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <input id="newNicheName" class="input" placeholder="Название ниши (напр. Психология)" style="flex:1;min-width:200px;"/>
+        <input id="newNicheDesc" class="input" placeholder="Описание" style="flex:2;min-width:240px;"/>
+        <button id="newNicheBtn" class="btn btn-primary" type="button">Создать нишу</button>
+      </div>
+      <p class="small">Ниша создаётся без изменения кода; после создания добавьте направления и назначьте нишу каналу в разделе «Каналы».</p>
+    </section>
+    ${detailHtml}
+  </section>`;
+  return appLayout('/niches', 'Ниши', body);
+}
+
+function bindNichesPage() {
+  const withErr = (fn) => async (...args) => {
+    try { await fn(...args); } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || 'Ошибка запроса') };
+      render();
+    }
+  };
+  const newBtn = document.getElementById('newNicheBtn');
+  if (newBtn) newBtn.onclick = withErr(async () => {
+    const name = document.getElementById('newNicheName')?.value?.trim();
+    if (!name) return;
+    const out = await api('/api/niches', { method: 'POST', body: JSON.stringify({ name, description: document.getElementById('newNicheDesc')?.value || '' }) });
+    state.nicheOpenId = out?.niche?.id || null;
+    state.notice = { type: 'ok', text: 'Ниша создана.' };
+    render();
+  });
+  document.querySelectorAll('[data-niche-open]').forEach((btn) => {
+    btn.onclick = () => {
+      const id = Number(btn.getAttribute('data-niche-open'));
+      state.nicheOpenId = Number(state.nicheOpenId) === id ? null : id;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-niche-toggle]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const id = Number(btn.getAttribute('data-niche-toggle'));
+      const active = btn.getAttribute('data-niche-active') === '1';
+      await api(`/api/niches/${id}`, { method: 'PATCH', body: JSON.stringify({ active: !active }) });
+      render();
+    });
+  });
+  const newPillarBtn = document.getElementById('newPillarBtn');
+  if (newPillarBtn) newPillarBtn.onclick = withErr(async () => {
+    const nicheId = Number(newPillarBtn.getAttribute('data-niche-id'));
+    const name = document.getElementById('newPillarName')?.value?.trim();
+    if (!name) return;
+    await api(`/api/niches/${nicheId}/pillars`, { method: 'POST', body: JSON.stringify({ name, visual_keywords: document.getElementById('newPillarKeywords')?.value || '' }) });
+    render();
+  });
+  document.querySelectorAll('[data-pillar-save]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const id = Number(btn.getAttribute('data-pillar-save'));
+      await api(`/api/pillars/${id}`, { method: 'PATCH', body: JSON.stringify({
+        weight: Number(document.querySelector(`[data-pillar-weight="${id}"]`)?.value || 0),
+        daily_video_limit: Number(document.querySelector(`[data-pillar-limit="${id}"]`)?.value || 0),
+      }) });
+      state.notice = { type: 'ok', text: 'Направление сохранено.' };
+      render();
+    });
+  });
+  document.querySelectorAll('[data-pillar-toggle]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const id = Number(btn.getAttribute('data-pillar-toggle'));
+      const active = btn.getAttribute('data-pillar-active') === '1';
+      await api(`/api/pillars/${id}`, { method: 'PATCH', body: JSON.stringify({ active: !active }) });
+      render();
+    });
+  });
+  document.querySelectorAll('[data-pillar-del]').forEach((btn) => {
+    btn.onclick = withErr(async () => {
+      const id = Number(btn.getAttribute('data-pillar-del'));
+      if (!confirm('Удалить направление? При наличии связанных проектов будет мягкое отключение.')) return;
+      await api(`/api/pillars/${id}`, { method: 'DELETE' });
+      render();
+    });
+  });
+}
+
 function pageFactoryAnalytics() {
   const period = state.faPeriod || 'all';
   const chans = Array.isArray(state.faChannels) ? state.faChannels : [];
@@ -7588,6 +7735,7 @@ function appLayout(path, title, body) {
     : [
         ['/dashboard', shellText('nav_dashboard'), 'dashboard'],
         ['/channels', 'Каналы', 'connections'],
+        ['/niches', 'Ниши', 'settings'],
         ['/projects', 'Видео-проекты', 'create'],
         ['/publications', 'Публикации', 'history'],
         ['/factory-analytics', 'Аналитика каналов', 'dashboard'],
@@ -11749,7 +11897,7 @@ function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/niches': pageNiches, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -11846,7 +11994,20 @@ async function preload(path) {
     const pubOut = await api('/api/publications');
     state.publicationsList = Array.isArray(pubOut?.publications) ? pubOut.publications : [];
   }
+  if (path === '/niches') {
+    const out = await api('/api/niches');
+    state.nichesList = Array.isArray(out?.niches) ? out.niches : [];
+    const openId = Number(state.nicheOpenId || 0);
+    if (openId > 0) {
+      try { state.nicheDetail = (await api(`/api/niches/${openId}`))?.niche || null; }
+      catch { state.nicheDetail = null; state.nicheOpenId = null; }
+    } else { state.nicheDetail = null; }
+  }
   if (path === '/channels') {
+    try {
+      const nOut = await api('/api/niches');
+      state.nichesList = Array.isArray(nOut?.niches) ? nOut.niches : [];
+    } catch { state.nichesList = []; }
     const out = await api('/api/channels');
     state.channelsData = Array.isArray(out?.channels) ? out.channels : [];
     const openId = Number(state.channelsOpenId || 0);
@@ -11857,6 +12018,9 @@ async function preload(path) {
         try {
           state.channelYouTube = await api(`/api/channels/${openId}/youtube/status`);
         } catch { state.channelYouTube = null; }
+        try {
+          state.channelReadiness = await api(`/api/channels/${openId}/generation-readiness`);
+        } catch { state.channelReadiness = null; }
       } catch {
         state.channelDetail = null;
         state.channelsOpenId = null;
@@ -16781,6 +16945,7 @@ async function bind(path = location.pathname.replace(/\/$/, '') || '/') {
   if (path === '/projects') { bindProjectsPage(); bindProjectPublication(); }
   if (path === '/publications') bindPublicationsPage();
   if (path === '/factory-analytics') bindFactoryAnalytics();
+  if (path === '/niches') bindNichesPage();
   if (path === '/dashboard') bindFactoryDashboard();
   const plannerBound = await bindCreatePlanner(path);
   const directorBound = plannerBound ? true : await bindCreateDirector(path);

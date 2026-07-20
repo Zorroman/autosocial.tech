@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
@@ -96,6 +96,9 @@ app.register_blueprint(analytics_api)
 
 from factory_dashboard_api import factory_dashboard_api  # noqa: E402
 app.register_blueprint(factory_dashboard_api)
+
+from content_api import content_api  # noqa: E402
+app.register_blueprint(content_api)
 
 if settings.PRIVATE_ADMIN_MODE and not settings.ADMIN_ALLOWLIST_EMAILS:
     _msg = (

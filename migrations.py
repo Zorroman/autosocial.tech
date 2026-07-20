@@ -242,6 +242,31 @@ def run_migrations() -> None:
         add_missing_columns(
             "channels",
             {
+                "niche_id": "INTEGER",
+                "target_country": "VARCHAR(80)",
+                "tone_of_voice": "VARCHAR(200)",
+                "daily_video_limit": "INTEGER DEFAULT 0",
+                "default_visibility": "VARCHAR(20) DEFAULT 'private'",
+                "automatic_generation_enabled": "BOOLEAN DEFAULT 0",
+                "automatic_publishing_enabled": "BOOLEAN DEFAULT 1",
+                "oauth_last_error": "VARCHAR(300)",
+                "last_generated_at": "DATETIME",
+            },
+        )
+    if "video_projects" in tables:
+        add_missing_columns(
+            "video_projects",
+            {"content_pillar_id": "INTEGER", "generation_profile_json": "TEXT"},
+        )
+    if "channel_ideas" in tables:
+        add_missing_columns(
+            "channel_ideas",
+            {"content_pillar_id": "INTEGER", "normalized_title": "VARCHAR(300)"},
+        )
+    if "channels" in tables:
+        add_missing_columns(
+            "channels",
+            {
                 "youtube_channel_title": "VARCHAR(255)",
                 "youtube_connection_status": "VARCHAR(30)",
                 "youtube_connected_at": "DATETIME",

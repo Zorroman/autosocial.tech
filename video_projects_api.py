@@ -112,6 +112,8 @@ def _project_dict(p: VideoProject, scenes=None, jobs=None) -> dict:
         "duration_target_seconds": p.duration_target_seconds,
         "output_path": p.output_path,
         "output_url": f"/api/media/{p.output_path}" if p.output_path else None,
+        "content_pillar_id": p.content_pillar_id,
+        "generation_profile": (json.loads(p.generation_profile_json) if p.generation_profile_json else None),
         "error": p.error,
         "created_at": _iso(p.created_at),
         "updated_at": _iso(p.updated_at),
@@ -183,9 +185,42 @@ def create_project():
             if not idea:
                 return jsonify({"error": "Idea not found in this channel"}), 404
             idea.status = "converted"
+        pillar = None
+        pillar_id = data.get("content_pillar_id")
+        if pillar_id:
+            from saas_models import ContentPillar
+            pillar = db.query(ContentPillar).filter_by(id=int(pillar_id)).first()
+            if not pillar:
+                return jsonify({"error": "content_pillar_id does not exist"}), 400
+            if c.niche_id and pillar.niche_id != c.niche_id:
+                return jsonify({"error": "Pillar belongs to a different niche than the channel"}), 400
+        from saas_models import ContentNiche
+        niche = db.query(ContentNiche).filter_by(id=c.niche_id).first() if c.niche_id else None
+        snapshot = {
+            "youtube_channel_id": c.youtube_channel_id,
+            "channel_name": c.name,
+            "niche_id": c.niche_id,
+            "niche_name": niche.name if niche else (c.niche or None),
+            "content_pillar_id": pillar.id if pillar else None,
+            "content_pillar_name": pillar.name if pillar else None,
+            "topic": str(data.get("topic") or "").strip() or None,
+            "language": c.language,
+            "target_audience": c.target_audience,
+            "tone_of_voice": c.tone_of_voice or c.content_style,
+            "visual_style": c.visual_style,
+            "generation_profile_snapshot": {
+                "default_voice": c.default_voice,
+                "default_video_duration_seconds": c.default_video_duration_seconds,
+                "default_visibility": c.default_visibility,
+                "subtitle_template": c.subtitle_template_json,
+                "snapshot_at": datetime.utcnow().isoformat(),
+            },
+        }
         p = VideoProject(
             channel_id=c.id,
             idea_id=int(idea_id) if idea_id else None,
+            content_pillar_id=pillar.id if pillar else None,
+            generation_profile_json=json.dumps(snapshot, ensure_ascii=False),
             title=title[:300],
             script_text=(str(data.get("script_text") or "").strip() or None),
             duration_target_seconds=int(c.default_video_duration_seconds or 45),

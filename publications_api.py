@@ -676,6 +676,10 @@ def start_upload(pub_id: int):
         channel = db.query(Channel).filter_by(id=pub.channel_id).first()
         if not channel or not channel.youtube_channel_id or channel.youtube_connection_status != "connected":
             return jsonify({"error": "Channel has no connected YouTube channel"}), 409
+        if not channel.automatic_publishing_enabled:
+            return jsonify({"error": "Automatic publishing is disabled for this channel"}), 409
+        if project.channel_id != pub.channel_id:
+            return jsonify({"error": "Project belongs to a different channel; publishing forbidden"}), 409
         if pub.publish_mode == "scheduled":
             if not pub.scheduled_at:
                 return jsonify({"error": "scheduled_at is required for scheduled mode"}), 400
