@@ -248,7 +248,11 @@ def run_migrations() -> None:
                 "daily_video_limit": "INTEGER DEFAULT 0",
                 "default_visibility": "VARCHAR(20) DEFAULT 'private'",
                 "automatic_generation_enabled": "BOOLEAN DEFAULT 0",
-                "automatic_publishing_enabled": "BOOLEAN DEFAULT 1",
+                # Fail-safe default: channels that gain this column start with
+                # auto-publishing OFF. Rows that already have the column are
+                # never re-touched (add_missing_columns skips existing columns),
+                # so existing values are preserved.
+                "automatic_publishing_enabled": "BOOLEAN DEFAULT 0",
                 "oauth_last_error": "VARCHAR(300)",
                 "last_generated_at": "DATETIME",
             },

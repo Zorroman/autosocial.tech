@@ -120,6 +120,10 @@ def _link_youtube(client, ch):
     c.youtube_channel_id = "UCtestchannel000000000000"
     c.youtube_channel_title = "Test YT"
     c.youtube_connection_status = "connected"
+    # Publishing now defaults OFF for new channels (safety); a channel that is
+    # fully connected and ready to upload is one where the user has explicitly
+    # enabled publishing. The upload endpoint gates on this flag.
+    c.automatic_publishing_enabled = True
     db.commit()
     db.close()
 

@@ -597,7 +597,9 @@ class Channel(SaaSBase):
     daily_video_limit = Column(Integer, nullable=False, default=0)
     default_visibility = Column(String(20), nullable=False, default="private")
     automatic_generation_enabled = Column(Boolean, nullable=False, default=False)
-    automatic_publishing_enabled = Column(Boolean, nullable=False, default=True)
+    # Fail-safe: new channels never auto-publish. Enabling is an explicit user
+    # action; Director approve / render / OAuth connect never flip this flag.
+    automatic_publishing_enabled = Column(Boolean, nullable=False, default=False)
     oauth_last_error = Column(String(300), nullable=True)
     last_generated_at = Column(DateTime, nullable=True)
     youtube_channel_id = Column(String(120), nullable=True)
