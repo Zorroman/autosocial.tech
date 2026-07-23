@@ -296,6 +296,73 @@ def update_project(project_id: int):
 _SENTENCE_RE = re.compile(r"(?<=[.!?…])\s+")
 
 
+@video_projects_api.route("/video-projects/<int:project_id>/generate-script", methods=["POST"])
+@require_auth
+def generate_project_script(project_id: int):
+    """Content Factory — station «Сценарий».
+
+    Writes the script for a project from its idea/title with the AI script
+    generator, so a project never opens with an empty script. After success the
+    pipeline stops at the human checkpoint (state=needs_review) unless the
+    channel has full autopilot enabled (state=done)."""
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if (p.script_text or "").strip() and not data.get("replace"):
+            return jsonify({"error": "Script already exists; pass replace=true to regenerate"}), 409
+        topic = (p.title or "").strip()
+        if not topic:
+            return jsonify({"error": "Project has no idea to write about"}), 400
+        ch = db.query(Channel).filter_by(id=p.channel_id).first()
+        language = (getattr(ch, "language", None) or "ru")
+        target_seconds = int(p.duration_target_seconds or getattr(ch, "default_video_duration_seconds", 45) or 45)
+        style = (getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or "")
+
+        p.pipeline_stage = "script"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+
+        try:
+            from video_script_generator import generate as _generate_script
+            bundle = _generate_script(topic=topic, offer=None, language=language,
+                                      target_seconds=target_seconds, style=style)
+        except Exception as exc:  # noqa: BLE001 — surface as a station error, don't 500
+            p.pipeline_state = "error"
+            p.pipeline_error = f"script: {str(exc)[:280]}"
+            db.commit()
+            return jsonify({"error": "Не удалось написать сценарий. Попробуйте ещё раз.",
+                            "detail": str(exc)[:280], "pipeline_state": "error"}), 502
+
+        phrases = [str(ph).strip() for ph in (getattr(bundle, "phrases", None) or []) if str(ph).strip()]
+        script_text = "\n".join(phrases).strip()
+        if not script_text:
+            p.pipeline_state = "error"
+            p.pipeline_error = "script: empty result"
+            db.commit()
+            return jsonify({"error": "Сгенерированный сценарий оказался пустым.",
+                            "pipeline_state": "error"}), 502
+
+        p.script_text = script_text
+        autopilot = bool(getattr(ch, "autopilot_enabled", False))
+        p.pipeline_stage = "script"
+        p.pipeline_state = "done" if autopilot else "needs_review"
+        db.commit()
+        db.refresh(p)
+        return jsonify({
+            "script_text": p.script_text,
+            "title": getattr(bundle, "title", None) or p.title,
+            "pipeline_stage": p.pipeline_stage,
+            "pipeline_state": p.pipeline_state,
+            "checkpoint": (not autopilot),
+        }), 200
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/video-projects/<int:project_id>/split-scenes", methods=["POST"])
 @require_auth
 def split_scenes(project_id: int):

@@ -253,6 +253,11 @@ def run_migrations() -> None:
                 # never re-touched (add_missing_columns skips existing columns),
                 # so existing values are preserved.
                 "automatic_publishing_enabled": "BOOLEAN DEFAULT 0",
+                # Content Factory full-autopilot toggle. Fail-safe default OFF.
+                # NOTE: Postgres rejects "DEFAULT 0" for boolean on a NEW column
+                # (the pre-existing flags above only work because they already
+                # exist and are skipped). Use FALSE for a fresh boolean column.
+                "autopilot_enabled": "BOOLEAN DEFAULT FALSE",
                 "oauth_last_error": "VARCHAR(300)",
                 "last_generated_at": "DATETIME",
             },
@@ -264,6 +269,10 @@ def run_migrations() -> None:
                 "content_pillar_id": "INTEGER",
                 "generation_profile_json": "TEXT",
                 "content_strategy_id": "INTEGER",
+                # Content Factory pipeline orchestrator state.
+                "pipeline_stage": "VARCHAR(20)",
+                "pipeline_state": "VARCHAR(20)",
+                "pipeline_error": "TEXT",
             },
         )
     if "channel_ideas" in tables:

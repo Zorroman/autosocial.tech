@@ -600,6 +600,10 @@ class Channel(SaaSBase):
     # Fail-safe: new channels never auto-publish. Enabling is an explicit user
     # action; Director approve / render / OAuth connect never flip this flag.
     automatic_publishing_enabled = Column(Boolean, nullable=False, default=False)
+    # Content Factory "full autopilot": when true, the pipeline runs a video all
+    # the way to publish without stopping at the script checkpoint. Default OFF
+    # (fail-safe): the human reviews the script before money is spent on render.
+    autopilot_enabled = Column(Boolean, nullable=False, default=False)
     oauth_last_error = Column(String(300), nullable=True)
     last_generated_at = Column(DateTime, nullable=True)
     youtube_channel_id = Column(String(120), nullable=True)
@@ -653,6 +657,12 @@ class VideoProject(SaaSBase):
     duration_target_seconds = Column(Integer, nullable=False, default=45)
     output_path = Column(String(500), nullable=True)
     error = Column(Text, nullable=True)
+    # Content Factory pipeline state (orchestrator).
+    # stage:  idea|script|scenes|media|voice|render|publish
+    # state:  waiting|running|needs_review|error|done
+    pipeline_stage = Column(String(20), nullable=True)
+    pipeline_state = Column(String(20), nullable=True)
+    pipeline_error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
