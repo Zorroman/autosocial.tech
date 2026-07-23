@@ -905,6 +905,150 @@ def start_render(project_id: int):
     return jsonify({"job": payload}), 202
 
 
+# ============================================================ Content Factory
+# Pipeline orchestrator: drives a project script→scenes→media→render, honouring
+# the human checkpoint after the script. The heavy work runs on the worker
+# (factory_pipeline.run) which reuses the station endpoints above.
+
+def _enqueue_factory(project_id: int, token: str) -> str:
+    import factory_pipeline
+    if settings.SYNC_JOBS:
+        factory_pipeline.run(project_id, token)
+        return "sync"
+    try:
+        from redis import Redis
+        from rq import Queue
+        redis_conn = Redis.from_url(settings.REDIS_URL)
+        redis_conn.ping()
+        Queue("render", connection=redis_conn).enqueue(
+            factory_pipeline.run, project_id, token, job_timeout=1800)
+        return "rq"
+    except Exception:
+        t = threading.Thread(target=factory_pipeline.run, args=(project_id, token), daemon=True)
+        t.start()
+        return "thread"
+
+
+def _pipeline_state_dict(db, p) -> dict:
+    scenes = db.query(VideoScene).filter_by(project_id=p.id).all()
+    n = len(scenes)
+    with_media = sum(1 for s in scenes if s.selected_media_path)
+    job = (db.query(RenderJob).filter_by(project_id=p.id)
+           .order_by(RenderJob.created_at.desc()).first())
+    has_script = bool((p.script_text or "").strip())
+    stg, stt = (p.pipeline_stage or ""), (p.pipeline_state or "")
+
+    def station(key, done, running=False):
+        if stg == key and stt in ("error", "needs_review"):
+            return stt
+        if stg == key and stt == "running":
+            return "running"
+        return "done" if done else ("running" if running else "waiting")
+
+    render_state = "waiting"
+    if p.output_path:
+        render_state = "done"
+    elif job:
+        js = (job.status or "").lower()
+        if js in ("done", "completed", "success"):
+            render_state = "done"
+        elif js in ("failed", "error"):
+            render_state = "error"
+        elif js in JOB_ACTIVE:
+            render_state = "running"
+
+    stages = [
+        {"key": "script", "name": "Сценарий",
+         "state": station("script", has_script)},
+        {"key": "scenes", "name": "Сцены",
+         "state": station("scenes", n > 0)},
+        {"key": "media", "name": "Медиа",
+         "state": station("media", n > 0 and with_media == n)},
+        {"key": "render", "name": "Рендер", "state": render_state},
+        {"key": "publish", "name": "Публикация", "state": "waiting"},
+    ]
+    return {
+        "project_id": p.id, "title": p.title,
+        "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state,
+        "pipeline_error": p.pipeline_error,
+        "stages": stages,
+        "scenes_total": n, "scenes_with_media": with_media,
+        "render_job": _job_dict(job) if job else None,
+    }
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/state", methods=["GET"])
+@require_auth
+def pipeline_state(project_id: int):
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        return jsonify(_pipeline_state_dict(db, p))
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/approve", methods=["POST"])
+@require_auth
+def pipeline_approve(project_id: int):
+    """Pass the script checkpoint and launch the rest of the line."""
+    from saas_auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if not (p.script_text or "").strip():
+            return jsonify({"error": "Сначала сгенерируйте сценарий"}), 400
+        p.pipeline_stage = "script"
+        p.pipeline_state = "done"
+        p.pipeline_error = None
+        db.commit()
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/run", methods=["POST"])
+@require_auth
+def pipeline_run(project_id: int):
+    """Advance the line as far as it can (stops at the checkpoint if the script
+    isn't approved and the channel isn't on full autopilot)."""
+    from saas_auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/retry", methods=["POST"])
+@require_auth
+def pipeline_retry(project_id: int):
+    """Retry the current (failed) station without recreating the video."""
+    from saas_auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        p.pipeline_error = None
+        if (p.pipeline_state or "") == "error":
+            p.pipeline_state = "running"
+        db.commit()
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/render-jobs", methods=["GET"])
 @require_auth
 def list_render_jobs():
