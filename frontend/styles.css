@@ -4478,3 +4478,6 @@ th { color: var(--text-muted); font-weight: 600; }
 .fl-adv{margin:10px 0;border-top:1px solid var(--border);padding-top:10px;}
 .fl-adv>summary{cursor:pointer;font-size:13px;color:var(--text-muted);user-select:none;}
 @media(prefers-reduced-motion:reduce){.fl-pulse{animation:none;}}
+
+/* private single-admin: drop the marketing footer (Stripe/SSL/GDPR blurb) */
+.footer-note{display:none !important;}

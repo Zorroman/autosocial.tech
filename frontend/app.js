@@ -7433,8 +7433,14 @@ function bindContentDirector() {
   document.querySelectorAll('[data-cd-approve]').forEach((b) => {
     b.onclick = withErr(async () => {
       const out = await api('/api/content-director/approve', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-approve')) }) });
-      state.notice = { type: 'ok', text: `Одобрено. Создан проект #${out.video_project_id} — сценарист может писать текст.` };
+      const pid = out.video_project_id;
+      // Close the Director→Factory thread: the project appears, AI writes the
+      // script immediately, and we land on its conveyor at the review checkpoint.
+      state.notice = { type: 'ok', text: 'Одобрено. AI пишет сценарий…' };
       render();
+      try { await api(`/api/video-projects/${pid}/generate-script`, { method: 'POST' }); } catch (e) { /* the Сценарий station will show the state */ }
+      state.projectOpenId = pid;
+      nav('/projects');
     });
   });
   document.querySelectorAll('[data-cd-reject]').forEach((b) => {
