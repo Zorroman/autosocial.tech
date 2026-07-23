@@ -151,8 +151,8 @@
         location.replace('/dashboard/');
         return;
       }
-      if (res.status === 403){ say('Доступ ограничён: этот email не в списке администраторов.', 'err'); }
-      else if (data && data.challenge_token){ say('Код подтверждения отправлен на email. (Прямой вход выключен для этого аккаунта.)', 'ok'); }
+      if (res.status === 403){ say('Доступ ограничён: этот email не в списке администраторов. Проверьте адрес.', 'err'); }
+      else if (data && data.challenge_token){ say('Неверный пароль (или требуется код с почты). Проверьте пароль и повторите.', 'err'); }
       else { say((data && (data.error || data.message)) || ('Ошибка входа ('+res.status+').'), 'err'); }
     } catch(err){
       say('Сеть недоступна. Повторите попытку.', 'err');
