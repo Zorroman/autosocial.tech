@@ -8973,8 +8973,11 @@ function pageConnections() {
   };
   const renderConnectionAvatar = (imageUrl, fallbackText, extraClass = '') => {
     const cls = `avatar connection-brand-avatar ${extraClass}`.trim();
-    if (imageUrl) return `<span class="${cls}"><img src="${esc(imageUrl)}" alt="" loading="lazy" /></span>`;
-    return `<span class="${cls}">${esc((safeText(fallbackText, 'A')[0] || 'A').toUpperCase())}</span>`;
+    const initials = esc((safeText(fallbackText, 'A')[0] || 'A').toUpperCase());
+    // Meta/YouTube picture URLs expire; if the image fails to load, fall back to
+    // the initial letter instead of the browser's broken-image "?" glyph.
+    if (imageUrl) return `<span class="${cls}" data-fallback="${initials}"><img src="${esc(imageUrl)}" alt="" loading="lazy" onerror="this.remove();this.parentNode.textContent=this.parentNode.dataset.fallback;" /></span>`;
+    return `<span class="${cls}">${initials}</span>`;
   };
   const platformIcons = {
     facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.8l.4-3h-3.2V9.1c0-.9.3-1.6 1.7-1.6H17V4.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.3V11H8v3h2.2v7h3.3z" fill="currentColor"/></svg>',
