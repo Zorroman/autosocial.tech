@@ -6875,6 +6875,8 @@ function pageProjects() {
 
     detailHtml = `<section class="card">
       <h3 style="margin-top:0;">${esc(detail.title)}</h3>
+      <div id="factoryLine" data-pid="${detail.id}"></div>
+      <details class="fl-adv"><summary>Расширенные инструменты (ручной режим)</summary>
       <label class="small">Сценарий<textarea id="projScript" class="input" rows="4" style="width:100%;">${esc(detail.script_text || '')}</textarea></label>
       <div class="row" style="gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center;">
         <button id="projSaveScriptBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Сохранить сценарий</button>
@@ -6899,6 +6901,7 @@ function pageProjects() {
         <button id="autoMediaBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Подобрать медиа для всех сцен</button>
         <audio id="ttsPreviewAudio" controls style="height:30px;display:none;"></audio>
       </div>
+      </details>
       ${detail.error ? `<div class="notice error">${esc(detail.error)}</div>` : ''}
       ${detail.output_url ? `<div style="margin:10px 0;">
         <video controls style="max-width:270px;border-radius:12px;" src="${API_BASE}${esc(detail.output_url)}"></video>
@@ -6954,7 +6957,71 @@ function pageProjects() {
   return appLayout('/projects', 'Видео-проекты', body);
 }
 
+const FACTORY_COLORS = { waiting: '#94a3b8', running: '#3b82f6', needs_review: '#f59e0b', error: '#ef4444', done: '#10b981' };
+async function _factoryFetchPaint(pid) {
+  const host = document.getElementById('factoryLine');
+  if (!host) { if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; } return; }
+  let st;
+  try { st = await api(`/api/video-projects/${pid}/pipeline/state`); } catch (e) { return; }
+  const stages = st.stages || [];
+  const lineHtml = stages.map((s, i) => {
+    const c = FACTORY_COLORS[s.state] || '#94a3b8';
+    const dotCls = s.state === 'running' ? 'fl-dot fl-pulse' : 'fl-dot';
+    const conn = i < stages.length - 1 ? `<span class="fl-conn" style="background:${s.state === 'done' ? '#10b981' : 'var(--border)'};"></span>` : '';
+    return `<div class="fl-st"><span class="${dotCls}" style="background:${c};"></span><span class="fl-nm">${esc(s.name)}</span></div>${conn}`;
+  }).join('');
+  const sc = stages.find((s) => s.key === 'script') || { state: 'waiting' };
+  const anyErr = stages.some((s) => s.state === 'error');
+  const anyReview = stages.some((s) => s.state === 'needs_review' && s.key !== 'script');
+  const running = stages.some((s) => s.state === 'running');
+  let action = '';
+  let msg = st.pipeline_error || '';
+  if (sc.state === 'waiting') {
+    action = `<button class="btn btn-primary" data-fl-act="generate" data-fl-pid="${pid}">✨ Сгенерировать сценарий</button>`;
+    msg = msg || 'Начните с генерации сценария из идеи — дальше линия соберёт видео сама.';
+  } else if (sc.state === 'needs_review') {
+    action = `<button class="btn btn-primary" data-fl-act="approve" data-fl-pid="${pid}">✓ Одобрить сценарий → запустить</button>`;
+    msg = msg || 'Проверьте сценарий в «Расширенных инструментах». Одобрите — фабрика сделает сцены, видеоряд и рендер.';
+  } else if (anyErr || anyReview) {
+    action = `<button class="btn btn-primary" data-fl-act="retry" data-fl-pid="${pid}">↻ Повторить этап</button>`;
+  } else if (running) {
+    action = '<span class="fl-run">● идёт производство…</span>';
+  } else {
+    action = '<span class="fl-done">✅ Все этапы готовы</span>';
+  }
+  host.innerHTML = `<div class="fl-wrap"><div class="fl-row">${lineHtml}</div><div class="fl-foot">${action}${msg ? `<span class="fl-msg">${esc(msg)}</span>` : ''}</div></div>`;
+  host.querySelectorAll('[data-fl-act]').forEach((b) => {
+    b.onclick = async () => {
+      const act = b.getAttribute('data-fl-act');
+      const id = b.getAttribute('data-fl-pid');
+      b.disabled = true; b.textContent = '…';
+      try {
+        if (act === 'generate') {
+          const r = await api(`/api/video-projects/${id}/generate-script`, { method: 'POST' });
+          const ta = document.getElementById('projScript');
+          if (ta && r && r.script_text) ta.value = r.script_text;
+        } else if (act === 'approve') {
+          await api(`/api/video-projects/${id}/pipeline/approve`, { method: 'POST' });
+        } else if (act === 'retry') {
+          await api(`/api/video-projects/${id}/pipeline/retry`, { method: 'POST' });
+        }
+      } catch (e) {
+        state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка') };
+      }
+      _factoryFetchPaint(id);
+    };
+  });
+  if (running && !window.__factoryPoll) window.__factoryPoll = setInterval(() => _factoryFetchPaint(pid), 4000);
+  if (!running && window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
+}
+function renderFactoryLine(pid) {
+  if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
+  if (pid) _factoryFetchPaint(pid);
+}
+
 function bindProjectsPage() {
+  const __fl = document.getElementById('factoryLine');
+  if (__fl) renderFactoryLine(__fl.getAttribute('data-pid'));
   const withErr = (fn) => async (...args) => {
     try { await fn(...args); } catch (e) {
       state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
@@ -12294,6 +12361,7 @@ async function bindCreateWizardV2(path) {
   if (path !== '/create') {
     if (window.__campaignAutosaveTimer) clearInterval(window.__campaignAutosaveTimer);
     if (window.__campaignDeliveriesPoller) clearInterval(window.__campaignDeliveriesPoller);
+    if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
     return;
   }
   hydrateCampaignDefaults();
