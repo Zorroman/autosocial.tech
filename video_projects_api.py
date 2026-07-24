@@ -1145,6 +1145,47 @@ def ai_publisher_run(project_id: int):
         db.close()
 
 
+@video_projects_api.route("/video-projects/<int:project_id>/ai-publisher/save", methods=["POST"])
+@require_auth
+def ai_publisher_save(project_id: int):
+    """Persist the user's edits to the AI Publisher package (selection + fields)."""
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if not (p.youtube_meta_json or "").strip():
+            return jsonify({"error": "Нет метаданных — сначала запустите AI Publisher."}), 400
+        try:
+            meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            meta = {}
+        if isinstance(data.get("title_options"), list):
+            opts = [str(x)[:95] for x in data["title_options"] if str(x).strip()][:6]
+            if opts:
+                meta["title_options"] = opts
+        if isinstance(data.get("description_options"), list):
+            opts = [str(x)[:4900] for x in data["description_options"] if str(x).strip()][:4]
+            if opts:
+                meta["description_options"] = opts
+        if "selected_title" in data:
+            meta["selected_title"] = max(0, min(int(data.get("selected_title") or 0), len(meta.get("title_options", [1])) - 1))
+        if "selected_description" in data:
+            meta["selected_description"] = max(0, min(int(data.get("selected_description") or 0), len(meta.get("description_options", [1])) - 1))
+        for k in ("tags", "hashtags"):
+            if isinstance(data.get(k), list):
+                meta[k] = [str(x).strip() for x in data[k] if str(x).strip()][:20]
+        for k in ("pinned_comment", "overlay_text", "privacy"):
+            if k in data:
+                meta[k] = str(data.get(k) or "").strip()
+        p.youtube_meta_json = json.dumps(meta, ensure_ascii=False)
+        db.commit()
+        return jsonify({"ok": True, "meta": meta})
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/render-jobs", methods=["GET"])
 @require_auth
 def list_render_jobs():

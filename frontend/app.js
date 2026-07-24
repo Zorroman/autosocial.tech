@@ -6971,8 +6971,10 @@ async function _factoryFetchPaint(pid) {
     return `<div class="fl-st"><span class="${dotCls}" style="background:${c};"></span><span class="fl-nm">${esc(s.name)}</span></div>${conn}`;
   }).join('');
   const sc = stages.find((s) => s.key === 'script') || { state: 'waiting' };
+  const aiPub = stages.find((s) => s.key === 'ai_publisher') || { state: 'waiting' };
+  const hasMeta = !!st.youtube_meta;
   const anyErr = stages.some((s) => s.state === 'error');
-  const anyReview = stages.some((s) => s.state === 'needs_review' && s.key !== 'script');
+  const anyReview = stages.some((s) => s.state === 'needs_review' && s.key !== 'script' && s.key !== 'ai_publisher');
   const running = stages.some((s) => s.state === 'running');
   let action = '';
   let msg = st.pipeline_error || '';
@@ -6982,6 +6984,11 @@ async function _factoryFetchPaint(pid) {
   } else if (sc.state === 'needs_review') {
     action = `<button class="btn btn-primary" data-fl-act="approve" data-fl-pid="${pid}">✓ Одобрить сценарий → запустить</button>`;
     msg = msg || 'Проверьте сценарий в «Расширенных инструментах». Одобрите — фабрика сделает сцены, видеоряд и рендер.';
+  } else if (hasMeta && (aiPub.state === 'needs_review' || aiPub.state === 'done')) {
+    action = '';
+    msg = aiPub.state === 'needs_review'
+      ? 'AI Publisher подготовил пакет к публикации — проверьте предложение ниже.'
+      : (msg || 'Пакет готов к публикации.');
   } else if (anyErr || anyReview) {
     action = `<button class="btn btn-primary" data-fl-act="retry" data-fl-pid="${pid}">↻ Повторить этап</button>`;
   } else if (running) {
@@ -6989,7 +6996,8 @@ async function _factoryFetchPaint(pid) {
   } else {
     action = '<span class="fl-done">✅ Все этапы готовы</span>';
   }
-  host.innerHTML = `<div class="fl-wrap"><div class="fl-row">${lineHtml}</div><div class="fl-foot">${action}${msg ? `<span class="fl-msg">${esc(msg)}</span>` : ''}</div></div>`;
+  host.innerHTML = `<div class="fl-wrap"><div class="fl-row">${lineHtml}</div><div class="fl-foot">${action}${msg ? `<span class="fl-msg">${esc(msg)}</span>` : ''}</div></div><div id="aiPubHost"></div>`;
+  if (hasMeta) { try { renderAiPublisherCard(pid, st); } catch (e) {} }
   host.querySelectorAll('[data-fl-act]').forEach((b) => {
     b.onclick = async () => {
       const act = b.getAttribute('data-fl-act');
@@ -7014,6 +7022,109 @@ async function _factoryFetchPaint(pid) {
   if (running && !window.__factoryPoll) window.__factoryPoll = setInterval(() => _factoryFetchPaint(pid), 4000);
   if (!running && window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
 }
+function factoryConfirmAutopilot(onConfirm) {
+  const ov = document.createElement('div');
+  ov.className = 'aip-modal-ov';
+  ov.innerHTML = `<div class="aip-modal">
+    <div class="aip-modal-h">Включить полный автопилот?</div>
+    <div class="aip-modal-b">AutoSocial сможет публиковать видео на этот YouTube-канал <b>без индивидуального подтверждения</b>. Заголовок, метаданные и обложка будут выбраны автоматически.</div>
+    <div class="aip-modal-f"><button class="btn btn-secondary" data-m="cancel" type="button">Отмена</button><button class="btn btn-primary aip-warn" data-m="ok" type="button">Включить полный автопилот</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('[data-m="cancel"]').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('[data-m="ok"]').onclick = () => { close(); try { onConfirm(); } catch (e) {} };
+}
+
+function renderAiPublisherCard(pid, st) {
+  const host = document.getElementById('aiPubHost');
+  if (!host) return;
+  const m = st.youtube_meta || {};
+  const titles = m.title_options || [];
+  const descs = m.description_options || [];
+  const selT = Number(m.selected_title || 0);
+  const selD = Number(m.selected_description || 0);
+  const overlay = m.overlay_text || '';
+  const thumbUrl = (m.thumbnail || {}).url || '';
+  const chMode = st.channel_publishing_mode || 'manual';
+  const ovr = st.publishing_override || null;
+  const eff = st.effective_mode || 'manual';
+  const opt = (t, i, sel, name, tall) => `
+    <label class="aip-opt ${i === sel ? 'rec' : ''}">
+      <input type="radio" name="${name}" value="${i}" ${i === sel ? 'checked' : ''}/>
+      <span class="aip-rank">${i === sel ? '🏆 Рекомендуемый' : '○ Вариант ' + (i + 1)}</span>
+      ${tall ? `<textarea class="aip-desctxt input" rows="3">${esc(t)}</textarea>` : `<input class="aip-titletxt input" value="${esc(t)}"/>`}
+    </label>`;
+  host.innerHTML = `<div class="aip">
+    <div class="aip-head"><span class="aip-badge">✦ AI Publisher</span><span class="aip-ok">✓ Пакет для публикации готов</span></div>
+    <div class="aip-sec"><div class="aip-h">Заголовки (${titles.length})</div>${titles.map((t, i) => opt(t, i, selT, 'aipTitle', false)).join('')}</div>
+    <div class="aip-sec"><div class="aip-h">Описания (${descs.length})</div>${descs.map((t, i) => opt(t, i, selD, 'aipDesc', true)).join('')}</div>
+    <div class="aip-grid2">
+      <div class="aip-sec"><div class="aip-h">Ключевые слова</div><input id="aipTags" class="input" value="${esc((m.tags || []).join(', '))}"/></div>
+      <div class="aip-sec"><div class="aip-h">Хэштеги</div><input id="aipHash" class="input" value="${esc((m.hashtags || []).join(' '))}"/></div>
+    </div>
+    <div class="aip-grid2">
+      <div class="aip-sec"><div class="aip-h">Обложка</div>
+        <div class="aip-thumb">${thumbUrl ? `<img src="${API_BASE}${esc(thumbUrl)}" alt=""/>` : ''}<span class="aip-overlay" id="aipOverlayPrev">${esc(overlay)}</span></div>
+        <label class="aip-h" style="margin:10px 0 0;display:block;">Текст на обложке<input id="aipOverlay" class="input" value="${esc(overlay)}"/></label>
+      </div>
+      <div class="aip-sec"><div class="aip-h">Закреплённый комментарий</div><textarea id="aipPinned" class="input" rows="4">${esc(m.pinned_comment || '')}</textarea></div>
+    </div>
+    <div class="aip-sec aip-modebar">
+      <div class="aip-h">Режим публикации</div>
+      <select id="aipMode" class="input">
+        <option value="default" ${!ovr ? 'selected' : ''}>По каналу — ${chMode === 'automatic' ? 'Автопилот' : 'Ручная проверка'}</option>
+        <option value="manual" ${ovr === 'manual' ? 'selected' : ''}>Ручная проверка (этот ролик)</option>
+        <option value="automatic" ${ovr === 'automatic' ? 'selected' : ''}>Полный автопилот (этот ролик)</option>
+      </select>
+      <span class="aip-eff">эффективно: <b>${eff === 'automatic' ? '🤖 Автопилот' : '🖐 Ручная проверка'}</b></span>
+    </div>
+    <div class="aip-foot">
+      <button class="btn btn-secondary" id="aipSave" type="button">Сохранить</button>
+      <button class="btn btn-primary" id="aipPublish" type="button">📡 Опубликовать на YouTube</button>
+    </div>
+  </div>`;
+  const ovIn = document.getElementById('aipOverlay');
+  const ovPrev = document.getElementById('aipOverlayPrev');
+  if (ovIn && ovPrev) ovIn.oninput = () => { ovPrev.textContent = ovIn.value; };
+  host.querySelectorAll('input[name="aipTitle"],input[name="aipDesc"]').forEach((r) => {
+    r.onchange = () => host.querySelectorAll('.aip-opt').forEach((el) => el.classList.toggle('rec', !!el.querySelector('input:checked')));
+  });
+  const gather = () => ({
+    title_options: Array.from(host.querySelectorAll('.aip-titletxt')).map((i) => i.value),
+    selected_title: Number((host.querySelector('input[name="aipTitle"]:checked') || {}).value || 0),
+    description_options: Array.from(host.querySelectorAll('.aip-desctxt')).map((i) => i.value),
+    selected_description: Number((host.querySelector('input[name="aipDesc"]:checked') || {}).value || 0),
+    tags: (document.getElementById('aipTags').value || '').split(',').map((x) => x.trim()).filter(Boolean),
+    hashtags: (document.getElementById('aipHash').value || '').split(/\s+/).map((x) => x.trim()).filter(Boolean),
+    overlay_text: (document.getElementById('aipOverlay').value || '').trim(),
+    pinned_comment: document.getElementById('aipPinned').value || '',
+  });
+  const doSave = () => api(`/api/video-projects/${pid}/ai-publisher/save`, { method: 'POST', body: JSON.stringify(gather()) });
+  document.getElementById('aipSave').onclick = async () => {
+    try { await doSave(); state.notice = { type: 'ok', text: 'Пакет сохранён.' }; }
+    catch (e) { state.notice = { type: 'error', text: 'Не удалось сохранить пакет.' }; }
+    render();
+  };
+  document.getElementById('aipPublish').onclick = async () => {
+    try { await doSave(); } catch (e) {}
+    state.notice = { type: 'ok', text: 'Пакет сохранён. Публикация на YouTube включается на следующем шаге (Stage 3c).' };
+    render();
+  };
+  const modeSel = document.getElementById('aipMode');
+  if (modeSel) modeSel.onchange = async () => {
+    const v = modeSel.value;
+    const apply = async (override) => {
+      try { await api(`/api/video-projects/${pid}/publishing-override`, { method: 'POST', body: JSON.stringify({ override }) }); _factoryFetchPaint(pid); }
+      catch (e) { state.notice = { type: 'error', text: 'Не удалось сменить режим.' }; render(); }
+    };
+    if (v === 'automatic') { modeSel.value = ovr || 'default'; factoryConfirmAutopilot(() => apply('automatic')); }
+    else if (v === 'manual') { apply('manual'); }
+    else { apply(null); }
+  };
+}
+
 function renderFactoryLine(pid) {
   if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
   if (pid) _factoryFetchPaint(pid);
