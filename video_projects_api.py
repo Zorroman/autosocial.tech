@@ -836,6 +836,14 @@ def run_render_job(job_id: int) -> None:
             project.output_path = out_rel
             project.error = None
             db.commit()
+            # Content Factory: auto-continue the line render → AI Publisher.
+            try:
+                from saas_auth import create_token
+                _owner = db.query(Channel.owner_user_id).filter(Channel.id == project.channel_id).scalar()
+                if _owner:
+                    _enqueue_factory(project.id, create_token(_owner))
+            except Exception:
+                pass
         except Exception as exc:
             err = str(exc)[:1500]
             try:
@@ -958,6 +966,7 @@ def _pipeline_state_dict(db, p) -> dict:
         elif js in JOB_ACTIVE:
             render_state = "running"
 
+    has_meta = bool((p.youtube_meta_json or "").strip())
     stages = [
         {"key": "script", "name": "Сценарий",
          "state": station("script", has_script)},
@@ -966,10 +975,19 @@ def _pipeline_state_dict(db, p) -> dict:
         {"key": "media", "name": "Медиа",
          "state": station("media", n > 0 and with_media == n)},
         {"key": "render", "name": "Рендер", "state": render_state},
+        {"key": "ai_publisher", "name": "AI Publisher",
+         "state": station("ai_publisher", has_meta)},
         {"key": "publish", "name": "Публикация", "state": "waiting"},
     ]
+    youtube_meta = None
+    if has_meta:
+        try:
+            youtube_meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            youtube_meta = None
     from factory_pipeline import effective_mode
     return {
+        "youtube_meta": youtube_meta,
         "project_id": p.id, "title": p.title,
         "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state,
         "pipeline_error": p.pipeline_error,
@@ -1071,6 +1089,58 @@ def set_publishing_override(project_id: int):
         p.publishing_override = ov
         db.commit()
         return jsonify({"project_id": p.id, "publishing_override": ov})
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/ai-publisher", methods=["POST"])
+@require_auth
+def ai_publisher_run(project_id: int):
+    """Station «AI Publisher»: prepare YouTube metadata (title/description
+    alternatives, tags, hashtags, pinned comment, privacy) + a thumbnail from
+    the best frame. Manual → stops at needs_review; automatic → marks done."""
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        ch = db.query(Channel).filter_by(id=p.channel_id).first()
+        if not (p.script_text or "").strip():
+            return jsonify({"error": "Нет сценария — сначала пройдите станцию «Сценарий»."}), 400
+        p.pipeline_stage = "ai_publisher"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+        import ai_publisher
+        import factory_pipeline
+        try:
+            pkg = ai_publisher.generate_publish_package(
+                topic=p.title, script_text=(p.script_text or ""),
+                language=(getattr(ch, "language", None) or "ru"),
+                style=(getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or ""),
+                niche=(getattr(ch, "niche", None) or ""),
+                privacy=(getattr(ch, "default_visibility", None) or "public"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            p.pipeline_state = "error"
+            p.pipeline_error = f"ai_publisher: {str(exc)[:280]}"
+            db.commit()
+            return jsonify({"error": "Не удалось подготовить публикацию.", "detail": str(exc)[:280]}), 502
+        if p.output_path:
+            try:
+                thumb = ai_publisher.build_thumbnail(p.output_path, p.id)
+                if thumb:
+                    pkg["thumbnail"] = thumb
+            except Exception:
+                pass
+        p.youtube_meta_json = json.dumps(pkg, ensure_ascii=False)
+        mode = factory_pipeline.effective_mode(p, ch)
+        p.pipeline_stage = "ai_publisher"
+        p.pipeline_state = "done" if mode == "automatic" else "needs_review"
+        db.commit()
+        db.refresh(p)
+        return jsonify({"meta": pkg, "effective_mode": mode,
+                        "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state}), 200
     finally:
         db.close()
 

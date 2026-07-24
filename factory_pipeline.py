@@ -134,6 +134,16 @@ def run(project_id: int, token: str) -> None:
                     return
             else:
                 _set(db, p, "render", "running")
-        # publish is handled separately once render output exists (Этап 3).
+            return  # render is async; the render job auto-continues the line
+
+        # station 5 — AI Publisher (metadata + thumbnail), after render output.
+        if p.output_path and not (p.youtube_meta_json or "").strip():
+            _set(db, p, "ai_publisher", "running")
+            ok, err = _call(f"/video-projects/{p.id}/ai-publisher", token)
+            if not ok:
+                _set(db, p, "ai_publisher", "error", f"AI Publisher: {err}")
+                return
+            # the endpoint set needs_review (manual) or done (automatic).
+        # station 6 — publish is Stage 3c.
     finally:
         db.close()
