@@ -930,6 +930,7 @@ def _enqueue_factory(project_id: int, token: str) -> str:
 
 
 def _pipeline_state_dict(db, p) -> dict:
+    ch = db.query(Channel).filter_by(id=p.channel_id).first()
     scenes = db.query(VideoScene).filter_by(project_id=p.id).all()
     n = len(scenes)
     with_media = sum(1 for s in scenes if s.selected_media_path)
@@ -967,6 +968,7 @@ def _pipeline_state_dict(db, p) -> dict:
         {"key": "render", "name": "Рендер", "state": render_state},
         {"key": "publish", "name": "Публикация", "state": "waiting"},
     ]
+    from factory_pipeline import effective_mode
     return {
         "project_id": p.id, "title": p.title,
         "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state,
@@ -974,6 +976,9 @@ def _pipeline_state_dict(db, p) -> dict:
         "stages": stages,
         "scenes_total": n, "scenes_with_media": with_media,
         "render_job": _job_dict(job) if job else None,
+        "publishing_override": p.publishing_override,
+        "channel_publishing_mode": (ch.publishing_mode if ch else "manual"),
+        "effective_mode": effective_mode(p, ch),
     }
 
 
@@ -1045,6 +1050,27 @@ def pipeline_retry(project_id: int):
         db.commit()
         mode = _enqueue_factory(p.id, create_token(g.current_user.id))
         return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/publishing-override", methods=["POST"])
+@require_auth
+def set_publishing_override(project_id: int):
+    """Per-video publishing override: null (use channel default) | manual | automatic."""
+    data = request.get_json(silent=True) or {}
+    raw = data.get("override")
+    ov = (str(raw).strip().lower() if raw not in (None, "", "default") else None)
+    if ov not in (None, "manual", "automatic"):
+        return jsonify({"error": "override must be null, 'manual' or 'automatic'"}), 400
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        p.publishing_override = ov
+        db.commit()
+        return jsonify({"project_id": p.id, "publishing_override": ov})
     finally:
         db.close()
 

@@ -171,6 +171,39 @@ def _apply_channel_fields(c: Channel, data: dict) -> str | None:
     return None
 
 
+@channels_api.route("/channels/<int:channel_id>/publishing-mode", methods=["POST"])
+@require_auth
+def set_publishing_mode(channel_id: int):
+    """Set the channel publishing mode. Enabling 'automatic' (full autopilot)
+    requires explicit confirmation and a connected YouTube channel."""
+    data = request.get_json(silent=True) or {}
+    mode = str(data.get("mode") or "").strip().lower()
+    if mode not in ("manual", "automatic"):
+        return jsonify({"error": "mode must be 'manual' or 'automatic'"}), 400
+    db = SessionLocal()
+    try:
+        c = _own_channel(db, channel_id)
+        if not c:
+            return jsonify({"error": "Channel not found"}), 404
+        if mode == "automatic":
+            if not data.get("confirm"):
+                return jsonify({
+                    "error": "confirmation_required",
+                    "message": "AutoSocial сможет публиковать видео на этот YouTube-канал без индивидуального подтверждения.",
+                }), 409
+            if (c.youtube_connection_status or "") != "connected":
+                return jsonify({
+                    "error": "youtube_not_connected",
+                    "message": "Сначала подключите YouTube-канал, затем включайте автопилот.",
+                }), 409
+        c.publishing_mode = mode
+        c.autopilot_enabled = (mode == "automatic")  # keep the legacy flag in sync
+        db.commit()
+        return jsonify({"channel_id": c.id, "publishing_mode": c.publishing_mode})
+    finally:
+        db.close()
+
+
 @channels_api.route("/channels", methods=["GET"])
 @require_auth
 def list_channels():

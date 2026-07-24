@@ -258,6 +258,8 @@ def run_migrations() -> None:
                 # (the pre-existing flags above only work because they already
                 # exist and are skipped). Use FALSE for a fresh boolean column.
                 "autopilot_enabled": "BOOLEAN DEFAULT FALSE",
+                # Publishing mode (source of truth). String default is fine on PG.
+                "publishing_mode": "VARCHAR(20) DEFAULT 'manual'",
                 "oauth_last_error": "VARCHAR(300)",
                 "last_generated_at": "DATETIME",
             },
@@ -273,6 +275,9 @@ def run_migrations() -> None:
                 "pipeline_stage": "VARCHAR(20)",
                 "pipeline_state": "VARCHAR(20)",
                 "pipeline_error": "TEXT",
+                # Stage 3 — per-video publishing override + AI Publisher output.
+                "publishing_override": "VARCHAR(20)",
+                "youtube_meta_json": "TEXT",
             },
         )
     if "channel_ideas" in tables:

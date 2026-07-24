@@ -600,10 +600,12 @@ class Channel(SaaSBase):
     # Fail-safe: new channels never auto-publish. Enabling is an explicit user
     # action; Director approve / render / OAuth connect never flip this flag.
     automatic_publishing_enabled = Column(Boolean, nullable=False, default=False)
-    # Content Factory "full autopilot": when true, the pipeline runs a video all
-    # the way to publish without stopping at the script checkpoint. Default OFF
-    # (fail-safe): the human reviews the script before money is spent on render.
+    # Deprecated in favour of publishing_mode (kept in sync as a legacy synonym).
     autopilot_enabled = Column(Boolean, nullable=False, default=False)
+    # Content Factory publishing mode — source of truth for autonomy.
+    # 'manual'    = review metadata before YouTube (default, safe)
+    # 'automatic' = full autopilot: publish without individual confirmation.
+    publishing_mode = Column(String(20), nullable=False, default="manual")
     oauth_last_error = Column(String(300), nullable=True)
     last_generated_at = Column(DateTime, nullable=True)
     youtube_channel_id = Column(String(120), nullable=True)
@@ -663,6 +665,13 @@ class VideoProject(SaaSBase):
     pipeline_stage = Column(String(20), nullable=True)
     pipeline_state = Column(String(20), nullable=True)
     pipeline_error = Column(Text, nullable=True)
+    # Per-video publishing override: NULL = use channel default, else manual|automatic
+    publishing_override = Column(String(20), nullable=True)
+    # AI Publisher output: title/description ALTERNATIVES + selection, tags,
+    # hashtags, pinned comment, privacy, schedule, thumbnail plan, and a
+    # generation_meta block (model/version/inputs) reserved for future learning
+    # from YouTube analytics. Stored as JSON.
+    youtube_meta_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

@@ -33,6 +33,19 @@ _API_BASE = (os.getenv("FACTORY_API_BASE") or "http://backend:5000").rstrip("/")
 _ACTIVE_JOB = {"pending", "queued", "processing", "rendering"}
 
 
+def effective_mode(project, channel) -> str:
+    """Resolve the effective publishing mode for a video:
+    per-video override → channel default → 'manual' (safe fallback).
+    Returns 'manual' or 'automatic'."""
+    ov = (getattr(project, "publishing_override", None) or "").strip().lower()
+    if ov in ("manual", "automatic"):
+        return ov
+    m = (getattr(channel, "publishing_mode", None) or "").strip().lower()
+    if m in ("manual", "automatic"):
+        return m
+    return "automatic" if getattr(channel, "autopilot_enabled", False) else "manual"
+
+
 def _set(db, p: VideoProject, stage: str, state: str, error: str | None = None) -> None:
     p.pipeline_stage = stage
     p.pipeline_state = state
@@ -77,7 +90,7 @@ def run(project_id: int, token: str) -> None:
         # checkpoint — do not spend money past the script unless approved.
         # Approval sets pipeline_state="done" at the script stage; autopilot
         # channels are treated as pre-approved.
-        approved = bool(getattr(ch, "autopilot_enabled", False)) or (
+        approved = (effective_mode(p, ch) == "automatic") or (
             p.pipeline_stage == "script" and p.pipeline_state == "done"
         ) or p.pipeline_stage in ("scenes", "media", "render", "publish")
         if not approved:
