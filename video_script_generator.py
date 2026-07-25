@@ -42,10 +42,15 @@ def _normalize_phrases(raw) -> list[str]:
     return out[:120]
 
 
+# Calibrated against real OpenAI-TTS renders (project 5: 449 chars → 35.1s ≈
+# 12.8 chars/s incl. per-scene padding). Using the measured rate makes the
+# estimate track actual rendered duration so the 27–33s publish gate is hit.
+_TTS_CHARS_PER_SEC = 12.5
+
+
 def _estimate_seconds_from_phrases(phrases: list[str]) -> float:
     total_chars = sum(len(str(x or "").strip()) for x in (phrases or []))
-    # Средняя скорость живой речи ~13-15 символов/сек с паузами.
-    return max(0.0, total_chars / 14.0)
+    return max(0.0, total_chars / _TTS_CHARS_PER_SEC)
 
 
 def _sanitize_phrase(text: str, topic: str) -> str:
@@ -103,31 +108,42 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
 
     target_seconds = max(20, min(480, int(target_seconds or 30)))
-    desired_scenes = max(4, int(round(float(target_seconds) / 4.0)))
-    if target_seconds <= 30:
-        desired_scenes = max(4, min(desired_scenes, 6))
-    elif target_seconds <= 40:
-        desired_scenes = max(5, min(desired_scenes, 8))
     fillers = _topic_fillers(topic, offer)
+
+    # Duration is the hard constraint (the 27–33s publish gate for a 30s target),
+    # so shape by TIME, not a fixed scene count. Keep a sane minimum of scenes,
+    # then pad up to / trim down to the target band. Scene count emerges from the
+    # phrase lengths, which lands ~6–8 short scenes for a 30s Short.
+    min_scenes = 4
     cursor = 0
-    while len(out) < desired_scenes:
+    while len(out) < min_scenes:
         out.append(fillers[cursor % len(fillers)])
         cursor += 1
         out = _dedupe_keep_order(out)
         if cursor > 24:
             break
 
-    # Добиваем длительность, но не раздуваем бесконечно.
+    # Pad up toward the target when the script is too short.
+    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
     loop_guard = 0
-    fill_target_ratio = 0.92
-    if target_seconds <= 30:
-        fill_target_ratio = 0.78
-    elif target_seconds <= 40:
-        fill_target_ratio = 0.84
     while _estimate_seconds_from_phrases(out) < float(target_seconds) * fill_target_ratio and loop_guard < 24:
         out.append(fillers[(cursor + loop_guard) % len(fillers)])
         out = _dedupe_keep_order(out)
         loop_guard += 1
+
+    # Trim down when the script overshoots (renders too long → gate rejects it).
+    # Never cut the hook (first) or the closing CTA (last); drop the longest
+    # middle phrase until inside the band.
+    ceiling = float(target_seconds) + 1.0
+    guard = 0
+    while (len(out) > min_scenes
+           and _estimate_seconds_from_phrases(out) > ceiling and guard < 24):
+        middle = out[1:-1]
+        if not middle:
+            break
+        longest = max(range(len(middle)), key=lambda i: len(middle[i]))
+        del out[1 + longest]
+        guard += 1
 
     return out[:120]
 
@@ -254,8 +270,13 @@ def generate(
         f"banned_tokens: {json.dumps(banned_tokens, ensure_ascii=False)}\n"
         f"preferred_mood: {mood}\n"
         f"motion_level: {motion_level}\n"
+        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 2.0))} слов "
+        f"(~{int(round(target_seconds * _TTS_CHARS_PER_SEC))} символов) — это {target_seconds}s при текущем TTS. Не превышай.\n"
+        f"Сделай {max(6, min(8, int(round(target_seconds / 4.0))))}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
         "Требования к phrases:\n"
-        "- каждая фраза это законченное предложение 8-16 слов;\n"
+        "- каждая фраза это законченное предложение 8-12 слов;\n"
+        "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
+        "- последняя фраза — короткий CTA, ровно одно предложение;\n"
         "- не используй императивные заготовки вида «покажем один», «добавим конкретику»;\n"
         "- фразы должны быть уникальны и логично развивать мысль;\n"
         "- никакой фантастики или AI-арта.\n"
