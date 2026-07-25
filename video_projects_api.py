@@ -1529,11 +1529,44 @@ def scene_stock_search(scene_id: int):
         db.close()
 
 
+def _persist_scene_media(db, s: VideoScene, query: str, match, extra_meta: dict | None = None):
+    """Download a resolved (server-side, trusted) Pexels result, attach it to the
+    scene, register it in the footage library and record cost. Shared by the
+    manual selection path and the auto matcher."""
+    from footage.providers.pexels import download_video
+
+    stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
+    stock_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        saved = Path(download_video(match, stock_dir / f"pexels_{match.video_id}.mp4"))
+    except Exception as exc:
+        return None, f"Download failed: {str(exc)[:300]}"
+    if not saved.exists() or saved.stat().st_size < 10_000:
+        return None, "Downloaded file is missing or too small"
+    s.selected_media_path = str(saved)
+    s.visual_type = "stock"
+    s.status = "ready"
+    meta = _stock_result_dict(match)
+    if extra_meta:
+        meta = {**meta, **extra_meta}
+    s.media_meta_json = json.dumps(meta, ensure_ascii=False)
+    from footage_library import register_asset
+    register_asset(
+        db, provider=match.provider, provider_asset_id=str(match.video_id),
+        local_path=saved, download_url=match.download_url or "",
+        original_url=match.page_url or "", search_query=query,
+        author=match.author or "", license_note="Pexels License (free to use)",
+    )
+    from ai_pricing import record_cost
+    record_cost(provider="pexels", model="stock", operation_type="stock_download",
+                project_id=s.project_id, image_count=1,
+                request_id=f"stock:{match.provider}:{match.video_id}:{s.id}", db=db)
+    return match, None
+
+
 def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
     """SSRF-safe selection: re-search Pexels server-side and match by video_id;
     the client never supplies a download URL."""
-    from footage.providers.pexels import download_video
-
     match = None
     for page in (1, 2, 3):
         for r in _pexels_search(query, page=page, limit=20):
@@ -1550,30 +1583,7 @@ def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
                 break
     if not match:
         return None, "Selected video not found in Pexels results; search again"
-    stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
-    stock_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        saved = Path(download_video(match, stock_dir / f"pexels_{match.video_id}.mp4"))
-    except Exception as exc:
-        return None, f"Download failed: {str(exc)[:300]}"
-    if not saved.exists() or saved.stat().st_size < 10_000:
-        return None, "Downloaded file is missing or too small"
-    s.selected_media_path = str(saved)
-    s.visual_type = "stock"
-    s.status = "ready"
-    s.media_meta_json = json.dumps(_stock_result_dict(match), ensure_ascii=False)
-    from footage_library import register_asset
-    register_asset(
-        db, provider=match.provider, provider_asset_id=str(match.video_id),
-        local_path=saved, download_url=match.download_url or "",
-        original_url=match.page_url or "", search_query=query,
-        author=match.author or "", license_note="Pexels License (free to use)",
-    )
-    from ai_pricing import record_cost
-    record_cost(provider="pexels", model="stock", operation_type="stock_download",
-                project_id=s.project_id, image_count=1,
-                request_id=f"stock:{match.provider}:{match.video_id}:{s.id}", db=db)
-    return match, None
+    return _persist_scene_media(db, s, query, match)
 
 
 @video_projects_api.route("/scenes/<int:scene_id>/stock-select", methods=["POST"])
@@ -1623,72 +1633,91 @@ def project_auto_media(project_id: int):
         if not scenes:
             return jsonify({"error": "Project has no scenes"}), 400
         channel = db.query(Channel).filter_by(id=p.channel_id).first()
-        base_query = (channel.niche if channel else "") or "mystic"
         report = []
-        prev_video_id = None
+
+        # Semantic query plan (concrete English b-roll per scene). Built once for
+        # the whole project. Uses the LLM when available, deterministic fallback
+        # otherwise — see media_matcher for the reasoning.
+        import media_matcher as _mm
+        pending = [s for s in scenes if overwrite or not s.selected_media_path]
+        plan = _mm.plan_project_queries(
+            pending or scenes,
+            (channel.niche if channel else "") or "",
+            (channel.language if channel else "") or "ru",
+        )
+
+        # Global cooldown blacklist (recently used provider ids) computed once.
+        from datetime import timedelta as _td
+        from saas_models import FootageAsset, FootageUsage
+        recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
+        recent_ids = {
+            str(pid) for (pid,) in (
+                db.query(FootageAsset.provider_asset_id)
+                .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
+                .filter(FootageUsage.used_at >= recent_cutoff)
+                .all()
+            )
+        }
+        used_in_project: set[str] = set()  # never reuse a clip within one video
+
+        from footage_library import segment_plan
         for s in scenes:
             if s.selected_media_path and not overwrite:
                 report.append({"scene_id": s.id, "skipped": "already has media"})
-                prev_video_id = json.loads(s.media_meta_json)["video_id"] if s.media_meta_json else prev_video_id
+                try:
+                    vid = (json.loads(s.media_meta_json) or {}).get("video_id") if s.media_meta_json else None
+                    if vid:
+                        used_in_project.add(str(vid))
+                except Exception:
+                    pass
                 continue
-            query = (s.stock_search_query or s.visual_prompt or "").strip()
-            if not query:
-                words = re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", s.voiceover_text or "")
-                query = f"{base_query} {' '.join(words[:2])}".strip() or base_query
 
-            # Blacklist provider ids used recently (repeat protection at search time).
-            from datetime import timedelta as _td
-            from saas_models import FootageAsset, FootageUsage
-            recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
-            recent_ids = {
-                pid for (pid,) in (
-                    db.query(FootageAsset.provider_asset_id)
-                    .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
-                    .filter(FootageUsage.used_at >= recent_cutoff)
-                    .all()
-                )
-            }
-            if prev_video_id:
-                recent_ids.add(str(prev_video_id))
+            sp = plan.scenes.get(s.id) or _mm.ScenePlan(
+                scene_id=s.id, queries=[(channel.niche if channel else "") or "abstract"],
+                simple="abstract", keywords=[],
+            )
+            # A manually set query on the scene takes priority as the top concrete stage.
+            manual_q = (s.stock_search_query or s.visual_prompt or "").strip()
+            if manual_q and manual_q not in sp.queries:
+                sp = _mm.ScenePlan(scene_id=s.id, queries=[manual_q, *sp.queries][:3],
+                                   simple=sp.simple or manual_q, keywords=sp.keywords)
 
-            from footage_library import segment_plan
             needed = len(segment_plan(float(s.estimated_duration or 4.0)))
-            try:
-                results = _pexels_search_diverse(query, limit=max(6, needed * 2), exclude_ids=recent_ids)
-            except Exception as exc:
-                report.append({"scene_id": s.id, "error": f"search failed: {str(exc)[:200]}"})
+            exclude = recent_ids | used_in_project
+
+            def _search(q, excl, _needed=needed):
+                return _pexels_search_diverse(q, limit=max(6, _needed * 2), exclude_ids=excl)
+
+            pick = _mm.pick_media(sp, plan.atmospheric, search_fn=_search, exclude_ids=exclude)
+            diag = {"stage": pick.stage, "confidence": pick.confidence,
+                    "plan_source": plan.source, **pick.diagnostics}
+
+            if pick.candidate is None:
+                # Honest: no relevant footage found — leave the scene for review
+                # instead of attaching something irrelevant. Persist diagnostics.
+                s.media_meta_json = json.dumps({"video_id": None, "needs_review": True,
+                                                "matcher": diag}, ensure_ascii=False)
+                report.append({"scene_id": s.id, "confidence": "needs_review",
+                               "queries_tried": [t.get("query") for t in pick.diagnostics.get("stages_tried", [])]})
                 continue
-            if not results:
-                report.append({"scene_id": s.id, "error": f"no fresh results for '{query}'"})
-                continue
-            # primary pick for the scene + extra clips to stock the local library
-            match, err = _download_stock_for_scene(db, s, query, results[0].video_id)
+
+            chosen_q = pick.diagnostics.get("chosen_query", sp.queries[0])
+            match, err = _persist_scene_media(db, s, chosen_q, pick.candidate,
+                                              extra_meta={"matcher": diag})
             if err:
                 report.append({"scene_id": s.id, "error": err})
                 continue
-            extras = 0
-            for r in results[1:needed]:
-                try:
-                    from footage.providers.pexels import download_video
-                    from footage_library import register_asset
-                    saved = Path(download_video(r, settings.FOOTAGE_CACHE_DIR / "stock" / f"pexels_{r.video_id}.mp4"))
-                    if saved.exists():
-                        register_asset(
-                            db, provider=r.provider, provider_asset_id=str(r.video_id),
-                            local_path=saved, download_url=r.download_url or "",
-                            original_url=r.page_url or "", search_query=query,
-                            author=r.author or "", license_note="Pexels License (free to use)",
-                        )
-                        db.commit()
-                        extras += 1
-                except Exception:
-                    continue
-            prev_video_id = str(match.video_id)
-            report.append({"scene_id": s.id, "query": query, "video_id": prev_video_id,
+            used_in_project.add(str(match.video_id))
+            report.append({"scene_id": s.id, "query": chosen_q, "video_id": str(match.video_id),
                            "orientation": match.orientation, "author": match.author,
-                           "extra_clips_cached": extras, "segments_planned": needed})
+                           "stage": pick.stage, "confidence": pick.confidence,
+                           "relevance": pick.diagnostics.get("chosen_score"),
+                           "segments_planned": needed})
         db.commit()
-        return jsonify({"report": report})
+        # Scenes still without media after matching → the station needs review.
+        missing = [s.id for s in scenes if not s.selected_media_path]
+        return jsonify({"report": report, "scenes_needing_review": missing,
+                        "plan_source": plan.source})
     finally:
         db.close()
 
