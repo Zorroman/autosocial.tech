@@ -19,7 +19,7 @@ from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
 from saas_auth import require_auth
-from saas_models import Channel, ChannelIdea, RenderJob, VideoProject, VideoScene
+from saas_models import Channel, ChannelIdea, Publication, RenderJob, VideoProject, VideoScene
 from saas_settings import settings
 
 video_projects_api = Blueprint("video_projects_api", __name__, url_prefix="/api")
@@ -966,6 +966,13 @@ def _pipeline_state_dict(db, p) -> dict:
         elif js in JOB_ACTIVE:
             render_state = "running"
 
+    pub = (db.query(Publication).filter_by(project_id=p.id)
+           .order_by(Publication.id.desc()).first())
+    publish_state = "waiting"
+    if pub:
+        ps = (pub.status or "").lower()
+        publish_state = {"published": "done", "uploading": "running",
+                         "failed": "error", "needs_review": "needs_review"}.get(ps, "waiting")
     has_meta = bool((p.youtube_meta_json or "").strip())
     stages = [
         {"key": "script", "name": "Сценарий",
@@ -977,7 +984,7 @@ def _pipeline_state_dict(db, p) -> dict:
         {"key": "render", "name": "Рендер", "state": render_state},
         {"key": "ai_publisher", "name": "AI Publisher",
          "state": station("ai_publisher", has_meta)},
-        {"key": "publish", "name": "Публикация", "state": "waiting"},
+        {"key": "publish", "name": "Публикация", "state": publish_state},
     ]
     youtube_meta = None
     if has_meta:
@@ -997,6 +1004,8 @@ def _pipeline_state_dict(db, p) -> dict:
         "publishing_override": p.publishing_override,
         "channel_publishing_mode": (ch.publishing_mode if ch else "manual"),
         "effective_mode": effective_mode(p, ch),
+        "publication_status": (pub.status if pub else None),
+        "youtube_url": (pub.youtube_url if pub and pub.status == "published" else None),
     }
 
 

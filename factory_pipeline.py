@@ -144,6 +144,20 @@ def run(project_id: int, token: str) -> None:
                 _set(db, p, "ai_publisher", "error", f"AI Publisher: {err}")
                 return
             # the endpoint set needs_review (manual) or done (automatic).
-        # station 6 — publish is Stage 3c.
+
+        # station 6 — publish. Automatic mode publishes without confirmation;
+        # manual mode waits for the user's «Опубликовать» button.
+        if (p.youtube_meta_json or "").strip() and effective_mode(p, ch) == "automatic":
+            from saas_models import Publication
+            done = (db.query(Publication)
+                    .filter(Publication.project_id == p.id,
+                            Publication.status.in_(("published", "uploading"))).first())
+            if not done:
+                _set(db, p, "publish", "running")
+                ok, err = _call(f"/video-projects/{p.id}/pipeline/publish", token)
+                if not ok:
+                    # never leave an automatic publish silently failed
+                    _set(db, p, "publish", "needs_review", f"Публикация: {err}")
+                    return
     finally:
         db.close()

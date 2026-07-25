@@ -623,6 +623,12 @@ def run_upload_job(pub_id: int) -> None:
             pub.published_at = datetime.utcnow()
             pub.last_error = None
             pub.updated_at = datetime.utcnow()
+            # Content Factory: mark the publish station done.
+            _proj = db.query(VideoProject).filter_by(id=pub.project_id).first()
+            if _proj:
+                _proj.pipeline_stage = "publish"
+                _proj.pipeline_state = "done"
+                _proj.pipeline_error = None
             db.commit()
             from ai_pricing import record_cost
             record_cost(provider="google", model="youtube-data-api", operation_type="YouTube upload",
@@ -634,6 +640,13 @@ def run_upload_job(pub_id: int) -> None:
                 pub.status = "failed"
                 pub.last_error = str(exc)[:1000]
                 pub.updated_at = datetime.utcnow()
+                # Content Factory: a failed publish needs a human — never auto-retry
+                # in a way that could duplicate the upload.
+                _proj = db.query(VideoProject).filter_by(id=pub.project_id).first()
+                if _proj:
+                    _proj.pipeline_stage = "publish"
+                    _proj.pipeline_state = "needs_review"
+                    _proj.pipeline_error = f"Публикация не удалась: {str(exc)[:200]}"
                 db.commit()
     finally:
         db.close()
@@ -693,6 +706,95 @@ def start_upload(pub_id: int):
     finally:
         db.close()
     mode = _enqueue_upload(pid)
+    payload["queue_mode"] = mode
+    return jsonify({"publication": payload}), 202
+
+
+@publications_api.route("/video-projects/<int:project_id>/pipeline/publish", methods=["POST"])
+@require_auth
+def factory_publish(project_id: int):
+    """Content Factory publish station. Builds a Publication from the AI Publisher
+    selected metadata and uploads to YouTube. Explicit publish is allowed in both
+    modes (the mode + confirmation dialog already govern autonomy). Idempotent:
+    never double-publishes. Pass dry_run=true to preview without uploading."""
+    data = request.get_json(silent=True) or {}
+    dry_run = bool(data.get("dry_run"))
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        channel = db.query(Channel).filter_by(id=p.channel_id).first()
+        # safety gate: AI Publisher package present
+        if not (p.youtube_meta_json or "").strip():
+            return jsonify({"error": "Нет пакета публикации — сначала запустите AI Publisher."}), 409
+        try:
+            meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            meta = {}
+        titles = meta.get("title_options") or []
+        descs = meta.get("description_options") or []
+        ti = min(max(int(meta.get("selected_title") or 0), 0), max(0, len(titles) - 1))
+        di = min(max(int(meta.get("selected_description") or 0), 0), max(0, len(descs) - 1))
+        title = (titles[ti] if titles else p.title).strip()[:100]
+        description = (descs[di] if descs else (p.script_text or "")).strip()
+        hashtags = [h for h in (meta.get("hashtags") or []) if str(h).strip()]
+        if hashtags:
+            description = (description + "\n\n" + " ".join(hashtags))
+        description = description[:4900]
+        tags = [str(t).strip() for t in (meta.get("tags") or []) if str(t).strip()][:15]
+        privacy = (meta.get("privacy") or getattr(channel, "default_visibility", None) or "private")
+        if privacy not in ("public", "unlisted", "private"):
+            privacy = "private"
+        # safety gate: required metadata
+        if not title:
+            return jsonify({"error": "Нет заголовка — выберите заголовок в AI Publisher."}), 409
+        # safety gate: rendered video present
+        if p.status != "rendered" or not _project_output_file(p):
+            return jsonify({"error": "Готовое видео отсутствует."}), 409
+        # safety gate: YouTube connection valid
+        if not channel or not channel.youtube_channel_id or channel.youtube_connection_status != "connected":
+            return jsonify({"error": "YouTube-канал не подключён."}), 409
+        # idempotency: already published?
+        published = (db.query(Publication)
+                     .filter(Publication.project_id == p.id, Publication.status == "published")
+                     .first())
+        if published:
+            return jsonify({"error": "Это видео уже опубликовано.", "publication": _pub_dict(published)}), 409
+        if dry_run:
+            return jsonify({"dry_run": True, "would_publish": {
+                "title": title, "description_chars": len(description),
+                "tags": tags, "privacy": privacy}}), 200
+        # reuse an inactive publication if any, else create
+        pub = (db.query(Publication)
+               .filter(Publication.project_id == p.id,
+                       Publication.status.in_(("draft", "ready", "failed", "needs_review")))
+               .order_by(Publication.id.desc()).first())
+        active = (db.query(Publication)
+                  .filter(Publication.project_id == p.id, Publication.status == "uploading").first())
+        if active:
+            return jsonify({"error": "Загрузка уже идёт."}), 409
+        if not pub:
+            pub = Publication(channel_id=p.channel_id, project_id=p.id, status="draft")
+            db.add(pub)
+        pub.title = title
+        pub.description = description
+        pub.tags_json = json.dumps(tags, ensure_ascii=False)
+        pub.privacy_status = privacy
+        pub.publish_mode = "immediate"
+        pub.last_error = None
+        pub.status = "uploading"  # atomic claim
+        pub.updated_at = datetime.utcnow()
+        p.pipeline_stage = "publish"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+        db.refresh(pub)
+        pub_id = pub.id
+        payload = _pub_dict(pub)
+    finally:
+        db.close()
+    mode = _enqueue_upload(pub_id)
     payload["queue_mode"] = mode
     return jsonify({"publication": payload}), 202
 

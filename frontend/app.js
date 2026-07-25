@@ -6984,6 +6984,10 @@ async function _factoryFetchPaint(pid) {
   } else if (sc.state === 'needs_review') {
     action = `<button class="btn btn-primary" data-fl-act="approve" data-fl-pid="${pid}">✓ Одобрить сценарий → запустить</button>`;
     msg = msg || 'Проверьте сценарий в «Расширенных инструментах». Одобрите — фабрика сделает сцены, видеоряд и рендер.';
+  } else if (st.publication_status === 'published') {
+    action = st.youtube_url
+      ? `<a class="fl-done" href="${esc(st.youtube_url)}" target="_blank" rel="noopener">✅ Опубликовано на YouTube ↗</a>`
+      : '<span class="fl-done">✅ Опубликовано</span>';
   } else if (hasMeta && (aiPub.state === 'needs_review' || aiPub.state === 'done')) {
     action = '';
     msg = aiPub.state === 'needs_review'
@@ -6997,7 +7001,7 @@ async function _factoryFetchPaint(pid) {
     action = '<span class="fl-done">✅ Все этапы готовы</span>';
   }
   host.innerHTML = `<div class="fl-wrap"><div class="fl-row">${lineHtml}</div><div class="fl-foot">${action}${msg ? `<span class="fl-msg">${esc(msg)}</span>` : ''}</div></div><div id="aiPubHost"></div>`;
-  if (hasMeta) { try { renderAiPublisherCard(pid, st); } catch (e) {} }
+  if (hasMeta && st.publication_status !== 'published') { try { renderAiPublisherCard(pid, st); } catch (e) {} }
   host.querySelectorAll('[data-fl-act]').forEach((b) => {
     b.onclick = async () => {
       const act = b.getAttribute('data-fl-act');
@@ -7107,9 +7111,17 @@ function renderAiPublisherCard(pid, st) {
     catch (e) { state.notice = { type: 'error', text: 'Не удалось сохранить пакет.' }; }
     render();
   };
-  document.getElementById('aipPublish').onclick = async () => {
+  document.getElementById('aipPublish').onclick = async (ev) => {
+    const btn = ev.currentTarget;
     try { await doSave(); } catch (e) {}
-    state.notice = { type: 'ok', text: 'Пакет сохранён. Публикация на YouTube включается на следующем шаге (Stage 3c).' };
+    if (!window.confirm('Опубликовать это видео на YouTube с выбранными метаданными?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '📡 Публикую…'; }
+    try {
+      await api(`/api/video-projects/${pid}/pipeline/publish`, { method: 'POST' });
+      state.notice = { type: 'ok', text: 'Публикация запущена — идёт загрузка на YouTube…' };
+    } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Не удалось опубликовать') };
+    }
     render();
   };
   const modeSel = document.getElementById('aipMode');
