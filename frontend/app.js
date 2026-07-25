@@ -6698,6 +6698,19 @@ function pageChannels() {
         <label class="small"><input id="chAutoPub" type="checkbox" ${detail.automatic_publishing_enabled ? 'checked' : ''}/> Автопубликация</label>
         <button id="chAutomationSaveBtn" class="btn btn-secondary" type="button" data-channel-id="${detail.id}">Сохранить автоматику</button>
       </div>
+      ${(() => {
+        if (!detail.scheduler_active) {
+          return `<p class="small" style="opacity:.7;">⚪ Планировщик выключен — включите «Автогенерация», выберите нишу и задайте лимит видео/день, чтобы канал сам делал видео.</p>`;
+        }
+        const im = detail.generation_interval_minutes || 0;
+        const iv = im >= 60 ? `${(im / 60).toFixed(im % 60 ? 1 : 0)} ч` : `${im} мин`;
+        const nx = detail.next_generation_at ? new Date(detail.next_generation_at) : null;
+        const nxT = !nx ? '—' : (nx <= new Date() ? 'скоро' : nx.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+        const pub = (detail.publishing_mode === 'automatic')
+          ? 'публикует на YouTube автоматически'
+          : 'останавливается на проверку перед публикацией (ручной режим)';
+        return `<p class="small" style="color:#22c55e;">🟢 Планировщик активен · новое видео каждые ${iv} · следующее ~${esc(nxT)} · ${pub}.</p>`;
+      })()}
       ${state.channelReadiness ? `<p class="small">Готовность генерации: ${state.channelReadiness.generation_configured ? '✅' : '⚠️ ' + esc((state.channelReadiness.generation_problems || []).join(', '))} · Публикация: ${state.channelReadiness.publishing_ready ? '✅' : '⚠️ ' + esc((state.channelReadiness.publishing_problems || []).join(', '))}</p>` : ''}
       ${channelYouTubeHtml(detail)}
       <h3>Идеи</h3>

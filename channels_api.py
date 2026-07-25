@@ -29,6 +29,33 @@ def _slugify(value: str) -> str:
     return slug or "channel"
 
 
+def _scheduler_status(c: Channel) -> dict:
+    """Honest, UI-facing view of the auto-generation scheduler for this channel.
+
+    Mirrors scheduler._due: the scheduler is active when the channel has
+    auto-generation on, a niche, active status and a positive daily limit; it
+    produces one video every (24h / daily_limit). Fields are derived from
+    channel columns only (no query) so the serializer stays cheap and pure.
+    """
+    from datetime import timedelta
+
+    limit = int(c.daily_video_limit or 0)
+    active = bool(c.automatic_generation_enabled and c.niche_id
+                  and c.status == "active" and limit > 0)
+    interval_min = (24 * 60 // limit) if limit > 0 else None
+    next_at = None
+    if active:
+        if c.last_generated_at:
+            next_at = c.last_generated_at + timedelta(minutes=interval_min)
+        else:
+            next_at = datetime.utcnow()  # never generated → due now
+    return {
+        "scheduler_active": active,
+        "generation_interval_minutes": interval_min,
+        "next_generation_at": next_at.isoformat() if next_at else None,
+    }
+
+
 def _channel_dict(c: Channel) -> dict:
     def _j(raw):
         try:
@@ -63,7 +90,9 @@ def _channel_dict(c: Channel) -> dict:
         "default_visibility": c.default_visibility,
         "automatic_generation_enabled": bool(c.automatic_generation_enabled),
         "automatic_publishing_enabled": bool(c.automatic_publishing_enabled),
+        "publishing_mode": (c.publishing_mode or "manual"),
         "last_generated_at": c.last_generated_at.isoformat() if c.last_generated_at else None,
+        **_scheduler_status(c),
         "youtube_channel_id": c.youtube_channel_id,
         "connected_account_id": c.connected_account_id,
         "generation_settings": _j(c.generation_settings_json) or {},
