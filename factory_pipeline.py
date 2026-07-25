@@ -144,6 +144,9 @@ def run(project_id: int, token: str) -> None:
                 _set(db, p, "ai_publisher", "error", f"AI Publisher: {err}")
                 return
             # the endpoint set needs_review (manual) or done (automatic).
+            # It wrote youtube_meta_json in its own session — refresh our copy so
+            # the publish station below sees the fresh package, not a stale empty.
+            db.refresh(p)
 
         # station 6 — publish. Automatic mode publishes without confirmation;
         # manual mode waits for the user's «Опубликовать» button.
