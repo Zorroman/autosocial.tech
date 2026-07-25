@@ -793,6 +793,19 @@ def factory_publish(project_id: int):
                 return _gate_fail(
                     f"Длительность {actual:.1f}s вне диапазона {lo}–{hi}s — публикация запрещена.")
 
+        # gate: final MP4 must carry an audio track (voiceover) spanning the video.
+        # A broken/cut voiceover → needs_review (never publish silent/truncated).
+        if out_file:
+            try:
+                from music_mix import _probe_dims
+                dims = _probe_dims(out_file)
+            except Exception:
+                dims = {"has_audio": False, "audio_duration": 0.0, "duration": 0.0}
+            if not dims.get("has_audio"):
+                return _gate_fail("В итоговом видео нет звуковой дорожки — публикация запрещена.")
+            if dims.get("audio_duration", 0.0) < (dims.get("duration", 0.0) - 1.0):
+                return _gate_fail("Звук короче видео (голос обрезан) — публикация запрещена.")
+
         # gate: description must be non-empty
         if not (description or "").strip():
             return _gate_fail("Пустое описание — публикация запрещена.")

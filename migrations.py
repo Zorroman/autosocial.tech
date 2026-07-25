@@ -278,6 +278,15 @@ def run_migrations() -> None:
                 # Stage 3 — per-video publishing override + AI Publisher output.
                 "publishing_override": "VARCHAR(20)",
                 "youtube_meta_json": "TEXT",
+                # Background music bed.
+                "music_track_id": "VARCHAR(64)",
+                "music_title": "VARCHAR(200)",
+                "music_provider": "VARCHAR(40)",
+                "music_start_seconds": "DOUBLE PRECISION",
+                "music_end_seconds": "DOUBLE PRECISION",
+                "music_gain_db": "DOUBLE PRECISION",
+                "music_status": "VARCHAR(20)",
+                "music_mix_version": "VARCHAR(10)",
             },
         )
     if "channel_ideas" in tables:

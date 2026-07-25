@@ -45,3 +45,5 @@ tests/render_fixtures/
 *.bak_factory
 *.bak_mojibake
 autosocial.db.bak_*
+music_import/
+test_output/

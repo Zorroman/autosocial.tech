@@ -799,6 +799,13 @@ def run_render_job(job_id: int) -> None:
                     release_job_reservations(db, job_id)
                     raise RuntimeError("render_output_invalid: output file missing or too small")
 
+                # --- quiet background music bed (never breaks render) ---
+                try:
+                    from music_mix import add_music_bed
+                    add_music_bed(project, out_abs, db)
+                except Exception:
+                    project.music_status = "no_music"
+
                 # --- commit footage usage history + manifest ---
                 assets_by_id = {}
                 for seg in timeline:

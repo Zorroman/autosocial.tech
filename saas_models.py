@@ -672,6 +672,15 @@ class VideoProject(SaaSBase):
     # generation_meta block (model/version/inputs) reserved for future learning
     # from YouTube analytics. Stored as JSON.
     youtube_meta_json = Column(Text, nullable=True)
+    # Background music bed selected/mixed for this Short (see music_mix.py).
+    music_track_id = Column(String(64), nullable=True)
+    music_title = Column(String(200), nullable=True)
+    music_provider = Column(String(40), nullable=True)
+    music_start_seconds = Column(Float, nullable=True)
+    music_end_seconds = Column(Float, nullable=True)
+    music_gain_db = Column(Float, nullable=True)
+    music_status = Column(String(20), nullable=True)  # mixed | no_music | disabled
+    music_mix_version = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
