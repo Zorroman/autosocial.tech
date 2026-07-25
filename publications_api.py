@@ -19,7 +19,7 @@ from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
 from saas_auth import require_auth
-from saas_models import Channel, Publication, RenderJob, SocialAccount, VideoProject
+from saas_models import Channel, Publication, RenderJob, SocialAccount, VideoProject, VideoScene
 from saas_services import decrypt_meta_token, encrypt_meta_token
 from saas_settings import settings
 
@@ -761,6 +761,49 @@ def factory_publish(project_id: int):
                      .first())
         if published:
             return jsonify({"error": "Это видео уже опубликовано.", "publication": _pub_dict(published)}), 409
+
+        # ---- Content Factory auto-publish safety gates ---------------------
+        # Any failure here leaves the project at needs_review with a precise
+        # reason and never uploads. These protect both manual and automatic
+        # publishing; automatic (public) publishing must clear all of them.
+        def _gate_fail(msg: str, code: int = 409):
+            p.pipeline_stage = "publish"
+            p.pipeline_state = "needs_review"
+            p.pipeline_error = msg
+            db.commit()
+            return jsonify({"error": msg, "gate": True}), code
+
+        # gate: every scene has media, none left for review
+        scenes = db.query(VideoScene).filter_by(project_id=p.id).all()
+        if not scenes or any(not (s.selected_media_path or "").strip() for s in scenes):
+            return _gate_fail("Не у всех сцен подобран видеоряд — публикация запрещена.")
+
+        # gate: final duration within target tolerance (e.g. 27–33s for 30s)
+        out_file = _project_output_file(p)
+        target = int(p.duration_target_seconds
+                     or getattr(channel, "default_video_duration_seconds", 0) or 0)
+        if target and out_file:
+            try:
+                from footage_library import probe_media
+                actual = float((probe_media(out_file) or {}).get("duration") or 0.0)
+            except Exception:
+                actual = 0.0
+            lo, hi = target - 3, target + 3
+            if not (lo <= actual <= hi):
+                return _gate_fail(
+                    f"Длительность {actual:.1f}s вне диапазона {lo}–{hi}s — публикация запрещена.")
+
+        # gate: description must be non-empty
+        if not (description or "").strip():
+            return _gate_fail("Пустое описание — публикация запрещена.")
+
+        # gate: automatic publishing must be explicitly public
+        from factory_pipeline import effective_mode
+        if effective_mode(p, channel) == "automatic" and privacy != "public":
+            return _gate_fail(
+                f"Автопубликация разрешена только как public (privacy={privacy}).")
+        # -------------------------------------------------------------------
+
         if dry_run:
             return jsonify({"dry_run": True, "would_publish": {
                 "title": title, "description_chars": len(description),

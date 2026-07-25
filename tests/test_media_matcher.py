@@ -206,3 +206,62 @@ def test_scheduler_reservation_blocks_double_generation(tmp_path):
     # SQLite runs them serially, which still proves the due-recheck guard.)
     reserved2, _, _ = scheduler._reserve(cid)
     assert reserved2 is False
+
+
+# 11) Scheduler backlog cap: no new generation past FACTORY_BACKLOG_LIMIT
+def test_scheduler_backlog_limit_blocks(tmp_path, monkeypatch):
+    from tests.test_private_admin import _fresh_app, _seed_admin
+    for m in ("scheduler",):
+        sys.modules.pop(m, None)
+    _fresh_app(tmp_path)
+    admin_id = _seed_admin()
+
+    from database import SessionLocal
+    from saas_models import Channel, VideoProject
+    import scheduler
+    monkeypatch.setattr(scheduler, "_BACKLOG_LIMIT", 3)
+
+    db = SessionLocal()
+    ch = Channel(owner_user_id=admin_id, name="Ch", slug="ch2", niche="ЭЗОТЕРИКА",
+                 language="ru", status="active", niche_id=1, daily_video_limit=6,
+                 automatic_generation_enabled=True, last_generated_at=None)
+    db.add(ch)
+    db.commit()
+    cid = ch.id
+    # 3 unfinished factory projects (needs_review) == backlog full
+    for i in range(3):
+        db.add(VideoProject(channel_id=cid, title=f"p{i}", status="draft",
+                            pipeline_stage="media", pipeline_state="needs_review"))
+    db.commit()
+    db.close()
+
+    reserved, _, _ = scheduler._reserve(cid)
+    assert reserved is False  # backlog full → no new generation
+
+
+# 12) Scheduler single-active-pipeline: a running pipeline blocks a new one
+def test_scheduler_single_active_pipeline(tmp_path):
+    from tests.test_private_admin import _fresh_app, _seed_admin
+    for m in ("scheduler",):
+        sys.modules.pop(m, None)
+    _fresh_app(tmp_path)
+    admin_id = _seed_admin()
+
+    from database import SessionLocal
+    from saas_models import Channel, VideoProject
+    import scheduler
+
+    db = SessionLocal()
+    ch = Channel(owner_user_id=admin_id, name="Ch", slug="ch3", niche="ЭЗОТЕРИКА",
+                 language="ru", status="active", niche_id=1, daily_video_limit=6,
+                 automatic_generation_enabled=True, last_generated_at=None)
+    db.add(ch)
+    db.commit()
+    cid = ch.id
+    db.add(VideoProject(channel_id=cid, title="running", status="draft",
+                        pipeline_stage="render", pipeline_state="running"))
+    db.commit()
+    db.close()
+
+    reserved, _, _ = scheduler._reserve(cid)
+    assert reserved is False  # one pipeline already running → no new generation

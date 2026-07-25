@@ -40,6 +40,12 @@ from saas_models import Channel, VideoProject
 log = logging.getLogger("factory.scheduler")
 _API = (os.getenv("FACTORY_API_BASE") or "http://backend:5000").rstrip("/")
 
+# Never let more than this many unfinished factory projects pile up per channel.
+try:
+    _BACKLOG_LIMIT = max(1, int(os.getenv("FACTORY_BACKLOG_LIMIT", "6")))
+except Exception:
+    _BACKLOG_LIMIT = 6
+
 
 def _enabled() -> bool:
     return os.getenv("FACTORY_SCHEDULER_ENABLED", "true").lower() in {"1", "true", "yes"}
@@ -142,6 +148,21 @@ def _reserve(channel_id: int) -> tuple[bool, int | None, int | None]:
             return False, None, None
         made = _made_today(db, ch, now)
         if not _due(ch, made, now):
+            return False, None, None
+        # At most one actively-running pipeline per channel at a time.
+        running = (db.query(VideoProject)
+                   .filter(VideoProject.channel_id == channel_id,
+                           VideoProject.pipeline_state == "running").count())
+        if running > 0:
+            return False, None, None
+        # Backlog cap: never let more than BACKLOG_LIMIT unfinished factory
+        # projects pile up (e.g. many needs_review). Retry a later tick once the
+        # backlog drains — last_generated_at is NOT advanced on this skip.
+        unfinished = (db.query(VideoProject)
+                      .filter(VideoProject.channel_id == channel_id,
+                              VideoProject.pipeline_stage.isnot(None),
+                              VideoProject.pipeline_state != "done").count())
+        if unfinished >= _BACKLOG_LIMIT:
             return False, None, None
         # Reserve: spend the slot before the long pipeline runs.
         ch.last_generated_at = now
