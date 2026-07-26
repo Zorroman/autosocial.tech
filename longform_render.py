@@ -106,6 +106,22 @@ def render_segment(prepped_image: Path, out: Path, seconds: float, motion: str) 
     ], timeout=600)
 
 
+def render_clip_segment(clip_path: Path, out: Path, seconds: float, start: float = 0.0) -> tuple[bool, str]:
+    """Normalize ONE real video clip → a WxH/FPS segment (scale-cover + centre-crop,
+    trimmed to `seconds`). One ffmpeg process = one decoded stream, so peak memory
+    stays bounded exactly like a still segment — this is what keeps mixing real
+    footage OOM-safe on the 3.8 GB box (vs the old all-clips-at-once filter graph)."""
+    return _run([
+        _FFMPEG, "-y", "-ss", f"{max(0.0, start):.3f}", "-i", str(clip_path),
+        "-t", f"{seconds:.3f}", "-r", str(FPS),
+        "-vf", (f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={W}:{H},format=yuv420p"),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-pix_fmt", "yuv420p", "-threads", str(THREADS),
+        "-video_track_timescale", "90000", "-an", str(out),
+    ], timeout=600)
+
+
 def _concat_copy(parts: list[Path], out: Path, work: Path) -> tuple[bool, str]:
     lst = work / f"concat_{out.stem}.txt"
     lst.write_text("\n".join(f"file '{p.as_posix()}'" for p in parts) + "\n", encoding="utf-8")
