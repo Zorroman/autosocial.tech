@@ -34,6 +34,34 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _ass_t(s: float) -> str:
+    h = int(s // 3600); m = int((s % 3600) // 60); sec = s % 60
+    return f"{h}:{m:02d}:{sec:05.2f}"
+
+
+def write_landscape_ass(cues: list[dict], path: Path) -> None:
+    """Subtitles styled for 1920x1080 (NOT the vertical Shorts layout that made
+    them look narrow): large, bottom-centre, wide margins, strong outline."""
+    header = (
+        "[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nWrapStyle: 0\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+        "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
+        "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        "Style: LF,DejaVu Sans,54,&H00FFFFFF,&H0000E5FF,&H00101010,&H90000000,-1,0,0,0,"
+        "100,100,0,0,1,4,1,2,140,140,90,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+    lines = [header]
+    for c in cues:
+        txt = str(c.get("text", "")).strip().replace("\n", "\\N")
+        if not txt:
+            continue
+        lines.append(f"Dialogue: 0,{_ass_t(float(c['start']))},{_ass_t(float(c['start'])+float(c['duration']) if 'duration' in c else float(c['end']))},LF,,0,0,0,,{txt}")
+    path.write_text("".join(l if l.endswith('\n') else l + '\n' for l in lines), encoding="utf-8")
+
+
 def _probe(path: Path) -> dict:
     try:
         p = subprocess.run([_FFPROBE, "-v", "quiet", "-print_format", "json",
@@ -238,7 +266,10 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
         else:
             voice_str, durations = synthesize_voiceover(
                 phrases, audio_dir, f"project_{project_id}",
-                voice_name=(ch.default_voice if ch else None),
+                voice_name="onyx",  # warm, calm narrator (valid OpenAI voice)
+                instructions=("Читай спокойно, тепло и размеренно, как опытный "
+                              "рассказчик-документалист. Естественные паузы между "
+                              "мыслями, живая интонация, без спешки и без монотонности."),
                 gap_before=[0.3 if getattr(s, "is_cta", False) else 0.0 for s in scenes])
             voice_file = Path(voice_str)
         vdur = _probe(voice_file).get("duration", 0)
@@ -258,7 +289,7 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             cursor += sd
         cues = build_cues(cue_scenes)
         ass_path = work / f"subs_{project_id}.ass"
-        write_ass(cues, ass_path)
+        write_landscape_ass(cues, ass_path)  # 1920x1080 style, not vertical Shorts
         _stage("subtitles", cues=len(cues), file=str(ass_path))
 
         # chapter overlays (locally-authored explanatory graphics)

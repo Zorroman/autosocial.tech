@@ -36,7 +36,10 @@ CHUNK_SECONDS = int(os.getenv("LONGFORM_RENDER_CHUNK_SECONDS", "40"))
 # while staying small in memory (~10 MB decoded).
 _PREP_W, _PREP_H = 2400, 1350
 
-_MOTIONS = ("zoom_in", "zoom_out", "pan_left", "pan_right")
+# Only smooth horizontal pans — no zoom (zoompan zoom causes the jitter/shake
+# the user disliked). A crop window slides across the oversize canvas: no zoom,
+# no sub-pixel jitter, just a calm left↔right glide.
+_MOTIONS = ("pan_right", "pan_left")
 
 
 @dataclass
@@ -78,31 +81,25 @@ def prep_image(src: Path, dst: Path) -> bool:
     return ok and dst.exists()
 
 
-def _zoompan_vf(motion: str, seconds: float) -> str:
-    d = max(1, int(round(seconds * FPS)))
-    # gentle motion; output exactly WxH from the 2400x1350 canvas
-    if motion == "zoom_in":
-        z = "min(zoom+0.0006,1.20)"
-        x, y = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
-    elif motion == "zoom_out":
-        z = "if(lte(zoom,1.0),1.20,max(1.0,zoom-0.0006))"
-        x, y = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
-    elif motion == "pan_left":
-        z = "1.12"
-        x, y = f"(iw-iw/zoom)*(1-on/{d})", "ih/2-(ih/zoom/2)"
-    else:  # pan_right
-        z = "1.12"
-        x, y = f"(iw-iw/zoom)*(on/{d})", "ih/2-(ih/zoom/2)"
-    return (f"zoompan=z='{z}':d={d}:x='{x}':y='{y}':s={W}x{H}:fps={FPS},"
-            f"format=yuv420p")
+def _pan_vf(motion: str, seconds: float) -> str:
+    """A jitter-free horizontal pan: slide a WxH crop window across the oversize
+    2400x1350 canvas. No zoom, so no sub-pixel shake — just a calm glide.
+    y is centre-cropped; the ~480px of extra width is traversed over `seconds`."""
+    dur = max(0.5, float(seconds))
+    if motion == "pan_left":   # image content moves left→right (camera pans right→left)
+        x = f"(iw-{W})*(1-t/{dur:.3f})"
+    else:                       # pan_right: camera glides left→right
+        x = f"(iw-{W})*(t/{dur:.3f})"
+    return (f"crop={W}:{H}:x='max(0,min(iw-{W},{x}))':y='(ih-{H})/2',format=yuv420p")
 
 
 def render_segment(prepped_image: Path, out: Path, seconds: float, motion: str) -> tuple[bool, str]:
-    """Ken-Burns one still → a WxH segment. One ffmpeg process, low memory."""
+    """Animate one still with a smooth horizontal pan → a WxH segment. One ffmpeg
+    process, low memory, no jitter."""
     return _run([
         _FFMPEG, "-y", "-loop", "1", "-i", str(prepped_image),
         "-t", f"{seconds:.3f}", "-r", str(FPS),
-        "-vf", _zoompan_vf(motion, seconds),
+        "-vf", _pan_vf(motion, seconds),
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-pix_fmt", "yuv420p", "-threads", str(THREADS),
         "-video_track_timescale", "90000", "-an", str(out),
