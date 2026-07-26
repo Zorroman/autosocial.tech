@@ -74,7 +74,7 @@ def write_landscape_ass(cues: list[dict], path: Path) -> None:
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
         "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
         "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: LF,DejaVu Sans,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
+        "Style: LF,Nunito,54,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
         "100,100,0,0,1,4,1,2,140,140,92,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -231,7 +231,7 @@ def _esc(p: str) -> str:
 def final_mix(silent_video: Path, voice: Path, music: Path, ass: Path,
               overlays: list[dict], out: Path, dur: float) -> tuple[bool, str]:
     fo = max(0.0, dur - 1.2)
-    vf = [f"subtitles='{_esc(str(ass))}'"]
+    vf = [f"subtitles='{_esc(str(ass))}':fontsdir=/app/assets/fonts"]
     for ov in overlays:  # chapter lower-thirds (locally-authored explanatory graphics)
         txt = ov["text"].replace("'", "").replace(":", " ")
         vf.append(
