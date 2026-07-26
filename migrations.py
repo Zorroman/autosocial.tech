@@ -287,7 +287,20 @@ def run_migrations() -> None:
                 "music_gain_db": "DOUBLE PRECISION",
                 "music_status": "VARCHAR(20)",
                 "music_mix_version": "VARCHAR(10)",
+                # Final spoken CTA.
+                "cta_enabled": "BOOLEAN",
+                "cta_text": "TEXT",
+                "cta_type": "VARCHAR(30)",
+                "cta_language": "VARCHAR(10)",
+                "cta_source": "VARCHAR(20)",
+                "cta_audio_duration_seconds": "DOUBLE PRECISION",
+                "cta_fallback_used": "BOOLEAN",
             },
+        )
+    if "video_scenes" in tables:
+        add_missing_columns(
+            "video_scenes",
+            {"is_cta": "BOOLEAN DEFAULT FALSE"},
         )
     if "channel_ideas" in tables:
         add_missing_columns(

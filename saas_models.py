@@ -681,6 +681,14 @@ class VideoProject(SaaSBase):
     music_gain_db = Column(Float, nullable=True)
     music_status = Column(String(20), nullable=True)  # mixed | no_music | disabled
     music_mix_version = Column(String(10), nullable=True)
+    # Final spoken call-to-action (see cta_generator.py / music_mix is separate).
+    cta_enabled = Column(Boolean, nullable=True)
+    cta_text = Column(Text, nullable=True)
+    cta_type = Column(String(30), nullable=True)
+    cta_language = Column(String(10), nullable=True)
+    cta_source = Column(String(20), nullable=True)  # generated | library | custom | fallback | disabled
+    cta_audio_duration_seconds = Column(Float, nullable=True)
+    cta_fallback_used = Column(Boolean, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -702,6 +710,7 @@ class VideoScene(SaaSBase):
     media_meta_json = Column(Text, nullable=True)
     transition = Column(String(30), nullable=True)
     status = Column(String(20), nullable=False, default="draft")
+    is_cta = Column(Boolean, nullable=False, default=False)  # final subscribe CTA scene
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

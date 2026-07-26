@@ -8,6 +8,7 @@ thread (dev fallback; jobs are lost on restart - documented limitation).
 Progress values are written at real pipeline stages, never simulated.
 """
 import json
+import logging
 import re
 import socket
 import subprocess
@@ -321,6 +322,14 @@ def generate_project_script(project_id: int):
         target_seconds = int(p.duration_target_seconds or getattr(ch, "default_video_duration_seconds", 45) or 45)
         style = (getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or "")
 
+        # CTA reserves ~4s of the target so main content + CTA stays in the band.
+        import cta_generator as _cta
+        cta_cfg = _cta.read_cta_settings(ch)
+        cta_on = bool(cta_cfg.get("cta_enabled"))
+        main_target = target_seconds
+        if cta_on and target_seconds > (_cta.CTA_RESERVE_SECONDS + 8):
+            main_target = int(round(target_seconds - _cta.CTA_RESERVE_SECONDS))
+
         p.pipeline_stage = "script"
         p.pipeline_state = "running"
         p.pipeline_error = None
@@ -329,7 +338,7 @@ def generate_project_script(project_id: int):
         try:
             from video_script_generator import generate as _generate_script
             bundle = _generate_script(topic=topic, offer=None, language=language,
-                                      target_seconds=target_seconds, style=style)
+                                      target_seconds=main_target, style=style)
         except Exception as exc:  # noqa: BLE001 — surface as a station error, don't 500
             p.pipeline_state = "error"
             p.pipeline_error = f"script: {str(exc)[:280]}"
@@ -347,6 +356,44 @@ def generate_project_script(project_id: int):
                             "pipeline_state": "error"}), 502
 
         p.script_text = script_text
+        # --- final subscribe CTA (optional; never blocks the script station) ---
+        if cta_on:
+            try:
+                window = int(cta_cfg.get("cta_history_window") or 20)
+                recent_rows = (db.query(VideoProject.cta_text, VideoProject.cta_type)
+                               .filter(VideoProject.channel_id == p.channel_id,
+                                       VideoProject.cta_text.isnot(None))
+                               .order_by(VideoProject.id.desc()).limit(window).all())
+                recent_ctas = [r[0] for r in recent_rows if r[0]]
+                recent_types = [r[1] for r in recent_rows if r[1]]
+                cta = _cta.generate_cta({
+                    "language": language,
+                    "niche": getattr(ch, "niche", None),
+                    "project_title": p.title,
+                    "topic": topic,
+                    "last_line": phrases[-1] if phrases else "",
+                    "channel_promise": (cta_cfg.get("cta_fallback_text") or ""),
+                    "recent_ctas": recent_ctas,
+                    "recent_types": recent_types,
+                    "min_words": cta_cfg.get("cta_min_words"),
+                    "max_words": cta_cfg.get("cta_max_words"),
+                    "max_same_type_streak": cta_cfg.get("cta_max_same_type_streak"),
+                })
+                p.cta_enabled = True
+                p.cta_text = cta["text"]
+                p.cta_type = cta["type"]
+                p.cta_language = cta["language"]
+                p.cta_source = cta["source"]
+                p.cta_fallback_used = bool(cta["fallback_used"])
+            except Exception as exc:  # CTA is optional — log and continue
+                p.cta_enabled = True
+                p.cta_source = "fallback"
+                p.pipeline_error = None
+                logging.getLogger("factory.cta").warning("cta gen failed: %s", str(exc)[:200])
+        else:
+            p.cta_enabled = False
+            p.cta_source = "disabled"
+
         autopilot = bool(getattr(ch, "autopilot_enabled", False))
         p.pipeline_stage = "script"
         p.pipeline_state = "done" if autopilot else "needs_review"
@@ -402,7 +449,22 @@ def split_scenes(project_id: int):
             )
             db.add(s)
             scenes.append(s)
+        # Append the final subscribe CTA as its own scene, so it flows through
+        # the same TTS / subtitles / render path (voiced last, own subtitle cue).
+        if getattr(p, "cta_enabled", False) and (p.cta_text or "").strip():
+            import cta_generator as _cta
+            db.add(VideoScene(
+                project_id=p.id,
+                order_index=len(scenes),
+                voiceover_text=p.cta_text.strip(),
+                on_screen_text=None,
+                estimated_duration=_cta.CTA_RESERVE_SECONDS,
+                status="draft",
+                is_cta=True,
+            ))
         db.commit()
+        scenes = (db.query(VideoScene).filter_by(project_id=p.id)
+                  .order_by(VideoScene.order_index.asc()).all())
         for s in scenes:
             db.refresh(s)
         return jsonify({"scenes": [_scene_dict(s) for s in scenes]}), 201
@@ -631,15 +693,28 @@ def run_render_job(job_id: int) -> None:
                     phrases = [(s.voiceover_text or "").strip() for s in scenes]
                     if not any(phrases):
                         raise RuntimeError("tts_no_text: scenes have no voiceover_text")
+                    # 0.3s pause before the final CTA (same voice, natural break).
+                    gap_before = [0.3 if getattr(s, "is_cta", False) else 0.0 for s in scenes]
+                    # Clamp the combined voiceover (main + CTA) to the target so the
+                    # finished Short stays inside the 27–33s publish band even with
+                    # the appended CTA. TTS speeds up/pads to fit.
+                    _ch = db.query(Channel).filter_by(id=project.channel_id).first()
+                    _tgt = float(project.duration_target_seconds
+                                 or getattr(_ch, "default_video_duration_seconds", 0) or 0) or None
                     voice_str, durations = synthesize_voiceover(
                         phrases, audio_dir, f"project_{project.id}",
-                        voice_name=(db.query(Channel).filter_by(id=project.channel_id).first() or Channel()).default_voice or None,
+                        voice_name=(_ch or Channel()).default_voice or None,
+                        gap_before=gap_before,
+                        target_total_seconds=_tgt,
                     )
                     voice_path = Path(voice_str)
                     for s, d in zip(scenes, durations):
                         if d and d > 0:
                             s.actual_duration = float(d)
                             s.estimated_duration = float(d)
+                            if getattr(s, "is_cta", False):
+                                # slot includes the 0.3s pause; spoken audio is the rest
+                                project.cta_audio_duration_seconds = round(max(0.1, float(d) - 0.3), 2)
                     db.commit()
                 _set_job(db, job_id, progress=15)
 
@@ -651,16 +726,41 @@ def run_render_job(job_id: int) -> None:
                 cue_scenes = []
                 for s in scenes:
                     sdur = float(s.estimated_duration or 4.0)
+                    c_start, c_dur = cursor, sdur
+                    if getattr(s, "is_cta", False):
+                        # CTA subtitle starts after the 0.3s pause, with the speech
+                        c_start, c_dur = cursor + 0.3, max(0.1, sdur - 0.3)
                     cue_scenes.append({
                         "text": (s.on_screen_text or s.voiceover_text or "").strip(),
-                        "start": cursor,
-                        "duration": sdur,
+                        "start": c_start,
+                        "duration": c_dur,
                     })
                     cursor += sdur
                 cues = build_cues(cue_scenes)
                 ass_path = subs_dir / f"project_{project.id}.ass"
                 if cues:
                     write_ass(cues, ass_path)
+                # Optional visual CTA badge: a positioned libass line over the CTA
+                # window (Cyrillic-safe, top-center, clear of bottom subtitles).
+                # Non-blocking: never fails the render.
+                try:
+                    import cta_generator as _cta
+                    _ccfg = _cta.read_cta_settings(_channel_for_cta := db.query(Channel).filter_by(id=project.channel_id).first())
+                    cta_scene = next((s for s in scenes if getattr(s, "is_cta", False)), None)
+                    if cues and cta_scene and _ccfg.get("cta_visual_enabled"):
+                        st = sum(float(x.estimated_duration or 4.0) for x in scenes
+                                 if x.order_index < cta_scene.order_index) + 0.3
+                        en = st + max(0.1, float(cta_scene.estimated_duration or 4.0) - 0.3)
+                        def _ass_t(t):
+                            h = int(t // 3600); m = int((t % 3600) // 60); s2 = t % 60
+                            return f"{h}:{m:02d}:{s2:05.2f}"
+                        label = {"ru": "Подпишись", "en": "Subscribe", "uk": "Підпишись"}.get(
+                            (project.cta_language or "ru"), "Подпишись")
+                        with open(ass_path, "a", encoding="utf-8") as _fh:
+                            _fh.write(f"Dialogue: 0,{_ass_t(st)},{_ass_t(en)},Default,,0,0,0,,"
+                                      f"{{\\an8\\fs44\\bord3\\shad1}}{label}\n")
+                except Exception:
+                    pass
                 _set_job(db, job_id, progress=30)
 
                 # --- footage segmentation with repeat protection ---
@@ -1679,6 +1779,11 @@ def project_auto_media(project_id: int):
                     pass
                 continue
 
+            # The final CTA scene reuses the previous clip (visual continuity) —
+            # handled after the loop, once main scenes have their media.
+            if getattr(s, "is_cta", False):
+                continue
+
             sp = plan.scenes.get(s.id) or _mm.ScenePlan(
                 scene_id=s.id, queries=[(channel.niche if channel else "") or "abstract"],
                 simple="abstract", keywords=[],
@@ -1720,6 +1825,17 @@ def project_auto_media(project_id: int):
                            "stage": pick.stage, "confidence": pick.confidence,
                            "relevance": pick.diagnostics.get("chosen_score"),
                            "segments_planned": needed})
+        # CTA scene(s): reuse the preceding scene's clip (visual continuity).
+        ordered = sorted(scenes, key=lambda x: x.order_index)
+        for i, s in enumerate(ordered):
+            if getattr(s, "is_cta", False) and not s.selected_media_path and i > 0:
+                prev = ordered[i - 1]
+                if prev.selected_media_path:
+                    s.selected_media_path = prev.selected_media_path
+                    s.visual_type = prev.visual_type
+                    s.media_meta_json = prev.media_meta_json
+                    s.status = "ready"
+                    report.append({"scene_id": s.id, "cta": True, "reused_previous_clip": True})
         db.commit()
         # Scenes still without media after matching → the station needs review.
         missing = [s.id for s in scenes if not s.selected_media_path]

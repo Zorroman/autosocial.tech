@@ -233,6 +233,61 @@ def set_publishing_mode(channel_id: int):
         db.close()
 
 
+@channels_api.route("/channels/<int:channel_id>/cta-settings", methods=["GET", "POST"])
+@require_auth
+def cta_settings(channel_id: int):
+    """Get or update the final-CTA settings for a channel. Stored in the existing
+    channel.generation_settings_json under the 'cta' key (no parallel config)."""
+    import cta_generator as _cta
+    from saas_models import VideoProject
+    db = SessionLocal()
+    try:
+        c = _own_channel(db, channel_id)
+        if not c:
+            return jsonify({"error": "Channel not found"}), 404
+        if request.method == "POST":
+            data = request.get_json(silent=True) or {}
+            cur = _cta.read_cta_settings(c)
+            bools = ("cta_enabled", "cta_voice_enabled", "cta_visual_enabled")
+            ints = {"cta_min_words": (1, 30), "cta_max_words": (2, 40),
+                    "cta_history_window": (0, 200), "cta_max_same_type_streak": (1, 20)}
+            for k in bools:
+                if k in data:
+                    cur[k] = bool(data[k])
+            for k, (lo, hi) in ints.items():
+                if k in data:
+                    try:
+                        cur[k] = max(lo, min(hi, int(data[k])))
+                    except (TypeError, ValueError):
+                        return jsonify({"error": f"{k} must be an integer"}), 400
+            if "cta_fallback_text" in data:
+                cur["cta_fallback_text"] = str(data.get("cta_fallback_text") or "").strip()[:300]
+            if int(cur["cta_min_words"]) > int(cur["cta_max_words"]):
+                return jsonify({"error": "cta_min_words cannot exceed cta_max_words"}), 400
+            cfg = _j(c.generation_settings_json) or {}
+            cfg["cta"] = cur
+            c.generation_settings_json = json.dumps(cfg, ensure_ascii=False)
+            db.commit()
+        settings_out = _cta.read_cta_settings(c)
+        last = (db.query(VideoProject.cta_text, VideoProject.cta_type, VideoProject.cta_source)
+                .filter(VideoProject.channel_id == c.id, VideoProject.cta_text.isnot(None))
+                .order_by(VideoProject.id.desc()).first())
+        return jsonify({
+            "channel_id": c.id,
+            "cta_settings": settings_out,
+            "last_cta": ({"text": last[0], "type": last[1], "source": last[2]} if last else None),
+        })
+    finally:
+        db.close()
+
+
+def _j(raw):
+    try:
+        return json.loads(raw) if raw else None
+    except Exception:
+        return None
+
+
 @channels_api.route("/channels", methods=["GET"])
 @require_auth
 def list_channels():

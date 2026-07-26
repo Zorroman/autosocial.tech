@@ -237,14 +237,29 @@ def synthesize_voiceover(
     voice_tone: str | None = None,
     voice_name: str | None = None,
     speech_speed: str | float | int | None = None,
+    gap_before: list[float] | None = None,
 ) -> tuple[str, list[float]]:
     out_dir.mkdir(parents=True, exist_ok=True)
     phrase_files: list[Path] = []
     durations: list[float] = []
+    has_gap = False
     for idx, phrase in enumerate(phrases):
         line = str(phrase or "").strip()
         if not line:
             line = " "
+        gap = 0.0
+        if gap_before and idx < len(gap_before):
+            try:
+                gap = max(0.0, float(gap_before[idx]))
+            except Exception:
+                gap = 0.0
+        if gap > 0:
+            sil = out_dir / f"{prefix}_gap_{idx:03d}.mp3"
+            _run([settings.FFMPEG_BIN, "-y", "-f", "lavfi",
+                  "-i", f"anullsrc=r=44100:cl=mono:d={gap:.3f}",
+                  "-c:a", "libmp3lame", "-q:a", "4", str(sil)])
+            phrase_files.append(sil)
+            has_gap = True
         p = out_dir / f"{prefix}_phrase_{idx:03d}.mp3"
         primary = _primary_tts_provider()
         order = ("edge", "openai") if primary == "edge" else ("openai", "edge")
@@ -277,7 +292,7 @@ def synthesize_voiceover(
         d = max(0.2, d)
         if min_phrase_seconds is not None:
             d = max(d, float(min_phrase_seconds))
-        durations.append(d)
+        durations.append(d + gap)  # the pause belongs to this phrase's slot
         phrase_files.append(p)
 
     concat_list = out_dir / f"{prefix}_concat.txt"
@@ -286,6 +301,9 @@ def synthesize_voiceover(
         encoding="utf-8",
     )
     final_audio = out_dir / f"{prefix}_voiceover.mp3"
+    # Copy-concat when all segments share codec params; re-encode when we inserted
+    # silence gaps (mixed params) so the concat is always clean.
+    codec_args = ["-c:a", "libmp3lame", "-q:a", "2"] if has_gap else ["-c", "copy"]
     _run(
         [
             settings.FFMPEG_BIN,
@@ -296,8 +314,7 @@ def synthesize_voiceover(
             "0",
             "-i",
             str(concat_list),
-            "-c",
-            "copy",
+            *codec_args,
             str(final_audio),
         ]
     )
