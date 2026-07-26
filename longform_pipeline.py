@@ -127,34 +127,37 @@ def acquire_photos(groups, work: Path, per_group: int = 4) -> tuple[list[dict], 
 
 # ---- segment timeline (Ken Burns matched to narration durations) ----------
 
-def build_timeline(scenes, groups, group_photos) -> list[lr.Segment]:
-    scene_group = {}
-    for g in groups:
-        for sid in g["scene_ids"]:
-            scene_group[sid] = g["visual_group_id"]
-    # CTA scene → last group's photos
-    last_gid = groups[-1]["visual_group_id"] if groups else None
+def build_timeline(scenes, groups, group_photos, seg_len: float = 5.0) -> list[lr.Segment]:
+    """Interleave photos ACROSS groups (round-robin) so subjects alternate
+    (temple→monk→mountain→ocean…) with a GLOBAL cursor — no group's first photo
+    repeats every scene, no two adjacent segments share a photo, and Ken-Burns
+    motion cycles (3+ patterns, never the same twice in a row)."""
+    # round-robin interleave: photo #0 of each group, then #1 of each, …
+    per_group = [group_photos.get(g["visual_group_id"], []) for g in groups]
+    interleaved: list[str] = []
+    for j in range(max((len(p) for p in per_group), default=0)):
+        for gp in per_group:
+            if j < len(gp):
+                interleaved.append(gp[j])
+    if not interleaved:
+        return []
+    total = sum(float(getattr(s, "estimated_duration", None) or 6.0) for s in scenes)
     segs: list[lr.Segment] = []
+    pi = mi = 0
+    remaining = total
+    last_img = None
     motions = lr._MOTIONS
-    mi = 0
-    all_photos = [p for g in groups for p in group_photos.get(g["visual_group_id"], [])]
-    for s in scenes:
-        dur = float(getattr(s, "estimated_duration", None) or 6.0)
-        gid = scene_group.get(s.id, last_gid)
-        photos = group_photos.get(gid) or all_photos
-        if not photos:
-            continue
-        # split the scene into ~7s Ken Burns beats, cycling photos + motion
-        remaining = dur
-        pj = 0
-        while remaining > 0.5:
-            seg_len = min(7.0, remaining)
-            segs.append(lr.Segment(image=photos[pj % len(photos)],
-                                   seconds=round(seg_len, 2),
-                                   motion=motions[mi % len(motions)]))
-            remaining -= seg_len
-            pj += 1
-            mi += 1
+    while remaining > 0.5:
+        img = interleaved[pi % len(interleaved)]
+        if img == last_img and len(interleaved) > 1:
+            pi += 1
+            img = interleaved[pi % len(interleaved)]
+        seg = min(seg_len, remaining)
+        segs.append(lr.Segment(image=img, seconds=round(seg, 2), motion=motions[mi % len(motions)]))
+        last_img = img
+        remaining -= seg
+        pi += 1
+        mi += 1
     return segs
 
 
