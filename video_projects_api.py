@@ -322,6 +322,16 @@ def generate_project_script(project_id: int):
         target_seconds = int(p.duration_target_seconds or getattr(ch, "default_video_duration_seconds", 45) or 45)
         style = (getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or "")
 
+        # Persist the resolved target + aspect on the project so every downstream
+        # station (split-scenes, media, render, publish gate) agrees. Essential
+        # for long-form, which those stations detect via duration_target_seconds.
+        if not p.duration_target_seconds:
+            p.duration_target_seconds = target_seconds
+        _fmt = (getattr(ch, "default_video_format", "") or "").lower()
+        if _fmt in ("16:9", "horizontal", "long", "longform", "long-form"):
+            p.aspect_ratio = "16:9"
+        db.commit()
+
         # CTA reserves ~4s of the target so main content + CTA stays in the band.
         import cta_generator as _cta
         cta_cfg = _cta.read_cta_settings(ch)
@@ -432,7 +442,9 @@ def split_scenes(project_id: int):
         sentences = [s.strip() for s in _SENTENCE_RE.split(script) if s.strip()]
         if not sentences:
             return jsonify({"error": "Could not split script into sentences"}), 400
-        per_scene = 2
+        # Long-form (calm narration) → fewer, longer scenes; Shorts stay punchy.
+        _tgt = int(p.duration_target_seconds or 0)
+        per_scene = 4 if _tgt >= 150 else 2
         chunks = [" ".join(sentences[i:i + per_scene]) for i in range(0, len(sentences), per_scene)]
         # ~2.5 words/second speaking pace, clamped to sane shot lengths.
         scenes = []
@@ -699,8 +711,11 @@ def run_render_job(job_id: int) -> None:
                     # finished Short stays inside the 27–33s publish band even with
                     # the appended CTA. TTS speeds up/pads to fit.
                     _ch = db.query(Channel).filter_by(id=project.channel_id).first()
-                    _tgt = float(project.duration_target_seconds
-                                 or getattr(_ch, "default_video_duration_seconds", 0) or 0) or None
+                    _raw_tgt = float(project.duration_target_seconds
+                                     or getattr(_ch, "default_video_duration_seconds", 0) or 0)
+                    # Clamp only short-form to an exact target; long-form keeps its
+                    # natural length (a wide publish band applies instead).
+                    _tgt = _raw_tgt if (0 < _raw_tgt < 120) else None
                     voice_str, durations = synthesize_voiceover(
                         phrases, audio_dir, f"project_{project.id}",
                         voice_name=(_ch or Channel()).default_voice or None,
@@ -1766,6 +1781,9 @@ def project_auto_media(project_id: int):
             )
         }
         used_in_project: set[str] = set()  # never reuse a clip within one video
+        # Long-form needs dozens of scenes — allow calm clips to cycle/repeat
+        # (a curated serene set) instead of failing on Pexels uniqueness.
+        _longform = int(p.duration_target_seconds or 0) >= 150
 
         from footage_library import segment_plan
         for s in scenes:
@@ -1795,7 +1813,7 @@ def project_auto_media(project_id: int):
                                    simple=sp.simple or manual_q, keywords=sp.keywords)
 
             needed = len(segment_plan(float(s.estimated_duration or 4.0)))
-            exclude = recent_ids | used_in_project
+            exclude = recent_ids if _longform else (recent_ids | used_in_project)
 
             def _search(q, excl, _needed=needed):
                 return _pexels_search_diverse(q, limit=max(6, _needed * 2), exclude_ids=excl)

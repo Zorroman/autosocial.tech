@@ -107,7 +107,7 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
     if not out:
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
 
-    target_seconds = max(20, min(480, int(target_seconds or 30)))
+    target_seconds = max(20, min(1800, int(target_seconds or 30)))
     fillers = _topic_fillers(topic, offer)
 
     # Duration is the hard constraint (the 27–33s publish gate for a 30s target),
@@ -229,6 +229,71 @@ def _fallback(topic: str, offer: str | None, language: str, target_seconds: int,
     )
 
 
+def _generate_longform(topic, offer, language, target_seconds, style, style_pack) -> ScriptBundle:
+    """Calm long-form narration (12–20 min). Generated in chunks — an outline of
+    distinct sections, then each section expanded — so a 15-minute script stays
+    coherent and varied instead of being padded with repetitive filler."""
+    from openai_client import generate_json_with_retry
+
+    n_sections = max(6, min(16, round(target_seconds / 75)))
+    words_per_section = max(90, round(target_seconds * 2.2 / n_sections))
+
+    sys1 = ("Ты — сценарист спокойного глубокого закадрового повествования для "
+            "длинного медитативного видео. Верни только валидный JSON.")
+    usr1 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+            f"Составь план из {n_sections} последовательных смысловых частей — каждая "
+            "раскрывает отдельную грань темы (учение, идея, притча, практика, "
+            "размышление), логично развивая повествование, без повторов.\n"
+            'JSON: {"title":"...","description":"...","hashtags":["#..."],'
+            '"sections":["краткая тема части 1","краткая тема части 2"]}')
+
+    def _v1(p):
+        if not isinstance(p.get("sections"), list) or len(p["sections"]) < 3:
+            raise ValueError("sections required")
+
+    out = generate_json_with_retry(system_prompt=sys1, user_prompt=usr1, validator=_v1,
+                                   max_output_tokens=900, temperature=0.7).payload
+    sections = [str(s).strip() for s in (out.get("sections") or []) if str(s).strip()][:n_sections]
+
+    phrases: list[str] = []
+    sys2 = ("Ты пишешь спокойный естественный закадровый текст для медитативного "
+            "видео. Живой человеческий язык, без клише, списков и повторов. "
+            "Верни только валидный JSON.")
+    for i, sec in enumerate(sections):
+        usr2 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                f"Часть {i + 1} из {len(sections)}: {sec}\n"
+                f"Напиши примерно {words_per_section} слов связного повествования по этой "
+                "части — несколько законченных предложений, спокойный созерцательный тон. "
+                "Не повторяй уже сказанное, без вступлений вроде «в этой части».\n"
+                'JSON: {"sentences":["предложение","предложение"]}')
+
+        def _v2(p):
+            if not isinstance(p.get("sentences"), list) or not p["sentences"]:
+                raise ValueError("sentences required")
+        try:
+            sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr2, validator=_v2,
+                                          max_output_tokens=800, temperature=0.75).payload
+            for s in (sp.get("sentences") or []):
+                s = _sanitize_phrase(s, topic)
+                if s:
+                    phrases.append(s)
+        except Exception:
+            continue
+
+    phrases = _dedupe_keep_order(phrases)
+    if len(phrases) < 8:
+        raise RuntimeError("longform_too_short")
+    shotlist = [{"phrase_index": i, "queries": [], "mood": "calm", "scene_type": "nature"}
+                for i in range(len(phrases))]
+    return ScriptBundle(
+        phrases=phrases, shotlist=shotlist,
+        title=str(out.get("title") or topic)[:100],
+        description=str(out.get("description") or topic),
+        hashtags=[str(h) for h in (out.get("hashtags") or []) if str(h).strip()][:8],
+        safety_rules=["only realistic calm footage", "no cgi", "no fantasy creatures"],
+    )
+
+
 def generate(
     topic: str,
     offer: str | None,
@@ -240,10 +305,17 @@ def generate(
     topic = str(topic or "").strip()
     if not topic:
         raise ValueError("topic is required")
-    target_seconds = max(20, min(480, int(target_seconds or 30)))
+    target_seconds = max(20, min(1800, int(target_seconds or 30)))
     style_pack = style_pack or {}
     if not is_openai_enabled():
         return _fallback(topic, offer, language, target_seconds, style_pack)
+
+    # Long-form (calm narration, e.g. 12–20 min): different generation path.
+    if target_seconds >= 150:
+        try:
+            return _generate_longform(topic, offer, language, target_seconds, style, style_pack)
+        except Exception:
+            pass  # fall through to the standard path on any failure
 
     allowed_scenes = list(style_pack.get("allowed_scenes") or [])
     query_bias = list(style_pack.get("query_bias") or [])

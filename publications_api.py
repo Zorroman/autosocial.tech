@@ -841,7 +841,8 @@ def factory_publish(project_id: int):
                 actual = float((probe_media(out_file) or {}).get("duration") or 0.0)
             except Exception:
                 actual = 0.0
-            lo, hi = target - 3, target + 3
+            tol = 3 if target <= 60 else round(target * 0.15)  # Shorts tight, long-form ±15%
+            lo, hi = target - tol, target + tol
             if not (lo <= actual <= hi):
                 return _gate_fail(
                     f"Длительность {actual:.1f}s вне диапазона {lo}–{hi}s — публикация запрещена.")
