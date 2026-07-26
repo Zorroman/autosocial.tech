@@ -235,8 +235,10 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
     coherent and varied instead of being padded with repetitive filler."""
     from openai_client import generate_json_with_retry
 
-    n_sections = max(6, min(16, round(target_seconds / 75)))
-    words_per_section = max(90, round(target_seconds * 2.2 / n_sections))
+    # More sections + over-ask words: gpt-4o-mini under-delivers ~30%, so we ask
+    # for more than the naive target and top up until the estimate hits target.
+    n_sections = max(8, min(22, round(target_seconds / 55)))
+    words_per_section = max(110, round(target_seconds * 2.9 / n_sections))
 
     sys1 = ("Ты — сценарист спокойного глубокого закадрового повествования для "
             "длинного медитативного видео. Верни только валидный JSON.")
@@ -252,33 +254,62 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
             raise ValueError("sections required")
 
     out = generate_json_with_retry(system_prompt=sys1, user_prompt=usr1, validator=_v1,
-                                   max_output_tokens=900, temperature=0.7).payload
+                                   max_output_tokens=1100, temperature=0.7).payload
     sections = [str(s).strip() for s in (out.get("sections") or []) if str(s).strip()][:n_sections]
 
     phrases: list[str] = []
     sys2 = ("Ты пишешь спокойный естественный закадровый текст для медитативного "
             "видео. Живой человеческий язык, без клише, списков и повторов. "
             "Верни только валидный JSON.")
-    for i, sec in enumerate(sections):
+
+    def _v2(p):
+        if not isinstance(p.get("sentences"), list) or not p["sentences"]:
+            raise ValueError("sentences required")
+
+    def _expand(sec: str, i: int, n: int) -> None:
         usr2 = (f"Тема видео: {topic}\nЯзык: {language}\n"
-                f"Часть {i + 1} из {len(sections)}: {sec}\n"
+                f"Часть {i + 1} из {n}: {sec}\n"
                 f"Напиши примерно {words_per_section} слов связного повествования по этой "
                 "части — несколько законченных предложений, спокойный созерцательный тон. "
                 "Не повторяй уже сказанное, без вступлений вроде «в этой части».\n"
                 'JSON: {"sentences":["предложение","предложение"]}')
-
-        def _v2(p):
-            if not isinstance(p.get("sentences"), list) or not p["sentences"]:
-                raise ValueError("sentences required")
         try:
             sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr2, validator=_v2,
-                                          max_output_tokens=800, temperature=0.75).payload
+                                          max_output_tokens=900, temperature=0.75).payload
             for s in (sp.get("sentences") or []):
                 s = _sanitize_phrase(s, topic)
                 if s:
                     phrases.append(s)
         except Exception:
-            continue
+            pass
+
+    for i, sec in enumerate(sections):
+        _expand(sec, i, len(sections))
+
+    # Top-up: keep adding fresh distinct sections until we reach ~target duration.
+    guard = 0
+    while (_estimate_seconds_from_phrases(_dedupe_keep_order(phrases)) < target_seconds * 0.9
+           and guard < 10):
+        guard += 1
+        try:
+            covered = "; ".join(sections[-12:])
+            usr3 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                    f"Уже раскрыты части: {covered}\n"
+                    "Предложи ОДНУ новую, ещё не раскрытую смысловую часть по теме "
+                    "(другой аспект/притча/практика/пример), не повторяющую предыдущие.\n"
+                    'JSON: {"section":"краткая тема"}')
+            def _v3(p):
+                if not str(p.get("section") or "").strip():
+                    raise ValueError("section required")
+            ns = generate_json_with_retry(
+                system_prompt=sys1, user_prompt=usr3, validator=_v3, max_output_tokens=200,
+                temperature=0.8).payload.get("section", "").strip()
+        except Exception:
+            ns = ""
+        if not ns:
+            break
+        sections.append(ns)
+        _expand(ns, len(sections) - 1, len(sections))
 
     phrases = _dedupe_keep_order(phrases)
     if len(phrases) < 8:
