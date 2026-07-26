@@ -39,39 +39,43 @@ def _ass_t(s: float) -> str:
     return f"{h}:{m:02d}:{sec:05.2f}"
 
 
-def _karaoke_text(text: str, duration: float) -> str:
-    """Word-by-word karaoke: each word gets a \\kf fill so the spoken word lights
-    up (unsung = SecondaryColour white, sung/current = PrimaryColour amber).
-    Timing is distributed across the phrase proportional to word length — no
-    Whisper needed for v1 (precise per-word timing is a later refinement)."""
-    words = str(text or "").split()
-    if not words:
-        return ""
-    total_cs = max(1, int(round(float(duration) * 100)))
+def _word_slices(words: list[str], start: float, dur: float) -> list[tuple[float, float]]:
+    """Per-word [start, end] windows across the phrase, proportional to length."""
     weights = [max(2, len(w)) for w in words]
     wsum = sum(weights) or 1
     out = []
-    used = 0
-    for i, (w, wt) in enumerate(zip(words, weights)):
-        cs = total_cs - used if i == len(words) - 1 else max(6, int(round(total_cs * wt / wsum)))
-        used += cs
-        out.append(f"{{\\kf{cs}}}{w} ")
-    return "".join(out).rstrip()
+    t = start
+    for i, wt in enumerate(weights):
+        seg = (dur - (t - start)) if i == len(words) - 1 else dur * wt / wsum
+        out.append((t, t + seg))
+        t += seg
+    return out
+
+
+def _pop_line(words: list[str], active: int) -> str:
+    """Full line with the ACTIVE word slightly bigger + thicker outline (a gentle
+    'pop'), the rest normal. No colour fill — just scale + border emphasis."""
+    parts = []
+    for i, w in enumerate(words):
+        if i == active:
+            parts.append(f"{{\\fscx116\\fscy116\\bord6\\shad2}}{w}{{\\r}}")
+        else:
+            parts.append(w)
+    return " ".join(parts)
 
 
 def write_landscape_ass(cues: list[dict], path: Path) -> None:
-    """Subtitles styled for 1920x1080 (NOT the vertical Shorts layout that made
-    them look narrow): large, bottom-centre, wide margins, with per-word karaoke
-    highlight of the word being spoken."""
-    # PrimaryColour = amber (spoken/current), SecondaryColour = white (unsung).
+    """Subtitles for 1920x1080 (not the narrow vertical Shorts layout): large,
+    bottom-centre, wide margins, white, with the spoken word emphasised by a
+    gentle scale-up + thicker outline (word 'pop'), advancing word by word."""
     header = (
         "[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nWrapStyle: 0\n\n"
         "[V4+ Styles]\n"
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
         "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
         "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: LF,DejaVu Sans,54,&H0000C8FF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
-        "100,100,0,0,1,4,1,2,140,140,90,1\n\n"
+        "Style: LF,DejaVu Sans,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
+        "100,100,0,0,1,4,1,2,140,140,92,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
@@ -82,7 +86,12 @@ def write_landscape_ass(cues: list[dict], path: Path) -> None:
             continue
         start = float(c["start"])
         dur = float(c["duration"]) if "duration" in c else (float(c["end"]) - start)
-        lines.append(f"Dialogue: 0,{_ass_t(start)},{_ass_t(start + dur)},LF,,0,0,0,,{_karaoke_text(raw, dur)}")
+        words = raw.split()
+        if not words:
+            continue
+        # one event per word: the full line stays on screen, the active word pops
+        for i, (ws, we) in enumerate(_word_slices(words, start, dur)):
+            lines.append(f"Dialogue: 0,{_ass_t(ws)},{_ass_t(we)},LF,,0,0,0,,{_pop_line(words, i)}")
     path.write_text("".join(l if l.endswith('\n') else l + '\n' for l in lines), encoding="utf-8")
 
 
