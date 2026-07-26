@@ -544,6 +544,54 @@ def manual_complete(pub_id: int):
 
 # ------------------------------------------------------------- auto upload
 
+_YT_PLAYLIST_ITEMS = "https://www.googleapis.com/youtube/v3/playlistItems"
+
+
+def _add_video_to_playlist(db, project, video_id: str, token: str) -> str:
+    """Add a just-published video to its content pillar's YouTube playlist.
+    Idempotent (skips when already present or already recorded). Best-effort —
+    never raises; publishing is never failed because of a playlist add."""
+    try:
+        from saas_models import ContentPillar
+        if not project or not getattr(project, "content_pillar_id", None):
+            return "no_playlist"
+        if (getattr(project, "playlist_status", "") or "") == "added":
+            return "added"
+        pillar = db.query(ContentPillar).filter_by(id=project.content_pillar_id).first()
+        plid = ((pillar.youtube_playlist_id or "").strip() if pillar else "")
+        if not plid:
+            project.playlist_status = "no_playlist"
+            db.commit()
+            return "no_playlist"
+        # idempotency: already in the playlist?
+        chk = requests.get(_YT_PLAYLIST_ITEMS,
+                           params={"part": "snippet", "playlistId": plid,
+                                   "videoId": video_id, "maxResults": 1},
+                           headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        if chk.ok and (chk.json().get("items")):
+            project.playlist_status = "added"
+            db.commit()
+            return "added"
+        body = {"snippet": {"playlistId": plid,
+                            "resourceId": {"kind": "youtube#video", "videoId": video_id}}}
+        r = requests.post(_YT_PLAYLIST_ITEMS, params={"part": "snippet"}, json=body,
+                          headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        if r.ok:
+            project.playlist_status = "added"
+            db.commit()
+            return "added"
+        project.playlist_status = "failed"
+        db.commit()
+        return f"failed:{r.status_code}"
+    except Exception as exc:
+        try:
+            project.playlist_status = "failed"
+            db.commit()
+        except Exception:
+            pass
+        return f"error:{str(exc)[:120]}"
+
+
 def run_upload_job(pub_id: int) -> None:
     """Uploads the project MP4 to YouTube. Only runs when explicitly enqueued.
     Status flips to published only after the API confirms a video id."""
@@ -634,6 +682,11 @@ def run_upload_job(pub_id: int) -> None:
             record_cost(provider="google", model="youtube-data-api", operation_type="YouTube upload",
                         channel_id=pub.channel_id, project_id=pub.project_id,
                         request_id=f"upload:{pub.id}:{video_id}", db=db)
+            # Sort the published video into its pillar's playlist (best-effort).
+            try:
+                _add_video_to_playlist(db, _proj, video_id, token)
+            except Exception:
+                pass
         except Exception as exc:
             pub = db.query(Publication).filter_by(id=pub_id).first()
             if pub and pub.status == "uploading":

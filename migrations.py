@@ -295,8 +295,11 @@ def run_migrations() -> None:
                 "cta_source": "VARCHAR(20)",
                 "cta_audio_duration_seconds": "DOUBLE PRECISION",
                 "cta_fallback_used": "BOOLEAN",
+                "playlist_status": "VARCHAR(20)",
             },
         )
+    if "content_pillars" in tables:
+        add_missing_columns("content_pillars", {"youtube_playlist_id": "VARCHAR(64)"})
     if "video_scenes" in tables:
         add_missing_columns(
             "video_scenes",

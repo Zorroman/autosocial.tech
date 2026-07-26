@@ -689,6 +689,7 @@ class VideoProject(SaaSBase):
     cta_source = Column(String(20), nullable=True)  # generated | library | custom | fallback | disabled
     cta_audio_duration_seconds = Column(Float, nullable=True)
     cta_fallback_used = Column(Boolean, nullable=True)
+    playlist_status = Column(String(20), nullable=True)  # added | no_playlist | failed
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -892,6 +893,7 @@ class ContentPillar(SaaSBase):
     weight = Column(Integer, nullable=False, default=10)
     daily_video_limit = Column(Integer, nullable=False, default=3)
     active = Column(Boolean, nullable=False, default=True)
+    youtube_playlist_id = Column(String(64), nullable=True)  # published videos of this pillar go here
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
