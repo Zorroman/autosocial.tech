@@ -32,15 +32,18 @@ _QUERY_SYNONYMS = {
     "candle": ["candlelight", "flame closeup", "burning candle dark"],
     "moon": ["full moon", "moonlight night", "lunar sky"],
     "night": ["dark night", "midnight", "night sky stars"],
-    "mystic": ["mystical fog", "occult atmosphere", "esoteric dark"],
-    "fog": ["mist forest", "smoke dark", "haze"],
-    "sleep": ["insomnia", "person awake night", "bedroom dark"],
-    "ritual": ["ceremony candles", "spiritual practice", "meditation dark"],
-    "symbol": ["ancient symbols", "runes closeup", "sacred geometry"],
-    "tarot": ["tarot cards", "fortune telling", "mystic cards"],
-    "crystal": ["crystal closeup", "gemstones", "quartz light"],
+    "mystic": ["misty forest", "foggy mountains", "candle flame closeup"],
+    "fog": ["mist forest", "foggy morning", "haze mountains"],
+    "sleep": ["person sleeping bedroom", "person awake night", "bedroom dark"],
+    "ritual": ["ceremony candles", "person meditating nature", "hands old book"],
+    "symbol": ["ancient carved symbols stone", "runes closeup", "old temple wall"],
+    "tarot": ["tarot cards hands", "fortune telling table", "old cards closeup"],
+    "crystal": ["crystal closeup", "gemstones", "quartz stone"],
 }
-_BROAD_FALLBACKS = ["dark atmosphere", "mystic abstract", "night mood", "moody cinematic"]
+# Real-scene fallbacks only — no abstract/CGI (the user wants nature/people, not
+# "Windows-screensaver" motion graphics).
+_BROAD_FALLBACKS = ["misty forest morning", "calm ocean waves", "starry night sky",
+                    "person walking in nature"]
 
 
 def query_variants(base_query: str, extra_terms: list[str] | None = None) -> list[str]:

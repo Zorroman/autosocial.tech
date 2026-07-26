@@ -90,25 +90,49 @@ class ProjectPlan:
 
 
 # Built-in atmospheric B-roll pools, used when the LLM is unavailable. Keyed by
-# coarse theme detected from the niche string (RU or EN). All English, concrete.
+# coarse theme detected from the niche string. REAL, filmable footage only —
+# nature, people, real places/objects. Deliberately NO abstract/CGI/particle/
+# geometry terms (those return "Windows-screensaver" motion graphics).
 _ATMOS_ESOTERIC = [
-    "sacred geometry", "starry night sky", "glowing particles dark",
-    "mystical smoke", "full moon clouds", "candle flame dark",
-    "ancient symbols carved stone", "crystal ball", "northern lights",
+    "misty forest morning", "starry night sky timelapse", "full moon behind clouds",
+    "candle flame close up", "person meditating in nature", "calm ocean waves",
+    "old book pages turning", "ancient stone ruins", "person walking foggy forest",
+    "sunlight through trees",
 ]
 _ATMOS_GENERIC = [
-    "cinematic abstract background", "light particles dark",
-    "slow motion nature", "city timelapse night", "soft bokeh lights",
+    "slow motion nature", "forest trees sunlight", "calm ocean waves",
+    "people walking city street", "mountain landscape clouds", "rain on window",
 ]
 
 # Minimal RU->EN concept hints for the heuristic (no network) fallback.
+# All map to CONCRETE, real-world scenes (no "abstract").
 _CONCEPT_HINTS = {
-    "символ": "symbols", "знак": "signs", "вселенн": "universe stars",
-    "реальност": "reality abstract", "культур": "culture heritage",
-    "истори": "history ancient", "жизн": "life", "мир": "world map",
-    "число": "numbers", "звезд": "stars night sky", "энерг": "energy glow",
-    "судьб": "fate mystical", "тайн": "mystery dark", "медитац": "meditation calm",
+    "символ": "ancient carved symbols stone", "знак": "old road signs",
+    "вселенн": "starry night sky timelapse", "реальност": "person looking out window",
+    "культур": "old temple architecture", "истори": "ancient ruins stone",
+    "жизн": "people daily life street", "мир": "earth from space",
+    "число": "vintage clock numbers", "звезд": "stars night sky",
+    "энерг": "sunrise over mountains", "судьб": "person walking path forest",
+    "тайн": "foggy dark forest", "медитац": "person meditating calm nature",
+    "сон": "person sleeping bedroom night", "эмоц": "close up human face emotion",
+    "музык": "person listening headphones",
 }
+
+# Footage that reads as abstract/CGI motion-graphics ("screensaver"). Candidates
+# whose slug/tags hit these are rejected — the user wants real scenes, not shapes.
+_ABSTRACT_MARKERS = {
+    "abstract", "geometry", "geometric", "particle", "particles", "looped",
+    "seamless", "digital", "neon", "render", "rendered", "fractal", "kaleidoscope",
+    "plexus", "hologram", "holographic", "wireframe", "screensaver", "vj",
+    "glowing", "3d", "cgi", "futuristic", "cyber", "technology", "tunnel", "grid",
+    "waveform", "gradient", "animation", "animated", "digitally",
+}
+
+
+def is_abstract_footage(cand) -> bool:
+    """True if a candidate looks like abstract/CGI motion graphics rather than
+    real filmed footage (people/nature/places)."""
+    return bool(candidate_tokens(cand) & _ABSTRACT_MARKERS)
 
 
 def _detect_atmos(niche: str) -> list[str]:
@@ -146,9 +170,13 @@ def _plan_prompt(scenes, niche: str, language: str) -> tuple[str, str]:
         "You are a stock-footage search expert for short vertical videos. "
         "For each scene you turn an abstract or non-English narration into CONCRETE, "
         "FILMABLE, ENGLISH search queries for Pexels (which indexes English). "
-        "Never translate abstract ideas literally — describe what the camera would "
-        "actually SEE. Example: narration 'signs of the universe' -> 'starry night "
-        "sky timelapse', 'glowing constellations', not 'universe signs'. "
+        "Describe REAL FILMED footage the camera would actually SEE: real people, "
+        "nature, forests, landscapes, real places and objects, hands, faces, "
+        "everyday moments. STRICTLY AVOID abstract/CGI/motion-graphics: no abstract "
+        "backgrounds, no 3D shapes, no particles, no glowing geometry, no digital/"
+        "neon/hologram/fractal loops (those look like a screensaver). "
+        "Example: 'signs of the universe' -> 'starry night sky timelapse', "
+        "'misty forest at dawn', NOT 'glowing particles' or 'sacred geometry'. "
         "Return STRICT JSON."
     )
     lines = []
@@ -167,9 +195,11 @@ def _plan_prompt(scenes, niche: str, language: str) -> tuple[str, str]:
         '  "atmospheric": ["on-theme english b-roll", "...", "..."]\n'
         "}\n"
         "Rules: 2-3 queries per scene, best/most specific first, each 2-5 concrete "
-        "English words, all visually filmable. keywords = the concrete visible nouns "
-        "(English) a good clip would show. atmospheric = 4-6 on-theme establishing "
-        "shots for the niche. No abstract nouns, no non-English words anywhere."
+        "English words, all REAL FILMED footage (people, nature, real places/objects). "
+        "keywords = the concrete visible nouns (English) a good clip would show. "
+        "atmospheric = 4-6 on-theme establishing shots of REAL scenes (forest, sky, "
+        "ocean, candle, person in nature). NO abstract/CGI/particles/3D/geometry/glowing "
+        "backgrounds, no abstract nouns, no non-English words anywhere."
     )
     return system, user
 
@@ -279,8 +309,13 @@ def pick_media(sp: ScenePlan, atmospheric: list[str], *, search_fn,
             tried.append({"stage": step.stage, "query": step.query, "error": str(exc)[:160]})
             continue
         scored = []
+        abstract_skipped = 0
         for c in cands:
             if str(getattr(c, "video_id", "")) in exclude_ids:
+                continue
+            # Reject abstract/CGI "screensaver" footage — we want real scenes.
+            if is_abstract_footage(c):
+                abstract_skipped += 1
                 continue
             scored.append((relevance_score(step.keywords, c), c))
         scored.sort(key=lambda t: t[0], reverse=True)

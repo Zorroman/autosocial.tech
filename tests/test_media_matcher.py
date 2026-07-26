@@ -83,8 +83,8 @@ def test_concrete_theme_heuristic_plan():
     assert set(plan.scenes) == {1, 2, 3, 4}
     for sp in plan.scenes.values():
         assert sp.queries and all(q.isascii() for q in sp.queries)
-    # esoteric niche → esoteric atmospheric pool
-    assert "sacred geometry" in plan.atmospheric
+    # esoteric niche → real-scene atmospheric pool (no abstract terms)
+    assert "misty forest morning" in plan.atmospheric
 
 
 # 3) First (concrete) query returns nothing, fallback finds material
@@ -103,6 +103,25 @@ def test_fallback_finds_when_primary_empty():
     assert pick.candidate.video_id == "100"
 
 
+# 3b) Abstract/CGI "screensaver" footage is rejected in favour of real footage
+def test_abstract_footage_rejected():
+    assert mm.is_abstract_footage(C(1, "abstract-glowing-particles-loop"))
+    assert mm.is_abstract_footage(C(2, "3d-geometric-neon-tunnel"))
+    assert not mm.is_abstract_footage(C(3, "misty-forest-morning-trees"))
+    assert not mm.is_abstract_footage(C(4, "slow-motion-ocean-waves"))  # 'motion' not a marker
+
+    sp = mm.ScenePlan(1, queries=["forest"], simple="forest", keywords=["forest", "trees"])
+
+    def search(q, excl):
+        # provider returns an abstract clip first, a real one second
+        return [C(10, "abstract-particles-background"), C(11, "green-forest-trees-fog")]
+
+    pick = mm.pick_media(sp, [], search_fn=search, exclude_ids=set())
+    assert pick.candidate is not None
+    assert pick.candidate.video_id == "11"          # real footage chosen
+    assert not mm.is_abstract_footage(pick.candidate)
+
+
 # 4) Provider returns empty everywhere → honest needs_review
 def test_provider_empty_needs_review():
     sp = mm.ScenePlan(1, queries=["anything"], simple="x", keywords=["x"])
@@ -118,7 +137,7 @@ def test_duplicates_not_reused_within_video():
 
     def search(q, excl):
         # provider hands back a dup of the used clip plus one fresh
-        return [C(777, "glowing-runes"), C(778, "glowing-runes-dark")]
+        return [C(777, "ancient-runes-stone"), C(778, "ancient-runes-temple")]
 
     pick = mm.pick_media(sp, [], search_fn=search, exclude_ids=used)
     assert pick.candidate is not None
@@ -132,7 +151,7 @@ def test_low_score_concrete_falls_through_to_atmospheric():
     def search(q, excl):
         if q == "ancient symbols":
             return [C(1, "unrelated-cat-playing"), C(2, "random-office-desk")]  # 0 overlap
-        return [C(9, "sacred-geometry-pattern")]
+        return [C(9, "misty-forest-fog-morning")]
 
     pick = mm.pick_media(sp, ["sacred geometry"], search_fn=search, exclude_ids=set())
     # concrete rejected (score 0 < 1), atmospheric accepted
