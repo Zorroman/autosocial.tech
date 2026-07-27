@@ -135,7 +135,61 @@ def _pop_two_line(words: list[dict], active: int, split: int) -> str:
     return line1 + ("\\N" + line2 if line2 else "")
 
 
-def write_aligned_ass(cues: list[dict], path: Path) -> None:
+# Curated esoteric glossary (channel niche). Keys are lowercase STEMS so Russian
+# inflections match (карма/кармы/карму → "карм"). Each term gets a brief, neutral
+# one-line gloss shown as a top banner when the word is first spoken.
+_GLOSSARY: dict[str, tuple[str, str]] = {
+    "карм": ("Карма", "закон причины и следствия"),
+    "чакр": ("Чакра", "энергетический центр тела"),
+    "медитац": ("Медитация", "практика сосредоточения ума"),
+    "интуиц": ("Интуиция", "внутреннее знание без анализа"),
+    "подсознан": ("Подсознание", "скрытый слой психики"),
+    "аур": ("Аура", "энергетическое поле человека"),
+    "реинкарнац": ("Реинкарнация", "перерождение души"),
+    "нирван": ("Нирвана", "освобождение от страданий"),
+    "мантр": ("Мантра", "звуковая формула для сосредоточения"),
+    "дхарм": ("Дхарма", "путь и внутренний закон"),
+    "просветлен": ("Просветление", "пробуждение сознания"),
+    "осознанн": ("Осознанность", "полное присутствие в моменте"),
+    "нумеролог": ("Нумерология", "значение чисел судьбы"),
+    "астролог": ("Астрология", "влияние светил на судьбу"),
+    "рун": ("Руны", "древние символы-знаки"),
+    "тар": ("Таро", "система символических карт"),
+    "кристалл": ("Кристаллы", "камни с приписываемой энергией"),
+    "ритуал": ("Ритуал", "символическое действие-практика"),
+    "вибрац": ("Вибрация", "тонкая энергия-частота"),
+    "предназначен": ("Предназначение", "жизненный смысл и путь"),
+}
+
+
+def _term_callouts(words: list[dict], max_n: int = 8, min_gap: float = 18.0,
+                   dur: float = 2.6) -> list[dict]:
+    """Find first spoken occurrence of each glossary term (well-spaced) and turn
+    it into a top-banner callout timed to the real audio."""
+    outs: list[dict] = []
+    used: set[str] = set()
+    last = -1e9
+    for w in words:
+        if float(w["s"]) < 3.0:  # don't spend a term under the intro card
+            continue
+        wn = w["w"].lower().strip(".,!?;:—«»\"'()").strip()
+        if len(wn) < 4:
+            continue
+        for stem, (term, defi) in _GLOSSARY.items():
+            if stem in used or not wn.startswith(stem):
+                continue
+            if float(w["s"]) - last < min_gap:
+                break
+            outs.append({"term": term, "defi": defi,
+                         "start": round(float(w["s"]), 2), "end": round(float(w["s"]) + dur, 2)})
+            used.add(stem); last = float(w["s"])
+            break
+        if len(outs) >= max_n:
+            break
+    return outs
+
+
+def write_aligned_ass(cues: list[dict], path: Path, callouts: list[dict] | None = None) -> None:
     """ASS from real word timings: each word is shown for [word.start, next
     word.start) so the caption tracks the voice exactly, active word popped."""
     header = (
@@ -145,7 +199,12 @@ def write_aligned_ass(cues: list[dict], path: Path) -> None:
         "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
         "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
         "Style: LF,Nunito,54,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
-        "100,100,0,0,1,4,1,2,140,140,92,1\n\n"
+        "100,100,0,0,1,4,1,2,140,140,92,1\n"
+        # KEY: top-centre glossary banner in a dark box. BorderStyle=3 draws the
+        # box in OutlineColour, padded by Outline px — so it reads over ANY
+        # footage, and never collides with the bottom-centre narration subtitles.
+        "Style: KEY,Nunito,40,&H00FAEFF1,&H00FAEFF1,&H1A140A05,&H00000000,0,0,0,0,"
+        "100,100,0,0,3,10,0,8,90,90,84,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
@@ -158,6 +217,10 @@ def write_aligned_ass(cues: list[dict], path: Path) -> None:
             if end <= start:
                 end = start + 0.15
             lines.append(f"Dialogue: 0,{_ass_t(start)},{_ass_t(end)},LF,,0,0,0,,{_pop_two_line(ws, i, split)}")
+    for c in (callouts or []):
+        # term in gold + bold, gloss in the style's white; \r resets to style
+        txt = f"{{\\b1\\c&H004FB8E6&}}{c['term']}{{\\r}}  —  {c['defi']}"
+        lines.append(f"Dialogue: 0,{_ass_t(float(c['start']))},{_ass_t(float(c['end']))},KEY,,0,0,0,,{txt}")
     path.write_text("".join(l if l.endswith('\n') else l + '\n' for l in lines), encoding="utf-8")
 
 
@@ -439,9 +502,10 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
         aligned = _transcribe_words(str(voice_file), language=(ch.language or "ru"))
         if aligned:
             acues = _pack_aligned_cues(aligned)
-            write_aligned_ass(acues, ass_path)
+            callouts = _term_callouts(aligned)
+            write_aligned_ass(acues, ass_path, callouts=callouts)
             _stage("subtitles", cues=len(acues), words=len(aligned),
-                   mode="aligned", file=str(ass_path))
+                   callouts=len(callouts), mode="aligned", file=str(ass_path))
         else:
             cursor = 0.0; cue_scenes = []
             for s in scenes:
