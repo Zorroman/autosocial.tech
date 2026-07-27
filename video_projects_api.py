@@ -461,6 +461,10 @@ def split_scenes(project_id: int):
             )
             db.add(s)
             scenes.append(s)
+        # Long-form: the last content beat is the authorial synthesis (the script
+        # generator writes it there) — mark it so the render shows an insight card.
+        if _tgt >= 150 and scenes:
+            scenes[-1].visual_type = "insight"
         # Append the final subscribe CTA as its own scene, so it flows through
         # the same TTS / subtitles / render path (voiced last, own subtitle cue).
         if getattr(p, "cta_enabled", False) and (p.cta_text or "").strip():

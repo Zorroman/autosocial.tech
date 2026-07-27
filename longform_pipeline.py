@@ -326,27 +326,38 @@ def _esc(p: str) -> str:
 
 
 def final_mix(silent_video: Path, voice: Path, music: Path, ass: Path,
-              overlays: list[dict], out: Path, dur: float) -> tuple[bool, str]:
+              cards: list[dict], out: Path, dur: float) -> tuple[bool, str]:
+    """Burn aligned subtitles, then overlay full-frame branded cards (intro /
+    chapter / insight / outro) on top during their time windows, and mix voice
+    + ducked music. Cards are opaque stills, so they cover the photo AND the
+    subtitles inside their window — no separate subtitle suppression needed.
+    Inputs: 0=silent video, 1=voice, 2=music, 3..=card PNGs (looped stills)."""
     fo = max(0.0, dur - 1.2)
-    vf = [f"subtitles='{_esc(str(ass))}':fontsdir=/app/assets/fonts"]
-    for ov in overlays:  # chapter lower-thirds (locally-authored explanatory graphics)
-        txt = ov["text"].replace("'", "").replace(":", " ")
-        vf.append(
-            f"drawbox=x=60:y=h-190:w=760:h=70:color=black@0.45:t=fill:enable='between(t,{ov['start']},{ov['end']})',"
-            f"drawtext=fontfile={_FONT}:text='{txt}':x=80:y=h-172:fontsize=34:fontcolor=white:"
-            f"enable='between(t,{ov['start']},{ov['end']})'")
-    vchain = "[0:v]" + ",".join(vf) + "[v]"
-    graph = (vchain + ";"
-             f"[2:a]atrim=0:{dur:.2f},afade=t=in:st=0:d=0.8,afade=t=out:st={fo:.2f}:d=1.2,volume=-22dB[m];"
-             "[m][1:a]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=250[md];"
-             "[1:a][md]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-2:LRA=11[a]")
+    parts = [f"[0:v]subtitles='{_esc(str(ass))}':fontsdir=/app/assets/fonts[vbase]"]
+    label = "vbase"
+    for i, c in enumerate(cards):
+        idx = 3 + i
+        nxt = f"vc{i}"
+        parts.append(
+            f"[{label}][{idx}:v]overlay=0:0:enable='between(t,{float(c['start']):.2f},{float(c['end']):.2f})'[{nxt}]")
+        label = nxt
+    vgraph = ";".join(parts)
+    agraph = (f"[2:a]atrim=0:{dur:.2f},afade=t=in:st=0:d=0.8,afade=t=out:st={fo:.2f}:d=1.2,volume=-22dB[m];"
+              "[m][1:a]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=250[md];"
+              "[1:a][md]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-2:LRA=11[a]")
+    graph = vgraph + ";" + agraph
     cmd = [_FFMPEG, "-y", "-i", str(silent_video), "-i", str(voice),
-           "-stream_loop", "-1", "-i", str(music),
-           "-filter_complex", graph, "-map", "[v]", "-map", "[a]",
-           "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", "25",
-           "-pix_fmt", "yuv420p", "-threads", "2",
-           "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
-           "-movflags", "+faststart", "-shortest", str(out)]
+           "-stream_loop", "-1", "-i", str(music)]
+    for c in cards:
+        # single frame (NOT -loop 1): overlay's default repeatlast holds it for
+        # the whole clip, so the image decodes once instead of generating frames
+        # for the entire timeline (the -loop 1 version OOM'd on the 3.8 GB box).
+        cmd += ["-i", str(c["png"])]
+    cmd += ["-filter_complex", graph, "-map", f"[{label}]", "-map", "[a]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", "25",
+            "-pix_fmt", "yuv420p", "-threads", "2",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+            "-movflags", "+faststart", "-shortest", str(out)]
     return _run(cmd, timeout=2400)
 
 
@@ -442,17 +453,46 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             write_landscape_ass(cues, ass_path)  # 1920x1080 style, not vertical Shorts
             _stage("subtitles", cues=len(cues), mode="proportional", file=str(ass_path))
 
-        # chapter overlays (locally-authored explanatory graphics)
-        overlays = []
-        gcursor = 0.0
-        sid_dur = {s.id: float(s.estimated_duration or 6.0) for s in scenes}
-        for g in groups:
-            g_start = gcursor
-            for sid in g["scene_ids"]:
-                gcursor += sid_dur.get(sid, 6.0)
-            overlays.append({"text": g["chapter_title"], "start": round(g_start, 1),
-                             "end": round(g_start + 4.0, 1)})
-        _stage("graphics", chapter_overlays=len(overlays))
+        # branded full-frame cards (intro / chapter / insight / outro) — style C
+        import longform_cards as lc
+        cards_dir = work / "cards"; cards_dir.mkdir(exist_ok=True)
+        brand = (getattr(ch, "youtube_channel_title", None) or getattr(ch, "name", None)
+                 or "Aurora Secretum")
+        scene_start = {}; _cur = 0.0
+        for s in scenes:
+            scene_start[s.id] = _cur
+            _cur += float(s.estimated_duration or 6.0)
+        cards: list[dict] = []
+        _ip = cards_dir / "intro.png"
+        if lc.intro_card(cards_dir, _ip, brand):
+            cards.append({"png": _ip, "start": 0.0, "end": 2.8})
+        for gi, g in enumerate(groups):
+            g_start = min((scene_start.get(sid, 0.0) for sid in g["scene_ids"]), default=0.0)
+            if g_start < 3.0:  # first chapter coincides with the intro card — skip
+                continue
+            _cp = cards_dir / f"chapter_{gi}.png"
+            if lc.chapter_card(cards_dir, _cp, gi + 1, g.get("chapter_title") or ""):
+                cards.append({"png": _cp, "start": round(g_start, 2), "end": round(g_start + 2.4, 2)})
+        # insight card on the authorial-takeaway scene (marked visual_type=insight;
+        # fall back to the last non-CTA scene = the closing synthesis).
+        insight = next((s for s in scenes if getattr(s, "visual_type", "") == "insight"
+                        and not getattr(s, "is_cta", False)), None)
+        if insight is None:
+            _noncta = [s for s in scenes if not getattr(s, "is_cta", False)]
+            insight = _noncta[-1] if _noncta else None
+        if insight is not None:
+            _ist = scene_start.get(insight.id, 0.0)
+            _iend = min(_ist + max(3.5, min(6.0, float(insight.estimated_duration or 5.0))),
+                        vdur - 3.6)
+            if _iend > _ist + 2.0:
+                _quote = ((insight.voiceover_text or "").strip().split(".")[0])[:150]
+                _sp = cards_dir / "insight.png"
+                if _quote and lc.insight_card(cards_dir, _sp, _quote, brand):
+                    cards.append({"png": _sp, "start": round(_ist, 2), "end": round(_iend, 2)})
+        _op = cards_dir / "outro.png"
+        if lc.outro_card(cards_dir, _op, brand):
+            cards.append({"png": _op, "start": round(max(0.0, vdur - 3.4), 2), "end": round(vdur, 2)})
+        _stage("graphics", cards=len(cards))
 
         segs = build_timeline(scenes, groups, group_photos)
         _stage("segments", count=len(segs))
@@ -468,7 +508,7 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
         # final mix (subtitles + voice + music)
         music = _pick_music()
         final = work / f"longform_{project_id}_final.mp4"
-        ok, err = final_mix(silent, voice_file, music, ass_path, overlays, final, vdur)
+        ok, err = final_mix(silent, voice_file, music, ass_path, cards, final, vdur)
         if not ok:
             status["result"] = "failed"; status["mix_error"] = err
             return status

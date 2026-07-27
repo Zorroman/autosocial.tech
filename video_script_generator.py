@@ -271,7 +271,9 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
                 f"Часть {i + 1} из {n}: {sec}\n"
                 f"Напиши примерно {words_per_section} слов связного повествования по этой "
                 "части — несколько законченных предложений, спокойный созерцательный тон. "
-                "Не повторяй уже сказанное, без вступлений вроде «в этой части».\n"
+                "Иногда добавляй собственную интерпретацию рассказчика или мягкий вопрос "
+                "к зрителю — естественно, не навязчиво: это придаёт авторский взгляд, а не "
+                "сухой пересказ. Не повторяй уже сказанное, без вступлений вроде «в этой части».\n"
                 'JSON: {"sentences":["предложение","предложение"]}')
         try:
             sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr2, validator=_v2,
@@ -310,6 +312,24 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
             break
         sections.append(ns)
         _expand(ns, len(sections) - 1, len(sections))
+
+    # Closing authorial synthesis — a short first-person takeaway ("авторский
+    # вывод"): the narrator's own conclusion + a gentle question to the viewer.
+    # Lands last, so it becomes the final scene and drives the insight card.
+    try:
+        usr_syn = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                   "Напиши короткий авторский вывод от первого лица (2–3 предложения): "
+                   "личная мысль-интерпретация рассказчика и мягкий вопрос к зрителю. "
+                   "Начни с ёмкой запоминающейся фразы. Без клише и без слова «итак».\n"
+                   'JSON: {"sentences":["...","..."]}')
+        sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr_syn, validator=_v2,
+                                      max_output_tokens=320, temperature=0.8).payload
+        for s in (sp.get("sentences") or []):
+            s = _sanitize_phrase(s, topic)
+            if s:
+                phrases.append(s)
+    except Exception:
+        pass
 
     phrases = _dedupe_keep_order(phrases)
     if len(phrases) < 8:
