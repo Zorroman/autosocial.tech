@@ -321,6 +321,15 @@ def generate_project_script(project_id: int):
         language = (getattr(ch, "language", None) or "ru")
         target_seconds = int(p.duration_target_seconds or getattr(ch, "default_video_duration_seconds", 45) or 45)
         style = (getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or "")
+        # Channel persona (recurring narrator identity/values) — prepended to the
+        # style so every video shares one authorial voice (authenticity signal).
+        try:
+            _gs = json.loads(getattr(ch, "generation_settings_json", None) or "{}")
+            _persona = str(_gs.get("persona") or "").strip()
+        except Exception:
+            _persona = ""
+        if _persona:
+            style = (_persona + "\n" + style).strip()
 
         # Persist the resolved target + aspect on the project so every downstream
         # station (split-scenes, media, render, publish gate) agrees. Essential

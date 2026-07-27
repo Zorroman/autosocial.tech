@@ -240,7 +240,12 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
     n_sections = max(8, min(22, round(target_seconds / 55)))
     words_per_section = max(110, round(target_seconds * 2.9 / n_sections))
 
-    sys1 = ("Ты — сценарист спокойного глубокого закадрового повествования для "
+    # Channel persona (a recurring narrator identity/values passed via `style`)
+    # kept consistent across every video — a strong authenticity signal.
+    _persona = (style or "").strip()
+    _voice = (f"Личность рассказчика (соблюдай тон и взгляд во всём тексте): {_persona}\n"
+              if _persona else "")
+    sys1 = (_voice + "Ты — сценарист спокойного глубокого закадрового повествования для "
             "длинного медитативного видео. Верни только валидный JSON.")
     usr1 = (f"Тема видео: {topic}\nЯзык: {language}\n"
             f"Составь план из {n_sections} последовательных смысловых частей — каждая "
@@ -258,9 +263,9 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
     sections = [str(s).strip() for s in (out.get("sections") or []) if str(s).strip()][:n_sections]
 
     phrases: list[str] = []
-    sys2 = ("Ты пишешь спокойный естественный закадровый текст для медитативного "
-            "видео. Живой человеческий язык, без клише, списков и повторов. "
-            "Верни только валидный JSON.")
+    sys2 = (_voice + "Ты пишешь спокойный естественный закадровый текст для медитативного "
+            "видео от лица этого рассказчика. Живой человеческий язык, без клише, списков "
+            "и повторов. Верни только валидный JSON.")
 
     def _v2(p):
         if not isinstance(p.get("sentences"), list) or not p["sentences"]:
@@ -399,6 +404,7 @@ def generate(
         "Требования к phrases:\n"
         "- каждая фраза это законченное предложение 8-12 слов;\n"
         "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
+        "- предпоследняя фраза — короткий авторский вывод или неожиданный поворот мысли (твоё наблюдение, а не пересказ факта);\n"
         "- последняя фраза — короткий CTA, ровно одно предложение;\n"
         "- не используй императивные заготовки вида «покажем один», «добавим конкретику»;\n"
         "- фразы должны быть уникальны и логично развивать мысль;\n"
