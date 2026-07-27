@@ -602,6 +602,12 @@ class Channel(SaaSBase):
     automatic_publishing_enabled = Column(Boolean, nullable=False, default=False)
     # Deprecated in favour of publishing_mode (kept in sync as a legacy synonym).
     autopilot_enabled = Column(Boolean, nullable=False, default=False)
+    # Daily long-form autopilot: independent of the Shorts scheduler. Uses the
+    # memory-safe longform_pipeline (not the factory render) and publishes one
+    # long video per day. last_generated_at is Shorts-only; long-form paces off
+    # its own timestamp so the two schedules never interfere.
+    longform_enabled = Column(Boolean, nullable=False, default=False)
+    longform_last_generated_at = Column(DateTime, nullable=True)
     # Content Factory publishing mode — source of truth for autonomy.
     # 'manual'    = review metadata before YouTube (default, safe)
     # 'automatic' = full autopilot: publish without individual confirmation.

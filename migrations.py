@@ -324,6 +324,11 @@ def run_migrations() -> None:
                 "youtube_connected_at": "DATETIME",
                 "youtube_social_account_id": "INTEGER",
                 "youtube_last_verified_at": "DATETIME",
+                # Daily long-form autopilot (separate, memory-safe pipeline —
+                # NOT the Shorts factory render). One video/day, paced by
+                # longform_last_generated_at.
+                "longform_enabled": "BOOLEAN DEFAULT FALSE NOT NULL",
+                "longform_last_generated_at": "DATETIME",
             },
         )
     if "posts" in tables:

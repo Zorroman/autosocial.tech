@@ -21,6 +21,13 @@ if __name__ == "__main__":
         scheduler.start_in_background()
     except Exception as exc:  # never let the scheduler stop the worker
         logging.getLogger("factory.scheduler").warning("scheduler not started: %s", exc)
+    # Daily long-form autopilot (separate cadence, memory-safe pipeline; kill
+    # switch LONGFORM_SCHEDULER_ENABLED=false). Opt-in per channel.
+    try:
+        import longform_scheduler
+        longform_scheduler.start_in_background()
+    except Exception as exc:  # never let it stop the worker
+        logging.getLogger("longform.scheduler").warning("longform scheduler not started: %s", exc)
     redis_conn = Redis.from_url(settings.REDIS_URL)
     worker = Worker(["generation", "render"], connection=redis_conn)
     worker.work()
