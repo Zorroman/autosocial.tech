@@ -64,6 +64,103 @@ def _pop_line(words: list[str], active: int) -> str:
     return " ".join(parts)
 
 
+# ---- forced-alignment subtitles (real word timings from the audio) ---------
+# The proportional path below distributes words evenly inside each scene's
+# window; over long (~40s) narration scenes that drifts audibly out of sync.
+# These transcribe the FINISHED voiceover and time every word from the actual
+# audio, so captions land exactly on the spoken word.
+
+_LF_MAX_LINE_CHARS = 40  # per subtitle line at 1920x1080 / Nunito 54
+
+
+def _transcribe_words(audio_path: str, language: str = "ru") -> list[dict]:
+    """Word-level timestamps for the voiceover via OpenAI whisper-1. Returns
+    [{'w','s','e'}] in spoken order, or [] on any failure (caller falls back)."""
+    try:
+        from openai_client import _client, is_openai_enabled
+        if not is_openai_enabled():
+            return []
+        with open(audio_path, "rb") as fh:
+            resp = _client().audio.transcriptions.create(
+                model="whisper-1", file=fh, response_format="verbose_json",
+                timestamp_granularities=["word"], language=(language or "ru"))
+        raw = getattr(resp, "words", None)
+        if raw is None and isinstance(resp, dict):
+            raw = resp.get("words")
+        out: list[dict] = []
+        for w in (raw or []):
+            g = (lambda k: w.get(k) if isinstance(w, dict) else getattr(w, k, None))
+            txt = str(g("word") or "").strip()
+            if not txt:
+                continue
+            out.append({"w": txt, "s": float(g("start") or 0.0), "e": float(g("end") or 0.0)})
+        return out
+    except Exception:
+        return []
+
+
+def _pack_aligned_cues(words: list[dict], max_chars: int = _LF_MAX_LINE_CHARS) -> list[dict]:
+    """Group timestamped words into ≤2-line cues on sentence/width boundaries.
+    Each cue carries its words (with real timings) and the line-1 word count."""
+    from subtitle_builder import _wrap_two_lines
+    cues: list[dict] = []
+    cur: list[dict] = []
+
+    def _flush():
+        if not cur:
+            return
+        text = " ".join(x["w"] for x in cur)
+        wrapped = _wrap_two_lines(text, max_chars)
+        split = len(wrapped.split("\n", 1)[0].split()) if "\n" in wrapped else len(cur)
+        cues.append({"words": cur[:], "split": max(1, min(split, len(cur)))})
+
+    for w in words:
+        tentative = len(" ".join(x["w"] for x in cur) + " " + w["w"])
+        if cur and tentative > max_chars * 2:
+            _flush(); cur = []
+        cur.append(w)
+        line = " ".join(x["w"] for x in cur)
+        if w["w"].rstrip().endswith((".", "!", "?", "…", ":")) and len(line) >= max_chars:
+            _flush(); cur = []
+    _flush()
+    return cues
+
+
+def _pop_two_line(words: list[dict], active: int, split: int) -> str:
+    """Full cue (two lines via \\N) with the ACTIVE word popped."""
+    def _fmt(i, w):
+        return (f"{{\\fscx116\\fscy116\\bord6\\shad2}}{w}{{\\r}}" if i == active else w)
+    line1 = " ".join(_fmt(i, words[i]["w"]) for i in range(0, split))
+    line2 = " ".join(_fmt(i, words[i]["w"]) for i in range(split, len(words)))
+    return line1 + ("\\N" + line2 if line2 else "")
+
+
+def write_aligned_ass(cues: list[dict], path: Path) -> None:
+    """ASS from real word timings: each word is shown for [word.start, next
+    word.start) so the caption tracks the voice exactly, active word popped."""
+    header = (
+        "[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nWrapStyle: 0\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+        "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
+        "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        "Style: LF,Nunito,54,&H00FFFFFF,&H00FFFFFF,&H00101010,&H90000000,-1,0,0,0,"
+        "100,100,0,0,1,4,1,2,140,140,92,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+    lines = [header]
+    for c in cues:
+        ws = c["words"]; split = c["split"]
+        for i, wd in enumerate(ws):
+            start = float(wd["s"])
+            end = float(ws[i + 1]["s"]) if i + 1 < len(ws) else float(wd["e"])
+            if end <= start:
+                end = start + 0.15
+            lines.append(f"Dialogue: 0,{_ass_t(start)},{_ass_t(end)},LF,,0,0,0,,{_pop_two_line(ws, i, split)}")
+    path.write_text("".join(l if l.endswith('\n') else l + '\n' for l in lines), encoding="utf-8")
+
+
 def write_landscape_ass(cues: list[dict], path: Path) -> None:
     """Subtitles for 1920x1080 (not the narrow vertical Shorts layout): large,
     bottom-centre, wide margins, white, with the spoken word emphasised by a
@@ -310,20 +407,40 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             for s, d in zip(scenes, durations):
                 if d and d > 0:
                     s.estimated_duration = float(d)
+        elif vdur and scenes:
+            # Cached voiceover: no per-phrase timing returned. Distribute the
+            # ACTUAL probed voice duration across scenes proportional to
+            # narration length, so the timeline length, subtitle timing and
+            # chapter overlays all match the real audio (otherwise scenes keep
+            # their short pre-TTS estimates and -shortest truncates the video).
+            weights = [max(1, len((s.voiceover_text or "").strip())) for s in scenes]
+            wsum = float(sum(weights)) or 1.0
+            for s, w in zip(scenes, weights):
+                s.estimated_duration = round(vdur * (w / wsum), 3)
         _stage("voiceover", file=str(voice_file), duration=round(vdur, 1),
                characters=sum(len(x) for x in phrases))
 
-        # subtitles from scene timing
-        cursor = 0.0; cue_scenes = []
-        for s in scenes:
-            sd = float(s.estimated_duration or 6.0)
-            st, du = (cursor + 0.3, max(0.1, sd - 0.3)) if getattr(s, "is_cta", False) else (cursor, sd)
-            cue_scenes.append({"text": (s.voiceover_text or "").strip(), "start": st, "duration": du})
-            cursor += sd
-        cues = build_cues(cue_scenes)
+        # subtitles: forced-alignment first — transcribe the finished voiceover
+        # so every word is timed from the ACTUAL audio (fixes drift on long
+        # narration scenes). Fall back to the proportional scene-timing path if
+        # transcription is unavailable.
         ass_path = work / f"subs_{project_id}.ass"
-        write_landscape_ass(cues, ass_path)  # 1920x1080 style, not vertical Shorts
-        _stage("subtitles", cues=len(cues), file=str(ass_path))
+        aligned = _transcribe_words(str(voice_file), language=(ch.language or "ru"))
+        if aligned:
+            acues = _pack_aligned_cues(aligned)
+            write_aligned_ass(acues, ass_path)
+            _stage("subtitles", cues=len(acues), words=len(aligned),
+                   mode="aligned", file=str(ass_path))
+        else:
+            cursor = 0.0; cue_scenes = []
+            for s in scenes:
+                sd = float(s.estimated_duration or 6.0)
+                st, du = (cursor + 0.3, max(0.1, sd - 0.3)) if getattr(s, "is_cta", False) else (cursor, sd)
+                cue_scenes.append({"text": (s.voiceover_text or "").strip(), "start": st, "duration": du})
+                cursor += sd
+            cues = build_cues(cue_scenes)
+            write_landscape_ass(cues, ass_path)  # 1920x1080 style, not vertical Shorts
+            _stage("subtitles", cues=len(cues), mode="proportional", file=str(ass_path))
 
         # chapter overlays (locally-authored explanatory graphics)
         overlays = []
@@ -357,9 +474,13 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             return status
         _stage("final_mix", music=str(music), output=str(final))
 
-        # final QC
+        # final QC — band is relative to the project's duration target with
+        # tolerance, not a hard 12-min ceiling: a 720s-target script that lands
+        # a little long (e.g. 750s) is fine content-wise. Reject only clearly
+        # truncated (<75%) or runaway (>125%) durations, floored at 5 min.
         pr = _probe(final)
-        band = (8 * 60, 12 * 60)
+        _tgt = int(getattr(p, "duration_target_seconds", 0) or 720)
+        band = (max(300, int(_tgt * 0.75)), int(_tgt * 1.25))
         qc = {"file": str(final), "exists": final.exists(),
               "width": pr["width"], "height": pr["height"],
               "duration": round(pr["duration"], 1), "vcodec": pr.get("vcodec"),
