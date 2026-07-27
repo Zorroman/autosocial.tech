@@ -47,6 +47,21 @@ except Exception:
     _BACKLOG_LIMIT = 6
 
 
+def _window_hours() -> tuple[int, int]:
+    """Daytime publishing window [start, end) in the channel's local timezone.
+    Shorts are only generated inside this window and paced across it (default
+    06:00–22:00 → 20/day lands every ~48 min, none overnight). Set start=0,
+    end=24 for round-the-clock."""
+    try:
+        s = int(os.getenv("SHORTS_WINDOW_START_HOUR", "6"))
+        e = int(os.getenv("SHORTS_WINDOW_END_HOUR", "22"))
+    except Exception:
+        s, e = 6, 22
+    s = min(max(0, s), 23)
+    e = min(max(s + 1, e), 24)
+    return s, e
+
+
 def _enabled() -> bool:
     return os.getenv("FACTORY_SCHEDULER_ENABLED", "true").lower() in {"1", "true", "yes"}
 
@@ -83,6 +98,17 @@ def _post(path: str, token: str, body: dict | None = None, timeout: int = 180):
         return 0, {"error": str(exc)[:200]}
 
 
+def _local(channel: Channel, now_utc: datetime) -> datetime:
+    """`now_utc` expressed in the channel's local timezone (tz-aware)."""
+    tzname = (channel.timezone or "UTC").strip() or "UTC"
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tzname)
+    except Exception:
+        tz = timezone.utc
+    return now_utc.replace(tzinfo=timezone.utc).astimezone(tz)
+
+
 def _day_start_utc(channel: Channel, now_utc: datetime) -> datetime:
     """Naive-UTC timestamp of the start of *today* in the channel's timezone.
 
@@ -91,15 +117,17 @@ def _day_start_utc(channel: Channel, now_utc: datetime) -> datetime:
     toward today's quota, and it honours the channel's configured timezone so
     "6 per day" means the channel owner's day, not the server's.
     """
-    tzname = (channel.timezone or "UTC").strip() or "UTC"
-    try:
-        from zoneinfo import ZoneInfo
-        tz = ZoneInfo(tzname)
-    except Exception:
-        tz = timezone.utc
-    local = now_utc.replace(tzinfo=timezone.utc).astimezone(tz)
+    local = _local(channel, now_utc)
     local_midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
     return local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _in_window(channel: Channel, now_utc: datetime) -> bool:
+    """True if the channel's local time is inside the daytime publishing window."""
+    start, end = _window_hours()
+    if start <= 0 and end >= 24:
+        return True
+    return start <= _local(channel, now_utc).hour < end
 
 
 def _made_today(db, channel: Channel, now_utc: datetime) -> int:
@@ -113,7 +141,12 @@ def _due(channel: Channel, made_today: int, now_utc: datetime) -> bool:
     limit = int(channel.daily_video_limit or 0)
     if limit <= 0 or made_today >= limit:
         return False
-    interval = timedelta(hours=24) / limit
+    # Only during the daytime window, and paced across the window (not 24h) so
+    # all `limit` videos land inside 06:00–22:00 (~48 min apart for 20/day).
+    if not _in_window(channel, now_utc):
+        return False
+    start, end = _window_hours()
+    interval = timedelta(hours=(end - start)) / limit
     last = channel.last_generated_at
     if last and (now_utc - last) < interval:
         return False
