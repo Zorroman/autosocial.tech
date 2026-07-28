@@ -37,5 +37,7 @@ There are **two admin-ish surfaces**:
 - Keep the SaaS user/plan/credit console behind a **"Billing / Users (legacy)"** tab.
 - **Dangerous actions** (cancel/retry/clear queue/republish/delete) must have a confirmation dialog **and** a backend state-check. The publish path already enforces idempotency (no double-upload) and the scheduler self-heals stuck jobs.
 
-## Not done (honest)
-The consolidated Ops admin rework is **designed but not implemented** in this iteration — the underlying data is confirmed available; the presentation layer is the remaining work.
+## Implemented (2026-07-28)
+**Operations Overview is live** at `/operations`, built as a separate UTF-8 module (`frontend/operations.js`) so the mojibake-encoded `pageAdmin` block was never edited. It renders real data only — backend/database/Redis/RQ worker/FFmpeg/disk with a Healthy | Degraded | Offline | **Unknown** vocabulary (never a fake green), render-queue length, running/pending/failed jobs, short/long counts, recent errors (each linking to its fix location) and recent publications — plus loading skeletons, an error state with retry, manual refresh and a last-updated timestamp. Reachable from the main Video Factory navigation. The legacy `/admin` SaaS console is untouched.
+
+Still optional: folding the legacy user/plan/credit console into a "Billing / Users (legacy)" tab, and exposing memory usage + a scheduled-jobs list.
