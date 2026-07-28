@@ -126,7 +126,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
 
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  /* minmax(0,1fr): grid items default to min-width:auto, so wide content
+     (tables, long buttons) pushed the column past the viewport at ~1024px. */
+  grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--hero-grad);
 }
@@ -204,9 +206,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
   backdrop-filter: blur(12px);
 }
 
-.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 
-.content { padding: var(--space-5); }
+.content { padding: var(--space-5); min-width: 0; max-width: 100%; overflow-x: hidden; }
 
 .card {
   background: color-mix(in oklab, var(--surface) 94%, transparent);
@@ -4546,3 +4548,10 @@ th { color: var(--text-muted); font-weight: 600; }
 @keyframes opsShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .ops-error{border-left:3px solid #e5484d}
 @media (max-width:560px){.ops-table,.ops-table tbody,.ops-table tr,.ops-table td{display:block;width:100%}.ops-table thead{display:none}.ops-table td{border-top:none;padding:2px 0}.ops-table tr{border-top:1px solid var(--border);padding:10px 0}}
+
+/* Responsive guards (sweep 375/768/1024/1440): the app shell must never scroll
+   sideways — wide tables scroll inside their own container instead. */
+.app-shell, .layout, main.content { min-width: 0; }
+.card, .glass-card, .dash-card { max-width: 100%; }
+table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
+@media (min-width: 900px) { table { display: table; } }
