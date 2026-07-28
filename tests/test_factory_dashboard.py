@@ -55,6 +55,20 @@ def test_dashboard_with_data_and_alerts(client):
     assert "project_created" in types
 
 
+def test_dashboard_short_long_split(client):
+    """The overview exposes a short/long video split that sums to the project count."""
+    h = _h(client)
+    ch = client.post("/api/channels", json={"name": "Split"}, headers=h).get_json()["channel"]["id"]
+    for t in ("V1", "V2"):
+        client.post("/api/video-projects",
+                    json={"channel_id": ch, "title": t, "script_text": "Раз. Два.", "voice_mode": "silent"},
+                    headers=h)
+    o = client.get("/api/factory-dashboard", headers=h).get_json()["overview"]
+    assert isinstance(o.get("videos_short"), int)
+    assert isinstance(o.get("videos_long"), int)
+    assert o["videos_short"] + o["videos_long"] == 2
+
+
 def test_dashboard_requires_auth(client):
     assert client.get("/api/factory-dashboard").status_code == 401
     assert client.get("/api/readiness").status_code == 401
