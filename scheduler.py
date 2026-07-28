@@ -182,11 +182,26 @@ def _reserve(channel_id: int) -> tuple[bool, int | None, int | None]:
         made = _made_today(db, ch, now)
         if not _due(ch, made, now):
             return False, None, None
-        # At most one actively-running pipeline per channel at a time.
-        running = (db.query(VideoProject)
+        # At most one actively-running pipeline per channel at a time — but a
+        # render that was killed (OOM, restart) leaves pipeline_state="running"
+        # forever and would silently stall ALL generation. Self-heal: any project
+        # "running" longer than the stale window is treated as dead, reset to
+        # needs_review, and no longer blocks. A live short render finishes well
+        # within this window.
+        stale_min = int(os.getenv("FACTORY_RUNNING_STALE_MIN", "30"))
+        stale_before = now - timedelta(minutes=stale_min)
+        active = 0
+        for rp in (db.query(VideoProject)
                    .filter(VideoProject.channel_id == channel_id,
-                           VideoProject.pipeline_state == "running").count())
-        if running > 0:
+                           VideoProject.pipeline_state == "running").all()):
+            if (rp.updated_at or rp.created_at or now) < stale_before:
+                rp.pipeline_state = "needs_review"
+                rp.pipeline_error = f"Рендер завис в running >{stale_min} мин; авто-сброс планировщиком."
+                rp.updated_at = now
+                log.warning("scheduler: reset stale-running project %s (channel %s)", rp.id, channel_id)
+            else:
+                active += 1
+        if active > 0:
             return False, None, None
         # Backlog cap: never let more than BACKLOG_LIMIT unfinished factory
         # projects pile up (e.g. many needs_review). Retry a later tick once the
