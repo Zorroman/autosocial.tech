@@ -4,6 +4,7 @@ The media_matcher functions are pure/injectable, so these run without network:
 a fake `search_fn` stands in for Pexels and a fake `llm` for OpenAI. The last
 test exercises the scheduler's DB reservation guard against a double tick.
 """
+import os
 import sys
 from types import SimpleNamespace
 
@@ -213,6 +214,12 @@ def test_scheduler_reservation_blocks_double_generation(tmp_path):
     db.commit()
     cid = ch.id
     db.close()
+
+    # Shorts only generate inside the daytime window (default 06:00–22:00 local);
+    # this test is about the reservation lock, not the clock, so open the window
+    # to 24h for determinism regardless of when the suite runs.
+    os.environ["SHORTS_WINDOW_START_HOUR"] = "0"
+    os.environ["SHORTS_WINDOW_END_HOUR"] = "24"
 
     # First tick reserves the slot (advances last_generated_at inside the txn).
     reserved1, owner1, limit1 = scheduler._reserve(cid)
