@@ -413,7 +413,7 @@ const APP_SHELL_I18N = {
   ru: {
     language_label: 'Язык',
     nav_admin: 'Админ', nav_dashboard: 'Панель', nav_create: 'Создать', nav_calendar: 'Календарь', nav_connections: 'Подключения', nav_history: 'История', nav_settings: 'Настройки бренда', nav_billing: 'Биллинг', nav_support: 'Поддержка', nav_logout: 'Выйти',
-    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.', footer_right: 'Stripe защищенные платежи · SSL защищено · GDPR совместимо',
+    sidebar_subtitle: 'AI видео-фабрика', footer_left: 'Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.', footer_right: 'Stripe защищенные платежи · SSL защищено · GDPR совместимо',
     theme_light: 'Светлая тема', theme_dark: 'Тёмная тема',
     plan_free: 'Бесплатный trial 7 дней', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Админ без лимитов',
     create_hub_label: 'Центр создания',
@@ -700,7 +700,7 @@ const APP_SHELL_I18N = {
   en: {
     language_label: 'Language',
     nav_admin: 'Admin', nav_dashboard: 'Dashboard', nav_create: 'Create', nav_calendar: 'Calendar', nav_connections: 'Connections', nav_history: 'History', nav_settings: 'Brand settings', nav_billing: 'Billing', nav_support: 'Support', nav_logout: 'Log out',
-    sidebar_subtitle: 'AI SMM manager', footer_left: 'No hidden fees. Clear pricing. Limits are counted in posts.', footer_right: 'Stripe secure payments · SSL protected · GDPR compliant',
+    sidebar_subtitle: 'AI Video Factory', footer_left: 'No hidden fees. Clear pricing. Limits are counted in posts.', footer_right: 'Stripe secure payments · SSL protected · GDPR compliant',
     theme_light: 'Light theme', theme_dark: 'Dark theme',
     plan_free: 'Free Trial 7 days', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin Unlimited',
     create_hub_label: 'Creation Hub',
@@ -986,7 +986,7 @@ const APP_SHELL_I18N = {
   },
   de: {
     nav_admin: 'Admin', nav_dashboard: 'Ubersicht', nav_create: 'Erstellen', nav_calendar: 'Kalender', nav_connections: 'Verbindungen', nav_history: 'Verlauf', nav_settings: 'Markeneinstellungen', nav_billing: 'Abrechnung', nav_support: 'Hilfe', nav_logout: 'Abmelden',
-    sidebar_subtitle: 'AI SMM Manager', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezahlt.', footer_right: 'Stripe sichere Zahlungen · SSL geschutzt · GDPR konform',
+    sidebar_subtitle: 'AI Video Factory', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezahlt.', footer_right: 'Stripe sichere Zahlungen · SSL geschutzt · GDPR konform',
     theme_light: 'Helles Design', theme_dark: 'Dunkles Design',
     plan_free: 'Kostenlose Testphase 7 Tage', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin ohne Limit',
     create_hub_label: 'Erstellungszentrale',
@@ -1081,7 +1081,7 @@ const APP_SHELL_I18N = {
   },
   es: {
     nav_admin: 'Admin', nav_dashboard: 'Panel', nav_create: 'Crear', nav_calendar: 'Calendario', nav_connections: 'Conexiones', nav_history: 'Historial', nav_settings: 'Configuracion de marca', nav_billing: 'Facturacion', nav_support: 'Soporte', nav_logout: 'Salir',
-    sidebar_subtitle: 'Gestor SMM con IA', footer_left: 'Sin pagos ocultos. Tarifas transparentes. Los limites se cuentan en publicaciones.', footer_right: 'Pagos seguros con Stripe · SSL protegido · Compatible con GDPR',
+    sidebar_subtitle: 'Fábrica de vídeo IA', footer_left: 'Sin pagos ocultos. Tarifas transparentes. Los limites se cuentan en publicaciones.', footer_right: 'Pagos seguros con Stripe · SSL protegido · Compatible con GDPR',
     theme_light: 'Tema claro', theme_dark: 'Tema oscuro',
     archive_title: 'Archivo de publicaciones',
     plan_free: 'Prueba gratis 7 dias', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin sin limites',
@@ -1153,7 +1153,7 @@ const APP_SHELL_I18N = {
   },
   fr: {
     nav_admin: 'Admin', nav_dashboard: 'Tableau de bord', nav_create: 'Creer', nav_calendar: 'Calendrier', nav_connections: 'Connexions', nav_history: 'Historique', nav_settings: 'Parametres de marque', nav_billing: 'Facturation', nav_support: 'Assistance', nav_logout: 'Se deconnecter',
-    sidebar_subtitle: 'Gestionnaire SMM IA', footer_left: 'Aucun frais cache. Tarifs transparents. Les limites sont comptees en publications.', footer_right: 'Paiements Stripe securises · SSL protege · Conforme au GDPR',
+    sidebar_subtitle: 'Usine à vidéos IA', footer_left: 'Aucun frais cache. Tarifs transparents. Les limites sont comptees en publications.', footer_right: 'Paiements Stripe securises · SSL protege · Conforme au GDPR',
     theme_light: 'Theme clair', theme_dark: 'Theme sombre',
     archive_title: 'Archive des publications',
     plan_free: 'Essai gratuit 7 jours', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin illimite',
@@ -1225,7 +1225,7 @@ const APP_SHELL_I18N = {
   },
   uk: {
     nav_admin: 'Адмін', nav_dashboard: 'Панель', nav_create: 'Створити', nav_calendar: 'Календар', nav_connections: 'Підключення', nav_history: 'Історія', nav_settings: 'Налаштування бренду', nav_billing: 'Білінг', nav_support: 'Підтримка', nav_logout: 'Вийти',
-    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються в постах.', footer_right: 'Stripe захищені платежі · SSL захищено · GDPR сумісно',
+    sidebar_subtitle: 'AI видео-фабрика', footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються в постах.', footer_right: 'Stripe захищені платежі · SSL захищено · GDPR сумісно',
     theme_light: 'Світла тема', theme_dark: 'Темна тема',
     archive_title: 'Архів публікацій',
     plan_free: 'Безкоштовний trial 7 днів', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Адмін без лімітів',
