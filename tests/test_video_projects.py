@@ -176,3 +176,25 @@ def test_full_e2e_render_real_mp4(client):
     proj = client.get(f"/api/video-projects/{pid}", headers=_h(client)).get_json()["project"]
     assert proj["status"] == "rendered"
     assert proj["output_url"] == f"/api/media/{job['output_path']}"
+
+
+def test_output_url_is_null_when_rendered_file_is_missing(client):
+    """A project can carry output_path while the file is gone (cleanup, restored
+    DB, failed render). The API must not hand the UI a URL then, otherwise the
+    details page shows an empty <video> and a dead Download link."""
+    from database import SessionLocal
+    from saas_models import VideoProject
+
+    ch = _mk_channel(client)
+    pid = _mk_project(client, ch)
+    db = SessionLocal()
+    try:
+        p = db.query(VideoProject).filter_by(id=pid).first()
+        p.output_path = "output/definitely_missing_file.mp4"
+        db.commit()
+    finally:
+        db.close()
+
+    got = client.get(f"/api/video-projects/{pid}", headers=_h(client)).get_json()["project"]
+    assert got["output_path"] == "output/definitely_missing_file.mp4"
+    assert got["output_url"] is None

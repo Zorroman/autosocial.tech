@@ -76,6 +76,22 @@ def _own_project(db, project_id: int) -> VideoProject | None:
     )
 
 
+def _output_file_exists(p) -> bool:
+    """True when the project's rendered file is actually on disk.
+
+    Guards the UI against an empty <video> player and a dead Download link when
+    output_path is set but the file is gone (cleanup, failed render, restored DB).
+    """
+    rel = (getattr(p, "output_path", None) or "").strip()
+    if not rel:
+        return False
+    try:
+        f = (settings.BASE_DIR / rel).resolve()
+        return settings.BASE_DIR in f.parents and f.is_file()
+    except Exception:
+        return False
+
+
 def _iso(dt):
     return dt.isoformat() if dt else None
 
@@ -112,7 +128,9 @@ def _project_dict(p: VideoProject, scenes=None, jobs=None) -> dict:
         "aspect_ratio": p.aspect_ratio,
         "duration_target_seconds": p.duration_target_seconds,
         "output_path": p.output_path,
-        "output_url": f"/api/media/{p.output_path}" if p.output_path else None,
+        # Only expose a playable/downloadable URL when the file really exists —
+        # otherwise the UI renders an empty <video> and a dead Download link.
+        "output_url": f"/api/media/{p.output_path}" if _output_file_exists(p) else None,
         "content_pillar_id": p.content_pillar_id,
         "generation_profile": (json.loads(p.generation_profile_json) if p.generation_profile_json else None),
         "error": p.error,
