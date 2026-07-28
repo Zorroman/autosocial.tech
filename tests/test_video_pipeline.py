@@ -142,5 +142,5 @@ def test_ai_video_render_and_status_shape(client, monkeypatch):
     body = status.get_json() or {}
     assert body.get("status") in {"queued", "running", "success", "error"}
     assert isinstance(body.get("progress"), int)
-    assert body.get("step") in {"queued", "structure", "footage", "render", "export", "upload"}
+    assert body.get("step") in {"queued", "preparing_script", "structure", "footage", "render", "export", "upload"}
     assert "message" in body

@@ -90,7 +90,7 @@ def _channel_dict(c: Channel) -> dict:
         "default_visibility": c.default_visibility,
         "automatic_generation_enabled": bool(c.automatic_generation_enabled),
         "automatic_publishing_enabled": bool(c.automatic_publishing_enabled),
-        "publishing_mode": (c.publishing_mode or "manual"),
+        "publishing_mode": (getattr(c, "publishing_mode", None) or "manual"),
         "last_generated_at": c.last_generated_at.isoformat() if c.last_generated_at else None,
         **_scheduler_status(c),
         "youtube_channel_id": c.youtube_channel_id,

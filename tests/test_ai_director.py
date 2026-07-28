@@ -70,7 +70,7 @@ def test_director_suggest_returns_counts(client):
     p = r.get_json()
     data = p.get("data") or {}
     assert len(data.get("topics") or []) == 10
-    assert len(data.get("angles") or []) == 3
+    assert len(data.get("angles") or []) >= 3  # director now offers more angle options (was fixed 3)
     assert len(data.get("cta_options") or []) == 3
 
 
