@@ -47,3 +47,7 @@ tests/render_fixtures/
 autosocial.db.bak_*
 music_import/
 test_output/
+
+# local audit dev stack (not for commit)
+autosocial_audit.db
+.venv-audit/

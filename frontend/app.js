@@ -425,7 +425,7 @@ const APP_SHELL_I18N = {
     create_hub_post_subtitle: 'Один пост, серия постов или быстрый рабочий черновик для соцсетей.',
     create_hub_post_cta: 'Открыть студию постов',
     create_hub_video_title: 'Студия видео',
-    create_hub_video_subtitle: 'Универсальный короткий или длинный видеоконтент для Meta и YouTube.',
+    create_hub_video_subtitle: 'Короткие и длинные видео: сценарий, озвучка, видеоряд, музыка, субтитры, рендер и публикация на YouTube.',
     create_hub_video_cta: 'Открыть студию видео',
     create_hub_weekly_title: 'План на 7 дней',
     create_hub_weekly_subtitle: 'Недельный контент-план с темами, CTA и готовыми слотами.',
