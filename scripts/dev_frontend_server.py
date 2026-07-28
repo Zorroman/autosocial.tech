@@ -34,8 +34,10 @@ class SPAFallbackHandler(SimpleHTTPRequestHandler):
             return super().do_GET()  # let it 404 honestly (missing asset)
 
         # Unknown UI route (/projects/12, /video/7, /operations, /create/video…)
-        # -> serve the SPA shell so the client router can handle it.
-        self.path = "/" + _SHELL
+        # -> serve the SPA shell so the client router can handle it. The root
+        # index.html is the marketing landing, so app routes get the app shell
+        # (dashboard/index.html), matching what the production edge serves.
+        self.path = "/dashboard/" + _SHELL if path != "/" else "/" + _SHELL
         return super().do_GET()
 
     def log_message(self, fmt, *args):  # quieter dev output
