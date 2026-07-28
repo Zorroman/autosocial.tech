@@ -417,8 +417,8 @@ const APP_SHELL_I18N = {
     theme_light: 'Светлая тема', theme_dark: 'Тёмная тема',
     plan_free: 'Бесплатный trial 7 дней', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Админ без лимитов',
     create_hub_label: 'Центр создания',
-    create_hub_title: 'Что создаём сегодня?',
-    create_hub_lead: 'Разделили создание постов, видео и планов на отдельные студии, чтобы экран оставался лёгким, понятным и профессиональным.',
+    create_hub_title: 'Создать видео',
+    create_hub_lead: 'Короткие и длинные видео для YouTube: сценарий → озвучка → видеоряд → музыка → субтитры → рендер → публикация. Дополнительные инструменты для соцсетей — ниже.',
     create_hub_plan_prefix: 'Тариф',
     create_hub_youtube_hint: 'Студия YouTube остаётся отдельным быстрым режимом для Shorts и длинных видео.',
     create_hub_post_title: 'Студия постов',
@@ -10544,14 +10544,17 @@ function renderSocialPreview(payload) {
 function pageCreateHub() {
   const billingPlan = String(state.billing?.plan || state.user?.plan || 'free').trim().toLowerCase() || 'free';
   const planLabel = String(localizedPlanTitle(billingPlan, state.billing?.plan_title || '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
+  // Video Factory first: Short and Long videos are the primary actions.
   const launcherCards = [
-    { title: shellText('create_hub_post_title'), subtitle: shellText('create_hub_post_subtitle'), href: '/create/post', accent: 'POST', cta: shellText('create_hub_post_cta') },
-    { title: shellText('create_hub_video_title'), subtitle: shellText('create_hub_video_subtitle'), href: '/create/video', accent: 'VIDEO', cta: shellText('create_hub_video_cta') },
-    { title: shellText('create_hub_weekly_title'), subtitle: shellText('create_hub_weekly_subtitle'), href: plannerUrl('post', 7), accent: '7D', cta: shellText('create_hub_weekly_cta') },
-    { title: shellText('create_hub_monthly_title'), subtitle: shellText('create_hub_monthly_subtitle'), href: plannerUrl('post', 30), accent: '30D', cta: shellText('create_hub_monthly_cta') },
+    { title: 'Короткое видео (Shorts)', subtitle: 'Shorts до ~60 секунд: сценарий, озвучка, видеоряд, субтитры, рендер и публикация на YouTube.', href: '/create/video?format=short', accent: 'SHORT', cta: 'Создать короткое' },
+    { title: 'Длинное видео', subtitle: 'Длинный ролик ~8–12 минут: сценарий, озвучка, монтаж, музыка, субтитры, рендер и публикация на YouTube.', href: '/create/video?format=long', accent: 'LONG', cta: 'Создать длинное' },
   ];
+  // Secondary: navigate the factory, plus additional social-content tools (kept, not primary).
   const secondaryCards = [
-    { title: shellText('create_hub_youtube_title'), subtitle: shellText('create_hub_youtube_subtitle'), href: '/youtube', cta: shellText('create_hub_youtube_cta') },
+    { title: 'Видео-проекты и очередь', subtitle: 'Все проекты, статусы рендера и очередь публикации.', href: '/projects', cta: 'Открыть' },
+    { title: 'Публикации', subtitle: 'Статусы и ссылки опубликованных видео на YouTube.', href: '/publications', cta: 'Открыть' },
+    { title: 'Каналы YouTube', subtitle: 'Подключение каналов и настройки публикации.', href: '/channels', cta: 'Открыть' },
+    { title: shellText('create_hub_post_title'), subtitle: 'Дополнительные инструменты: посты и контент-планы для соцсетей (Meta).', href: '/create/post', cta: shellText('create_hub_post_cta') },
     { title: shellText('create_hub_planner_title'), subtitle: shellText('create_hub_planner_subtitle'), href: '/create/plan', cta: shellText('create_hub_planner_cta') },
   ];
   return appLayout('/create', shellText('nav_create'), `
@@ -10577,6 +10580,8 @@ function pageCreateHub() {
           </article>
         `).join('')}
       </div>
+      <h3 style="margin:22px 0 4px;">Управление и дополнительные инструменты</h3>
+      <p class="small" style="margin:0 0 12px;opacity:.7;">Навигация по фабрике и дополнительные инструменты для соцсетей.</p>
       <div class="create-hub-secondary">
         ${secondaryCards.map((card) => `
           <article class="create-hub-secondary-card">
