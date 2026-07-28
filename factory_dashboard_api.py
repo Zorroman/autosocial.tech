@@ -169,6 +169,10 @@ def factory_dashboard():
             "channels_paused": sum(1 for c in channels if c.status == "paused"),
             "projects_in_progress": sum(1 for p in projects if p.status in {"draft", "ready", "rendering"}),
             "videos_rendered": sum(1 for p in projects if p.status == "rendered"),
+            # Short vs long split (long-form == duration target >= 150s, the same
+            # threshold the generator/pipeline use to switch to the long path).
+            "videos_short": sum(1 for p in projects if int(p.duration_target_seconds or 0) < 150),
+            "videos_long": sum(1 for p in projects if int(p.duration_target_seconds or 0) >= 150),
             "jobs_pending": sum(1 for j in jobs if j.status == "pending"),
             "jobs_processing": sum(1 for j in jobs if j.status == "processing"),
             "jobs_failed": sum(1 for j in jobs if j.status == "failed"),

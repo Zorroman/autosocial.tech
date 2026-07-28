@@ -7338,6 +7338,7 @@ function pageFactoryDashboard() {
     ${stat('Каналы', `${o.channels_total || 0} <span class="small">(${o.channels_active || 0} акт · ${o.channels_testing || 0} тест · ${o.channels_paused || 0} пауза)</span>`)}
     ${stat('Проекты в работе', num(o.projects_in_progress))}
     ${stat('Готовых видео', num(o.videos_rendered))}
+    ${stat('Короткие / Длинные', `${o.videos_short || 0} / ${o.videos_long || 0}`)}
     ${stat('Очередь', `${o.jobs_pending || 0} / ${o.jobs_processing || 0}${o.jobs_failed ? ` · <span style="color:#e5484d;">${o.jobs_failed} fail</span>` : ''}`)}
     ${stat('Публикации 7д/30д', `${o.published_7d || 0} / ${o.published_30d || 0}`)}
     ${stat('Views 7д', num(o.views_7d))}
