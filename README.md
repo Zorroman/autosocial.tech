@@ -1,288 +1,204 @@
-﻿# AutoSocial GPT SaaS
+# AutoSocial — AI Video Factory
 
-## 1) Локальный запуск
+Autonomous production pipeline that writes, voices, edits, and publishes short- and
+long-form video to YouTube — end to end, with no manual intervention in the default
+path. It currently runs a real YouTube channel that publishes ~20 Shorts/day and one
+long-form video/day, fully automated.
+
+**This is not a SaaS demo or a wrapper around an API.** It is a working content
+factory: script generation → TTS voiceover → stock-footage selection → FFmpeg
+rendering (memory-safe on a 3.8 GB VPS) → subtitle burn-in (word-level, forced
+alignment) → AI-generated metadata → YouTube upload, orchestrated by a scheduler
+and background workers, with a real operations dashboard reading real
+infrastructure state.
+
+> Screenshots below are from a local dev environment with a neutral demo user and
+> synthetic fixtures — not production data. See [`docs/screenshots/`](docs/screenshots/).
+
+## Table of contents
+
+- [What this actually does](#what-this-actually-does)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Engineering highlights](#engineering-highlights-worth-asking-about)
+- [Known limitations](#known-limitations--honest-trade-offs)
+- [License](#license)
+
+## What this actually does
+
+| Stage | What happens | Where |
+|---|---|---|
+| Ideation | An AI "Content Director" picks a topic per channel/pillar, avoiding recent repeats | `content_director.py` |
+| Script | GPT-4o-mini writes narration; long-form gets a persona voice + a closing authorial synthesis | `video_script_generator.py` |
+| Voice | OpenAI TTS (with a fallback chain), tone-controlled via `instructions` | `video/tts.py` |
+| Visuals | Licensed stock photo/video selection (Pexels/Pixabay), multi-stage semantic matching, cooldown/reservation so footage doesn't repeat across a channel | `footage/`, `media_matcher.py`, `footage_matcher.py` |
+| Render | Memory-safe chunked FFmpeg rendering — one segment at a time, never a monolithic filter graph (see [Engineering highlights](#engineering-highlights-worth-asking-about)) | `longform_render.py`, `video/render/render_video.py` |
+| Subtitles | Word-level captions timed from the actual voiceover audio (Whisper forced alignment), not proportional guesses | `longform_pipeline.py` |
+| Metadata | AI-generated titles/descriptions/tags, thumbnail | `ai_publisher.py` |
+| Publish | Resumable YouTube upload, idempotent (no double-publish), auto-sorted into channel playlists | `publications_api.py` |
+| Scheduling | Self-healing scheduler: daily quotas, publish-time windows, per-channel daily-limit reservation with row-level locking | `scheduler.py`, `longform_scheduler.py` |
+| Ops | Real infrastructure health (backend/DB/Redis/worker/FFmpeg/disk/queues), never a faked green status | `factory_dashboard_api.py`, `frontend/operations.js` |
+
+## Architecture
+
+```
+┌─────────────┐      ┌──────────────┐      ┌─────────────────┐
+│  Frontend    │◄────►│   Flask API   │◄────►│   PostgreSQL     │
+│  (vanilla JS │      │  (saas_api.py │      │  (channels,      │
+│   SPA)       │      │  + blueprints)│      │   projects, jobs)│
+└─────────────┘      └───────┬──────┘      └─────────────────┘
+                              │
+                              ▼
+                      ┌───────────────┐      ┌──────────────┐
+                      │  Redis + RQ    │◄────►│  Worker       │
+                      │  (job queue)   │      │  (scheduler + │
+                      └───────────────┘      │  render jobs) │
+                                              └───────┬──────┘
+                                                       │
+                              ┌────────────────────────┼────────────────────────┐
+                              ▼                        ▼                        ▼
+                      ┌───────────────┐        ┌───────────────┐        ┌───────────────┐
+                      │  OpenAI        │        │  FFmpeg        │        │  YouTube Data  │
+                      │  (script, TTS, │        │  (render,      │        │  API v3        │
+                      │  Whisper)      │        │  subtitles)    │        │  (upload)      │
+                      └───────────────┘        └───────────────┘        └───────────────┘
+```
+
+Five Docker Compose services: `backend` (Flask API), `worker` (RQ + schedulers),
+`postgres`, `redis`, `caddy` (reverse proxy/TLS). Full detail, including the
+render-memory design and the reasoning behind key decisions, in
+[`ARCHITECTURE.md`](ARCHITECTURE.md), [`SYSTEM_DESIGN.md`](SYSTEM_DESIGN.md), and
+[`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md).
+
+## Quick start
+
 ```bash
-copy .env.example .env
-py -m pip install -r requirements.txt
-py migrations.py
-py seed_admin.py
-py app.py
-py -m http.server 3000 --directory frontend
+cp .env.example .env               # fill in API keys (see Configuration)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+python migrations.py               # schema (also runs automatically on app start)
+python seed_admin.py               # creates a local admin user
+
+python app.py                      # backend — http://localhost:5000
+python -m http.server 3000 --directory frontend   # frontend — http://localhost:3000/login/
+python worker.py                   # RQ worker + schedulers (needs Redis)
 ```
 
-- Front: `http://localhost:3000/login/`
-- API: `http://localhost:5000/health`
-- API (namespace): `http://localhost:5000/api/health`
+Or the full stack in containers:
 
-## 2) ENV (ключевые переменные)
-Используйте `.env.example`.
-
-Критичные для OAuth/хостинга:
-- `DATABASE_URL`
-- `FRONTEND_BASE_URL`
-- `API_BASE_URL`
-- `CORS_ORIGIN`
-- `COOKIE_DOMAIN`
-- `COOKIE_SECURE`
-- `META_REDIRECT_URI`
-- `FB_LOGIN_REDIRECT_URI`
-- `GOOGLE_REDIRECT_URI`
-- `FB_APP_ID`
-- `FB_APP_SECRET`
-- `FB_LOGIN_APP_ID`
-- `FB_LOGIN_APP_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `MOCK_META`
-
-## 3) Auth setup (Google + Facebook)
-Google Cloud Console:
-- Authorized redirect URI:
-  - `https://api.autosocial.tech/api/auth/oauth/google/callback`
-  - `https://api-dev.autosocial.tech/api/auth/oauth/google/callback`
-
-Meta Developers:
-- App Domains:
-  - `autosocial.tech`
-  - `api.autosocial.tech`
-  - `dev.autosocial.tech`
-  - `api-dev.autosocial.tech`
-- Valid OAuth Redirect URIs:
-  - `https://api.autosocial.tech/api/auth/oauth/facebook/callback`
-  - `https://api.autosocial.tech/api/integrations/meta/callback`
-  - `https://api-dev.autosocial.tech/api/auth/oauth/facebook/callback`
-  - `https://api-dev.autosocial.tech/api/integrations/meta/callback`
-- Facebook Login:
-  - Client OAuth Login = ON
-  - Web OAuth Login = ON
-
-## 4) Основные API
-- `GET /health`
-- `GET /api/health`
-- `POST /api/integrations/meta/connect`
-- `GET /api/integrations/meta/callback`
-- `GET /api/integrations/meta/pages`
-- `POST /api/integrations/meta/select-page`
-- `POST /api/integrations/meta/test-post`
-- `POST /api/integrations/meta/refresh`
-- `POST /api/integrations/meta/disconnect`
-
-Dashboard metrics API:
-- `POST /api/dashboard/sync`
-- `GET /api/dashboard/summary?days=30`
-- `GET /api/dashboard/ai-score?days=30`
-- `GET /api/dashboard/forecast?horizon=7&days=90`
-- `GET /api/dashboard/timeseries?days=30`
-- `GET /api/dashboard/insights?days=30`
-- `GET /api/dashboard/recent?limit=10`
-
-Пример ручного запуска синка:
-```bash
-curl -X POST https://api.autosocial.tech/api/dashboard/sync \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d "{}"
-```
-
-## 5) Smoke tests
-```bash
-bash tests/smoke/run_smoke.sh
-py -m pytest tests/test_dashboard_metrics.py -q
-py scripts/verify_release.py
-```
-Отчет:
-- `tests/reports/smoke-YYYYMMDD-HHMMSS.txt`
-
-Post-deploy release verification:
-- `py scripts/verify_release.py`
-- Скрипт делает только read-only HTTP-проверки production:
-  - bundle `app.js`
-  - `data/nicheTemplates.js`
-  - `/create/`
-  - `/api/plans`
-- Если находит legacy pricing, отсутствие quick actions или проблемы с нишами, завершится с кодом `1`.
-
-Проверка AI-Score вручную:
-```bash
-curl -X GET "http://localhost:5000/api/dashboard/ai-score?days=30" \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Проверка данных в БД:
-```sql
-SELECT user_id, day, ai_score, performance, consistency, growth, optimization
-FROM ai_score_daily
-ORDER BY day DESC
-LIMIT 30;
-
-SELECT user_id, day, score_total
-FROM ai_scores_daily
-ORDER BY day DESC
-LIMIT 30;
-
-SELECT user_id, horizon_days, based_on_from, based_on_to
-FROM forecasts
-ORDER BY created_at DESC
-LIMIT 10;
-```
-
-## 6) E2E tests (Playwright)
-```bash
-cd tests/e2e
-npm install
-set E2E_BASE_URL=https://dev.autosocial.tech
-set E2E_EXPECTED_META_REDIRECT=https://api-dev.autosocial.tech/api/integrations/meta/callback
-npx playwright install
-npm run test:e2e
-```
-Артефакты:
-- Скриншоты/trace/video: `tests/artifacts/`
-- HTML report: `tests/reports/playwright/`
-
-## 7) QA checklist (/connections)
-1. Статус `not_connected` -> primary `Подключить Facebook`.
-2. `connected_need_page` -> primary `Выбрать страницу`.
-3. `connected_ready` -> primary `Тест публикации`.
-4. `token_expired`/`permissions_missing`/`disconnected` -> primary `Переподключить`.
-5. В `Детали` видны:
-   - `status_reason_code`
-   - `META_REDIRECT_URI`
-   - `last_success_at`
-   - кнопка `Скопировать тех.лог`.
-
-## 8) Логи
-- API лог пишет в `logs/api.log`
-- Проверка последних записей:
-```bash
-tail -n 200 logs/api.log
-```
-
-## 9) Create Wizard Flow (/create)
-Мастер `/create` работает через сущности кампании:
-- `Campaign` (общая идея, текст, режим image/video/both)
-- `CampaignAsset` (image/video/thumbnail)
-- `CampaignDelivery` (публикация по платформам)
-- `GenerationJob` (статус генерации ассетов)
-
-Основные endpoints:
-- `POST /api/campaigns`
-- `PATCH /api/campaigns/:id`
-- `GET /api/campaigns/:id`
-- `GET /api/campaigns`
-- `POST /api/campaigns/:id/generate-image`
-- `POST /api/campaigns/:id/generate-video`
-- `GET /api/jobs/:id`
-- `POST /api/campaigns/:id/publish`
-- `GET /api/deliveries/:id`
-- `GET /api/history`
-
-Creator Studio API (текст + AI assist + quality + шаблоны):
-- `POST /api/create/suggest` — быстрые варианты (hook/angles/cta)
-- `POST /api/create/generate` — генерация draft-вариантов (quick/pro режим)
-- `POST /api/create/rewrite` — улучшение существующего текста
-- `POST /api/create/quality-check` — score/checks/warnings для текущего поста
-- `GET /api/create/templates`
-- `POST /api/create/templates`
-- `DELETE /api/create/templates/:id`
-- `GET /api/create/niche-catalog` — системный каталог ниш и готовых шаблонов
-- `POST /api/create/templates/import-catalog` — импорт шаблона из каталога в user templates
-
-AI Контент-директор API:
-- `POST /api/ai/director/suggest` — темы/углы/CTA (status: ok|partial|error)
-- `POST /api/ai/director/generate-drafts` — генерация драфтов по выбранной теме и углу
-- `POST /api/ai/director/rewrite` — переписывание текста
-- `POST /api/ai/quality-check` — quality score/checks/warnings
-
-Стабильность генерации:
-- optional JSON-поля больше не валят генерацию
-- для strategy/drafts добавлена мягкая нормализация и fallback цепочка
-- API возвращает safe payload (`status`, `warnings`, `debug_code`) даже при partial-результате
-
-Локально обязательно запустить backend и frontend, а также worker (для очередей RQ, если включены соответствующие задачи):
-```bash
-py app.py
-py -m http.server 3000 --directory frontend
-py worker.py
-```
-
-## 10) Docker + миграции
 ```bash
 docker compose up -d --build
 ```
-Миграции выполняются автоматически при старте backend (см. `run_migrations()` в `app.py`).
-Для ручного прогона:
+
+For a self-contained local dev loop (mock AI providers, isolated SQLite DB, no
+Redis/worker needed, and a small SPA-fallback server so deep links like
+`/projects/12` work without a reverse proxy):
+
 ```bash
-py migrations.py
+./scripts/dev-start.sh
+./scripts/dev-start.sh --stop
 ```
 
-## 11) PRO Video Pipeline
-Генерация видео теперь идет локально на сервере через `BASE_DIR`:
-- кэш футажей: `cache/footage/`
-- артефакты: `output/videos/`, `output/audio/`, `output/subtitles/`, `output/manifests/`
+## Configuration
 
-Ключевые ENV:
-- `BASE_DIR`
-- `PEXELS_API_KEY`
-- `PIXABAY_API_KEY`
-- `OPENAI_API_KEY`
-- `OPENAI_TTS_MODEL`
-- `OPENAI_TTS_VOICE` (по умолчанию `eddy`)
-- `FFMPEG_BIN`
-- `FFPROBE_BIN`
-- `VIDEO_RENDER_CONCURRENCY`
+All configuration is environment-driven — see [`.env.example`](.env.example) for the
+full list. The essentials to run anything locally:
 
-API:
-- `POST /api/video/generate`
-- `GET /api/video/jobs/{job_id}`
-- `POST /api/video/jobs/{job_id}/publish`
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres in production, SQLite for local/dev |
+| `OPENAI_API_KEY` | Script generation, TTS, Whisper alignment |
+| `PEXELS_API_KEY` / `PIXABAY_API_KEY` | Licensed stock footage |
+| `GOOGLE_CLIENT_ID/SECRET` | YouTube OAuth + upload |
+| `REDIS_URL` | Job queue (worker requires this) |
+| `USE_MOCK_PROVIDERS=true` | Skip all paid AI calls — for tests/dev |
 
-Пример:
+Set `USE_MOCK_PROVIDERS=true` and `SYNC_JOBS=true` for local development so you
+never make a real (billed) API call by accident.
+
+## Testing
+
 ```bash
-curl -X POST http://localhost:5000/api/video/generate \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "topic":"Как сервису получить больше заявок из контента",
-    "offer":"Бесплатный аудит",
-    "language":"ru",
-    "format":"short",
-    "target_seconds":30,
-    "orientation":"vertical",
-    "style":"expert"
-  }'
+USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 ```
 
-Проверка статуса:
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  http://localhost:5000/api/video/jobs/<JOB_ID>
-```
+269 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
+real YouTube channel. Runs in CI on every push/PR (see
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a gitleaks
+secret-scan. Playwright E2E and a scripted responsive/console sweep are documented
+in [`TESTING.md`](TESTING.md).
 
-## 12) Niche Catalog (локальные бизнес-ниши)
-Системный каталог ниш хранится в таблицах:
-- `niches`
-- `templates`
+## Deployment
 
-Сидер:
-- данные определяются в `niche_catalog.py`
-- загрузка в БД выполняется через `seed_niche_catalog()` при старте `app.py`
+Runs on a single small VPS (Hetzner CPX22, 3.8 GB RAM) via Docker Compose. Backend
+and worker are independently tagged images, so a backend-only fix (no DB migration)
+rebuilds and restarts in seconds without touching the worker mid-render. Full
+procedure, backup/rollback strategy, and a walkthrough of a real production
+deploy in [`DEPLOYMENT.md`](DEPLOYMENT.md) and [`PRODUCTION.md`](PRODUCTION.md).
 
-Как добавить новую нишу:
-1. Добавить запись в `NICHE_SPECS` (`slug`, `title`, `description`, `icon`, `sort_order` и контекстные поля).
-2. Добавить/обновить 6 шаблонов на нишу в `build_niche_catalog_seed()`:
-   - 3 `post`: promo, social proof, educational myth
-   - 3 `video`: hook+3 tips, behind the scenes, FAQ objections
-3. Проверить поля шаблона:
-   - `type`, `platform`, `goal`, `tone`, `hook_line`, `cta`
-   - `prompt_system`, `prompt_user`
-   - `variables_schema_json`
-   - `preview_text`
-4. Перезапустить backend или выполнить миграции/сид:
-```bash
-py app.py
-```
-или
-```bash
-py migrations.py
-py app.py
-```
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Component breakdown, data flow, module map |
+| [`SYSTEM_DESIGN.md`](SYSTEM_DESIGN.md) | Design constraints (3.8 GB RAM, single VPS) and how they shaped the system |
+| [`PRODUCTION.md`](PRODUCTION.md) | What's actually running, real numbers, infra topology |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | How a deploy is actually done, safely, on this stack |
+| [`OPERATIONS.md`](OPERATIONS.md) | Health checks, the Operations dashboard, runbooks |
+| [`TESTING.md`](TESTING.md) | Test strategy, CI, E2E, the responsive-sweep tooling |
+| [`SECURITY.md`](SECURITY.md) | Threat model, what was checked, and a real incident found + fixed |
+| [`CASE_STUDIES.md`](CASE_STUDIES.md) | Deep dives on real bugs: root cause → decision → trade-off → result |
+| [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md) | Why things are built the way they are, including calls I'd defend differently in hindsight |
+| [`LESSONS_LEARNED.md`](LESSONS_LEARNED.md) | What this project actually taught me |
+
+## Engineering highlights (worth asking about)
+
+- **Memory-safe video rendering on a 3.8 GB box.** A naive render (one giant FFmpeg
+  filter graph over all clips) OOM-kills at ~40% on this hardware. The renderer
+  processes one still/clip at a time into a short segment, then stream-copies
+  segments into chunks and chunks into the final file — peak RSS ~400–600 MB,
+  independent of the video's total length. See
+  [`CASE_STUDIES.md`](CASE_STUDIES.md#1-memory-safe-long-form-rendering).
+- **A monitoring bug that was wrong by design, not by accident.** The worker
+  health check flagged a perfectly healthy, idle worker as "Offline" because its
+  120-second heartbeat threshold was three times stricter than the underlying
+  queue library's own liveness window. Root-caused by reading the library's
+  source, fixed, and verified live in production with a deliberate 130-second
+  wait past the old broken threshold. See
+  [`CASE_STUDIES.md`](CASE_STUDIES.md#2-the-worker-was-never-offline).
+- **A live secrets-in-git-history incident, found and fixed before publishing.**
+  A pre-publication `gitleaks` scan surfaced a real OpenAI key and Stripe test
+  credentials committed months earlier. Full incident response: credential
+  rotation, `git filter-repo` history rewrite across all branches and tags,
+  independent re-verification via a fresh clone, before this repository was ever
+  made public. See [`SECURITY.md`](SECURITY.md).
+
+## Known limitations & honest trade-offs
+
+This section exists on purpose — a reviewer will find these anyway, and I'd
+rather state them than have them look like they were missed.
+
+- **`frontend/app.js` is a single ~19k-line file** with no build step or module
+  boundaries. It works, and 800+ consistent call sites of an `esc()` XSS-escaping
+  helper show real discipline within that file — but it's a maintainability
+  ceiling I'd address first on a team codebase. One legacy admin-panel block
+  inside it has character-encoding corruption from an early migration; rather
+  than risk further corrupting it with a blind edit, I built the newer
+  Operations dashboard as a separate, cleanly-encoded module instead. See
+  [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md).
+- **Deployment is manual (SSH + `docker compose build`), not GitOps.** Reasonable
+  for a single-operator VPS at this scale; the first thing I'd change moving to a
+  team environment.
+- **The product's positioning evolved** from an earlier social-media-posting tool
+  into today's YouTube video factory; some legacy code paths for that earlier
+  scope still exist behind a secondary UI section rather than being deleted
+  outright, to avoid breaking functionality that's still in occasional use.
+
+## License
+
+Proprietary — portfolio/evaluation use only. See [`LICENSE`](LICENSE).
