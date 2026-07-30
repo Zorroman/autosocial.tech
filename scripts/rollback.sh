@@ -30,4 +30,4 @@ sleep 8
 curl -fsS --max-time 15 "$API_URL/api/health" > /dev/null \
   && echo "ROLLBACK OK: health passed on $PREV" \
   || { echo "ROLLBACK COMPLETED BUT HEALTH FAILED — investigate manually"; exit 1; }
-echo "Note: migrations are additive; DB restore from backup is only needed on data corruption (see BACKUP_RESTORE.md)."
+echo "Note: migrations are additive; DB restore from backup is only needed on data corruption (see docs/history/BACKUP_RESTORE.md)."
