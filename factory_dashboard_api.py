@@ -48,7 +48,26 @@ def _redis_status() -> dict:
 
 
 def _worker_status(redis_conn) -> dict:
-    """Real RQ worker heartbeat from Redis; never faked in-process."""
+    """Real RQ worker liveness from Redis — never faked in-process.
+
+    `online` is registration presence (`Worker.all()`), not a hand-rolled
+    heartbeat-age check. RQ already expires a worker's registration key
+    `worker_ttl + 60`s after its last heartbeat and `Worker.all()` excludes
+    anything expired (rq/worker/base.py: `find_by_key` returns None, filtered
+    by `compact()`), so presence here already means "not expired by RQ's own
+    bookkeeping" — re-deriving liveness from `last_heartbeat` age on top of
+    that is redundant, and doing it with a short, arbitrary threshold is
+    actively wrong: RQ's blocking dequeue only returns (and re-heartbeats) at
+    most every `worker_ttl - 15`s (~405s for the 420s default), so a perfectly
+    healthy, idle worker's heartbeat can legitimately be several minutes old.
+    A 120s threshold flagged this system's worker "Offline" during completely
+    normal idle gaps between jobs (Shorts run ~48 min apart) even though it was
+    alive and continued publishing throughout.
+    `alive` per worker is kept as diagnostic detail (how stale is this specific
+    entry), measured against that same worker's own configured `worker_ttl`
+    (+60s, matching RQ's own key-expiry buffer) instead of a shorter constant,
+    so it stays correct if worker_ttl is ever tuned.
+    """
     if not redis_conn:
         return {"online": False, "workers": [], "reason": "redis_unavailable"}
     try:
@@ -57,13 +76,12 @@ def _worker_status(redis_conn) -> dict:
         infos = []
         from datetime import timezone
         now = datetime.now(timezone.utc)
-        online = False
         for w in workers:
             hb = w.last_heartbeat
             if hb and hb.tzinfo is None:
                 hb = hb.replace(tzinfo=timezone.utc)
-            alive = bool(hb and (now - hb).total_seconds() < 120)
-            online = online or alive
+            stale_after = (getattr(w, "worker_ttl", None) or 420) + 60
+            alive = bool(hb and (now - hb).total_seconds() < stale_after)
             infos.append({
                 "name": w.name,
                 "queues": [q.name for q in w.queues],
@@ -71,6 +89,9 @@ def _worker_status(redis_conn) -> dict:
                 "last_heartbeat": _iso(hb),
                 "alive": alive,
             })
+        # Registration presence is the authoritative online/offline signal —
+        # RQ has already excluded anything past its own TTL.
+        online = bool(workers)
         return {"online": online, "workers": infos}
     except Exception as exc:
         return {"online": False, "workers": [], "reason": str(exc)[:120]}

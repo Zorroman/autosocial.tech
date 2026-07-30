@@ -69,6 +69,48 @@ def test_dashboard_short_long_split(client):
     assert o["videos_short"] + o["videos_long"] == 2
 
 
+def test_worker_status_stale_heartbeat_but_registered_is_online(monkeypatch):
+    """A worker whose last heartbeat is a few minutes old is still healthy —
+    RQ's own blocking dequeue only re-heartbeats when it returns, at most every
+    `worker_ttl - 15`s (~405s for the 420s default), so idle gaps of several
+    minutes between jobs are normal. Regression for a bug where a 120s
+    home-grown threshold flagged this system's worker "Offline" during its
+    completely normal ~48-minute idle gaps between Shorts, even though it was
+    alive the whole time (see commit history: worker health-check fix)."""
+    from datetime import datetime, timedelta, timezone
+    import rq
+    from factory_dashboard_api import _worker_status
+
+    class FakeQueue:
+        name = "render"
+
+    class FakeWorker:
+        name = "test-worker"
+        last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=300)  # > 120s, < worker_ttl+60
+        worker_ttl = 420
+        queues = [FakeQueue()]
+
+        def get_state(self):
+            return "idle"
+
+    monkeypatch.setattr(rq.Worker, "all", classmethod(lambda cls, **kw: [FakeWorker()]))
+    status = _worker_status(redis_conn=object())
+    assert status["online"] is True
+    assert status["workers"][0]["alive"] is True
+
+
+def test_worker_status_expired_registration_is_offline(monkeypatch):
+    """If RQ's own registry has already dropped the worker (nothing returned
+    by Worker.all(), i.e. genuinely past its TTL), we must report offline."""
+    import rq
+    from factory_dashboard_api import _worker_status
+
+    monkeypatch.setattr(rq.Worker, "all", classmethod(lambda cls, **kw: []))
+    status = _worker_status(redis_conn=object())
+    assert status["online"] is False
+    assert status["workers"] == []
+
+
 def test_dashboard_requires_auth(client):
     assert client.get("/api/factory-dashboard").status_code == 401
     assert client.get("/api/readiness").status_code == 401
