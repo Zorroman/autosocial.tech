@@ -8,6 +8,10 @@ from pathlib import Path
 from statistics import mean
 from urllib.parse import urlparse
 
+# Repo root, not scripts/, so sibling top-level modules import cleanly
+# regardless of how this script is invoked.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 from content_pipeline import director_generate_drafts, director_suggest
