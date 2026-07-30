@@ -8131,39 +8131,38 @@ function pageLogin() {
     : t('auth_hint_default');
   const painCards = [
     {
-      title: 'Контент забирает часы каждую неделю',
-      text: 'Идеи, тексты, согласования и публикация вручную съедают время владельца или маркетолога.',
+      title: 'Съёмка и монтаж отнимают часы каждую неделю',
+      text: 'Сценарий, озвучка, подбор видеоряда и монтаж вручную съедают время автора или редактора канала.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
     },
     {
-      title: 'Постинг идёт нерегулярно',
-      text: 'Когда публикации зависят от ручного режима, соцсети быстро становятся хаотичными и нестабильными.',
+      title: 'Ролики выходят нерегулярно',
+      text: 'Когда публикация зависит от ручного режима, канал быстро теряет ритм выхода видео.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3.5" y="4.5" width="17" height="16" rx="2.4"></rect><path d="M8 3v3.5M16 3v3.5M3.5 9h17"></path></svg>',
     },
     {
-      title: 'Посты не приводят к заявкам',
-      text: 'Без понятной структуры, оффера и CTA контент набирает просмотры, но не помогает продавать.',
+      title: 'Короткие и длинные видео тянуть вручную сложно',
+      text: 'Shorts и длинные ролики требуют разного сценария и монтажа — на оба формата вручную не хватает рук.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><path d="M4 18h16M7 14l3-3 3 2 4-5"></path><circle cx="17" cy="8" r="1.1"></circle></svg>',
     },
     {
-      title: 'Рост упирается в операционку',
-      text: 'Чтобы вести больше аккаунтов и кампаний, приходится нанимать людей вместо масштабирования процесса.',
+      title: 'Рост канала упирается в операционку',
+      text: 'Чтобы публиковать чаще и вести больше каналов, приходится нанимать людей вместо масштабирования процесса.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="7" height="7" rx="1.4"></rect><rect x="14" y="4" width="7" height="7" rx="1.4"></rect><rect x="8.5" y="13" width="7" height="7" rx="1.4"></rect></svg>',
     },
   ];
   const features = [
-    ['Готовые темы и идеи', 'Сервис подсказывает темы, углы подачи и форматы, чтобы не начинать с пустого листа.'],
-    ['Посты и видео в одном сервисе', 'Генерируйте тексты, сценарии, структуры и материалы для регулярного контент-потока.'],
-    ['Автопостинг по расписанию', 'Публикуйте в нужное время без ручной рутины и потери ритма.'],
-    ['Контент-календарь', 'Планируйте неделю и месяц вперёд, чтобы видеть весь поток публикаций в одном месте.'],
-    ['Понятно для малого бизнеса', 'Не нужен отдельный контент-отдел: владелец, маркетолог или SMM могут запустить процесс сами.'],
-    ['Рост без хаоса', 'Больше проектов, клиентов и каналов без роста операционной нагрузки на команду.'],
+    ['Сценарии под нишу', 'Сервис пишет сценарий и структуру ролика под вашу нишу и формат.'],
+    ['Озвучка и субтитры', 'TTS-озвучка и субтитры с синхронизацией по словам — без ручной начитки и разметки.'],
+    ['Подбор видеоряда и музыки', 'Видеоряд и музыка подбираются автоматически под тему и настроение ролика.'],
+    ['Shorts и длинные видео', 'Один пайплайн собирает и короткие ролики, и видео на 8–12 минут.'],
+    ['Публикация по расписанию', 'Готовые ролики публикуются на YouTube в заданное время без ручной рутины.'],
+    ['Рост без хаоса', 'Больше каналов и ниш без роста операционной нагрузки на команду.'],
   ];
-  const pricing = MARKETING_PRICING_PLANS;
 
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-07-30-01" alt="AutoSocial.tech"/>
       <div class="landing-2026-top-actions">
         <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
       </div>
@@ -8171,9 +8170,9 @@ function pageLogin() {
 
     <section class="landing-2026-hero reveal">
       <div class="landing-2026-hero-copy">
-        <span class="landing-2026-chip">Для малого бизнеса, маркетолога и in-house SMM без отдельной контент-команды</span>
-        <h1>Генерируйте посты и видео для соцсетей и запускайте автопостинг из одного сервиса.</h1>
-        <p>AutoSocial.tech помогает малому бизнесу быстрее вести соцсети: подсказывает темы, собирает контент, формирует календарь и публикует в Meta и YouTube без ручной рутины.</p>
+        <span class="landing-2026-chip">AI-фабрика видео для YouTube-каналов</span>
+        <h1>Сценарий, озвучка, монтаж и публикация на YouTube — без вашего участия.</h1>
+        <p>AutoSocial.tech пишет сценарий, озвучивает его, подбирает видеоряд и музыку, накладывает субтитры, рендерит готовый ролик и публикует его на YouTube — Shorts и длинные видео, полностью автоматически.</p>
         <div class="cta-row">
           <button id="heroRegisterBtn" class="btn btn-primary cta__button">Войти</button>
         </div>
@@ -8194,7 +8193,7 @@ function pageLogin() {
     </section>
 
     <section class="landing-2026-section">
-      <h2>Почему малому бизнесу сложно вести соцсети стабильно</h2>
+      <h2>Почему каналу сложно выпускать видео стабильно</h2>
       <div class="landing-2026-grid-4">
         ${painCards.map((c) => `<article class="landing-2026-card"><div class="landing-2026-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p></article>`).join('')}
       </div>
@@ -8203,23 +8202,23 @@ function pageLogin() {
     <section id="landingHow" class="landing-2026-section">
       <h2>Как AutoSocial.tech экономит время каждую неделю</h2>
       <div class="landing-2026-steps">
-        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Выберите тему или получите идеи</h3><p>Сервис предлагает темы, форматы и углы подачи под ваш бизнес.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Сгенерируйте посты и видео</h3><p>Получите текст, структуру, CTA и материалы для контента без долгой ручной подготовки.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Запланируйте и публикуйте</h3><p>Соберите контент-календарь и поддерживайте регулярный постинг без хаоса.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Настройте канал и нишу</h3><p>Укажите нишу, тон и формат — короткие ролики, длинные видео или оба.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Пайплайн собирает видео</h3><p>Сценарий, озвучка, видеоряд, музыка и субтитры собираются автоматически.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Рендер и публикация на YouTube</h3><p>Готовый ролик рендерится и публикуется по расписанию без ручной работы.</p></article>
       </div>
     </section>
 
     <section class="landing-2026-demo">
-      <h2>Что получает бизнес на выходе</h2>
-      <p>Вместо ручного цикла "придумать -> написать -> согласовать -> опубликовать" вы получаете один рабочий процесс для идей, контента и автопостинга.</p>
+      <h2>Что получает канал на выходе</h2>
+      <p>Вместо ручного цикла "придумать -> написать -> начитать -> смонтировать -> опубликовать" вы получаете один автоматический процесс от идеи до публикации на YouTube.</p>
       <div class="landing-2026-demo-box">
-        <strong>В одном окне:</strong><br/>
-        идеи и темы -> генерация постов и видео -> календарь -> публикация по расписанию
+        <strong>В одном пайплайне:</strong><br/>
+        идея и сценарий -> озвучка -> видеоряд и субтитры -> рендер -> публикация на YouTube
       </div>
     </section>
 
     <section class="landing-2026-section">
-      <h2>Что получает малый бизнес вместо ручного SMM</h2>
+      <h2>Что получает канал вместо ручного видео-продакшена</h2>
       <div class="landing-2026-grid-3">
         ${features.map(([title, text]) => `<article class="landing-2026-card landing-2026-feature"><h3>${title}</h3><p>${text}</p></article>`).join('')}
       </div>
@@ -8266,7 +8265,7 @@ function pageTrialActivated() {
   const projects = Number(billing?.limits?.projects || 1);
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-07-30-01" alt="AutoSocial.tech"/>
     </header>
     <main class="landing-2026-final" style="max-width:920px;margin:48px auto;">
       <span class="landing-2026-chip">Бесплатный период активирован</span>
@@ -10546,9 +10545,18 @@ function pageCreateHub() {
   const billingPlan = String(state.billing?.plan || state.user?.plan || 'free').trim().toLowerCase() || 'free';
   const planLabel = String(localizedPlanTitle(billingPlan, state.billing?.plan_title || '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
   // Video Factory first: Short and Long videos are the primary actions.
+  // Both open Content Director -- the real entry point video creation goes
+  // through (pick a channel, approve a topic, the pipeline takes it from
+  // there); short vs long follows the selected channel's own format, there
+  // isn't a separate one-page form per length. /create/video intentionally
+  // NOT used here: getCreatePlannerRoute() intercepts that path before the
+  // route map, so it always opens the legacy multi-platform weekly planner
+  // instead, regardless of any query string -- a real routing bug, not a
+  // naming choice; safer to point at the already-correct destination than to
+  // touch that routing precedence for this audit-scope fix.
   const launcherCards = [
-    { title: 'Короткое видео (Shorts)', subtitle: 'Shorts до ~60 секунд: сценарий, озвучка, видеоряд, субтитры, рендер и публикация на YouTube.', href: '/create/video?format=short', accent: 'SHORT', cta: 'Создать короткое' },
-    { title: 'Длинное видео', subtitle: 'Длинный ролик ~8–12 минут: сценарий, озвучка, монтаж, музыка, субтитры, рендер и публикация на YouTube.', href: '/create/video?format=long', accent: 'LONG', cta: 'Создать длинное' },
+    { title: 'Короткое видео (Shorts)', subtitle: 'Shorts до ~60 секунд: выберите канал в Content Director — сценарий, озвучка, видеоряд, субтитры, рендер и публикация на YouTube.', href: '/content-director', accent: 'SHORT', cta: 'Открыть Content Director' },
+    { title: 'Длинное видео', subtitle: 'Ролик ~8–12 минут: выберите канал в Content Director — тот же конвейер, формат берётся из настроек канала.', href: '/content-director', accent: 'LONG', cta: 'Открыть Content Director' },
   ];
   // Secondary: navigate the factory, plus additional social-content tools (kept, not primary).
   const secondaryCards = [
