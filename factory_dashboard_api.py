@@ -314,8 +314,12 @@ def readiness():
 
         _check("ffmpeg", bool(_bin_version(settings.FFMPEG_BIN)), True)
         _check("ffprobe", bool(_bin_version(settings.FFPROBE_BIN)), True)
-        _check("output_writable", os.access(settings.OUTPUT_VIDEOS_DIR, os.W_OK), True,
-               str(settings.OUTPUT_VIDEOS_DIR))
+        _writable = os.access(settings.OUTPUT_VIDEOS_DIR, os.W_OK)
+        # Only surface the absolute server path when there's actually a problem to
+        # troubleshoot — showing it unconditionally leaks the host filesystem layout
+        # to anyone with admin/System access for no operational benefit.
+        _check("output_writable", _writable, True,
+               None if _writable else f"not writable: {settings.OUTPUT_VIDEOS_DIR}")
         free = _disk_free_gb(settings.OUTPUT_DIR)
         _check("disk_space", free is not None and free > 1.0, True, f"{free} GB free" if free is not None else None)
 
