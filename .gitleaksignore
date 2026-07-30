@@ -1,0 +1,6 @@
+# tests/test_saas.py: literal placeholder string "sk_test_configured" used via
+# monkeypatch.setattr() to make a truthiness check pass in unit tests. Not a
+# real Stripe key (no valid entropy/format beyond the sk_test_ prefix).
+tests/test_saas.py:stripe-access-token:612
+tests/test_saas.py:stripe-access-token:644
+tests/test_saas.py:stripe-access-token:666
