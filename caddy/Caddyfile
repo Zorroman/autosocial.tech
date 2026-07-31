@@ -9,16 +9,26 @@
 # just serves everything over HTTP on :80.
 
 :80 {
-	# API routes go to the backend container. /health is on the bare Flask
-	# app (see app.py), not the /api blueprint -- proxied the same way.
-	@api path /api/* /health
-	reverse_proxy @api backend:5000
+	# `handle` blocks are evaluated in the order written and are mutually
+	# exclusive (first match wins) -- unlike bare directives, which Caddy
+	# reorders internally regardless of file order, so reverse_proxy would
+	# silently lose to file_server without this.
+	handle /api/* {
+		reverse_proxy backend:5000
+	}
+
+	# /health is on the bare Flask app (see app.py), not the /api blueprint.
+	handle /health {
+		reverse_proxy backend:5000
+	}
 
 	# Everything else: serve the static frontend, falling back to the SPA
 	# shell for deep links that don't have their own index.html (e.g.
 	# /projects/12) -- the same fallback behavior scripts/dev-start.sh
 	# provides for local, non-Docker development.
-	root * /srv/frontend
-	try_files {path} /index.html
-	file_server
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
 }
