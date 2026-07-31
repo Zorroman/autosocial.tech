@@ -17,6 +17,8 @@ ngrok.log
 # generated artifacts
 tests/reports/
 tests/artifacts/
+tests/e2e/node_modules/
+tests/e2e/playwright-report/
 
 # OS/editor
 .DS_Store
