@@ -21,7 +21,7 @@ PY = sys.executable
 # ============================================================ publishing default
 
 def test_channel_model_default_publishing_off():
-    from saas_models import Channel
+    from app_models import Channel
     col = Channel.__table__.c.automatic_publishing_enabled
     assert col.default.arg is False, "new channels must default to auto-publish OFF"
     assert Channel.__table__.c.automatic_generation_enabled.default.arg is False
@@ -36,7 +36,7 @@ def test_migration_ddl_publishing_off():
 @pytest.fixture()
 def client(tmp_path):
     # fresh app on an isolated DB
-    for m in ("app", "database", "saas_models", "saas_settings", "channels_api",
+    for m in ("app", "database", "app_models", "app_settings", "channels_api",
               "content_api", "content_director", "content_director_api",
               "publications_api", "video_projects_api", "migrations"):
         sys.modules.pop(m, None)
@@ -118,7 +118,7 @@ def test_youtube_link_does_not_enable_publishing(client, monkeypatch):
     import publications_api as pa
     ch = client.post("/api/channels", json={"name": "YT"}, headers=_h(client)).get_json()["channel"]["id"]
     from database import SessionLocal
-    from saas_models import SocialAccount
+    from app_models import SocialAccount
     db = SessionLocal()
     acc = SocialAccount(user_id=client.admin_id, provider="youtube", status="connected_ready",
                         token_encrypted="x", token_expires_at=__import__("datetime").datetime.utcnow()

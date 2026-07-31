@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from database import SessionLocal
-from saas_models import Channel, VideoProject
+from app_models import Channel, VideoProject
 
 log = logging.getLogger("factory.scheduler")
 _API = (os.getenv("FACTORY_API_BASE") or "http://backend:5000").rstrip("/")
@@ -78,7 +78,7 @@ def _token(user_id: int) -> str:
     _r = sys.stdout
     sys.stdout = open(os.devnull, "w")
     try:
-        from saas_auth import create_token
+        from auth import create_token
         return create_token(user_id)
     finally:
         sys.stdout = _r

@@ -68,7 +68,7 @@ or accepting that risk on the production one. What's here instead:
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────────┐
 │  Frontend    │◄────►│   Flask API   │◄────►│   PostgreSQL     │
-│  (vanilla JS │      │  (saas_api.py │      │  (channels,      │
+│  (vanilla JS │      │  (api.py      │      │  (channels,      │
 │   SPA)       │      │  + blueprints)│      │   projects, jobs)│
 └─────────────┘      └───────┬──────┘      └─────────────────┘
                               │

@@ -16,9 +16,9 @@ from flask import Blueprint, g, jsonify, request
 
 import content_director as director
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, ContentPillar, DirectorStrategy
-from saas_settings import settings
+from auth import require_auth
+from app_models import Channel, ContentPillar, DirectorStrategy
+from app_settings import settings
 
 content_director_api = Blueprint("content_director_api", __name__, url_prefix="/api")
 

@@ -108,7 +108,7 @@ def test_sync_requires_connection_and_mocked_paths(client, monkeypatch):
     assert r.status_code == 409
 
     from database import SessionLocal
-    from saas_models import Channel
+    from app_models import Channel
     db = SessionLocal()
     c = db.query(Channel).filter_by(id=ch).first()
     c.youtube_channel_id = "UCx"
@@ -237,8 +237,8 @@ def test_anonymous_and_isolation(client):
     # other allowlisted user sees no data of this owner
     import os
     os.environ["ADMIN_ALLOWLIST_EMAILS"] = f"{ADMIN_EMAIL},other2@test.local"
-    import saas_settings
-    importlib.reload(saas_settings)
+    import app_settings
+    importlib.reload(app_settings)
     other = _token_for(_seed_admin(email="other2@test.local", role="user"))
     r = client.post(f"/api/publications/{pub}/analytics", json={"views": 5}, headers={"Authorization": f"Bearer {other}"})
     assert r.status_code in (403, 404)

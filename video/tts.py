@@ -7,7 +7,7 @@ from openai import OpenAI
 import edge_tts
 
 from config import Config
-from saas_settings import settings
+from app_settings import settings
 
 
 _VOICE_BY_PROFILE = {

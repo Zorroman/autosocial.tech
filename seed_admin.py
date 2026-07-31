@@ -1,8 +1,8 @@
 from database import SessionLocal
 from migrations import run_migrations
-from saas_auth import hash_password
-from saas_models import AppUser, Plan
-from saas_services import ensure_user_plan_and_credits, get_or_create_default_project, log_event, seed_plans
+from auth import hash_password
+from app_models import AppUser, Plan
+from app_services import ensure_user_plan_and_credits, get_or_create_default_project, log_event, seed_plans
 
 
 if __name__ == "__main__":

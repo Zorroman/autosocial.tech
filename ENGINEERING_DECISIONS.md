@@ -50,7 +50,7 @@ remaining item, not an oversight.
 
 **Update: the corruption is broader than this one frontend block.** A later
 code-quality pass found the same class of problem in backend Python source
-(`saas_api.py`, `dashboard_metrics.py`, `video_niches_config.py`) — but a
+(`api.py`, `dashboard_metrics.py`, `video_niches_config.py`) — but a
 worse variant. The frontend case is mis-decoded bytes: recoverable in
 principle, given the right codec. The backend case is literal `?` characters
 replacing the original text (confirmed at the byte level, not a rendering
@@ -131,6 +131,6 @@ whoever owns the product — not something to do quietly while tidying up
 something else.
 
 **Trade-off.** The codebase carries two eras' worth of naming and structure at
-once (e.g. `models.py` alongside `saas_models.py`) — a real, visible signal of
+once (e.g. `models.py` alongside `app_models.py`) — a real, visible signal of
 incomplete migration. Documented as a known state rather than hidden, because
 a reviewer will find it either way.

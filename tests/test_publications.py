@@ -113,7 +113,7 @@ def test_upload_requires_connected_youtube(client):
 
 def _link_youtube(client, ch):
     from database import SessionLocal
-    from saas_models import Channel
+    from app_models import Channel
     db = SessionLocal()
     c = db.query(Channel).filter_by(id=ch).first()
     c.youtube_channel_id = "UCtestchannel000000000000"
@@ -138,7 +138,7 @@ def test_upload_job_mocked_success_and_errors(client, monkeypatch):
     # -- mocked success
     def fake_upload_ok(p_id):
         from database import SessionLocal
-        from saas_models import Publication
+        from app_models import Publication
         db = SessionLocal()
         p = db.query(Publication).filter_by(id=p_id).first()
         p.youtube_video_id = "MOCKvid0001"
@@ -178,7 +178,7 @@ def test_upload_job_quota_and_token_errors(client, monkeypatch):
     # mocked quota error on retry
     def fake_quota(p_id):
         from database import SessionLocal
-        from saas_models import Publication
+        from app_models import Publication
         db = SessionLocal()
         p = db.query(Publication).filter_by(id=p_id).first()
         p.status = "failed"
@@ -200,8 +200,8 @@ def test_anonymous_and_isolation(client):
     # another allowlisted user cannot see it
     import os
     os.environ["ADMIN_ALLOWLIST_EMAILS"] = f"{ADMIN_EMAIL},other@test.local"
-    import saas_settings
-    importlib.reload(saas_settings)
+    import app_settings
+    importlib.reload(app_settings)
     other_id = _seed_admin(email="other@test.local", role="user")
     other_token = _token_for(other_id)
     r = client.get(f"/api/publications/{pub_id}", headers={"Authorization": f"Bearer {other_token}"})

@@ -1,6 +1,6 @@
 """Channel management API for private YouTube-factory mode.
 
-Registered under /api alongside saas_api. All endpoints require auth and
+Registered under /api alongside api. All endpoints require auth and
 enforce per-owner isolation (owner_user_id == current user).
 """
 import json
@@ -11,8 +11,8 @@ from datetime import datetime
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, ChannelIdea
+from auth import require_auth
+from app_models import Channel, ChannelIdea
 
 channels_api = Blueprint("channels_api", __name__, url_prefix="/api")
 
@@ -174,7 +174,7 @@ def _apply_channel_fields(c: Channel, data: dict) -> str | None:
         if raw in (None, "", 0, "0"):
             c.niche_id = None
         else:
-            from saas_models import ContentNiche
+            from app_models import ContentNiche
             from database import SessionLocal as _SL
             _db = _SL()
             try:
@@ -239,7 +239,7 @@ def cta_settings(channel_id: int):
     """Get or update the final-CTA settings for a channel. Stored in the existing
     channel.generation_settings_json under the 'cta' key (no parallel config)."""
     import cta_generator as _cta
-    from saas_models import VideoProject
+    from app_models import VideoProject
     db = SessionLocal()
     try:
         c = _own_channel(db, channel_id)

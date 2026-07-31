@@ -16,8 +16,8 @@ from flask import Blueprint, g, jsonify, request
 
 from ai_pricing import budgets, record_cost, spent_summary
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import AICostRecord, Channel, Publication, VideoAnalyticsSnapshot
+from auth import require_auth
+from app_models import AICostRecord, Channel, Publication, VideoAnalyticsSnapshot
 from publications_api import _valid_account_token, _user_youtube_account
 
 analytics_api = Blueprint("analytics_api", __name__, url_prefix="/api")
@@ -249,7 +249,7 @@ def sync_channel_analytics(channel_id: int):
         )
         if not pubs:
             return jsonify({"error": "No published videos with YouTube IDs on this channel"}), 409
-        from saas_models import SocialAccount
+        from app_models import SocialAccount
         acc = db.query(SocialAccount).filter_by(id=c.youtube_social_account_id).first() if c.youtube_social_account_id else _user_youtube_account(db)
         token = _valid_account_token(db, acc) if acc else None
         if not token:

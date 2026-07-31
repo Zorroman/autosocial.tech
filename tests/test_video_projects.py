@@ -133,7 +133,7 @@ def test_duplicate_render_protection(client, monkeypatch):
 
 
 def test_full_e2e_render_real_mp4(client):
-    from saas_settings import settings
+    from app_settings import settings
 
     ch = _mk_channel(client)
     pid = _mk_project(client, ch, voice_mode="silent")
@@ -183,7 +183,7 @@ def test_output_url_is_null_when_rendered_file_is_missing(client):
     DB, failed render). The API must not hand the UI a URL then, otherwise the
     details page shows an empty <video> and a dead Download link."""
     from database import SessionLocal
-    from saas_models import VideoProject
+    from app_models import VideoProject
 
     ch = _mk_channel(client)
     pid = _mk_project(client, ch)

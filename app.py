@@ -25,10 +25,10 @@ from gpt_generator import generate_post
 from image_picker import get_image_by_niche
 from migrations import run_migrations
 from models import Base, User
-from saas_api import saas_api
-from saas_auth import hash_password
-from saas_models import AppUser, Plan, SaaSBase
-from saas_services import (
+from api import api
+from auth import hash_password
+from app_models import AppUser, Plan, SaaSBase
+from app_services import (
     ensure_user_plan_and_credits,
     get_or_create_default_project,
     list_blog_posts,
@@ -38,7 +38,7 @@ from saas_services import (
     seed_plans,
     seed_platform_rules,
 )
-from saas_settings import settings
+from app_settings import settings
 
 app = Flask(__name__)
 
@@ -80,7 +80,7 @@ seed_platform_rules()
 seed_niche_hooks()
 seed_niche_catalog()
 
-app.register_blueprint(saas_api)
+app.register_blueprint(api)
 
 from channels_api import channels_api  # noqa: E402
 app.register_blueprint(channels_api)

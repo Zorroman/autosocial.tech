@@ -6,8 +6,8 @@ from flask import g, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import SessionLocal
-from saas_models import ApiToken, AppUser
-from saas_settings import settings
+from app_models import ApiToken, AppUser
+from app_settings import settings
 
 
 def is_email_allowed(email: str) -> bool:

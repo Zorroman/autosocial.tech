@@ -5,7 +5,7 @@ from typing import Callable
 
 from openai import OpenAI
 
-from saas_settings import settings
+from app_settings import settings
 
 
 class OpenAIClientError(RuntimeError):

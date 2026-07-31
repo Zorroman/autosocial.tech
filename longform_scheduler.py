@@ -23,7 +23,7 @@ import time
 from datetime import datetime, timedelta
 
 from database import SessionLocal
-from saas_models import Channel
+from app_models import Channel
 from scheduler import _token, _post  # reuse internal-call helpers
 
 log = logging.getLogger("longform.scheduler")
@@ -90,7 +90,7 @@ def _enqueue_render(project_id: int) -> str:
     Shorts renders). Falls back to a thread if RQ/Redis is unavailable."""
     import longform_job
     try:
-        from saas_settings import settings
+        from app_settings import settings
         if getattr(settings, "SYNC_JOBS", False):
             longform_job.render_and_publish(project_id)
             return "sync"
@@ -99,7 +99,7 @@ def _enqueue_render(project_id: int) -> str:
     try:
         from redis import Redis
         from rq import Queue
-        from saas_settings import settings
+        from app_settings import settings
         conn = Redis.from_url(settings.REDIS_URL)
         conn.ping()
         Queue("render", connection=conn).enqueue(

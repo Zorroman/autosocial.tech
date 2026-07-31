@@ -11,7 +11,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from facebook_api import list_pages
-from saas_models import (
+from app_models import (
     AiScoreDaily,
     AiScoreDailyV2,
     ConnectedAccount,
@@ -20,7 +20,7 @@ from saas_models import (
     ContentMetricDaily,
     SocialAccount,
 )
-from saas_services import decrypt_meta_token
+from app_services import decrypt_meta_token
 
 
 def _utcnow() -> datetime:

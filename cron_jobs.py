@@ -1,8 +1,8 @@
 from datetime import datetime
 
 from database import SessionLocal
-from saas_models import AppUser
-from saas_services import create_daily_blog_post, reset_monthly_credits, run_due_content_plan, seed_plans
+from app_models import AppUser
+from app_services import create_daily_blog_post, reset_monthly_credits, run_due_content_plan, seed_plans
 
 
 def run_daily_jobs() -> None:

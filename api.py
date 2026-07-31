@@ -58,8 +58,8 @@ from content_pipeline import (
     generate_strategy_and_drafts,
     rewrite_caption_safe,
 )
-from saas_auth import create_token, hash_password, is_email_allowed, require_auth, require_role, verify_password
-from saas_models import (
+from auth import create_token, hash_password, is_email_allowed, require_auth, require_role, verify_password
+from app_models import (
     AuthEmailChallenge,
     AppUser,
     ContentPlan,
@@ -101,7 +101,7 @@ from services.entitlements import (
     recordUsageEvent,
     sync_subscription_state,
 )
-from saas_services import (
+from app_services import (
     CREDIT_PACKS,
     can_access_project,
     create_post_and_charge,
@@ -121,7 +121,7 @@ from saas_services import (
     run_due_content_plan,
     seed_plans,
 )
-from saas_settings import settings
+from app_settings import settings
 from style_packs import DEFAULT_STYLE_PACK_ID, get_style_pack, list_style_packs
 from stripe_service import (
     CheckoutNotConfiguredError,
@@ -135,7 +135,7 @@ from stripe_service import (
 from video_pipeline import generate_video_job_payload
 from video_script_generator import generate as generate_video_structure
 
-saas_api = Blueprint("saas_api", __name__, url_prefix="/api")
+api = Blueprint("api", __name__, url_prefix="/api")
 OAUTH_STATES = {}
 OAUTH_STATE_TTL_SECONDS = 600
 MEDIA_DIR = Path(__file__).resolve().with_name("generated_media")
@@ -315,7 +315,7 @@ def _public_api_base_url() -> str:
     return raw
 
 
-@saas_api.route('/media/<path:filename>', methods=['GET'])
+@api.route('/media/<path:filename>', methods=['GET'])
 def serve_generated_media(filename: str):
     rel = str(filename or "").strip().lstrip("/")
     if not rel:
@@ -1499,7 +1499,7 @@ def _finalize_oauth_login(email: str, provider: str, provider_user_id: str):
     return _oauth_redirect({"oauth_token": token})
 
 
-@saas_api.route("/health", methods=["GET"])
+@api.route("/health", methods=["GET"])
 def health():
     return jsonify({"ok": True, "status": "ok", "env": settings.ENV, "time": datetime.utcnow().isoformat()})
 
@@ -1707,7 +1707,7 @@ def _complete_auth_challenge(challenge_token: str, code: str, ip_addr: str, allo
     return {"token": token, "user": {"id": user_id, "email": user_email, "role": user_role, "plan": normalize_plan_code(user_plan)}}, 200
 
 
-@saas_api.route("/auth/challenge", methods=["POST"])
+@api.route("/auth/challenge", methods=["POST"])
 def auth_challenge():
     data = request.get_json(silent=True) or {}
     flow = (data.get("flow") or "").strip().lower()
@@ -1718,7 +1718,7 @@ def auth_challenge():
     return jsonify(payload), status
 
 
-@saas_api.route("/auth/verify-code", methods=["POST"])
+@api.route("/auth/verify-code", methods=["POST"])
 def auth_verify_code():
     data = request.get_json(silent=True) or {}
     challenge_token = (data.get("challenge_token") or "").strip()
@@ -1727,7 +1727,7 @@ def auth_verify_code():
     return jsonify(payload), status
 
 
-@saas_api.route("/auth/verify-email", methods=["GET"])
+@api.route("/auth/verify-email", methods=["GET"])
 def auth_verify_email():
     challenge_token = (request.args.get("challenge_token") or "").strip()
     payload, status = _complete_auth_challenge(
@@ -1744,7 +1744,7 @@ def auth_verify_email():
     return _oauth_redirect({"oauth_token": token})
 
 
-@saas_api.route("/auth/register", methods=["POST"])
+@api.route("/auth/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -1754,7 +1754,7 @@ def register():
     return jsonify(payload), status
 
 
-@saas_api.route("/auth/login", methods=["POST"])
+@api.route("/auth/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -1789,7 +1789,7 @@ def login():
     return jsonify(payload), status
 
 
-@saas_api.route("/auth/providers", methods=["GET"])
+@api.route("/auth/providers", methods=["GET"])
 def auth_providers():
     google_configured = bool(_google_client_id() and _google_client_secret())
     facebook_configured = bool(_facebook_client_id() and _facebook_client_secret())
@@ -1811,7 +1811,7 @@ def auth_providers():
     )
 
 
-@saas_api.route("/auth/oauth/google/start", methods=["GET"])
+@api.route("/auth/oauth/google/start", methods=["GET"])
 def oauth_google_start():
     client_id = _google_client_id()
     client_secret = _google_client_secret()
@@ -1936,7 +1936,7 @@ def _finalize_youtube_oauth_connect(user_id: int, code: str, redirect_uri: str):
     return redirect(_frontend_connections_url("youtube_connected=1"))
 
 
-@saas_api.route("/auth/oauth/google/callback", methods=["GET"])
+@api.route("/auth/oauth/google/callback", methods=["GET"])
 def oauth_google_callback():
     state_token = (request.args.get("state") or "").strip()
     state_meta = _consume_oauth_state_meta(state_token)
@@ -2003,7 +2003,7 @@ def oauth_google_callback():
     return _finalize_oauth_login(email, "google", sub)
 
 
-@saas_api.route("/auth/oauth/facebook/start", methods=["GET"])
+@api.route("/auth/oauth/facebook/start", methods=["GET"])
 def oauth_facebook_start():
     client_id = _facebook_client_id()
     client_secret = _facebook_client_secret()
@@ -2023,7 +2023,7 @@ def oauth_facebook_start():
     return redirect(f"https://www.facebook.com/v20.0/dialog/oauth?{urlencode(params)}")
 
 
-@saas_api.route("/auth/oauth/facebook/callback", methods=["GET"])
+@api.route("/auth/oauth/facebook/callback", methods=["GET"])
 def oauth_facebook_callback():
     if request.args.get("error"):
         return _oauth_redirect({"oauth_error": "facebook_denied"})
@@ -2213,7 +2213,7 @@ def _build_onboarding_video_plan(*, user_id: int, payload: dict) -> dict:
         })
     return {"batch_id": batch_id, "days": 7, "items": items}
 
-@saas_api.route("/me", methods=["GET"])
+@api.route("/me", methods=["GET"])
 @require_auth
 def me():
     seed_plans()
@@ -2233,14 +2233,14 @@ def me():
 
 
 
-@saas_api.route("/onboarding/state", methods=["GET"])
+@api.route("/onboarding/state", methods=["GET"])
 @require_auth
 def onboarding_state():
     user = _current_user_refetched()
     return jsonify(_onboarding_state_payload(user))
 
 
-@saas_api.route("/onboarding/complete", methods=["POST"])
+@api.route("/onboarding/complete", methods=["POST"])
 @require_auth
 def onboarding_complete():
     user = _current_user_refetched()
@@ -2259,7 +2259,7 @@ def onboarding_complete():
         db.close()
 
 
-@saas_api.route("/onboarding/start", methods=["POST"])
+@api.route("/onboarding/start", methods=["POST"])
 @require_auth
 def onboarding_start():
     user = _current_user_refetched()
@@ -2288,7 +2288,7 @@ def onboarding_start():
         db.close()
 
 
-@saas_api.route("/dashboard/product", methods=["GET"])
+@api.route("/dashboard/product", methods=["GET"])
 @require_auth
 def dashboard_product():
     user = _current_user_refetched()
@@ -2348,7 +2348,7 @@ def dashboard_product():
     finally:
         db.close()
 
-@saas_api.route("/plans", methods=["GET"])
+@api.route("/plans", methods=["GET"])
 def plans():
     seed_plans()
     payload = []
@@ -2360,7 +2360,7 @@ def plans():
     return jsonify(payload)
 
 
-@saas_api.route("/platform-rules", methods=["GET"])
+@api.route("/platform-rules", methods=["GET"])
 def platform_rules():
     db = SessionLocal()
     try:
@@ -2382,7 +2382,7 @@ def platform_rules():
         db.close()
 
 
-@saas_api.route("/projects", methods=["GET"])
+@api.route("/projects", methods=["GET"])
 @require_auth
 def list_projects():
     user = g.current_user
@@ -2410,7 +2410,7 @@ def list_projects():
         db.close()
 
 
-@saas_api.route("/projects", methods=["POST"])
+@api.route("/projects", methods=["POST"])
 @require_auth
 def create_project():
     user = _current_user_refetched()
@@ -2438,7 +2438,7 @@ def create_project():
         db.close()
 
 
-@saas_api.route("/projects/<int:project_id>", methods=["PATCH"])
+@api.route("/projects/<int:project_id>", methods=["PATCH"])
 @require_auth
 def update_project(project_id: int):
     user = g.current_user
@@ -2473,7 +2473,7 @@ def update_project(project_id: int):
         db.close()
 
 
-@saas_api.route("/projects/<int:project_id>", methods=["DELETE"])
+@api.route("/projects/<int:project_id>", methods=["DELETE"])
 @require_auth
 def delete_project(project_id: int):
     user = g.current_user
@@ -2482,7 +2482,7 @@ def delete_project(project_id: int):
     return _delete_project_impl(user=user, project_id=project_id, confirm_name=confirm_name)
 
 
-@saas_api.route("/projects/<int:project_id>/delete", methods=["POST"])
+@api.route("/projects/<int:project_id>/delete", methods=["POST"])
 @require_auth
 def delete_project_post(project_id: int):
     user = g.current_user
@@ -2519,7 +2519,7 @@ def _delete_project_impl(user, project_id: int, confirm_name: str):
         db.close()
 
 
-@saas_api.route("/topics/suggestions", methods=["GET"])
+@api.route("/topics/suggestions", methods=["GET"])
 @require_auth
 def topics_suggestions():
     user = g.current_user
@@ -2535,7 +2535,7 @@ def topics_suggestions():
     return jsonify(payload)
 
 
-@saas_api.route("/generate", methods=["POST"])
+@api.route("/generate", methods=["POST"])
 @require_auth
 def generate():
     user = _current_user_refetched()
@@ -2643,7 +2643,7 @@ def generate():
     )
 
 
-@saas_api.route("/generate-preview", methods=["POST"])
+@api.route("/generate-preview", methods=["POST"])
 @require_auth
 def generate_preview():
     user = _current_user_refetched()
@@ -2786,7 +2786,7 @@ def _create_post_from_content_draft(
         return None, (jsonify({"error": f"Ошибка сохранения черновика: {msg}"}), 500)
 
 
-@saas_api.route("/content/generate", methods=["POST"])
+@api.route("/content/generate", methods=["POST"])
 @require_auth
 def content_generate():
     user = _current_user_refetched()
@@ -2900,7 +2900,7 @@ def content_generate():
     )
 
 
-@saas_api.route("/create/suggest", methods=["POST"])
+@api.route("/create/suggest", methods=["POST"])
 @require_auth
 def create_suggest():
     data = request.get_json(silent=True) or {}
@@ -2932,7 +2932,7 @@ def create_suggest():
         return jsonify({"status": "error", "drafts": [], "warnings": [str(exc)], "debug_code": "suggest_error"}), 500
 
 
-@saas_api.route("/create/rewrite", methods=["POST"])
+@api.route("/create/rewrite", methods=["POST"])
 @require_auth
 def create_rewrite():
     data = request.get_json(silent=True) or {}
@@ -2965,7 +2965,7 @@ def create_rewrite():
         return jsonify({"status": "error", "drafts": [], "warnings": [str(exc)], "debug_code": "rewrite_error"}), 500
 
 
-@saas_api.route("/create/quality-check", methods=["POST"])
+@api.route("/create/quality-check", methods=["POST"])
 @require_auth
 def create_quality_check():
     data = request.get_json(silent=True) or {}
@@ -2981,7 +2981,7 @@ def create_quality_check():
     return jsonify({"status": "ok", "drafts": [], "quality": result, "warnings": result.get("warnings") or [], "debug_code": ""})
 
 
-@saas_api.route("/create/generate", methods=["POST"])
+@api.route("/create/generate", methods=["POST"])
 @require_auth
 def create_generate():
     user = _current_user_refetched()
@@ -3107,7 +3107,7 @@ def create_generate():
     )
 
 
-@saas_api.route("/create/templates", methods=["GET"])
+@api.route("/create/templates", methods=["GET"])
 @require_auth
 def create_templates_list():
     user = g.current_user
@@ -3125,7 +3125,7 @@ def create_templates_list():
         db.close()
 
 
-@saas_api.route("/create/niche-catalog", methods=["GET"])
+@api.route("/create/niche-catalog", methods=["GET"])
 @require_auth
 def create_niche_catalog():
     db = SessionLocal()
@@ -3145,7 +3145,7 @@ def create_niche_catalog():
         db.close()
 
 
-@saas_api.route("/create/templates/import-catalog", methods=["POST"])
+@api.route("/create/templates/import-catalog", methods=["POST"])
 @require_auth
 def create_templates_import_catalog():
     user = g.current_user
@@ -3197,7 +3197,7 @@ def create_templates_import_catalog():
         db.close()
 
 
-@saas_api.route("/ai/director/suggest", methods=["POST"])
+@api.route("/ai/director/suggest", methods=["POST"])
 @require_auth
 def ai_director_suggest():
     data = request.get_json(silent=True) or {}
@@ -3234,7 +3234,7 @@ def ai_director_suggest():
         return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "director_suggest_error"}), 500
 
 
-@saas_api.route("/ai/director/generate-drafts", methods=["POST"])
+@api.route("/ai/director/generate-drafts", methods=["POST"])
 @require_auth
 def ai_director_generate_drafts():
     user = _current_user_refetched()
@@ -3353,7 +3353,7 @@ def ai_director_generate_drafts():
     )
 
 
-@saas_api.route("/ai/director/rewrite", methods=["POST"])
+@api.route("/ai/director/rewrite", methods=["POST"])
 @require_auth
 def ai_director_rewrite():
     data = request.get_json(silent=True) or {}
@@ -3384,7 +3384,7 @@ def ai_director_rewrite():
         return jsonify({"status": "error", "data": {}, "warnings": [str(exc)], "debug_code": "rewrite_error"}), 500
 
 
-@saas_api.route("/ai/director/generate-image", methods=["POST"])
+@api.route("/ai/director/generate-image", methods=["POST"])
 @require_auth
 def ai_director_generate_image():
     data = request.get_json(silent=True) or {}
@@ -3481,7 +3481,7 @@ def ai_director_generate_image():
     )
 
 
-@saas_api.route("/ai/quality-check", methods=["POST"])
+@api.route("/ai/quality-check", methods=["POST"])
 @require_auth
 def ai_quality_check():
     data = request.get_json(silent=True) or {}
@@ -3497,7 +3497,7 @@ def ai_quality_check():
     return jsonify({"status": "ok", "data": {"quality": quality}, "warnings": quality.get("warnings") or [], "debug_code": ""})
 
 
-@saas_api.route("/preview/thumbnail", methods=["POST"])
+@api.route("/preview/thumbnail", methods=["POST"])
 @require_auth
 def preview_thumbnail():
     data = request.get_json(silent=True) or {}
@@ -3510,7 +3510,7 @@ def preview_thumbnail():
     return jsonify({"status": "ok", "data": {"thumbnail_url": thumb_url}, "warnings": [], "debug_code": ""})
 
 
-@saas_api.route("/preview/validate", methods=["POST"])
+@api.route("/preview/validate", methods=["POST"])
 @require_auth
 def preview_validate():
     data = request.get_json(silent=True) or {}
@@ -3532,7 +3532,7 @@ def preview_validate():
     )
 
 
-@saas_api.route("/create/templates", methods=["POST"])
+@api.route("/create/templates", methods=["POST"])
 @require_auth
 def create_templates_save():
     user = g.current_user
@@ -3558,7 +3558,7 @@ def create_templates_save():
         db.close()
 
 
-@saas_api.route("/create/templates/<int:template_id>", methods=["DELETE"])
+@api.route("/create/templates/<int:template_id>", methods=["DELETE"])
 @require_auth
 def create_templates_delete(template_id: int):
     user = g.current_user
@@ -3576,7 +3576,7 @@ def create_templates_delete(template_id: int):
         db.close()
 
 
-@saas_api.route("/content/briefs", methods=["GET"])
+@api.route("/content/briefs", methods=["GET"])
 @require_auth
 def content_briefs_list():
     user = g.current_user
@@ -3592,7 +3592,7 @@ def content_briefs_list():
         db.close()
 
 
-@saas_api.route("/content/briefs/<int:brief_id>", methods=["GET"])
+@api.route("/content/briefs/<int:brief_id>", methods=["GET"])
 @require_auth
 def content_brief_details(brief_id: int):
     user = g.current_user
@@ -3627,7 +3627,7 @@ def content_brief_details(brief_id: int):
         db.close()
 
 
-@saas_api.route("/content/drafts/<int:draft_id>/schedule", methods=["POST"])
+@api.route("/content/drafts/<int:draft_id>/schedule", methods=["POST"])
 @require_auth
 def content_draft_schedule(draft_id: int):
     user = _current_user_refetched()
@@ -3679,7 +3679,7 @@ def content_draft_schedule(draft_id: int):
     return jsonify({"ok": True, "post_id": post.id, "status": post.status, "schedule_at": post.schedule_at.isoformat() if post.schedule_at else None})
 
 
-@saas_api.route("/content/drafts/<int:draft_id>/save", methods=["POST"])
+@api.route("/content/drafts/<int:draft_id>/save", methods=["POST"])
 @require_auth
 def content_draft_save(draft_id: int):
     user = _current_user_refetched()
@@ -3721,7 +3721,7 @@ def content_draft_save(draft_id: int):
     return jsonify({"ok": True, "post_id": post.id, "status": post.status})
 
 
-@saas_api.route("/content/drafts/<int:draft_id>/publish", methods=["POST"])
+@api.route("/content/drafts/<int:draft_id>/publish", methods=["POST"])
 @require_auth
 def content_draft_publish(draft_id: int):
     user = _current_user_refetched()
@@ -4126,7 +4126,7 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
     thread.start()
 
 
-@saas_api.route("/campaigns", methods=["POST"])
+@api.route("/campaigns", methods=["POST"])
 @require_auth
 def create_campaign():
     user = _current_user_refetched()
@@ -4172,7 +4172,7 @@ def create_campaign():
         db.close()
 
 
-@saas_api.route("/campaigns/<int:campaign_id>", methods=["PATCH"])
+@api.route("/campaigns/<int:campaign_id>", methods=["PATCH"])
 @require_auth
 def update_campaign(campaign_id: int):
     user = _current_user_refetched()
@@ -4236,7 +4236,7 @@ def update_campaign(campaign_id: int):
         db.close()
 
 
-@saas_api.route("/campaigns/<int:campaign_id>", methods=["GET"])
+@api.route("/campaigns/<int:campaign_id>", methods=["GET"])
 @require_auth
 def campaign_details(campaign_id: int):
     user = g.current_user
@@ -4279,7 +4279,7 @@ def campaign_details(campaign_id: int):
         db.close()
 
 
-@saas_api.route("/campaigns", methods=["GET"])
+@api.route("/campaigns", methods=["GET"])
 @require_auth
 def list_campaigns():
     user = g.current_user
@@ -4295,7 +4295,7 @@ def list_campaigns():
         db.close()
 
 
-@saas_api.route("/campaigns/<int:campaign_id>/generate-image", methods=["POST"])
+@api.route("/campaigns/<int:campaign_id>/generate-image", methods=["POST"])
 @require_auth
 def campaign_generate_image(campaign_id: int):
     user = g.current_user
@@ -4339,7 +4339,7 @@ def campaign_generate_image(campaign_id: int):
         db.close()
 
 
-@saas_api.route("/campaigns/<int:campaign_id>/generate-video", methods=["POST"])
+@api.route("/campaigns/<int:campaign_id>/generate-video", methods=["POST"])
 @require_auth
 def campaign_generate_video(campaign_id: int):
     user = g.current_user
@@ -4392,7 +4392,7 @@ def campaign_generate_video(campaign_id: int):
         db.close()
 
 
-@saas_api.route("/jobs/<int:job_id>", methods=["GET"])
+@api.route("/jobs/<int:job_id>", methods=["GET"])
 @require_auth
 def get_job_status(job_id: int):
     user = g.current_user
@@ -4476,7 +4476,7 @@ def _video_payload_from_request(data: dict, *, normalized_style_pack: str | None
     }
 
 
-@saas_api.route("/video/plan", methods=["POST"])
+@api.route("/video/plan", methods=["POST"])
 @require_auth
 def video_plan_generate():
     user = _current_user_refetched()
@@ -4524,7 +4524,7 @@ def video_plan_generate():
     return jsonify({"status": "ok", "batch_id": batch_id, "days": days, "items": items, "capacity": {"max_active_renders": settings.VIDEO_MAX_ACTIVE_RENDERS, "max_queued_per_user": settings.VIDEO_MAX_QUEUED_PER_USER}})
 
 
-@saas_api.route("/video/jobs/<int:job_id>/cancel", methods=["POST"])
+@api.route("/video/jobs/<int:job_id>/cancel", methods=["POST"])
 @require_auth
 def video_job_cancel(job_id: int):
     user = g.current_user
@@ -4549,7 +4549,7 @@ def video_job_cancel(job_id: int):
         db.close()
 
 
-@saas_api.route("/video/jobs/<int:job_id>/prioritize", methods=["POST"])
+@api.route("/video/jobs/<int:job_id>/prioritize", methods=["POST"])
 @require_auth
 def video_job_prioritize(job_id: int):
     user = g.current_user
@@ -4572,7 +4572,7 @@ def video_job_prioritize(job_id: int):
         db.close()
 
 
-@saas_api.route("/video/jobs/<int:job_id>/retry", methods=["POST"])
+@api.route("/video/jobs/<int:job_id>/retry", methods=["POST"])
 @require_auth
 def video_job_retry(job_id: int):
     user = g.current_user
@@ -4629,25 +4629,25 @@ def _set_batch_pause_state(batch_id: str, *, paused: bool | None = None, cancel:
         db.close()
 
 
-@saas_api.route("/video/batches/<batch_id>/pause", methods=["POST"])
+@api.route("/video/batches/<batch_id>/pause", methods=["POST"])
 @require_auth
 def video_batch_pause(batch_id: str):
     return _set_batch_pause_state(batch_id, paused=True)
 
 
-@saas_api.route("/video/batches/<batch_id>/resume", methods=["POST"])
+@api.route("/video/batches/<batch_id>/resume", methods=["POST"])
 @require_auth
 def video_batch_resume(batch_id: str):
     return _set_batch_pause_state(batch_id, paused=False)
 
 
-@saas_api.route("/video/batches/<batch_id>/cancel", methods=["POST"])
+@api.route("/video/batches/<batch_id>/cancel", methods=["POST"])
 @require_auth
 def video_batch_cancel(batch_id: str):
     return _set_batch_pause_state(batch_id, cancel=True)
 
 
-@saas_api.route("/video/batches/<batch_id>", methods=["GET"])
+@api.route("/video/batches/<batch_id>", methods=["GET"])
 @require_auth
 def video_batch_status(batch_id: str):
     user = g.current_user
@@ -4664,8 +4664,8 @@ def video_batch_status(batch_id: str):
     finally:
         db.close()
 
-@saas_api.route("/video/generate", methods=["POST"])
-@saas_api.route("/ai/video/render", methods=["POST"])
+@api.route("/video/generate", methods=["POST"])
+@api.route("/ai/video/render", methods=["POST"])
 @require_auth
 def video_generate():
     user = _current_user_refetched()
@@ -4770,7 +4770,7 @@ def video_generate():
         db.close()
 
 
-@saas_api.route("/video/structure", methods=["POST"])
+@api.route("/video/structure", methods=["POST"])
 @require_auth
 def video_structure():
     user = _current_user_refetched()
@@ -4840,7 +4840,7 @@ def video_structure():
     )
 
 
-@saas_api.route("/video/style-packs", methods=["GET"])
+@api.route("/video/style-packs", methods=["GET"])
 @require_auth
 def video_style_packs():
     user = g.current_user
@@ -4861,7 +4861,7 @@ def video_style_packs():
         db.close()
 
 
-@saas_api.route("/video/jobs/<int:job_id>", methods=["GET"])
+@api.route("/video/jobs/<int:job_id>", methods=["GET"])
 @require_auth
 def video_job_status(job_id: int):
     user = g.current_user
@@ -4892,7 +4892,7 @@ def video_job_status(job_id: int):
         db.close()
 
 
-@saas_api.route("/ai/video/jobs/<int:job_id>", methods=["GET"])
+@api.route("/ai/video/jobs/<int:job_id>", methods=["GET"])
 @require_auth
 def ai_video_job_status(job_id: int):
     user = g.current_user
@@ -4976,7 +4976,7 @@ def ai_video_job_status(job_id: int):
         db.close()
 
 
-@saas_api.route("/video/jobs/<int:job_id>/publish", methods=["POST"])
+@api.route("/video/jobs/<int:job_id>/publish", methods=["POST"])
 @require_auth
 def video_job_publish(job_id: int):
     user = g.current_user
@@ -5045,7 +5045,7 @@ def video_job_publish(job_id: int):
         db.close()
 
 
-@saas_api.route("/campaigns/<int:campaign_id>/publish", methods=["POST"])
+@api.route("/campaigns/<int:campaign_id>/publish", methods=["POST"])
 @require_auth
 def campaign_publish(campaign_id: int):
     user = g.current_user
@@ -5156,7 +5156,7 @@ def campaign_publish(campaign_id: int):
         db.close()
 
 
-@saas_api.route("/deliveries/<int:delivery_id>", methods=["GET"])
+@api.route("/deliveries/<int:delivery_id>", methods=["GET"])
 @require_auth
 def delivery_details(delivery_id: int):
     user = g.current_user
@@ -5177,7 +5177,7 @@ def delivery_details(delivery_id: int):
         db.close()
 
 
-@saas_api.route("/history", methods=["GET"])
+@api.route("/history", methods=["GET"])
 @require_auth
 def campaigns_history():
     user = g.current_user
@@ -5209,7 +5209,7 @@ def campaigns_history():
         db.close()
 
 
-@saas_api.route("/youtube/generate-video", methods=["POST"])
+@api.route("/youtube/generate-video", methods=["POST"])
 @require_auth
 def youtube_generate_video():
     user = _current_user_refetched()
@@ -5336,7 +5336,7 @@ def youtube_generate_video():
     return jsonify(result)
 
 
-@saas_api.route("/youtube/generate-post", methods=["POST"])
+@api.route("/youtube/generate-post", methods=["POST"])
 @require_auth
 def youtube_generate_post():
     user = _current_user_refetched()
@@ -5400,7 +5400,7 @@ def youtube_generate_post():
     ), 202
 
 
-@saas_api.route("/ai-smm-manager/start", methods=["POST"])
+@api.route("/ai-smm-manager/start", methods=["POST"])
 @require_auth
 def ai_smm_manager_start():
     user = _current_user_refetched()
@@ -5460,7 +5460,7 @@ def ai_smm_manager_start():
     )
 
 
-@saas_api.route("/content-plan", methods=["GET"])
+@api.route("/content-plan", methods=["GET"])
 @require_auth
 def content_plan_list():
     user = g.current_user
@@ -5498,7 +5498,7 @@ def content_plan_list():
         db.close()
 
 
-@saas_api.route("/content-plan/run-due", methods=["POST"])
+@api.route("/content-plan/run-due", methods=["POST"])
 @require_auth
 def content_plan_run_due():
     user = g.current_user
@@ -5509,7 +5509,7 @@ def content_plan_run_due():
     return jsonify(result)
 
 
-@saas_api.route("/content-plan/materialize", methods=["POST"])
+@api.route("/content-plan/materialize", methods=["POST"])
 @require_auth
 def content_plan_materialize():
     """
@@ -5551,7 +5551,7 @@ def content_plan_materialize():
 
     # Enqueue async generation for queued posts.
     try:
-        from saas_queue import enqueue_generation
+        from job_queue import enqueue_generation
 
         for pid in (result or {}).get("post_ids", []) or []:
             try:
@@ -5565,7 +5565,7 @@ def content_plan_materialize():
     return jsonify({"message": "ok", "result": result, "billing": get_billing_summary(_current_user_refetched())})
 
 
-@saas_api.route("/posts", methods=["POST"])
+@api.route("/posts", methods=["POST"])
 @require_auth
 def create_post_draft():
     data = request.get_json(silent=True) or {}
@@ -5589,7 +5589,7 @@ def create_post_draft():
     return generate()
 
 
-@saas_api.route("/posts", methods=["GET"])
+@api.route("/posts", methods=["GET"])
 @require_auth
 def posts_history():
     user = g.current_user
@@ -5632,7 +5632,7 @@ def posts_history():
         db.close()
 
 
-@saas_api.route("/posts/<int:post_id>", methods=["GET"])
+@api.route("/posts/<int:post_id>", methods=["GET"])
 @require_auth
 def post_details(post_id: int):
     user = g.current_user
@@ -5673,7 +5673,7 @@ def post_details(post_id: int):
         db.close()
 
 
-@saas_api.route("/posts/<int:post_id>", methods=["PATCH"])
+@api.route("/posts/<int:post_id>", methods=["PATCH"])
 @require_auth
 def update_post(post_id: int):
     user = g.current_user
@@ -5743,7 +5743,7 @@ def update_post(post_id: int):
         db.close()
 
 
-@saas_api.route("/posts/<int:post_id>", methods=["DELETE"])
+@api.route("/posts/<int:post_id>", methods=["DELETE"])
 @require_auth
 def delete_post(post_id: int):
     user = g.current_user
@@ -5772,7 +5772,7 @@ def delete_post(post_id: int):
         db.close()
 
 
-@saas_api.route("/posts/<int:post_id>/hide", methods=["POST"])
+@api.route("/posts/<int:post_id>/hide", methods=["POST"])
 @require_auth
 def hide_post(post_id: int):
     user = g.current_user
@@ -5792,13 +5792,13 @@ def hide_post(post_id: int):
         db.close()
 
 
-@saas_api.route("/generated-posts", methods=["GET"])
+@api.route("/generated-posts", methods=["GET"])
 @require_auth
 def legacy_generated_posts_alias():
     return posts_history()
 
 
-@saas_api.route("/posts/<int:post_id>/publish", methods=["POST"])
+@api.route("/posts/<int:post_id>/publish", methods=["POST"])
 @require_auth
 def publish_post(post_id: int):
     user = g.current_user
@@ -5967,7 +5967,7 @@ def publish_post(post_id: int):
         db.close()
 
 
-@saas_api.route("/posts/<int:post_id>/schedule", methods=["POST"])
+@api.route("/posts/<int:post_id>/schedule", methods=["POST"])
 @require_auth
 def schedule_post(post_id: int):
     user = _current_user_refetched()
@@ -6000,7 +6000,7 @@ def schedule_post(post_id: int):
         db.close()
 
 
-@saas_api.route("/posts/bulk-schedule", methods=["POST"])
+@api.route("/posts/bulk-schedule", methods=["POST"])
 @require_auth
 def bulk_schedule_posts():
     user = _current_user_refetched()
@@ -6758,8 +6758,8 @@ def _serialize_youtube_connection(row: SocialAccount | None) -> dict:
     }
 
 
-@saas_api.route("/integrations/meta/connect", methods=["POST"])
-@saas_api.route("/connections/meta/start", methods=["POST"])
+@api.route("/integrations/meta/connect", methods=["POST"])
+@api.route("/connections/meta/start", methods=["POST"])
 @require_auth
 def meta_start():
     pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ACCOUNT_CONNECT, {"provider": "meta", "endpoint": "/api/integrations/meta/connect"}))
@@ -6795,8 +6795,8 @@ def meta_start():
     return jsonify({"oauth_url": oauth_url, "redirect_uri": redirect_uri})
 
 
-@saas_api.route("/integrations/meta/callback", methods=["GET"])
-@saas_api.route("/connections/meta/callback", methods=["GET"])
+@api.route("/integrations/meta/callback", methods=["GET"])
+@api.route("/connections/meta/callback", methods=["GET"])
 def meta_callback():
     if settings.MOCK_META:
         return redirect(_frontend_connections_url("connected=1&mock_meta=1"))
@@ -6931,7 +6931,7 @@ def meta_callback():
     return redirect(_frontend_connections_url("connected=1"))
 
 
-@saas_api.route("/connections", methods=["GET"])
+@api.route("/connections", methods=["GET"])
 @require_auth
 def list_connections():
     user = g.current_user
@@ -6952,7 +6952,7 @@ def list_connections():
         db.close()
 
 
-@saas_api.route("/dashboard/sync", methods=["POST"])
+@api.route("/dashboard/sync", methods=["POST"])
 @require_auth
 def dashboard_sync_metrics():
     db = SessionLocal()
@@ -6964,7 +6964,7 @@ def dashboard_sync_metrics():
         db.close()
 
 
-@saas_api.route("/dashboard/summary", methods=["GET"])
+@api.route("/dashboard/summary", methods=["GET"])
 @require_auth
 def dashboard_metrics_summary():
     days = int((request.args.get("days") or "30").strip() or 30)
@@ -6975,7 +6975,7 @@ def dashboard_metrics_summary():
         db.close()
 
 
-@saas_api.route("/dashboard/ai-score", methods=["GET"])
+@api.route("/dashboard/ai-score", methods=["GET"])
 @require_auth
 def dashboard_metrics_ai_score():
     days = int((request.args.get("days") or "30").strip() or 30)
@@ -6991,7 +6991,7 @@ def dashboard_metrics_ai_score():
         db.close()
 
 
-@saas_api.route("/dashboard/forecast", methods=["GET"])
+@api.route("/dashboard/forecast", methods=["GET"])
 @require_auth
 def dashboard_metrics_forecast():
     horizon = int((request.args.get("horizon") or "7").strip() or 7)
@@ -7005,7 +7005,7 @@ def dashboard_metrics_forecast():
         db.close()
 
 
-@saas_api.route("/dashboard/timeseries", methods=["GET"])
+@api.route("/dashboard/timeseries", methods=["GET"])
 @require_auth
 def dashboard_metrics_timeseries():
     days = int((request.args.get("days") or "30").strip() or 30)
@@ -7016,7 +7016,7 @@ def dashboard_metrics_timeseries():
         db.close()
 
 
-@saas_api.route("/dashboard/insights", methods=["GET"])
+@api.route("/dashboard/insights", methods=["GET"])
 @require_auth
 def dashboard_metrics_insights():
     days = int((request.args.get("days") or "30").strip() or 30)
@@ -7030,7 +7030,7 @@ def dashboard_metrics_insights():
         db.close()
 
 
-@saas_api.route("/dashboard/recent", methods=["GET"])
+@api.route("/dashboard/recent", methods=["GET"])
 @require_auth
 def dashboard_metrics_recent():
     limit = int((request.args.get("limit") or "10").strip() or 10)
@@ -7069,7 +7069,7 @@ def _next_slot_datetimes(best_days: list[int], best_hours: list[int], take: int 
     return out[: max(1, int(take))]
 
 
-@saas_api.route("/ai/best-posting-times", methods=["GET"])
+@api.route("/ai/best-posting-times", methods=["GET"])
 @require_auth
 def ai_best_posting_times():
     pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ANALYTICS_ADVANCED, {"endpoint": "/api/ai/best-posting-times"}))
@@ -7181,7 +7181,7 @@ def ai_best_posting_times():
         db.close()
 
 
-@saas_api.route("/dashboard/recent/<int:item_id>", methods=["DELETE"])
+@api.route("/dashboard/recent/<int:item_id>", methods=["DELETE"])
 @require_auth
 def dashboard_metrics_recent_delete(item_id: int):
     user = g.current_user
@@ -7201,8 +7201,8 @@ def dashboard_metrics_recent_delete(item_id: int):
         db.close()
 
 
-@saas_api.route("/integrations/youtube/status", methods=["GET"])
-@saas_api.route("/connections/youtube/status", methods=["GET"])
+@api.route("/integrations/youtube/status", methods=["GET"])
+@api.route("/connections/youtube/status", methods=["GET"])
 @require_auth
 def youtube_status():
     user = g.current_user
@@ -7219,8 +7219,8 @@ def youtube_status():
         db.close()
 
 
-@saas_api.route("/integrations/youtube/start", methods=["POST"])
-@saas_api.route("/connections/youtube/start", methods=["POST"])
+@api.route("/integrations/youtube/start", methods=["POST"])
+@api.route("/connections/youtube/start", methods=["POST"])
 @require_auth
 def youtube_start():
     pw = _paywall_response_if_needed(authorizeAction(g.current_user, ACTION_ACCOUNT_CONNECT, {"provider": "youtube", "endpoint": "/api/integrations/youtube/start"}))
@@ -7247,8 +7247,8 @@ def youtube_start():
     return jsonify({"oauth_url": oauth_url, "redirect_uri": redirect_uri})
 
 
-@saas_api.route("/integrations/youtube/callback", methods=["GET"])
-@saas_api.route("/connections/youtube/callback", methods=["GET"])
+@api.route("/integrations/youtube/callback", methods=["GET"])
+@api.route("/connections/youtube/callback", methods=["GET"])
 def youtube_callback():
     if request.args.get("error"):
         return redirect(_frontend_connections_url("youtube_error=oauth_denied"))
@@ -7279,8 +7279,8 @@ def youtube_callback():
     return _finalize_youtube_oauth_connect(user_id, code, _youtube_redirect_uri())
 
 
-@saas_api.route("/integrations/youtube/connect", methods=["POST"])
-@saas_api.route("/connections/youtube/connect", methods=["POST"])
+@api.route("/integrations/youtube/connect", methods=["POST"])
+@api.route("/connections/youtube/connect", methods=["POST"])
 @require_auth
 def youtube_connect():
     user = g.current_user
@@ -7319,8 +7319,8 @@ def youtube_connect():
         db.close()
 
 
-@saas_api.route("/integrations/youtube/disconnect", methods=["POST"])
-@saas_api.route("/connections/youtube/disconnect", methods=["POST"])
+@api.route("/integrations/youtube/disconnect", methods=["POST"])
+@api.route("/connections/youtube/disconnect", methods=["POST"])
 @require_auth
 def youtube_disconnect():
     user = g.current_user
@@ -7347,8 +7347,8 @@ def youtube_disconnect():
         db.close()
 
 
-@saas_api.route("/integrations/meta/pages", methods=["GET"])
-@saas_api.route("/connections/meta/pages", methods=["GET"])
+@api.route("/integrations/meta/pages", methods=["GET"])
+@api.route("/connections/meta/pages", methods=["GET"])
 @require_auth
 def meta_pages():
     """
@@ -7433,8 +7433,8 @@ def meta_pages():
         db.close()
 
 
-@saas_api.route("/integrations/meta/select-page", methods=["POST"])
-@saas_api.route("/connections/meta/select-page", methods=["POST"])
+@api.route("/integrations/meta/select-page", methods=["POST"])
+@api.route("/connections/meta/select-page", methods=["POST"])
 @require_auth
 def meta_select_page():
     """
@@ -7504,7 +7504,7 @@ def meta_select_page():
         db.close()
 
 
-@saas_api.route("/connections/meta/add-page", methods=["POST"])
+@api.route("/connections/meta/add-page", methods=["POST"])
 @require_auth
 def meta_add_page():
     """
@@ -7583,7 +7583,7 @@ def meta_add_page():
         db.close()
 
 
-@saas_api.route("/connections/meta/mock-connect", methods=["POST"])
+@api.route("/connections/meta/mock-connect", methods=["POST"])
 @require_auth
 def mock_connect():
     if not settings.USE_MOCK_PROVIDERS:
@@ -7613,7 +7613,7 @@ def mock_connect():
         db.close()
 
 
-@saas_api.route("/connections/<int:connection_id>/disconnect", methods=["POST"])
+@api.route("/connections/<int:connection_id>/disconnect", methods=["POST"])
 @require_auth
 def disconnect_connection(connection_id: int):
     user = g.current_user
@@ -7639,7 +7639,7 @@ def disconnect_connection(connection_id: int):
         db.close()
 
 
-@saas_api.route("/connections/<int:connection_id>/refresh-token", methods=["POST"])
+@api.route("/connections/<int:connection_id>/refresh-token", methods=["POST"])
 @require_auth
 def refresh_connection_token(connection_id: int):
     user = g.current_user
@@ -7697,7 +7697,7 @@ def refresh_connection_token(connection_id: int):
         db.close()
 
 
-@saas_api.route("/connections/<int:connection_id>/test-publish", methods=["POST"])
+@api.route("/connections/<int:connection_id>/test-publish", methods=["POST"])
 @require_auth
 def test_publish_connection(connection_id: int):
     user = g.current_user
@@ -7856,7 +7856,7 @@ def _latest_user_meta_connection(db, user_id: int):
     )
 
 
-@saas_api.route("/integrations/meta/disconnect", methods=["POST"])
+@api.route("/integrations/meta/disconnect", methods=["POST"])
 @require_auth
 def integration_meta_disconnect():
     db = SessionLocal()
@@ -7878,7 +7878,7 @@ def integration_meta_disconnect():
         db.close()
 
 
-@saas_api.route("/integrations/meta/refresh", methods=["POST"])
+@api.route("/integrations/meta/refresh", methods=["POST"])
 @require_auth
 def integration_meta_refresh():
     db = SessionLocal()
@@ -7891,7 +7891,7 @@ def integration_meta_refresh():
         db.close()
 
 
-@saas_api.route("/integrations/meta/test-post", methods=["POST"])
+@api.route("/integrations/meta/test-post", methods=["POST"])
 @require_auth
 def integration_meta_test_post():
     db = SessionLocal()
@@ -7916,21 +7916,21 @@ def integration_meta_test_post():
         db.close()
 
 
-@saas_api.route("/billing/summary", methods=["GET"])
+@api.route("/billing/summary", methods=["GET"])
 @require_auth
 def billing_summary():
     user = _current_user_refetched()
     return jsonify(get_billing_summary(user))
 
 
-@saas_api.route("/billing/entitlements", methods=["GET"])
+@api.route("/billing/entitlements", methods=["GET"])
 @require_auth
 def billing_entitlements():
     user = _current_user_refetched()
     return jsonify(getEntitlementsPayload(user))
 
 
-@saas_api.route("/billing/checkout/subscription", methods=["POST"])
+@api.route("/billing/checkout/subscription", methods=["POST"])
 @require_auth
 def billing_checkout_subscription():
     data = request.get_json(silent=True) or {}
@@ -7947,7 +7947,7 @@ def billing_checkout_subscription():
         return jsonify({"error": f"Stripe checkout error: {str(exc)}"}), 400
 
 
-@saas_api.route("/billing/checkout/credits", methods=["POST"])
+@api.route("/billing/checkout/credits", methods=["POST"])
 @require_auth
 def billing_checkout_credits():
     data = request.get_json(silent=True) or {}
@@ -7965,7 +7965,7 @@ def billing_checkout_credits():
         return jsonify({"error": f"Stripe checkout error: {str(exc)}"}), 400
 
 
-@saas_api.route("/billing/portal", methods=["POST"])
+@api.route("/billing/portal", methods=["POST"])
 @require_auth
 def billing_portal():
     user = _current_user_refetched()
@@ -7976,7 +7976,7 @@ def billing_portal():
         return jsonify({"error": str(exc)}), 400
 
 
-@saas_api.route("/blog/posts", methods=["GET"])
+@api.route("/blog/posts", methods=["GET"])
 def blog_posts_public():
     rows = list_blog_posts(limit=100)
     return jsonify(
@@ -7996,7 +7996,7 @@ def blog_posts_public():
     )
 
 
-@saas_api.route("/admin/blog/generate", methods=["POST"])
+@api.route("/admin/blog/generate", methods=["POST"])
 @require_auth
 @require_role("admin")
 def admin_blog_generate():
@@ -8007,7 +8007,7 @@ def admin_blog_generate():
     return jsonify({"id": post.id, "title": post.title, "slug": post.slug, "published_at": post.published_at.isoformat()})
 
 
-@saas_api.route("/billing/upgrade-demo", methods=["POST"])
+@api.route("/billing/upgrade-demo", methods=["POST"])
 @require_auth
 def upgrade_demo_only_for_mock():
     if not settings.USE_MOCK_PROVIDERS:
@@ -8027,7 +8027,7 @@ def upgrade_demo_only_for_mock():
     return jsonify({"plan": "growth"})
 
 
-@saas_api.route("/stripe/webhook", methods=["POST"])
+@api.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature", "")
@@ -8039,7 +8039,7 @@ def stripe_webhook():
         return jsonify({"error": str(exc)}), 400
 
 
-@saas_api.route("/settings/profile", methods=["PATCH"])
+@api.route("/settings/profile", methods=["PATCH"])
 @require_auth
 def settings_profile():
     user = g.current_user
@@ -8063,7 +8063,7 @@ def settings_profile():
         db.close()
 
 
-@saas_api.route("/settings/password", methods=["POST"])
+@api.route("/settings/password", methods=["POST"])
 @require_auth
 def settings_password():
     user = g.current_user
@@ -8087,7 +8087,7 @@ def settings_password():
         db.close()
 
 
-@saas_api.route("/admin/users", methods=["GET"])
+@api.route("/admin/users", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_users():
@@ -8114,7 +8114,7 @@ def admin_users():
         db.close()
 
 
-@saas_api.route("/admin/users/<int:user_id>/plan", methods=["PATCH"])
+@api.route("/admin/users/<int:user_id>/plan", methods=["PATCH"])
 @require_auth
 @require_role("admin")
 def admin_update_plan(user_id: int):
@@ -8158,11 +8158,11 @@ def admin_update_plan(user_id: int):
         db.close()
 
 
-@saas_api.route("/admin/users/<int:user_id>/credits", methods=["PATCH"])
+@api.route("/admin/users/<int:user_id>/credits", methods=["PATCH"])
 @require_auth
 @require_role("admin")
 def admin_adjust_credits(user_id: int):
-    from saas_services import add_credits
+    from app_services import add_credits
 
     data = request.get_json(silent=True) or {}
     delta = int(data.get("delta") or 0)
@@ -8176,7 +8176,7 @@ def admin_adjust_credits(user_id: int):
         return jsonify({"error": str(exc)}), 400
 
 
-@saas_api.route("/admin/projects", methods=["GET"])
+@api.route("/admin/projects", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_projects():
@@ -8188,7 +8188,7 @@ def admin_projects():
         db.close()
 
 
-@saas_api.route("/admin/content", methods=["GET"])
+@api.route("/admin/content", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_content():
@@ -8214,7 +8214,7 @@ def admin_content():
         db.close()
 
 
-@saas_api.route("/admin/content-strategies", methods=["GET"])
+@api.route("/admin/content-strategies", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_content_strategies():
@@ -8242,7 +8242,7 @@ def admin_content_strategies():
         db.close()
 
 
-@saas_api.route("/admin/blog", methods=["GET"])
+@api.route("/admin/blog", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_blog_list():
@@ -8261,7 +8261,7 @@ def admin_blog_list():
     )
 
 
-@saas_api.route("/admin/logs", methods=["GET"])
+@api.route("/admin/logs", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_logs():
@@ -8285,7 +8285,7 @@ def admin_logs():
         db.close()
 
 
-@saas_api.route("/admin/payments", methods=["GET"])
+@api.route("/admin/payments", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_payments():
@@ -8309,18 +8309,18 @@ def admin_payments():
         db.close()
 
 
-@saas_api.route("/admin/revenue", methods=["GET"])
+@api.route("/admin/revenue", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_revenue():
     return jsonify(get_revenue_metrics())
 
 
-@saas_api.route("/admin/abuse", methods=["GET"])
+@api.route("/admin/abuse", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_abuse():
-    from saas_models import AuditLog
+    from app_models import AuditLog
 
     db = SessionLocal()
     try:
@@ -8341,7 +8341,7 @@ def admin_abuse():
         db.close()
 
 
-@saas_api.route("/admin/niche-hooks", methods=["GET"])
+@api.route("/admin/niche-hooks", methods=["GET"])
 @require_auth
 @require_role("admin")
 def admin_niche_hooks():

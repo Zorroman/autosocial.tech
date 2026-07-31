@@ -23,7 +23,7 @@ from gpt_generator import (
     generate_post_with_usage,
     generate_structured_text_with_usage,
 )
-from saas_models import (
+from app_models import (
     AppUser,
     AuditLog,
     BlogPost,
@@ -40,7 +40,7 @@ from saas_models import (
     Template,
     TopicSuggestion,
 )
-from saas_settings import settings
+from app_settings import settings
 from plans_catalog import PLAN_SPECS, get_plan_spec, normalize_plan_code
 from services.entitlements import getEntitlementsPayload
 from niche_catalog import build_niche_catalog_seed

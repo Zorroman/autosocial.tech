@@ -202,7 +202,7 @@ def test_scheduler_reservation_blocks_double_generation(tmp_path):
     admin_id = _seed_admin()
 
     from database import SessionLocal
-    from saas_models import Channel
+    from app_models import Channel
     import scheduler
 
     db = SessionLocal()
@@ -242,7 +242,7 @@ def test_scheduler_backlog_limit_blocks(tmp_path, monkeypatch):
     admin_id = _seed_admin()
 
     from database import SessionLocal
-    from saas_models import Channel, VideoProject
+    from app_models import Channel, VideoProject
     import scheduler
     monkeypatch.setattr(scheduler, "_BACKLOG_LIMIT", 3)
 
@@ -273,7 +273,7 @@ def test_scheduler_single_active_pipeline(tmp_path):
     admin_id = _seed_admin()
 
     from database import SessionLocal
-    from saas_models import Channel, VideoProject
+    from app_models import Channel, VideoProject
     import scheduler
 
     db = SessionLocal()

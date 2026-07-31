@@ -11,7 +11,7 @@ import json
 import os
 
 from database import SessionLocal
-from saas_models import AppUser, Channel, SaaSBase
+from app_models import AppUser, Channel, SaaSBase
 from database import engine
 
 SaaSBase.metadata.create_all(engine)

@@ -10,16 +10,16 @@ import pytest
 def db_modules(tmp_path):
     db_file = tmp_path / "ai_score_forecast.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
-    for name in ["database", "saas_models", "dashboard_metrics", "migrations"]:
+    for name in ["database", "app_models", "dashboard_metrics", "migrations"]:
         if name in sys.modules:
             del sys.modules[name]
     database = importlib.import_module("database")
-    saas_models = importlib.import_module("saas_models")
+    app_models = importlib.import_module("app_models")
     migrations = importlib.import_module("migrations")
     dashboard_metrics = importlib.import_module("dashboard_metrics")
-    saas_models.SaaSBase.metadata.create_all(bind=database.engine)
+    app_models.SaaSBase.metadata.create_all(bind=database.engine)
     migrations.run_migrations()
-    return database, saas_models, dashboard_metrics
+    return database, app_models, dashboard_metrics
 
 
 def test_compute_ai_score_range_and_zero_safe(db_modules):

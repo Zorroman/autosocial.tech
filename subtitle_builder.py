@@ -15,7 +15,7 @@
 import re
 from pathlib import Path
 
-from saas_settings import settings
+from app_settings import settings
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?…;:])\s+")
 _WORD = re.compile(r"\S+")

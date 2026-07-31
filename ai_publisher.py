@@ -16,7 +16,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from saas_settings import settings
+from app_settings import settings
 
 AI_PUBLISHER_VERSION = "1"
 

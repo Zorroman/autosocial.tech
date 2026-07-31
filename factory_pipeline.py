@@ -26,7 +26,7 @@ import os
 import requests
 
 from database import SessionLocal
-from saas_models import Channel, RenderJob, VideoProject, VideoScene
+from app_models import Channel, RenderJob, VideoProject, VideoScene
 
 # Internal base URL of the backend, reachable from the worker container.
 _API_BASE = (os.getenv("FACTORY_API_BASE") or "http://backend:5000").rstrip("/")
@@ -151,7 +151,7 @@ def run(project_id: int, token: str) -> None:
         # station 6 — publish. Automatic mode publishes without confirmation;
         # manual mode waits for the user's «Опубликовать» button.
         if (p.youtube_meta_json or "").strip() and effective_mode(p, ch) == "automatic":
-            from saas_models import Publication
+            from app_models import Publication
             done = (db.query(Publication)
                     .filter(Publication.project_id == p.id,
                             Publication.status.in_(("published", "uploading"))).first())

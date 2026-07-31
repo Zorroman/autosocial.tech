@@ -17,8 +17,8 @@ from flask import Blueprint, g, jsonify
 from ai_pricing import spent_summary
 from analytics_api import _channel_stats
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import (
+from auth import require_auth
+from app_models import (
     Channel,
     Publication,
     RenderJob,
@@ -26,7 +26,7 @@ from saas_models import (
     VideoProject,
     VideoScene,
 )
-from saas_settings import settings
+from app_settings import settings
 
 factory_dashboard_api = Blueprint("factory_dashboard_api", __name__, url_prefix="/api")
 

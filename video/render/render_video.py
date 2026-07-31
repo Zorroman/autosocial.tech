@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from saas_settings import settings
+from app_settings import settings
 
 
 def _run(cmd: list[str]) -> None:

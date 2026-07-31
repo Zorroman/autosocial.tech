@@ -8,7 +8,7 @@ Responsibilities:
 - record FootageUsage after a successful render, release reservations on
   failure; expired reservations free themselves automatically.
 
-Cooldown rules (env-configurable, see saas_settings):
+Cooldown rules (env-configurable, see app_settings):
 1. never twice inside one project;
 2. same channel: FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS (default 30);
 3. other channels: FOOTAGE_GLOBAL_COOLDOWN_DAYS (default 7);
@@ -23,8 +23,8 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from saas_models import FootageAsset, FootageUsage
-from saas_settings import settings
+from app_models import FootageAsset, FootageUsage
+from app_settings import settings
 
 # Rule-based query expansion; no paid AI calls in the footage path.
 _QUERY_SYNONYMS = {

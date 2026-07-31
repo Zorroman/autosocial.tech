@@ -1,7 +1,7 @@
 from sqlalchemy import inspect, text
 
 from database import engine
-from saas_models import SaaSBase
+from app_models import SaaSBase
 
 
 APP_USER_ADDITIONAL_COLUMNS = {

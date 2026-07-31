@@ -68,7 +68,7 @@ def test_segment_plan_three_seconds():
 
 
 def test_no_repeat_inside_video_and_timeline(client):
-    from saas_settings import settings
+    from app_settings import settings
     ch, pid, job = _mk_rendered_project(client)
     assert job["status"] == "completed", job["error"]
     manifest = settings.OUTPUT_MANIFESTS_DIR / f"project_{pid}_job_{job['id']}.json"
@@ -91,7 +91,7 @@ def test_no_repeat_inside_video_and_timeline(client):
 
 
 def test_video_duration_matches_voiceover(client):
-    from saas_settings import settings
+    from app_settings import settings
     ch, pid, job = _mk_rendered_project(client)
     assert job["status"] == "completed", job["error"]
     out = settings.BASE_DIR / job["output_path"]
@@ -164,7 +164,7 @@ def test_parallel_jobs_do_not_share_asset(client, tmp_path):
     db.commit()
     assert reserve_asset(db, a, job_id=111) is True
     db2 = SessionLocal()
-    from saas_models import FootageAsset
+    from app_models import FootageAsset
     a2 = db2.query(FootageAsset).filter_by(id=a.id).first()
     assert reserve_asset(db2, a2, job_id=222) is False  # second job blocked
     assert reserve_asset(db2, a2, job_id=111) is True   # same job may re-confirm
@@ -177,7 +177,7 @@ def test_parallel_jobs_do_not_share_asset(client, tmp_path):
 def test_expired_reservation_released(client, tmp_path, monkeypatch):
     from database import SessionLocal
     from footage_library import _release_expired_reservations, reserve_asset
-    from saas_models import FootageAsset
+    from app_models import FootageAsset
     db = SessionLocal()
     a = _register_dummy_asset(db, tmp_path, "exp1")
     db.commit()
@@ -195,7 +195,7 @@ def test_expired_reservation_released(client, tmp_path, monkeypatch):
 def test_reuse_fallback_when_no_candidates(client):
     # fixture project uses the same pool; segments beyond unique fixtures must
     # carry an explicit reuse reason instead of failing
-    from saas_settings import settings
+    from app_settings import settings
     ch, pid, job = _mk_rendered_project(client)
     assert job["status"] == "completed"
     manifest = settings.OUTPUT_MANIFESTS_DIR / f"project_{pid}_job_{job['id']}.json"
@@ -289,7 +289,7 @@ def test_segment_plan_5_10_30_60():
 def test_cooldown_exact_boundaries(client, tmp_path):
     from database import SessionLocal
     from footage_library import score_candidates
-    from saas_models import FootageUsage
+    from app_models import FootageUsage
     db = SessionLocal()
     a29 = _register_dummy_asset(db, tmp_path, "b29")
     a30 = _register_dummy_asset(db, tmp_path, "b30")
@@ -319,7 +319,7 @@ def test_cooldown_exact_boundaries(client, tmp_path):
 def test_project_asset_blocked_regardless_of_cooldown(client, tmp_path):
     from database import SessionLocal
     from footage_library import score_candidates
-    from saas_models import FootageUsage
+    from app_models import FootageUsage
     db = SessionLocal()
     a = _register_dummy_asset(db, tmp_path, "proj_block")
     db.commit()
@@ -336,7 +336,7 @@ def test_project_asset_blocked_regardless_of_cooldown(client, tmp_path):
 def test_failed_render_does_not_consume_cooldown(client, monkeypatch):
     """reservation released + no FootageUsage when render fails."""
     from database import SessionLocal
-    from saas_models import FootageAsset, FootageUsage
+    from app_models import FootageAsset, FootageUsage
     import importlib
     rv = importlib.import_module("video.render.render_video")
 
@@ -368,8 +368,8 @@ def test_failed_render_does_not_consume_cooldown(client, monkeypatch):
 def test_successful_render_creates_usage_after_validation(client):
     """lifecycle: usage rows appear only for completed job, count == segments."""
     from database import SessionLocal
-    from saas_models import FootageUsage
-    from saas_settings import settings
+    from app_models import FootageUsage
+    from app_settings import settings
     ch, pid, job = _mk_rendered_project(client, channel_name="LifeCh")
     assert job["status"] == "completed"
     manifest = settings.OUTPUT_MANIFESTS_DIR / f"project_{pid}_job_{job['id']}.json"
@@ -388,7 +388,7 @@ def test_concurrent_next_candidate_selection(client, tmp_path):
     best = _register_dummy_asset(db1, tmp_path, "conc_best", query="candle dark")
     second = _register_dummy_asset(db1, tmp_path, "conc_second", query="candle dark")
     db1.commit()
-    from saas_models import FootageAsset
+    from app_models import FootageAsset
     b2 = db2.query(FootageAsset).filter_by(id=best.id).first()
     s2 = db2.query(FootageAsset).filter_by(id=second.id).first()
 
@@ -404,7 +404,7 @@ def test_concurrent_next_candidate_selection(client, tmp_path):
 
 
 def test_manifest_search_budget_fields(client):
-    from saas_settings import settings
+    from app_settings import settings
     ch, pid, job = _mk_rendered_project(client, channel_name="BudgetCh")
     manifest = settings.OUTPUT_MANIFESTS_DIR / f"project_{pid}_job_{job['id']}.json"
     timeline = json.loads(manifest.read_text(encoding="utf-8"))["timeline"]

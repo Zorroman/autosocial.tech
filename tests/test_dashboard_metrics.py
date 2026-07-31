@@ -34,12 +34,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
         "dashboard_metrics",
     ]:
         if name in sys.modules:
@@ -70,8 +70,8 @@ def test_dashboard_sync_idempotent_and_read_endpoints(client, monkeypatch):
     headers = auth_headers(token)
 
     from database import SessionLocal
-    from saas_models import AiScoreDaily, AiScoreDailyV2, Forecast, ContentItem, ContentMetricDaily, SocialAccount
-    from saas_services import encrypt_meta_token
+    from app_models import AiScoreDaily, AiScoreDailyV2, Forecast, ContentItem, ContentMetricDaily, SocialAccount
+    from app_services import encrypt_meta_token
 
     user_id = client.get("/api/me", headers=headers).get_json()["id"]
     from services.entitlements import sync_subscription_state

@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from saas_models import FootageAsset, VisualValidationRecord
-from saas_settings import settings
+from app_models import FootageAsset, VisualValidationRecord
+from app_settings import settings
 
 PROMPT_VERSION = "v1"
 _FRAME_POSITIONS = (0.15, 0.35, 0.55, 0.75, 0.90)

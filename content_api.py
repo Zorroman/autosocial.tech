@@ -16,15 +16,15 @@ from datetime import datetime, timedelta
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import (
+from auth import require_auth
+from app_models import (
     Channel,
     ChannelIdea,
     ContentNiche,
     ContentPillar,
     VideoProject,
 )
-from saas_settings import settings
+from app_settings import settings
 
 content_api = Blueprint("content_api", __name__, url_prefix="/api")
 

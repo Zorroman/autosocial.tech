@@ -9,7 +9,7 @@ def _load_service():
         "backend.services.media.pexels_service",
         "backend.services.media",
         "config",
-        "saas_settings",
+        "app_settings",
     ]:
         if name in sys.modules:
             del sys.modules[name]

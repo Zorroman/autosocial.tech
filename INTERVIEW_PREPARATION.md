@@ -146,12 +146,12 @@ It's real, working code someone still relies on. Deleting functioning
 features as a side effect of a repositioning pass is exactly the kind of
 unilateral call that should be a deliberate product decision, not incidental
 cleanup. The honest cost: the codebase visibly carries two eras of naming at
-once (`models.py` next to `saas_models.py`) — documented, not hidden. See
+once (`models.py` next to `app_models.py`) — documented, not hidden. See
 [ADR-006](docs/adr/006-why-youtube-first.md).
 
 ## "What did you get wrong that you're not fixing?"
 
-Character-encoding corruption in a few backend files (`saas_api.py`,
+Character-encoding corruption in a few backend files (`api.py`,
 `video_niches_config.py`) — not misdecoded bytes (recoverable), but literal
 `?` characters where the original text used to be (destroyed, confirmed at
 the byte level). I fixed the parts I could reconstruct with full confidence —

@@ -28,9 +28,9 @@ without touching an in-flight render on the worker.
 | Area | Files |
 |---|---|
 | App bootstrap | `app.py` — Flask factory, blueprint registration, migration trigger, niche-catalog seeding |
-| Auth | `saas_auth.py` (email code + Google/Facebook OAuth), session tokens |
-| Data model | `saas_models.py` (SQLAlchemy ORM — `AppUser`, `Channel`, `VideoProject`, `VideoScene`, `RenderJob`, `Publication`, …) |
-| Route surface | `saas_api.py` (auth, legacy content), `channels_api.py`, `video_projects_api.py`, `publications_api.py`, `factory_dashboard_api.py`, `content_director_api.py` |
+| Auth | `auth.py` (email code + Google/Facebook OAuth), session tokens |
+| Data model | `app_models.py` (SQLAlchemy ORM — `AppUser`, `Channel`, `VideoProject`, `VideoScene`, `RenderJob`, `Publication`, …) |
+| Route surface | `api.py` (auth, legacy content), `channels_api.py`, `video_projects_api.py`, `publications_api.py`, `factory_dashboard_api.py`, `content_director_api.py` |
 | Content generation | `content_pipeline.py` (short-form text), `video_script_generator.py` (script + long-form narration), `content_director.py` (topic selection, anti-repeat) |
 | Media selection | `footage/` (Pexels/Pixabay providers, ranking, shot types), `media_matcher.py`, `media_query_builder.py`, `image_picker.py` |
 | Voice | `video/tts.py` — OpenAI TTS with a provider fallback chain |

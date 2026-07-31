@@ -23,7 +23,7 @@ this page just collects them in one place with a rough priority.
   exist.
 - **Fix the character-encoding corruption**, both in the legacy admin block
   in `frontend/app.js` (recoverable mis-decoded bytes) and in several backend
-  files (`saas_api.py`, `dashboard_metrics.py`, `video_niches_config.py`,
+  files (`api.py`, `dashboard_metrics.py`, `video_niches_config.py`,
   where the original characters were destroyed, not just misdecoded). Done
   as its own isolated, tested change rather than worked around or guessed
   at again — see [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md) for

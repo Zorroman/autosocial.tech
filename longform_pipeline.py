@@ -426,7 +426,7 @@ def final_mix(silent_video: Path, voice: Path, music: Path, ass: Path,
 
 def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
     from database import SessionLocal
-    from saas_models import VideoProject, VideoScene, Channel, ContentPillar
+    from app_models import VideoProject, VideoScene, Channel, ContentPillar
     from video.tts import synthesize_voiceover
     from subtitle_builder import build_cues
 

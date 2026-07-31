@@ -40,7 +40,7 @@ platform-agnostic "publish anywhere" abstraction across Meta and YouTube.
 ## Trade-offs
 
 - The codebase now visibly carries two eras' worth of naming and structure
-  at once — `models.py` alongside `saas_models.py`, a legacy Post Studio
+  at once — `models.py` alongside `app_models.py`, a legacy Post Studio
   next to Content Director. This is a real, disclosed cost of not deleting
   the old surface (see the linked decision), not hidden from a reviewer.
 - Product-market decisions specific to YouTube (Shorts vs. long-form

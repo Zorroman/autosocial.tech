@@ -17,7 +17,7 @@ from footage.ranking import (
 )
 from footage.shots import ShotSpec
 from footage.types import VideoResult
-from saas_settings import settings
+from app_settings import settings
 from style_packs import get_style_pack, normalize_scene
 
 

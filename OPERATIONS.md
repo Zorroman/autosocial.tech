@@ -28,7 +28,7 @@ last-updated timestamp.
    bool(Worker.all(...))` fix, not the old 120-second heartbeat-age check.
 3. To confirm the worker is genuinely alive regardless of what the endpoint
    says: `docker exec autosocial-worker-1 python -c "from redis import Redis;
-   from rq import Worker; from saas_settings import settings; print(len(Worker.all(connection=Redis.from_url(settings.REDIS_URL))))"`
+   from rq import Worker; from app_settings import settings; print(len(Worker.all(connection=Redis.from_url(settings.REDIS_URL))))"`
    — `0` means genuinely offline; `1` means it's registered and RQ itself
    still considers it alive.
 

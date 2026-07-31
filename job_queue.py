@@ -3,8 +3,8 @@ import threading
 from redis import Redis
 from rq import Queue
 
-from saas_services import run_generation_job
-from saas_settings import settings
+from app_services import run_generation_job
+from app_settings import settings
 
 
 def enqueue_generation(post_id: int):

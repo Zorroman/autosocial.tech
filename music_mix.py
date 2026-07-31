@@ -52,7 +52,7 @@ def _probe_dims(path: Path) -> dict:
 
 
 def recent_track_ids(db, channel_id: int, window: int) -> list[str]:
-    from saas_models import VideoProject
+    from app_models import VideoProject
     rows = (db.query(VideoProject.music_track_id)
             .filter(VideoProject.channel_id == channel_id,
                     VideoProject.music_track_id.isnot(None))

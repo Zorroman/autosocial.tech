@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 
 from footage.types import VideoResult
-from saas_settings import settings
+from app_settings import settings
 
 
 def _index_path() -> Path:

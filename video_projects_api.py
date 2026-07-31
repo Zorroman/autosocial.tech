@@ -19,9 +19,9 @@ from pathlib import Path
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, ChannelIdea, Publication, RenderJob, VideoProject, VideoScene
-from saas_settings import settings
+from auth import require_auth
+from app_models import Channel, ChannelIdea, Publication, RenderJob, VideoProject, VideoScene
+from app_settings import settings
 
 video_projects_api = Blueprint("video_projects_api", __name__, url_prefix="/api")
 
@@ -207,13 +207,13 @@ def create_project():
         pillar = None
         pillar_id = data.get("content_pillar_id")
         if pillar_id:
-            from saas_models import ContentPillar
+            from app_models import ContentPillar
             pillar = db.query(ContentPillar).filter_by(id=int(pillar_id)).first()
             if not pillar:
                 return jsonify({"error": "content_pillar_id does not exist"}), 400
             if c.niche_id and pillar.niche_id != c.niche_id:
                 return jsonify({"error": "Pillar belongs to a different niche than the channel"}), 400
-        from saas_models import ContentNiche
+        from app_models import ContentNiche
         niche = db.query(ContentNiche).filter_by(id=c.niche_id).first() if c.niche_id else None
         snapshot = {
             "youtube_channel_id": c.youtube_channel_id,
@@ -824,7 +824,7 @@ def run_render_job(job_id: int) -> None:
                 _niche = None
                 _pillar = None
                 try:
-                    from saas_models import ContentNiche, ContentPillar
+                    from app_models import ContentNiche, ContentPillar
                     if _channel and _channel.niche_id:
                         _niche = db.query(ContentNiche).filter_by(id=_channel.niche_id).first()
                     if project.content_pillar_id:
@@ -957,7 +957,7 @@ def run_render_job(job_id: int) -> None:
                 for seg in timeline:
                     a = assets_by_id.get(seg["asset_id"])
                     if a is None:
-                        from saas_models import FootageAsset
+                        from app_models import FootageAsset
                         a = db.query(FootageAsset).filter_by(id=seg["asset_id"]).first()
                         assets_by_id[seg["asset_id"]] = a
                     if a:
@@ -991,7 +991,7 @@ def run_render_job(job_id: int) -> None:
             db.commit()
             # Content Factory: auto-continue the line render → AI Publisher.
             try:
-                from saas_auth import create_token
+                from auth import create_token
                 _owner = db.query(Channel.owner_user_id).filter(Channel.id == project.channel_id).scalar()
                 if _owner:
                     _enqueue_factory(project.id, create_token(_owner))
@@ -1179,7 +1179,7 @@ def pipeline_state(project_id: int):
 @require_auth
 def pipeline_approve(project_id: int):
     """Pass the script checkpoint and launch the rest of the line."""
-    from saas_auth import create_token
+    from auth import create_token
     db = SessionLocal()
     try:
         p = _own_project(db, project_id)
@@ -1202,7 +1202,7 @@ def pipeline_approve(project_id: int):
 def pipeline_run(project_id: int):
     """Advance the line as far as it can (stops at the checkpoint if the script
     isn't approved and the channel isn't on full autopilot)."""
-    from saas_auth import create_token
+    from auth import create_token
     db = SessionLocal()
     try:
         p = _own_project(db, project_id)
@@ -1218,7 +1218,7 @@ def pipeline_run(project_id: int):
 @require_auth
 def pipeline_retry(project_id: int):
     """Retry the current (failed) station without recreating the video."""
-    from saas_auth import create_token
+    from auth import create_token
     db = SessionLocal()
     try:
         p = _own_project(db, project_id)
@@ -1801,7 +1801,7 @@ def project_auto_media(project_id: int):
 
         # Global cooldown blacklist (recently used provider ids) computed once.
         from datetime import timedelta as _td
-        from saas_models import FootageAsset, FootageUsage
+        from app_models import FootageAsset, FootageUsage
         recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
         recent_ids = {
             str(pid) for (pid,) in (
@@ -1903,7 +1903,7 @@ def media_library_stats():
 
     from sqlalchemy import func
 
-    from saas_models import FootageAsset, FootageUsage
+    from app_models import FootageAsset, FootageUsage
 
     db = SessionLocal()
     try:

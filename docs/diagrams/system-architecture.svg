@@ -30,7 +30,7 @@
   <rect x="150" y="210" width="240" height="70" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
   <text x="270" y="238" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">backend</text>
   <text x="270" y="256" text-anchor="middle" font-size="11" fill="#64748b">Flask API · runs migrations on boot</text>
-  <text x="270" y="271" text-anchor="middle" font-size="11" fill="#64748b">saas_api.py + blueprints</text>
+  <text x="270" y="271" text-anchor="middle" font-size="11" fill="#64748b">api.py + blueprints</text>
 
   <!-- Worker -->
   <rect x="510" y="210" width="240" height="70" rx="10" fill="#ffffff" stroke="#8B5CF6" stroke-width="2"/>

@@ -18,10 +18,10 @@ import requests
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, Publication, SocialAccount, VideoProject, VideoScene
-from saas_services import decrypt_meta_token, encrypt_meta_token
-from saas_settings import settings
+from auth import require_auth
+from app_models import Channel, Publication, SocialAccount, VideoProject, VideoScene
+from app_services import decrypt_meta_token, encrypt_meta_token
+from app_settings import settings
 
 publications_api = Blueprint("publications_api", __name__, url_prefix="/api")
 
@@ -552,7 +552,7 @@ def _add_video_to_playlist(db, project, video_id: str, token: str) -> str:
     Idempotent (skips when already present or already recorded). Best-effort —
     never raises; publishing is never failed because of a playlist add."""
     try:
-        from saas_models import ContentPillar
+        from app_models import ContentPillar
         if not project or not getattr(project, "content_pillar_id", None):
             return "no_playlist"
         if (getattr(project, "playlist_status", "") or "") == "added":

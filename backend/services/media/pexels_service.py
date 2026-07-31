@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import requests
 
 from config import Config
-from saas_settings import settings
+from app_settings import settings
 
 PEXELS_PHOTO_API_URL = "https://api.pexels.com/v1/search"
 MEDIA_DIR = Path(__file__).resolve().parents[3] / "generated_media"
@@ -730,7 +730,7 @@ def _load_recent_project_refs(db, project_id: int | None) -> tuple[set[str], set
     if not db or not project_id:
         return set(), set()
     try:
-        from saas_models import Post
+        from app_models import Post
     except Exception:
         return set(), set()
     rows = (

@@ -7,8 +7,8 @@ description: Audit an AutoSocial.tech change for legacy reactivation, API or UI 
 
 ## Check First
 - `frontend/app.js`
-- `saas_api.py`
-- `saas_services.py`
+- `api.py`
+- `app_services.py`
 - `plans_catalog.py`
 - `services/entitlements.py`
 - `backend/services/media/pexels_service.py`

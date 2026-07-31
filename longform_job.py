@@ -31,7 +31,7 @@ _BASE = "/app"
 def _publish(db, p, ch, final_abs: Path) -> str:
     """Publish an already-rendered, QC-passed long-form MP4. Returns watch URL.
     Idempotent: refuses to double-publish a project."""
-    from saas_models import SocialAccount, Publication
+    from app_models import SocialAccount, Publication
     from publications_api import _valid_account_token, _add_video_to_playlist, _YT_VIDEO_ID_RE
     import ai_publisher
 
@@ -123,7 +123,7 @@ def render_and_publish(project_id: int) -> dict:
     """RQ entry point: render the long-form project, then publish it if QC passes."""
     import longform_pipeline
     from database import SessionLocal
-    from saas_models import VideoProject, Channel
+    from app_models import VideoProject, Channel
 
     res = longform_pipeline.run(project_id, job_root=_JOB_ROOT)
     qc = (res or {}).get("qc") or {}

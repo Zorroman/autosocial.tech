@@ -3,7 +3,7 @@
 ## Repo Summary
 - AutoSocial.tech is an AI Video Factory: it generates scripts, voiceover, footage/music, subtitles, and renders short (Shorts) and long-form videos, then publishes them to YouTube automatically. A legacy social-media posting/billing surface (Facebook/Instagram, Stripe plans) from an earlier product scope still exists and still works — see `ENGINEERING_DECISIONS.md` for why it wasn't deleted — but it is not the primary product.
 - Frontend production runtime is centered in `frontend/app.js` with page shells under `frontend/*/index.html`.
-- Backend/API production runtime is centered in `saas_api.py`, `saas_services.py`, `app.py`, `content_pipeline.py`, and `plans_catalog.py`.
+- Backend/API production runtime is centered in `api.py`, `app_services.py`, `app.py`, `content_pipeline.py`, and `plans_catalog.py`.
 - Post media routes through `backend/services/media/pexels_service.py` and must not reintroduce GPT image generation.
 
 ## Core Rules
@@ -39,8 +39,8 @@ Do not skip planning when touching shared runtime files.
 
 ## Shared High-Risk Files
 - `frontend/app.js`
-- `saas_api.py`
-- `saas_services.py`
+- `api.py`
+- `app_services.py`
 - `app.py`
 - `content_pipeline.py`
 - `plans_catalog.py`
@@ -58,7 +58,7 @@ When touching any of these:
 - Do not add decorative UI states that are not backed by working behavior.
 
 ## Backend Rules
-- Primary backend runtime files: `saas_api.py`, `saas_services.py`, `app.py`, `content_pipeline.py`, `plans_catalog.py`.
+- Primary backend runtime files: `api.py`, `app_services.py`, `app.py`, `content_pipeline.py`, `plans_catalog.py`.
 - Preserve plan enforcement and entitlements behavior defined in `plans_catalog.py` and `services/entitlements.py`.
 - Media/image changes must stay aligned with `backend/services/media/pexels_service.py`, `image_picker.py`, and persisted media handling.
 - Do not break publishing integrations in `facebook_api.py` or scheduled execution paths in `app.py`, `worker.py`, or `cron_jobs.py`.

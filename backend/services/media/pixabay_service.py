@@ -6,7 +6,7 @@ from typing import Any
 
 import requests
 
-from saas_settings import settings
+from app_settings import settings
 
 from .pexels_service import (
     MEDIA_DIR,

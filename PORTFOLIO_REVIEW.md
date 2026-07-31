@@ -46,7 +46,7 @@ is a bigger warning sign than one that names its own.
   undo. The author says as much, which helps, but it doesn't shrink the
   file.
 - **Character-encoding corruption still exists in shipped backend code**
-  (`saas_api.py`, `video_niches_config.py`) that the author explicitly chose
+  (`api.py`, `video_niches_config.py`) that the author explicitly chose
   not to guess-repair. That's the right call over fabricating text, but it
   means there is live, disclosed, unfixed data loss in the codebase today —
   worth probing in interview to understand the actual user-facing blast

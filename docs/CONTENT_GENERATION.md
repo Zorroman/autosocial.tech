@@ -16,7 +16,7 @@ Generation is a 2-step pipeline:
 OpenAI config:
 
 - `OPENAI_API_KEY` (required for real GPT)
-- `OPENAI_MODEL` (optional, default from `saas_settings.py`)
+- `OPENAI_MODEL` (optional, default from `app_settings.py`)
 - `OPENAI_TIMEOUT_SECONDS` (optional)
 
 If `USE_MOCK_PROVIDERS=true` or key is missing, service uses deterministic mock output.
