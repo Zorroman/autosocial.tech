@@ -4,3 +4,12 @@
 tests/test_saas.py:stripe-access-token:612
 tests/test_saas.py:stripe-access-token:644
 tests/test_saas.py:stripe-access-token:666
+
+# SECURITY.md quotes the same placeholder string verbatim when describing the
+# false positive above (so a reader can see exactly what gitleaks matched).
+# Not a real key for the same reason as above.
+SECURITY.md:stripe-access-token:7
+
+# This file's own comment above (line 1) quotes the placeholder string too,
+# which gitleaks matches against itself. Same false positive, same reasoning.
+.gitleaksignore:stripe-access-token:1
