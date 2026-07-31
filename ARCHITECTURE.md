@@ -6,6 +6,8 @@ way, see [`SYSTEM_DESIGN.md`](SYSTEM_DESIGN.md) and
 
 ## Runtime topology
 
+![System architecture diagram](docs/diagrams/system-architecture.svg)
+
 Five Docker Compose services on a single VPS (Hetzner CPX22 — 2 vCPU, 3.8 GB RAM,
 no swap):
 
@@ -47,6 +49,8 @@ each route has its own `<title>`/meta tags. No build step, no framework.
 [Legacy surfaces](#legacy-surfaces-kept-intentionally)).
 
 ## Generation pipeline (the actual path a video takes)
+
+![Video pipeline diagram](docs/diagrams/video-pipeline.svg)
 
 ```
 Content Director (topic, anti-repeat)

@@ -1,0 +1,82 @@
+<svg viewBox="0 0 700 980" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="700" height="980" fill="#f8fafc"/>
+  <text x="350" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Video Pipeline — idea to published video</text>
+  <text x="350" y="54" text-anchor="middle" font-size="12" fill="#64748b">Same pipeline shape for Shorts and long-form; length/format come from the channel</text>
+
+  <!-- step template: 100px box height, 120px pitch -->
+  <g>
+    <rect x="150" y="80" width="400" height="72" rx="10" fill="url(#g1)"/>
+    <text x="350" y="110" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">1. Content Director</text>
+    <text x="350" y="130" text-anchor="middle" font-size="11" fill="#e0e7ff">Picks the topic per channel/niche, anti-repeat cooldown-aware</text>
+    <text x="350" y="145" text-anchor="middle" font-size="10" fill="#c7d2fe">content_director.py</text>
+  </g>
+  <path d="M350 152 V182" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="182" width="400" height="72" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+    <text x="350" y="212" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">2. Script generation</text>
+    <text x="350" y="230" text-anchor="middle" font-size="11" fill="#64748b">GPT-4o-mini; long-form adds persona + closing synthesis</text>
+    <text x="350" y="245" text-anchor="middle" font-size="10" fill="#94a3b8">content_pipeline.py, video_script_generator.py</text>
+  </g>
+  <path d="M350 254 V284" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="284" width="400" height="86" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+    <text x="350" y="312" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">3. Scene split + footage + voiceover</text>
+    <text x="350" y="330" text-anchor="middle" font-size="11" fill="#64748b">Licensed stock (Pexels/Pixabay), cooldown-aware matching</text>
+    <text x="350" y="345" text-anchor="middle" font-size="11" fill="#64748b">TTS voiceover (OpenAI, provider fallback chain)</text>
+    <text x="350" y="360" text-anchor="middle" font-size="10" fill="#94a3b8">footage/, media_matcher.py, video/tts.py</text>
+  </g>
+  <path d="M350 370 V400" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="400" width="400" height="72" rx="10" fill="#ffffff" stroke="#8B5CF6" stroke-width="2"/>
+    <text x="350" y="430" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">4. Chunked FFmpeg render</text>
+    <text x="350" y="448" text-anchor="middle" font-size="11" fill="#64748b">One segment/clip at a time — see rendering-pipeline.svg</text>
+    <text x="350" y="463" text-anchor="middle" font-size="10" fill="#94a3b8">longform_render.py, video/render/render_video.py</text>
+  </g>
+  <path d="M350 472 V502" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="502" width="400" height="72" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+    <text x="350" y="532" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">5. Subtitle burn-in</text>
+    <text x="350" y="550" text-anchor="middle" font-size="11" fill="#64748b">Whisper forced alignment — word-level timing from real audio</text>
+    <text x="350" y="565" text-anchor="middle" font-size="10" fill="#94a3b8">subtitle_builder.py</text>
+  </g>
+  <path d="M350 574 V604" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="604" width="400" height="72" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+    <text x="350" y="634" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">6. AI Publisher</text>
+    <text x="350" y="652" text-anchor="middle" font-size="11" fill="#64748b">Title, description, tags, thumbnail generated from the script</text>
+    <text x="350" y="667" text-anchor="middle" font-size="10" fill="#94a3b8">publications_api.py</text>
+  </g>
+  <path d="M350 676 V706" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="706" width="400" height="72" rx="10" fill="url(#g1)"/>
+    <text x="350" y="736" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">7. YouTube upload</text>
+    <text x="350" y="754" text-anchor="middle" font-size="11" fill="#e0e7ff">Resumable, idempotent — checked against youtube_video_id first</text>
+    <text x="350" y="769" text-anchor="middle" font-size="10" fill="#c7d2fe">publications_api.py</text>
+  </g>
+  <path d="M350 778 V808" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="150" y="808" width="400" height="58" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="350" y="833" text-anchor="middle" font-size="13" fill="#0f172a">8. Auto-sort into the channel's YouTube playlist</text>
+    <text x="350" y="850" text-anchor="middle" font-size="10" fill="#64748b">per-pillar playlist assignment</text>
+  </g>
+
+  <rect x="60" y="900" width="580" height="60" rx="8" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+  <text x="350" y="924" text-anchor="middle" font-size="11.5" fill="#334155">Shorts and long-form share the same VideoProject / RenderJob / Publication data</text>
+  <text x="350" y="942" text-anchor="middle" font-size="11.5" fill="#334155">model and the same RQ render queue — never rendering concurrently on the same box.</text>
+</svg>

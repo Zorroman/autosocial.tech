@@ -16,6 +16,8 @@ manual but disciplined, backed by a real backup and rollback path.
 
 ## The procedure
 
+![Deployment flow diagram](docs/diagrams/deployment.svg)
+
 1. **Pre-deploy gate.** `scripts/predeploy_check.sh` — working tree must be
    clean, frontend integrity (encoding/mojibake) checked, Python syntax
    checked, the critical test subset run, migrations import-checked.

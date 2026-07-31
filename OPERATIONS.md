@@ -34,6 +34,8 @@ last-updated timestamp.
 
 ## Runbook: "Shorts stopped generating, no errors visible"
 
+![Scheduler flow diagram](docs/diagrams/scheduler-flow.svg)
+
 This has a known, previously-real cause: a render killed mid-job (OOM, restart)
 can leave a `VideoProject.pipeline_state="running"` forever, and the scheduler
 refuses to start a new job on a channel that already has one "running" — so

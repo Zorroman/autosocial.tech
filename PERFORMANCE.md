@@ -8,6 +8,10 @@ it. For *why* these choices were made, see [`docs/adr/`](docs/adr/) and
 
 ## Queues and worker
 
+![Queue architecture diagram](docs/diagrams/queue-architecture.svg)
+
+![Worker architecture diagram](docs/diagrams/worker-architecture.svg)
+
 - One Redis-backed queue (`render`), one RQ worker process (`worker.py`).
   Shorts and long-form jobs share the same queue by design — see
   [ADR-002](docs/adr/002-why-redis-queue.md) — so two memory-hungry renders

@@ -24,6 +24,8 @@ some duration, deterministically.
 
 ## The fix: bound memory independent of video length
 
+![Rendering pipeline diagram](docs/diagrams/rendering-pipeline.svg)
+
 `longform_render.py` never holds more than one clip/still in memory:
 
 1. **Per-segment render.** Each still image or clip becomes its own short FFmpeg
