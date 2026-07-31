@@ -19,7 +19,7 @@ from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
 from saas_auth import require_auth
-from saas_models import Channel, Publication, RenderJob, SocialAccount, VideoProject, VideoScene
+from saas_models import Channel, Publication, SocialAccount, VideoProject, VideoScene
 from saas_services import decrypt_meta_token, encrypt_meta_token
 from saas_settings import settings
 

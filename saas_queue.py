@@ -1,4 +1,4 @@
-﻿import threading
+import threading
 
 from redis import Redis
 from rq import Queue

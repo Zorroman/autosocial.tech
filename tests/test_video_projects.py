@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-from tests.test_private_admin import ADMIN_EMAIL, _fresh_app, _seed_admin, _token_for
+from tests.test_private_admin import _fresh_app, _seed_admin, _token_for
 
 
 @pytest.fixture()

@@ -3,7 +3,6 @@ visual intent/validation, channel isolation, snapshots."""
 import json
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
 
 import pytest
 
@@ -314,7 +313,6 @@ def test_visual_validation_cache_and_frames_cleanup(client, tmp_path, monkeypatc
     from database import SessionLocal
     from footage_library import register_asset
     from saas_models import VisualValidationRecord
-    from visual_validation import validate_asset
     monkeypatch.setenv("VISUAL_VALIDATION_ENABLED", "true")
     import saas_settings, importlib
     importlib.reload(saas_settings)

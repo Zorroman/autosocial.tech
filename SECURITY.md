@@ -1,5 +1,13 @@
 # Security
 
+## Reporting a vulnerability
+
+Please don't open a public issue for a suspected vulnerability. Use GitHub's
+private reporting: this repo's **Security** tab → **Report a vulnerability**
+(GitHub Security Advisories). This is a single-maintainer portfolio project,
+not a production service handling third-party user data, but a real report
+will still get read and acknowledged.
+
 ## A real incident, found and fixed before this repository was ever public
 
 A pre-publication audit ran `gitleaks` (not just manual grep) across the full

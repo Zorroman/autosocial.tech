@@ -8,7 +8,6 @@ import os
 import sys
 from types import SimpleNamespace
 
-import pytest
 
 import media_matcher as mm
 

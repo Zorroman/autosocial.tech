@@ -49,7 +49,7 @@ from backend.services.media import (
     fetch_post_image,
 )
 from gpt_generator import generate_structured_text_with_usage
-from plans_catalog import all_public_plan_specs, get_plan_spec, normalize_plan_code, to_plan_payload
+from plans_catalog import all_public_plan_specs, normalize_plan_code, to_plan_payload
 from content_pipeline import (
     OpenAIClientError,
     director_generate_drafts,
@@ -62,7 +62,6 @@ from saas_auth import create_token, hash_password, is_email_allowed, require_aut
 from saas_models import (
     AuthEmailChallenge,
     AppUser,
-    BlogPost,
     ContentPlan,
     CreditLedger,
     NicheHook,
@@ -81,10 +80,7 @@ from saas_models import (
     Niche,
     Project,
     GenerationJob,
-    Subscription,
     Template,
-    UsageCounter,
-    UsageEvent,
     UserTemplate,
     UserStylePref,
     SocialAccount,
@@ -108,7 +104,6 @@ from services.entitlements import (
 from saas_services import (
     CREDIT_PACKS,
     can_access_project,
-    check_project_limit,
     create_post_and_charge,
     generate_post_preview_text,
     create_daily_blog_post,
@@ -2187,7 +2182,6 @@ def _create_onboarding_post_plan(db, *, user: AppUser, project_id: int, payload:
 
 def _build_onboarding_video_plan(*, user_id: int, payload: dict) -> dict:
     niche = str(payload.get("niche") or "services").strip()
-    language = str(payload.get("language") or "ru").strip().lower() or "ru"
     preset = _video_style_preset("educational_clean")
     batch_id = f"onboarding-video-{user_id}-{int(time.time())}-{secrets.token_hex(3)}"
     now = datetime.utcnow()
@@ -2510,8 +2504,6 @@ def _delete_project_impl(user, project_id: int, confirm_name: str):
             return jsonify({"error": "Подтвердите удаление названием проекта"}), 400
         if confirm_name != project.name:
             return jsonify({"error": "Название проекта не совпадает. Удаление отменено."}), 400
-
-        owner_user_id = project.user_id
 
         post_ids = [row[0] for row in db.query(Post.id).filter(Post.project_id == project.id).all()]
         db.query(ContentPlan).filter(ContentPlan.project_id == project.id).delete(synchronize_session=False)
@@ -3417,8 +3409,6 @@ def ai_director_generate_image():
         niche_context = str(niche_context_raw or "").strip()
     asset_ideas_raw = data.get("asset_ideas") if isinstance(data.get("asset_ideas"), list) else []
     asset_ideas = [str(item or "").strip() for item in asset_ideas_raw if str(item or "").strip()][:6]
-    language = str(data.get("language") or "ru").strip().lower() or "ru"
-    tone = _normalize_create_tone(data.get("tone") or "friendly")
     style = str(data.get("style") or "???????????").strip()
     no_text_on_image = bool(data.get("no_text_on_image") is not False)
     realism = bool(data.get("realism") is not False)
@@ -3886,13 +3876,6 @@ def _start_generation_job(job_id: int, payload: dict) -> None:
                 style = str(payload.get("style") or "реалистично")
                 no_text_on_image = bool(payload.get("no_text_on_image") is not False)
                 prompt_guards = payload.get("prompt_guards") if isinstance(payload.get("prompt_guards"), dict) else {}
-                tone = "friendly"
-                if style in {"бизнес", "business"}:
-                    tone = "expert"
-                elif style in {"лайфстайл", "lifestyle"}:
-                    tone = "friendly"
-                elif style in {"минимализм", "minimal"}:
-                    tone = "neutral"
                 no_fantasy = bool(prompt_guards.get("no_fantasy", True))
                 prompt_topic = f"{topic}. Стиль: {style}. Реалистично."
                 if no_text_on_image:
@@ -4504,7 +4487,6 @@ def video_plan_generate():
     days = _normalize_video_plan_days(data.get("days"))
     preset = _video_style_preset(data.get("style_preset"))
     batch_id = str(data.get("batch_id") or f"video-{user.id}-{int(time.time())}-{secrets.token_hex(3)}")
-    language = str(data.get("language") or "ru").strip().lower() or "ru"
     duration = int(data.get("target_seconds") or data.get("duration_sec") or 30)
     orientation = str(data.get("orientation") or "vertical").strip().lower()
     niche = str(data.get("niche_id") or data.get("niche") or "").strip()
@@ -6809,7 +6791,7 @@ def meta_start():
         return jsonify({"error": "Facebook App ID не настроен. Добавьте FB_APP_ID или FB_LOGIN_APP_ID в .env"}), 400
 
     oauth_url = f"https://www.facebook.com/v20.0/dialog/oauth?{urlencode({'client_id': app_id, 'redirect_uri': redirect_uri, 'scope': scope, 'state': f'user_{g.current_user.id}'})}"
-    print(f"[meta_oauth] start client_id={app_id} redirect_uri={redirect_uri} scope={scope}")
+    current_app.logger.info("[meta_oauth] start client_id=%s redirect_uri=%s scope=%s", app_id, redirect_uri, scope)
     return jsonify({"oauth_url": oauth_url, "redirect_uri": redirect_uri})
 
 
@@ -6860,9 +6842,9 @@ def meta_callback():
             err_type = ""
             err_code = ""
         http_status = token_data.get("_http_status") or ""
-        print(
-            f"[meta_oauth] token_exchange_failed status={http_status} type={err_type} code={err_code} "
-            f"redirect_uri={redirect_uri} msg={msg[:220]}"
+        current_app.logger.warning(
+            "[meta_oauth] token_exchange_failed status=%s type=%s code=%s redirect_uri=%s msg=%s",
+            http_status, err_type, err_code, redirect_uri, msg[:220],
         )
         return redirect(
             _frontend_connections_url(

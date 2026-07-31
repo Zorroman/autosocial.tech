@@ -48,6 +48,23 @@ pass on that block, done separately, deliberately, and tested in isolation —
 not bundled into an unrelated feature's risk budget. That's a known, explicit
 remaining item, not an oversight.
 
+**Update: the corruption is broader than this one frontend block.** A later
+code-quality pass found the same class of problem in backend Python source
+(`saas_api.py`, `dashboard_metrics.py`, `video_niches_config.py`) — but a
+worse variant. The frontend case is mis-decoded bytes: recoverable in
+principle, given the right codec. The backend case is literal `?` characters
+replacing the original text (confirmed at the byte level, not a rendering
+artifact) — the original characters are actually gone, not just
+misinterpreted. Where the exact original text was unambiguous and safe to
+infer (e.g. the seven weekday names in a `dashboard_metrics.py` lookup table,
+confirmed correct by matching each corrupted string's exact character count),
+it was restored. Longer corrupted strings — user-facing insight sentences,
+niche keyword lists — were deliberately left alone rather than guessed at:
+fabricating plausible-sounding Russian copy to replace destroyed data would
+be worse than leaving the gap visible. This is the same trade-off as the
+frontend block, for the same reason, and belongs on the same remaining-work
+item rather than as a new one.
+
 ## Bearer-token auth in a header, not a session cookie
 
 **Decision.** Auth token in `localStorage`, sent as `Authorization: Bearer

@@ -1,4 +1,4 @@
-﻿import secrets
+import secrets
 from functools import wraps
 from typing import Optional
 

@@ -1,7 +1,7 @@
 # AutoSocial.tech Codex Guide
 
 ## Repo Summary
-- AutoSocial.tech is a SaaS for content planning, post generation, video generation, niche templates, dashboard workflows, billing/plans, media selection, and publishing/autoposting.
+- AutoSocial.tech is an AI Video Factory: it generates scripts, voiceover, footage/music, subtitles, and renders short (Shorts) and long-form videos, then publishes them to YouTube automatically. A legacy social-media posting/billing surface (Facebook/Instagram, Stripe plans) from an earlier product scope still exists and still works — see `ENGINEERING_DECISIONS.md` for why it wasn't deleted — but it is not the primary product.
 - Frontend production runtime is centered in `frontend/app.js` with page shells under `frontend/*/index.html`.
 - Backend/API production runtime is centered in `saas_api.py`, `saas_services.py`, `app.py`, `content_pipeline.py`, and `plans_catalog.py`.
 - Post media routes through `backend/services/media/pexels_service.py` and must not reintroduce GPT image generation.

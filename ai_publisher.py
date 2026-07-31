@@ -12,7 +12,6 @@ later be trained to prefer metadata that historically performed better.
 """
 from __future__ import annotations
 
-import json
 import subprocess
 from datetime import datetime
 from pathlib import Path

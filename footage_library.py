@@ -18,7 +18,6 @@ Cooldown rules (env-configurable, see saas_settings):
 """
 import hashlib
 import json
-import random
 import re
 import subprocess
 from datetime import datetime, timedelta

@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from statistics import mean
-from urllib.parse import urlparse
 
 # Repo root, not scripts/, so sibling top-level modules import cleanly
 # regardless of how this script is invoked.

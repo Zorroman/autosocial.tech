@@ -7,7 +7,6 @@ Nothing here is hardcoded to esotericism: niches/pillars are DB rows managed
 through the admin API/UI. `seed_esotericism()` only creates the starter
 profile; the admin can create any other niche without code changes.
 """
-import hashlib
 import json
 import random
 import re

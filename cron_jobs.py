@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 
 from database import SessionLocal
 from saas_models import AppUser

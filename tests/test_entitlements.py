@@ -176,7 +176,6 @@ def test_starter_autopublish_is_locked(client):
 def test_growth_limits_config(client):
     data = _register(client, "growth-limits@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -203,7 +202,6 @@ def test_growth_limits_config(client):
 def test_legacy_pro_maps_to_growth_limits(client):
     data = _register(client, "pro-map@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -229,7 +227,6 @@ def test_legacy_pro_maps_to_growth_limits(client):
 def test_agency_limits_and_unlimited_projects(client):
     data = _register(client, "agency-limits@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])

@@ -194,3 +194,59 @@ change on any viewport that wasn't already overflowing.
 40 combinations, 0 console errors. The bug is now also structurally
 harder to reintroduce, since the fix is at the layout-primitive level, not a
 per-page patch.
+
+## 7. A button that looked right and went to the wrong page
+
+**Problem.** The Create Hub's "Short video" and "Long video" buttons both
+looked correct and both silently opened the legacy weekly content planner —
+a Facebook/Instagram, multi-platform, multi-day scheduling form — instead of
+Content Director, the actual YouTube-native creation flow. No error, no
+console warning: the page just wasn't the one the button claimed to open.
+
+**Investigation.** Caught by eye, not by any automated check: a screenshot
+taken for documentation purposes showed the destination page with "Shorts/
+Reels (9:16)" and Facebook/Instagram checkboxes, which didn't match what a
+button labeled "Длинное видео" should produce. Tracing the route: both
+buttons pointed at `/create/video?format=short|long`. `page(path)` in
+`frontend/app.js` checks `getCreatePlannerRoute(path)` *before* consulting
+its own `routes` map — and `getCreatePlannerRoute` matches on `/create/video`
+alone, ignoring any query string, returning the legacy planner every time.
+The `routes` map did contain a correct entry,
+`'/create/video': pageCreateDirector` — it was simply unreachable for that
+exact path, permanently shadowed by the earlier check.
+
+**Root cause.** A routing-precedence bug: two different resolvers could
+claim the same path, and the wrong one always won, regardless of the query
+string the UI relied on to disambiguate.
+
+**Decision.** Rather than touch `getCreatePlannerRoute`'s precedence — a
+much higher blast-radius change, since that function is also the entry
+point for the legacy weekly-planner routes it's supposed to own — repoint
+the two Create Hub buttons at `/content-director`, the already-correct,
+already-reachable destination, and rewrite their subtitle copy so it
+accurately describes a shared, channel-aware entry point instead of
+implying two separate dedicated forms.
+
+**Implementation.** `frontend/app.js::pageCreateHub` — both `launcherCards`
+entries' `href` changed to `/content-director`; a code comment left in place
+explaining why `/create/video` is deliberately not used there, so the next
+person touching this code doesn't reintroduce the same trap.
+
+**Trade-offs.** The underlying routing-precedence bug in
+`getCreatePlannerRoute` still exists for anyone who links directly to
+`/create/video?format=...` from outside the Create Hub. Accepted as a known,
+scoped-out issue — fixing it properly means auditing every caller of that
+function, which is a larger, separate piece of work than a two-line CTA fix.
+
+**Result.** Verified live in a browser: both buttons now open Content
+Director. Caught while investigating this bug: the site's actual
+unauthenticated login/landing page (`pageLogin()` in `app.js`) — a
+different, JS-rendered page from the static `frontend/index.html` shell a
+previous pass had already updated — still carried the full pre-pivot
+"SMM/autoposting" pitch, and the shared brand logo SVG had "AI SMM Manager"
+baked into it as literal image text on every page's header. Both were the
+same class of bug as this one: a visible surface that *looked* updated
+because a sibling surface had been, while the one actually rendered to
+users was never touched. Fixed in the same pass — a reminder that "this copy was
+already updated" needs to be verified against the actual rendered surface,
+not inferred from a sibling file that shares the same words.

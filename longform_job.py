@@ -31,7 +31,7 @@ _BASE = "/app"
 def _publish(db, p, ch, final_abs: Path) -> str:
     """Publish an already-rendered, QC-passed long-form MP4. Returns watch URL.
     Idempotent: refuses to double-publish a project."""
-    from saas_models import SocialAccount, Publication, ContentPillar
+    from saas_models import SocialAccount, Publication
     from publications_api import _valid_account_token, _add_video_to_playlist, _YT_VIDEO_ID_RE
     import ai_publisher
 

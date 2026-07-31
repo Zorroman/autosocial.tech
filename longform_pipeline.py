@@ -16,8 +16,6 @@ import hashlib
 import json
 import os
 import subprocess
-import threading
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -430,7 +428,7 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
     from database import SessionLocal
     from saas_models import VideoProject, VideoScene, Channel, ContentPillar
     from video.tts import synthesize_voiceover
-    from subtitle_builder import build_cues, write_ass
+    from subtitle_builder import build_cues
 
     db = SessionLocal()
     work = Path(job_root) / f"job_{project_id}"

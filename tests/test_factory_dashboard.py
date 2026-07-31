@@ -41,7 +41,7 @@ def test_dashboard_empty_state(client):
 def test_dashboard_with_data_and_alerts(client):
     h = _h(client)
     ch = client.post("/api/channels", json={"name": "Эзотерика"}, headers=h).get_json()["channel"]["id"]
-    pid = client.post("/api/video-projects", json={"channel_id": ch, "title": "Видео", "script_text": "Раз. Два. Три. Четыре.", "voice_mode": "silent"}, headers=h).get_json()["project"]["id"]
+    client.post("/api/video-projects", json={"channel_id": ch, "title": "Видео", "script_text": "Раз. Два. Три. Четыре.", "voice_mode": "silent"}, headers=h)
     d = client.get("/api/factory-dashboard", headers=h).get_json()
     assert d["overview"]["channels_total"] == 1
     assert d["overview"]["projects_in_progress"] == 1

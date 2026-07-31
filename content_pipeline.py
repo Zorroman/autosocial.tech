@@ -1,4 +1,4 @@
-﻿import json
+import json
 import math
 import re
 from dataclasses import dataclass
@@ -3622,7 +3622,7 @@ def _director_soft_normalize(
     niche_context: dict | None = None,
     variation_seed: int = 0,
 ) -> dict:
-    default = _director_default_payload(topic, offer, goal, platforms, tone, language=language, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
+    default = _director_default_payload(topic, offer, goal, platforms, tone, niche_label=niche_label, niche_context=niche_context, variation_seed=variation_seed)
     persona = _resolve_specialist_persona(topic=topic, niche_label=niche_label, niche_context=niche_context)
     if not isinstance(payload, dict):
         return default

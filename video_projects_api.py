@@ -811,8 +811,8 @@ def run_render_job(job_id: int) -> None:
 
                 # --- footage segmentation with repeat protection ---
                 from footage_library import (
-                    commit_usage, pick_local_candidates, register_asset,
-                    release_job_reservations, reserve_asset, segment_plan,
+                    commit_usage, register_asset,
+                    release_job_reservations, segment_plan,
                 )
                 clips = []
                 timeline = []

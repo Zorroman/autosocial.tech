@@ -233,7 +233,6 @@ def test_subtitle_timing_and_ass_safe_zone(tmp_path):
     content = out.read_text(encoding="utf-8")
     assert "PlayResY: 1920" in content
     # safe zone: MarginV within 320..420 px from the bottom
-    import re
     style = next(l for l in content.splitlines() if l.startswith("Style:"))
     margin_v = int(style.split(",")[21])
     assert 320 <= margin_v <= 420
@@ -352,7 +351,6 @@ def test_failed_render_does_not_consume_cooldown(client, monkeypatch):
 
     def boom(*a, **k):
         raise RuntimeError("ffmpeg_exploded_for_test")
-    import video_projects_api as vpa
     monkeypatch.setattr(rv, "render_video", boom)
 
     r = client.post(f"/api/video-projects/{pid}/render", headers=_h(client))

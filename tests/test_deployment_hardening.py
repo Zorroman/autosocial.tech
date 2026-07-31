@@ -118,12 +118,12 @@ def test_youtube_link_does_not_enable_publishing(client, monkeypatch):
     import publications_api as pa
     ch = client.post("/api/channels", json={"name": "YT"}, headers=_h(client)).get_json()["channel"]["id"]
     from database import SessionLocal
-    from saas_models import Channel, SocialAccount
+    from saas_models import SocialAccount
     db = SessionLocal()
     acc = SocialAccount(user_id=client.admin_id, provider="youtube", status="connected_ready",
                         token_encrypted="x", token_expires_at=__import__("datetime").datetime.utcnow()
                         + __import__("datetime").timedelta(hours=1))
-    db.add(acc); db.commit(); db.refresh(acc); acc_id = acc.id; db.close()
+    db.add(acc); db.commit(); db.refresh(acc); db.close()
     monkeypatch.setattr(pa, "_valid_account_token", lambda db, a: "tok")
     monkeypatch.setattr(pa, "_yt_list_my_channels", lambda tok: ([{"id": "UCx", "title": "My"}], None))
     r = client.post(f"/api/channels/{ch}/youtube/link", json={"youtube_channel_id": "UCx"}, headers=_h(client))

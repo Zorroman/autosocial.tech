@@ -2,7 +2,6 @@
 upload/network paths are monkeypatched."""
 import importlib
 import json
-import subprocess
 import sys
 from datetime import datetime, timedelta
 

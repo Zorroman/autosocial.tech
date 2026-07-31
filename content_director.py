@@ -18,7 +18,6 @@ candidate scores and the human-readable reasons behind the choice.
 Works with or without analytics; works with or without an AI provider.
 """
 import json
-import math
 import re
 from datetime import datetime, timedelta
 
