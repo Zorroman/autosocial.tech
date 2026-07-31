@@ -50,4 +50,10 @@ test_output/
 
 # local audit dev stack (not for commit)
 autosocial_audit.db
-.venv-audit/
+
+# python virtual environments
+# (not relying on the nested .gitignore that `python -m venv` writes inside
+# itself on newer Python versions -- that's a side effect, not a guarantee)
+.venv/
+venv/
+.venv*/
