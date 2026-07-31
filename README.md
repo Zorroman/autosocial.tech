@@ -96,24 +96,53 @@ render-memory design and the reasoning behind key decisions, in
 
 ## Quick start
 
+Every command below was run against a genuinely fresh clone (separate directory,
+isolated Docker Compose project name, no reused volumes) as part of verifying
+this section.
+
+### Native (no Docker)
+
 ```bash
 cp .env.example .env               # fill in API keys (see Configuration)
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 python migrations.py               # schema (also runs automatically on app start)
-python seed_admin.py               # creates a local admin user
+python seed_admin.py                # creates the local admin user from ADMIN_EMAIL/ADMIN_PASSWORD
 
-python app.py                      # backend — http://localhost:5000
+python app.py                      # backend  — http://localhost:5000  (health: /health)
 python -m http.server 3000 --directory frontend   # frontend — http://localhost:3000/login/
 python worker.py                   # RQ worker + schedulers (needs Redis)
 ```
 
-Or the full stack in containers:
+Log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in
+`.env.example`: `admin@autosocial.local` / `admin12345`).
+
+### Docker Compose (full stack: backend, worker, Postgres, Redis, Caddy)
 
 ```bash
-docker compose up -d --build
+cp .env.example .env
+docker compose build
+docker compose up -d
+
+curl -f http://localhost/health     # backend health, proxied through Caddy
 ```
+
+- App: [http://localhost/login/](http://localhost/login/) (same admin credentials as above)
+- API health: `http://localhost/health` and `http://localhost:5000/health` (backend port is also published directly)
+- Stop: `docker compose down`
+- Stop and drop all data (Postgres volume, Redis, Caddy state) for a genuinely clean next run: `docker compose down -v`
+
+For a demo channel and sample video projects (completed/processing/failed) instead of
+an empty dashboard:
+
+```bash
+docker compose exec backend python seed_admin.py
+docker compose exec backend python seed_channel.py
+docker compose exec backend python scripts/seed_demo_data.py
+```
+
+### Local dev loop (no Docker, no Postgres/Redis)
 
 For a self-contained local dev loop (mock AI providers, isolated SQLite DB, no
 Redis/worker needed, and a small SPA-fallback server so deep links like
@@ -124,13 +153,17 @@ Redis/worker needed, and a small SPA-fallback server so deep links like
 ./scripts/dev-start.sh --stop
 ```
 
-Or via `make` (wraps the same commands — `make help` lists all targets):
+### Or via `make` (`make help` lists all targets)
 
 ```bash
-make setup   # venv, deps, migrations, seed admin
-make dev     # the dev-start.sh loop above
-make test    # pytest, mocked providers
-make lint    # ruff
+make bootstrap   # venv, deps, .env, migrations, admin + demo channel/projects seed
+make up          # docker compose up -d --build
+make health      # curl the backend health endpoint
+make seed-demo   # seed a demo channel + short/long/processing/failed projects
+make test        # pytest, mocked providers
+make lint        # ruff
+make e2e         # install + run the real Playwright suite against a running stack
+make down        # docker compose down
 ```
 
 ## Configuration
@@ -159,8 +192,14 @@ USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 269 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
 real YouTube channel. Runs in CI on every push/PR (see
 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a `ruff`
-lint job and a gitleaks secret-scan. Playwright E2E and a scripted
-responsive/console sweep are documented in [`TESTING.md`](TESTING.md).
+lint job and a gitleaks secret-scan.
+
+CI also builds the Docker Compose stack, brings it up for real (Postgres, Redis,
+worker, backend, Caddy), and runs a real Playwright suite against it — real login,
+real HTTP requests, no route mocking (`tests/e2e/factory.spec.ts`, run via `make e2e`).
+A second job runs the same suite from a `--no-cache` rebuild on a weekly schedule
+(and on demand) to catch Docker layer-cache drift the per-push job wouldn't. A
+scripted responsive/console sweep is documented in [`TESTING.md`](TESTING.md).
 
 ## Deployment
 
