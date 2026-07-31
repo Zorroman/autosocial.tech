@@ -279,7 +279,23 @@ def deploy_env(tmp_path):
     con = sqlite3.connect(app / "autosocial.db")
     con.execute("CREATE TABLE t(x)"); con.execute("INSERT INTO t VALUES(1)"); con.commit(); con.close()
     sha = _sha(ROOT / "frontend/app.js")
-    base = {**os.environ, "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
+    # deploy_production.sh invokes bare `python3` internally (correct in
+    # production, where that resolves to an interpreter with the app's
+    # dependencies already installed). Prepend the current interpreter's own
+    # bin dir so the same holds true for this subprocess -- without this, on
+    # a machine where the venv isn't activated (PATH untouched), `python3`
+    # resolves to the system interpreter and migrations.py's `import
+    # sqlalchemy` fails with a misleading, environment-only error unrelated
+    # to the script's actual logic.
+    # NOTE: do NOT .resolve() this path -- venv/bin/python3 is a symlink to
+    # the base interpreter, and resolving it walks past the venv directory
+    # entirely (losing the pyvenv.cfg venv detection that makes site-packages
+    # visible), landing back on the very system interpreter this is meant to
+    # avoid.
+    py_dir = str(Path(sys.executable).parent)
+    path_with_venv = py_dir + os.pathsep + os.environ.get("PATH", "")
+    base = {**os.environ, "PATH": path_with_venv,
+            "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
             "BACKUP_DIR": str(tmp_path / "backups"), "LOCK_FILE": str(tmp_path / "deploy.lock"),
             "TARGET_COMMIT": "HEADSHA", "FRONTEND_EXPECTED_SHA": sha}
     return app, sha, base
