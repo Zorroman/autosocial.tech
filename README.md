@@ -186,6 +186,8 @@ deploy in [`DEPLOYMENT.md`](DEPLOYMENT.md) and [`PRODUCTION.md`](PRODUCTION.md).
 | [`docs/adr/`](docs/adr/) | 6 short ADRs: why Docker, Redis/RQ, FFmpeg, polling schedulers, YouTube-first |
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Queues, worker scaling ceiling, retry/idempotency, health vs. readiness |
 | [`LESSONS_LEARNED.md`](LESSONS_LEARNED.md) | What this project actually taught me |
+| [`INTERVIEW_PREPARATION.md`](INTERVIEW_PREPARATION.md) | Likely interview questions with real answers — architecture, trade-offs, incidents |
+| [`PORTFOLIO_REVIEW.md`](PORTFOLIO_REVIEW.md) | An independent, non-marketing engineering review of this repo, including what would concern a reviewer |
 | [`CHANGELOG.md`](CHANGELOG.md) | Real, notable changes by period, grounded in git history |
 | [`ROADMAP.md`](ROADMAP.md) | Known next steps, and what's deliberately not planned |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | What this repo's license means for external contributions (short answer: none, but issues are welcome) |
