@@ -1,3 +1,6 @@
+import os
+from datetime import datetime, timedelta
+
 from sqlalchemy import inspect, text
 
 from database import engine
@@ -529,6 +532,27 @@ def run_migrations() -> None:
                       )
                     """
                 )
+            )
+
+    # api_tokens.expires_at: additive column, then a ONE-TIME backfill for
+    # legacy rows written before this column existed. Bounded transitional
+    # grace period rather than leaving them valid forever -- but not an
+    # immediate cutoff either, since that would silently log out every
+    # already-logged-in user the moment this migration runs. Naturally
+    # idempotent: after the first run every previously-NULL row has a real
+    # expires_at, so this UPDATE has nothing left to touch on later boots.
+    # Never touches YouTube/Google OAuth connections -- those live in a
+    # separate table (connected_accounts) entirely untouched here.
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "api_tokens" in tables:
+        add_missing_columns("api_tokens", {"expires_at": "DATETIME"})
+        grace_days = max(1, int(os.getenv("API_TOKEN_LEGACY_GRACE_DAYS", "30")))
+        legacy_expiry = datetime.utcnow() + timedelta(days=grace_days)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE api_tokens SET expires_at = :exp WHERE expires_at IS NULL"),
+                {"exp": legacy_expiry},
             )
 
 

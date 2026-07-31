@@ -58,7 +58,7 @@ from content_pipeline import (
     generate_strategy_and_drafts,
     rewrite_caption_safe,
 )
-from auth import create_token, hash_password, is_email_allowed, require_auth, require_role, verify_password
+from auth import create_token, hash_password, is_email_allowed, require_auth, require_role, revoke_token, verify_password
 from app_models import (
     AuthEmailChallenge,
     AppUser,
@@ -1725,6 +1725,16 @@ def auth_verify_code():
     code = (data.get("code") or "").strip()
     payload, status = _complete_auth_challenge(challenge_token=challenge_token, code=code, ip_addr=_ip())
     return jsonify(payload), status
+
+
+@api.route("/auth/logout", methods=["POST"])
+@require_auth
+def auth_logout():
+    """Revoke exactly the API session token used for this request. Does not
+    touch other sessions for the same user, and never touches YouTube/Google
+    OAuth connections -- those are a separate table entirely."""
+    revoke_token(g.current_token)
+    return jsonify({"ok": True})
 
 
 @api.route("/auth/verify-email", methods=["GET"])

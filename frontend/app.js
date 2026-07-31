@@ -12497,7 +12497,12 @@ async function preload(path) {
 async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.onboarding = state.user.onboarding || null; state.projects = await api('/api/projects'); }
 function bindCommon() {
   const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
-  if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
+  if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = async () => {
+    // Best-effort server-side revoke of this one session token -- logout must
+    // still work locally even if this call fails (offline, expired token, etc).
+    try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login');
+  };
   const themeToggle = document.getElementById('themeToggleBtn');
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
   const langSelects = Array.from(document.querySelectorAll('#siteLangSelect, #appShellLangSelect'));

@@ -95,6 +95,11 @@ class ApiToken(SaaSBase):
     token = Column(String(128), primary_key=True)
     user_id = Column(Integer, ForeignKey("app_users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Nullable for backward compatibility with rows written before this column
+    # existed; migrations.py backfills those once to a bounded legacy grace
+    # period rather than leaving them valid forever. New tokens always get a
+    # real value (see auth.create_token).
+    expires_at = Column(DateTime, nullable=True)
 
 
 class AuthEmailChallenge(SaaSBase):
