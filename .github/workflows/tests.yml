@@ -29,6 +29,22 @@ jobs:
       - name: Run test suite
         run: python -m pytest tests/ -q
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install ruff
+        run: pip install ruff==0.8.4
+
+      - name: Run ruff
+        run: ruff check .
+
   secrets-scan:
     runs-on: ubuntu-latest
     steps:

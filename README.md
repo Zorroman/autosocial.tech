@@ -12,11 +12,9 @@ alignment) → AI-generated metadata → YouTube upload, orchestrated by a sched
 and background workers, with a real operations dashboard reading real
 infrastructure state.
 
-> Screenshots below are from a local dev environment with a neutral demo user and
-> synthetic fixtures — not production data. See [`docs/screenshots/`](docs/screenshots/).
-
 ## Table of contents
 
+- [Demo](#demo)
 - [What this actually does](#what-this-actually-does)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
@@ -27,6 +25,26 @@ infrastructure state.
 - [Engineering highlights](#engineering-highlights-worth-asking-about)
 - [Known limitations](#known-limitations--honest-trade-offs)
 - [License](#license)
+
+## Demo
+
+> Screenshots below are from a local dev environment with a neutral demo user and
+> synthetic fixtures — not production data.
+
+There is no hosted public demo. The live system runs `PRIVATE_ADMIN_MODE=true`
+(single-admin allowlist, no public signup) because it's a real, automated
+YouTube channel with real billing and API cost exposure, not a sandboxed
+showcase — opening it up would mean either a separate, disposable environment
+or accepting that risk on the production one. What's here instead:
+
+- **Screenshots** — dashboard, video project detail, Operations, and the Create
+  Hub, desktop and mobile: [`docs/screenshots/`](docs/screenshots/).
+- **Architecture diagrams** — system topology, the video pipeline, rendering
+  internals, queue/worker design, scheduler flow, and deployment, all as SVGs
+  grounded in the real code: [`docs/diagrams/`](docs/diagrams/) (embedded inline
+  in [Architecture](#architecture) and the docs below).
+- **Video** — none recorded yet; the screenshots plus
+  [`CASE_STUDIES.md`](CASE_STUDIES.md) are the current substitute for a walkthrough.
 
 ## What this actually does
 
@@ -44,6 +62,8 @@ infrastructure state.
 | Ops | Real infrastructure health (backend/DB/Redis/worker/FFmpeg/disk/queues), never a faked green status | `factory_dashboard_api.py`, `frontend/operations.js` |
 
 ## Architecture
+
+![System architecture diagram](docs/diagrams/system-architecture.svg)
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────────┐
@@ -104,6 +124,15 @@ Redis/worker needed, and a small SPA-fallback server so deep links like
 ./scripts/dev-start.sh --stop
 ```
 
+Or via `make` (wraps the same commands — `make help` lists all targets):
+
+```bash
+make setup   # venv, deps, migrations, seed admin
+make dev     # the dev-start.sh loop above
+make test    # pytest, mocked providers
+make lint    # ruff
+```
+
 ## Configuration
 
 All configuration is environment-driven — see [`.env.example`](.env.example) for the
@@ -129,9 +158,9 @@ USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 
 269 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
 real YouTube channel. Runs in CI on every push/PR (see
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a gitleaks
-secret-scan. Playwright E2E and a scripted responsive/console sweep are documented
-in [`TESTING.md`](TESTING.md).
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a `ruff`
+lint job and a gitleaks secret-scan. Playwright E2E and a scripted
+responsive/console sweep are documented in [`TESTING.md`](TESTING.md).
 
 ## Deployment
 
@@ -154,7 +183,12 @@ deploy in [`DEPLOYMENT.md`](DEPLOYMENT.md) and [`PRODUCTION.md`](PRODUCTION.md).
 | [`SECURITY.md`](SECURITY.md) | Threat model, what was checked, and a real incident found + fixed |
 | [`CASE_STUDIES.md`](CASE_STUDIES.md) | Deep dives on real bugs: root cause → decision → trade-off → result |
 | [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md) | Why things are built the way they are, including calls I'd defend differently in hindsight |
+| [`docs/adr/`](docs/adr/) | 6 short ADRs: why Docker, Redis/RQ, FFmpeg, polling schedulers, YouTube-first |
+| [`PERFORMANCE.md`](PERFORMANCE.md) | Queues, worker scaling ceiling, retry/idempotency, health vs. readiness |
 | [`LESSONS_LEARNED.md`](LESSONS_LEARNED.md) | What this project actually taught me |
+| [`CHANGELOG.md`](CHANGELOG.md) | Real, notable changes by period, grounded in git history |
+| [`ROADMAP.md`](ROADMAP.md) | Known next steps, and what's deliberately not planned |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | What this repo's license means for external contributions (short answer: none, but issues are welcome) |
 
 ## Engineering highlights (worth asking about)
 
@@ -189,8 +223,11 @@ rather state them than have them look like they were missed.
   ceiling I'd address first on a team codebase. One legacy admin-panel block
   inside it has character-encoding corruption from an early migration; rather
   than risk further corrupting it with a blind edit, I built the newer
-  Operations dashboard as a separate, cleanly-encoded module instead. See
-  [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md).
+  Operations dashboard as a separate, cleanly-encoded module instead. A later
+  pass found the same class of corruption in a few backend files too — worse
+  there, since the original characters are destroyed, not just misdecoded. See
+  [`ENGINEERING_DECISIONS.md`](ENGINEERING_DECISIONS.md) for the full account and
+  why it wasn't guessed at and silently "fixed."
 - **Deployment is manual (SSH + `docker compose build`), not GitOps.** Reasonable
   for a single-operator VPS at this scale; the first thing I'd change moving to a
   team environment.

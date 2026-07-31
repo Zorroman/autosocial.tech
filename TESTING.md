@@ -51,6 +51,20 @@ credentials in this repository's git history (full incident in
 [`SECURITY.md`](SECURITY.md)) — the CI job is there so that class of mistake
 can't quietly land again.
 
+## Static analysis: ruff
+
+`make lint` / `ruff check .` (config in `pyproject.toml`) catches unused
+imports, unused variables, redefined names, and undefined names. It found —
+and a follow-up pass fixed — a real unconditional `NameError` in a fallback
+code path (see [`CASE_STUDIES.md`](CASE_STUDIES.md)) and ~460 lines of
+unreachable dead code from an abandoned scoring implementation. Runs as its
+own CI job in [`.github/workflows/tests.yml`](.github/workflows/tests.yml)
+alongside `pytest` and `gitleaks`. The rule set is deliberately narrow for
+now (see `pyproject.toml`'s comment) — this codebase had zero lint tooling
+before this pass, so style rules (import order, line-length nits) are a
+separate, later step rather than something to turn on and immediately
+enforce in the same change.
+
 ## Browser-level verification
 
 - **E2E (Playwright)**, driving real critical flows: `tests/e2e/`.
