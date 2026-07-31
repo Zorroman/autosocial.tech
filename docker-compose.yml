@@ -7,7 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./src/frontend:/srv/frontend:ro
+      - ./frontend:/srv/frontend:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -16,13 +16,16 @@ services:
 
   backend:
     build:
-      context: ./src
+      context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
     env_file:
       - ./.env
     environment:
       REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    ports:
+      - "5000:5000"
     volumes:
       - ./logs:/app/logs
       - ./data/generated_media:/app/generated_media
@@ -43,7 +46,7 @@ services:
 
   worker:
     build:
-      context: ./src
+      context: .
       dockerfile: Dockerfile.backend
     command: ["python", "worker.py"]
     restart: unless-stopped
@@ -51,6 +54,7 @@ services:
       - ./.env
     environment:
       REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./logs:/app/logs
       - ./data/generated_media:/app/generated_media
@@ -83,6 +87,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
 volumes:
   caddy_data:

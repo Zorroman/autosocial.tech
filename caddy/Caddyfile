@@ -1,0 +1,24 @@
+# Local/dev Caddyfile for the docker-compose stack.
+#
+# This is the reverse-proxy + static-frontend config for the Docker Compose
+# topology this repo defines (see ARCHITECTURE.md's runtime topology table).
+# It is NOT what the current live production host runs -- that's a separate,
+# non-containerized Apache/Passenger setup predating this compose file (see
+# ADR-001 in docs/adr/ and DEPLOYMENT.md). Point a real domain + `email` at
+# this file and it also handles TLS automatically; for plain local use it
+# just serves everything over HTTP on :80.
+
+:80 {
+	# API routes go to the backend container. /health is on the bare Flask
+	# app (see app.py), not the /api blueprint -- proxied the same way.
+	@api path /api/* /health
+	reverse_proxy @api backend:5000
+
+	# Everything else: serve the static frontend, falling back to the SPA
+	# shell for deep links that don't have their own index.html (e.g.
+	# /projects/12) -- the same fallback behavior scripts/dev-start.sh
+	# provides for local, non-Docker development.
+	root * /srv/frontend
+	try_files {path} /index.html
+	file_server
+}

@@ -13,3 +13,10 @@ SECURITY.md:stripe-access-token:7
 # This file's own comment above (line 1) quotes the placeholder string too,
 # which gitleaks matches against itself. Same false positive, same reasoning.
 .gitleaksignore:stripe-access-token:1
+
+# .env.example: a freshly-generated Fernet key committed on purpose so the
+# local/mock Docker Compose stack works out of the box. It protects nothing
+# real (TOKEN_ENCRYPTION_KEY only matters once a real OAuth token exists to
+# encrypt) -- flagged only because it's structurally high-entropy, like any
+# valid Fernet key would be.
+.env.example:generic-api-key:65
