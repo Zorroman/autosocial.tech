@@ -612,6 +612,27 @@ def delete_scene(scene_id: int):
         db.close()
 
 
+def _generate_fixture_clip(s: "VideoScene") -> tuple[str | None, str | None]:
+    """Generate (if needed) a local synthetic placeholder clip for a scene, no
+    stock API involved. Returns (path, None) on success or (None, error)."""
+    fixtures_dir = (settings.CACHE_DIR / "fixture_clips").resolve()
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    colors = ["0x1a1a2e", "0x16213e", "0x0f3460", "0x1f1d36", "0x2a2438"]
+    color = colors[s.order_index % len(colors)]
+    dur = max(2.0, min(15.0, float(s.estimated_duration or 4.0)))
+    out = fixtures_dir / f"fixture_{color[2:]}_{int(dur * 10)}.mp4"
+    if not out.exists():
+        proc = subprocess.run(
+            [settings.FFMPEG_BIN, "-y", "-f", "lavfi",
+             "-i", f"color=c={color}:s=640x1136:d={dur}:r=30",
+             "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)],
+            capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            return None, f"ffmpeg fixture generation failed: {(proc.stderr or '')[:300]}"
+    return str(out), None
+
+
 @video_projects_api.route("/scenes/<int:scene_id>/fixture-media", methods=["POST"])
 @require_auth
 def scene_fixture_media(scene_id: int):
@@ -622,22 +643,10 @@ def scene_fixture_media(scene_id: int):
         s = _own_scene(db, scene_id)
         if not s:
             return jsonify({"error": "Scene not found"}), 404
-        fixtures_dir = (settings.CACHE_DIR / "fixture_clips").resolve()
-        fixtures_dir.mkdir(parents=True, exist_ok=True)
-        colors = ["0x1a1a2e", "0x16213e", "0x0f3460", "0x1f1d36", "0x2a2438"]
-        color = colors[s.order_index % len(colors)]
-        dur = max(2.0, min(15.0, float(s.estimated_duration or 4.0)))
-        out = fixtures_dir / f"fixture_{color[2:]}_{int(dur * 10)}.mp4"
-        if not out.exists():
-            proc = subprocess.run(
-                [settings.FFMPEG_BIN, "-y", "-f", "lavfi",
-                 "-i", f"color=c={color}:s=640x1136:d={dur}:r=30",
-                 "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)],
-                capture_output=True, text=True,
-            )
-            if proc.returncode != 0:
-                return jsonify({"error": f"ffmpeg fixture generation failed: {(proc.stderr or '')[:300]}"}), 500
-        s.selected_media_path = str(out)
+        out, err = _generate_fixture_clip(s)
+        if err:
+            return jsonify({"error": err}), 500
+        s.selected_media_path = out
         s.visual_type = "fixture"
         s.status = "ready"
         db.commit()
@@ -1764,16 +1773,59 @@ def scene_stock_select(scene_id: int):
         db.close()
 
 
+def _auto_media_fixtures(project_id: int, overwrite: bool):
+    """Local/CI counterpart of project_auto_media for USE_MOCK_PROVIDERS=true:
+    every scene missing media (or all, if overwrite) gets a synthetic fixture
+    clip instead of a real stock-footage lookup. Only ever runs when mock
+    providers are enabled -- the real Pexels path below is untouched and still
+    requires a configured PEXELS_API_KEY when USE_MOCK_PROVIDERS=false."""
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        scenes = (
+            db.query(VideoScene).filter_by(project_id=p.id)
+            .order_by(VideoScene.order_index.asc()).all()
+        )
+        if not scenes:
+            return jsonify({"error": "Project has no scenes"}), 400
+        report = []
+        for s in scenes:
+            if s.selected_media_path and not overwrite:
+                report.append({"scene_id": s.id, "skipped": "already has media"})
+                continue
+            out, err = _generate_fixture_clip(s)
+            if err:
+                report.append({"scene_id": s.id, "error": err})
+                continue
+            s.selected_media_path = out
+            s.visual_type = "fixture"
+            s.status = "ready"
+            report.append({"scene_id": s.id, "fixture": True})
+        db.commit()
+        missing = [s.id for s in scenes if not s.selected_media_path]
+        return jsonify({"report": report, "scenes_needing_review": missing,
+                        "plan_source": "mock_fixture"})
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/video-projects/<int:project_id>/auto-media", methods=["POST"])
 @require_auth
 def project_auto_media(project_id: int):
     """Pick real stock media for every scene missing media (or all with
-    overwrite=true, which still skips manually attached files unless forced)."""
+    overwrite=true, which still skips manually attached files unless forced).
+    Local/CI only: when USE_MOCK_PROVIDERS=true, uses synthetic fixture clips
+    instead (see _auto_media_fixtures) -- never reached when
+    USE_MOCK_PROVIDERS=false, so production behavior is unchanged."""
     import os as _os
-    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
-        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
     data = request.get_json(silent=True) or {}
     overwrite = bool(data.get("overwrite"))
+    if settings.USE_MOCK_PROVIDERS:
+        return _auto_media_fixtures(project_id, overwrite)
+    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
+        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
     db = SessionLocal()
     try:
         p = _own_project(db, project_id)
