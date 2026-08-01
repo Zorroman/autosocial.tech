@@ -106,11 +106,19 @@ The AI Director flow (`/api/ai/director/*`) also passes through `content_pipelin
 
 ### Media Pipeline
 - **Post images**: `backend/services/media/pexels_service.py` → `image_picker.py` → `media_query_builder.py`
-- **Video footage**: `footage/providers/pexels.py` + `footage/providers/pixabay.py` → `footage_matcher.py` → `footage/ranking.py`
+- **Video footage (Content Factory — the live automated Shorts/long-form pipeline)**:
+  `footage/providers/pexels.py` + `footage/providers/pixabay.py` (both queried
+  and ranked together, see `media_diversity.py`) → `footage_library.py`
+  (`score_candidates`/`acquire_segment_asset` — cooldown, category-repeat
+  penalty, reservation). `footage_matcher.py` + `footage/ranking.py` are a
+  separate, more elaborate matcher used only by the older single-video
+  `video_pipeline.py` path below, not by the live channel automation.
 - GPT image generation is permanently disabled — do not reintroduce it.
 
 ### Video Pipeline
-`video_pipeline.py` → `video_script_generator.py` → `video/tts.py` + `video/subtitles.py`
+`video_pipeline.py` (`/api/video/generate` — a standalone single-video
+endpoint, separate from the Content Factory's channel automation above) →
+`video_script_generator.py` → `video/tts.py` + `video/subtitles.py`
 Artifacts stored under `BASE_DIR`: `cache/footage/`, `output/videos/`, `output/audio/`.
 
 ### Auth Flow

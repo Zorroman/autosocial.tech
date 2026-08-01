@@ -34,7 +34,7 @@ is a bigger warning sign than one that names its own.
   author who re-checks his own work rather than trusting a prior pass — a
   real, demonstrated habit, not a claimed one.
 - **Test suite and lint are both genuinely green, verified locally in this
-  review**, not just claimed: 269/269 passing, `ruff check .` clean,
+  review**, not just claimed: 282/282 passing, `ruff check .` clean,
   `gitleaks detect` clean against full git history.
 
 ## What would concern me

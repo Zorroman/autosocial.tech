@@ -15,7 +15,7 @@
   <g font-size="12">
     <rect x="60" y="80" width="230" height="56" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
     <text x="175" y="105" text-anchor="middle" font-weight="700" fill="#0f172a">1. Full test suite</text>
-    <text x="175" y="122" text-anchor="middle" font-size="10.5" fill="#64748b">269 tests, mocked providers</text>
+    <text x="175" y="122" text-anchor="middle" font-size="10.5" fill="#64748b">282 tests, mocked providers</text>
 
     <rect x="60" y="156" width="230" height="56" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
     <text x="175" y="181" text-anchor="middle" font-weight="700" fill="#0f172a">2. In-flight job check</text>

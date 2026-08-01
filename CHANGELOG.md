@@ -3,9 +3,41 @@
 This project doesn't cut tagged releases — it's a continuously-deployed
 single-operator system, not a versioned library. This log summarizes real,
 notable changes from git history, grouped by period, newest first. It is not
-every commit (there are 260+); it's the ones that changed what the system
+every commit (there are 280+); it's the ones that changed what the system
 actually does or how it's built. For the reasoning behind the biggest ones,
 see [`CASE_STUDIES.md`](CASE_STUDIES.md) and [`docs/adr/`](docs/adr/).
+
+## 2026-07/08 — Module rename, real Docker/E2E verification, production hardening
+
+- Dropped the `saas_` prefix from the core backend modules
+  (`saas_api.py` → `api.py`, `saas_services.py` → `app_services.py`, etc.) —
+  the names predated the pivot to a video factory and collided with Python's
+  standard-library-adjacent naming conventions.
+- `docker-compose.yml` genuinely didn't work from a clean clone (wrong build
+  context, missing port mappings, a Caddy reverse-proxy config where bare
+  directives silently lost precedence to the static file server). Verified
+  via repeated from-scratch clean-room runs: fresh clone, `--no-cache` build,
+  full stack up, real Playwright suite against it — not a claim, an actual
+  repeated procedure.
+- Added `tests/e2e/factory.spec.ts` — a real Playwright suite (real login,
+  real HTTP, no route mocking) against the Docker Compose stack, wired into
+  CI alongside `ruff`/`pytest`/`gitleaks`/a compose-config-validation job.
+- `ApiToken` never expired and had no revocation path. Added a TTL,
+  server-side `POST /api/auth/logout`, and a backward-compatible migration
+  (legacy sessions get a bounded grace period, not an immediate log-out).
+  Verified against a simulated pre-migration database and, separately, on
+  the real production database (441 existing tokens, all backfilled
+  correctly, zero data loss in any other table).
+- Media Diversity Engine: the live footage-selection path only ever called
+  Pexels — Pixabay support existed in the codebase but was wired to an
+  unused legacy pipeline. Both providers are now searched and ranked
+  together, plus category-level repeat protection and a 90-day/500-use
+  long-term cooldown, on top of the existing per-scene/per-channel cooldown
+  system.
+- A controlled production deployment applied the above (backend + worker
+  only; Postgres/Redis/Caddy untouched) with a full backup/rollback plan,
+  a real post-deploy render with real providers, and no interruption to the
+  live automatic publishing schedule.
 
 ## 2026-07 — Portfolio hardening & security remediation
 

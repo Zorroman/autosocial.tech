@@ -6,7 +6,7 @@
 USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 ```
 
-269 tests. Every AI provider call and every YouTube call is mocked or run in a
+282 tests. Every AI provider call and every YouTube call is mocked or run in a
 sandboxed/sync mode — the suite never spends real API budget and never touches a
 real YouTube channel. `SYNC_JOBS=true` runs jobs inline instead of via Redis/RQ,
 so the suite needs no running Redis.

@@ -2,7 +2,7 @@
 
 Autonomous production pipeline that writes, voices, edits, and publishes short- and
 long-form video to YouTube — end to end, with no manual intervention in the default
-path. It currently runs a real YouTube channel that publishes ~20 Shorts/day and one
+path. It currently runs a real YouTube channel that publishes ~10 Shorts/day and one
 long-form video/day, fully automated.
 
 **This is not a SaaS demo or a wrapper around an API.** It is a working content
@@ -53,7 +53,7 @@ or accepting that risk on the production one. What's here instead:
 | Ideation | An AI "Content Director" picks a topic per channel/pillar, avoiding recent repeats | `content_director.py` |
 | Script | GPT-4o-mini writes narration; long-form gets a persona voice + a closing authorial synthesis | `video_script_generator.py` |
 | Voice | OpenAI TTS (with a fallback chain), tone-controlled via `instructions` | `video/tts.py` |
-| Visuals | Licensed stock photo/video selection (Pexels/Pixabay), multi-stage semantic matching, cooldown/reservation so footage doesn't repeat across a channel | `footage/`, `media_matcher.py`, `footage_matcher.py` |
+| Visuals | Licensed stock photo/video selection, both Pexels and Pixabay searched and ranked together (not "Pexels first, Pixabay only on failure"), category-level repeat protection (won't stack the same visual theme back-to-back) plus a 90-day/500-use cooldown so footage doesn't repeat across a channel | `media_diversity.py`, `footage_library.py`, `media_matcher.py` |
 | Render | Memory-safe chunked FFmpeg rendering — one segment at a time, never a monolithic filter graph (see [Engineering highlights](#engineering-highlights-worth-asking-about)) | `longform_render.py`, `video/render/render_video.py` |
 | Subtitles | Word-level captions timed from the actual voiceover audio (Whisper forced alignment), not proportional guesses | `longform_pipeline.py` |
 | Metadata | AI-generated titles/descriptions/tags, thumbnail | `ai_publisher.py` |
@@ -189,7 +189,7 @@ never make a real (billed) API call by accident.
 USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 ```
 
-269 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
+282 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
 real YouTube channel. Runs in CI on every push/PR (see
 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a `ruff`
 lint job and a gitleaks secret-scan.
