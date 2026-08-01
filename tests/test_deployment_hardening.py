@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -365,13 +366,36 @@ def test_deploy_empty_backup_rejected(deploy_env, tmp_path):
 
 def test_deploy_lock_prevents_concurrent(deploy_env):
     app, sha, env = deploy_env
-    # pre-create the lock dir to simulate a held lock
+    # deploy_production.sh uses flock on the lock *file* when `flock` is on
+    # PATH (true on both this CI runner and the real Linux production host)
+    # and only falls back to an atomic mkdir-based lock *dir* when it isn't
+    # (true on macOS, which ships no `flock` binary). Simulating only the
+    # mkdir-dir form of the lock silently no-ops on Linux -- the script never
+    # looks at that path there -- so the "concurrent deploy blocked" case
+    # went completely unverified on the actual deploy target until this was
+    # caught by a real GitHub Actions run.
+    has_flock = shutil.which("flock") is not None
+    holder = None
     lock_dir = Path(env["LOCK_FILE"] + ".d")
-    lock_dir.mkdir(parents=True)
-    (lock_dir / "owner").write_text("pid=1 held")
     try:
+        if has_flock:
+            holder = subprocess.Popen(
+                ["flock", env["LOCK_FILE"], "sleep", "30"],
+            )
+            for _ in range(50):  # wait for the holder to actually acquire it
+                if Path(env["LOCK_FILE"]).exists():
+                    break
+                time.sleep(0.1)
+            time.sleep(0.2)
+        else:
+            lock_dir.mkdir(parents=True)
+            (lock_dir / "owner").write_text("pid=1 held")
+
         r = _run_deploy(env)
         assert r.returncode == 3
         assert "another deployment holds the lock" in (r.stdout + r.stderr)
     finally:
+        if holder is not None:
+            holder.kill()
+            holder.wait()
         shutil.rmtree(lock_dir, ignore_errors=True)
