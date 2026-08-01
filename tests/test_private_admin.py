@@ -23,9 +23,10 @@ def _fresh_app(tmp_path, allowlist=ADMIN_EMAIL, private="true"):
     os.environ["ADMIN_ALLOWLIST_EMAILS"] = allowlist
     os.environ["SMTP_HOST"] = ""
     for name in [
-        "app", "database", "models", "saas_models", "saas_services", "saas_auth",
-        "saas_api", "saas_queue", "saas_settings", "channels_api", "video_projects_api",
-        "services.entitlements", "plans_catalog",
+        "app", "database", "models", "app_models", "app_services", "auth",
+        "api", "job_queue", "app_settings", "channels_api", "video_projects_api",
+        "services.entitlements", "plans_catalog", "factory_pipeline", "footage_library",
+        "media_diversity",
     ]:
         sys.modules.pop(name, None)
     return importlib.import_module("app")
@@ -33,8 +34,8 @@ def _fresh_app(tmp_path, allowlist=ADMIN_EMAIL, private="true"):
 
 def _seed_admin(email=ADMIN_EMAIL, password=ADMIN_PASSWORD, role="admin"):
     from database import SessionLocal
-    from saas_auth import hash_password
-    from saas_models import AppUser
+    from auth import hash_password
+    from app_models import AppUser
 
     db = SessionLocal()
     try:
@@ -48,7 +49,7 @@ def _seed_admin(email=ADMIN_EMAIL, password=ADMIN_PASSWORD, role="admin"):
 
 
 def _token_for(user_id):
-    from saas_auth import create_token
+    from auth import create_token
     return create_token(user_id)
 
 
@@ -142,11 +143,11 @@ def test_channel_crud_and_isolation(client):
     assert client.delete(f"/api/channels/{cid}", headers=h).status_code == 409
 
     # Isolation: another allowlisted user cannot see this channel
-    from saas_auth import create_token
+    from auth import create_token
     other_id = _seed_admin(email="second@test.local", role="user")
     os.environ["ADMIN_ALLOWLIST_EMAILS"] = f"{ADMIN_EMAIL},second@test.local"
-    import saas_settings
-    importlib.reload(saas_settings)
+    import app_settings
+    importlib.reload(app_settings)
     other_token = create_token(other_id)
     r = client.get(f"/api/channels/{cid}", headers=_h(other_token))
     assert r.status_code in (403, 404)

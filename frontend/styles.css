@@ -126,7 +126,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
 
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  /* minmax(0,1fr): grid items default to min-width:auto, so wide content
+     (tables, long buttons) pushed the column past the viewport at ~1024px. */
+  grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--hero-grad);
 }
@@ -204,9 +206,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); }
   backdrop-filter: blur(12px);
 }
 
-.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 
-.content { padding: var(--space-5); }
+.content { padding: var(--space-5); min-width: 0; max-width: 100%; overflow-x: hidden; }
 
 .card {
   background: color-mix(in oklab, var(--surface) 94%, transparent);
@@ -4458,3 +4460,98 @@ th { color: var(--text-muted); font-weight: 600; }
   .saas-onboarding-modal { max-width: calc(100vw - 24px); }
   .saas-meter-grid { grid-template-columns: 1fr; }
 }
+
+/* private single-admin: hide SaaS marketing trust badges (Stripe/SSL/GDPR) */
+.trust-row { display: none !important; }
+
+/* Content Factory — pipeline conveyor on the project page */
+.fl-wrap{border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:var(--surface-2);margin:2px 0 14px;}
+.fl-row{display:flex;align-items:center;gap:4px;overflow-x:auto;padding-bottom:4px;}
+.fl-st{display:flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid var(--border);border-radius:999px;white-space:nowrap;background:var(--surface);}
+.fl-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+.fl-nm{font-size:13px;font-weight:600;}
+.fl-conn{width:20px;height:2px;border-radius:2px;flex:none;}
+.fl-foot{display:flex;align-items:center;gap:12px;margin-top:13px;flex-wrap:wrap;}
+.fl-msg{font-size:13px;color:var(--text-muted);}
+.fl-run{font-size:13px;font-weight:600;color:#3b82f6;}
+.fl-done{font-size:13px;font-weight:600;color:#10b981;}
+.fl-pulse{animation:flpulse 1.4s ease-in-out infinite;}
+@keyframes flpulse{50%{opacity:.3;}}
+.fl-adv{margin:10px 0;border-top:1px solid var(--border);padding-top:10px;}
+.fl-adv>summary{cursor:pointer;font-size:13px;color:var(--text-muted);user-select:none;}
+@media(prefers-reduced-motion:reduce){.fl-pulse{animation:none;}}
+
+/* private single-admin: drop the marketing footer (Stripe/SSL/GDPR blurb) */
+.footer-note{display:none !important;}
+
+/* AI Publisher — review card (an AI proposal, not a form) */
+.aip{margin-top:16px;border:1px solid var(--border);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-sm);}
+.aip-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,color-mix(in srgb,var(--brand-primary) 9%,var(--surface)),var(--surface));}
+.aip-badge{font-weight:750;font-size:14.5px;color:var(--brand-primary);}
+.aip-ok{font-size:13px;color:var(--success);font-weight:600;}
+.aip-sec{padding:14px 18px;border-bottom:1px solid var(--border);}
+.aip-grid2{display:grid;grid-template-columns:1fr 1fr;}
+.aip-grid2>.aip-sec{border-bottom:1px solid var(--border);}
+.aip-grid2>.aip-sec:first-child{border-right:1px solid var(--border);}
+@media(max-width:640px){.aip-grid2{grid-template-columns:1fr;}.aip-grid2>.aip-sec:first-child{border-right:0;}}
+.aip-h{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:10px;}
+.aip-opt{display:flex;align-items:flex-start;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;margin-bottom:8px;cursor:pointer;background:var(--bg);transition:border-color .12s,background .12s;}
+.aip-opt.rec{border-color:var(--brand-primary);background:color-mix(in srgb,var(--brand-primary) 7%,var(--surface));}
+.aip-opt input[type="radio"]{margin-top:5px;flex:none;accent-color:var(--brand-primary);}
+.aip-rank{font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;min-width:104px;padding-top:8px;}
+.aip-opt.rec .aip-rank{color:var(--brand-primary);}
+.aip-titletxt,.aip-desctxt{flex:1;min-width:0;}
+.aip .input{width:100%;}
+.aip-thumb{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#0b1220;}
+.aip-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.aip-overlay{position:absolute;left:14px;right:14px;bottom:12px;font-weight:800;font-size:clamp(15px,2.6vw,26px);color:#fff;line-height:1.08;text-shadow:0 2px 12px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.9);pointer-events:none;}
+.aip-modebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.aip-modebar .aip-h{margin:0;}
+.aip-modebar select{max-width:300px;}
+.aip-eff{font-size:12.5px;color:var(--text-muted);}
+.aip-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;flex-wrap:wrap;}
+.aip-modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.62);display:grid;place-items:center;z-index:9999;padding:20px;}
+.aip-modal{max-width:440px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;}
+.aip-modal-h{padding:18px 20px 6px;font-size:17px;font-weight:750;}
+.aip-modal-b{padding:0 20px 16px;color:var(--text-muted);font-size:14px;line-height:1.5;}
+.aip-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg-muted);}
+.btn.aip-warn{background:linear-gradient(90deg,#8b5cf6,#a855f7);border:0;color:#fff;}
+
+/* ---- Operations Overview (frontend/operations.js) ---- */
+.ops-root{display:flex;flex-direction:column;gap:14px}
+.ops-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.ops-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ops-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-sm)}
+.ops-card h3{margin:0 0 10px;font-size:15px}
+.ops-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:820px){.ops-grid2{grid-template-columns:1fr}}
+.ops-table{width:100%;border-collapse:collapse;font-size:14px}
+.ops-table th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.6;padding:6px 8px}
+.ops-table td{padding:8px;border-top:1px solid var(--border);vertical-align:middle}
+.ops-detail{opacity:.8;word-break:break-word}
+.ops-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ops-ok{background:rgba(46,158,104,.14);color:#2e9e68}
+.ops-warn{background:rgba(185,121,31,.16);color:#b9791f}
+.ops-off{background:rgba(229,72,77,.14);color:#e5484d}
+.ops-unknown{background:rgba(120,130,150,.16);color:#7a8296}
+.ops-muted{opacity:.65}
+.ops-bad{color:#e5484d}
+.ops-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.ops-metric-k{font-size:12px;opacity:.7}
+.ops-metric-v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.ops-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.ops-list li{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.ops-dot{width:8px;height:8px;border-radius:999px;background:currentColor;margin-top:6px;flex:0 0 auto}
+.ops-warnc{color:#b9791f}
+.ops-skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--border),transparent,var(--border));background-size:200% 100%;animation:opsShimmer 1.2s infinite;margin:8px 0}
+.ops-skel.short{width:55%}
+@keyframes opsShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.ops-error{border-left:3px solid #e5484d}
+@media (max-width:560px){.ops-table,.ops-table tbody,.ops-table tr,.ops-table td{display:block;width:100%}.ops-table thead{display:none}.ops-table td{border-top:none;padding:2px 0}.ops-table tr{border-top:1px solid var(--border);padding:10px 0}}
+
+/* Responsive guards (sweep 375/768/1024/1440): the app shell must never scroll
+   sideways — wide tables scroll inside their own container instead. */
+.app-shell, .layout, main.content { min-width: 0; }
+.card, .glass-card, .dash-card { max-width: 100%; }
+table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
+@media (min-width: 900px) { table { display: table; } }

@@ -5,16 +5,59 @@ import requests
 
 from footage.types import VideoResult
 
-from saas_settings import settings
+from app_settings import settings
 
 from ._common import download_to_path, index_lookup, remember_index, stable_cache_file
 
 
 API_URL = "https://api.pexels.com/videos/search"
+PHOTO_API_URL = "https://api.pexels.com/v1/search"
 
 
 def _api_key() -> str:
     return (os.getenv("PEXELS_API_KEY") or "").strip()
+
+
+def search_photos(query: str, per_page: int = 6, page: int = 1) -> list[dict]:
+    """Search Pexels PHOTOS (landscape) for long-form stills. Uses `requests`
+    (its User-Agent passes Pexels' WAF, unlike urllib → 403). Returns dicts with
+    full licensing metadata so an asset manifest can record provenance.
+    Pexels License: free for commercial use, attribution not required."""
+    key = _api_key()
+    if not key:
+        return []
+    try:
+        res = requests.get(
+            PHOTO_API_URL,
+            headers={"Authorization": key},
+            params={"query": str(query or "").strip(), "orientation": "landscape",
+                    "size": "large", "per_page": max(1, min(80, int(per_page))),
+                    "page": max(1, int(page or 1))},
+            timeout=40,
+        )
+        if res.status_code != 200:
+            return []
+        out = []
+        for p in (res.json().get("photos") or []):
+            src = p.get("src") or {}
+            url = src.get("large2x") or src.get("original") or src.get("large")
+            if not url:
+                continue
+            out.append({
+                "provider": "pexels",
+                "provider_asset_id": str(p.get("id") or ""),
+                "download_url": url,
+                "page_url": p.get("url") or "",
+                "author": p.get("photographer") or "",
+                "author_url": p.get("photographer_url") or "",
+                "license": "Pexels License (free commercial use, no attribution required)",
+                "query": str(query or "").strip(),
+                "alt": (p.get("alt") or "")[:200],
+                "avg_color": p.get("avg_color"),
+            })
+        return out
+    except Exception:
+        return []
 
 
 def search_videos(

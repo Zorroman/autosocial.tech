@@ -27,12 +27,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
     ]:
         if name in sys.modules:
             del sys.modules[name]
@@ -73,8 +73,8 @@ def test_video_generate_endpoint_creates_job(client, monkeypatch):
     token = reg.get_json()["token"]
     headers = auth_headers(token)
 
-    import saas_api as saas_api_module
-    monkeypatch.setattr(saas_api_module, "_start_generation_job", lambda *_args, **_kwargs: None)
+    import api as api_module
+    monkeypatch.setattr(api_module, "_start_generation_job", lambda *_args, **_kwargs: None)
 
     resp = client.post(
         "/api/video/generate",
@@ -115,8 +115,8 @@ def test_ai_video_render_and_status_shape(client, monkeypatch):
     token = reg.get_json()["token"]
     headers = auth_headers(token)
 
-    import saas_api as saas_api_module
-    monkeypatch.setattr(saas_api_module, "_start_generation_job", lambda *_args, **_kwargs: None)
+    import api as api_module
+    monkeypatch.setattr(api_module, "_start_generation_job", lambda *_args, **_kwargs: None)
 
     resp = client.post(
         "/api/ai/video/render",
@@ -142,5 +142,5 @@ def test_ai_video_render_and_status_shape(client, monkeypatch):
     body = status.get_json() or {}
     assert body.get("status") in {"queued", "running", "success", "error"}
     assert isinstance(body.get("progress"), int)
-    assert body.get("step") in {"queued", "structure", "footage", "render", "export", "upload"}
+    assert body.get("step") in {"queued", "preparing_script", "structure", "footage", "render", "export", "upload"}
     assert "message" in body

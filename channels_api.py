@@ -1,6 +1,6 @@
 """Channel management API for private YouTube-factory mode.
 
-Registered under /api alongside saas_api. All endpoints require auth and
+Registered under /api alongside api. All endpoints require auth and
 enforce per-owner isolation (owner_user_id == current user).
 """
 import json
@@ -11,8 +11,8 @@ from datetime import datetime
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, ChannelIdea
+from auth import require_auth
+from app_models import Channel, ChannelIdea
 
 channels_api = Blueprint("channels_api", __name__, url_prefix="/api")
 
@@ -27,6 +27,33 @@ def _slugify(value: str) -> str:
     norm = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode("ascii")
     slug = _SLUG_RE.sub("-", norm.lower()).strip("-")
     return slug or "channel"
+
+
+def _scheduler_status(c: Channel) -> dict:
+    """Honest, UI-facing view of the auto-generation scheduler for this channel.
+
+    Mirrors scheduler._due: the scheduler is active when the channel has
+    auto-generation on, a niche, active status and a positive daily limit; it
+    produces one video every (24h / daily_limit). Fields are derived from
+    channel columns only (no query) so the serializer stays cheap and pure.
+    """
+    from datetime import timedelta
+
+    limit = int(c.daily_video_limit or 0)
+    active = bool(c.automatic_generation_enabled and c.niche_id
+                  and c.status == "active" and limit > 0)
+    interval_min = (24 * 60 // limit) if limit > 0 else None
+    next_at = None
+    if active:
+        if c.last_generated_at:
+            next_at = c.last_generated_at + timedelta(minutes=interval_min)
+        else:
+            next_at = datetime.utcnow()  # never generated → due now
+    return {
+        "scheduler_active": active,
+        "generation_interval_minutes": interval_min,
+        "next_generation_at": next_at.isoformat() if next_at else None,
+    }
 
 
 def _channel_dict(c: Channel) -> dict:
@@ -63,7 +90,9 @@ def _channel_dict(c: Channel) -> dict:
         "default_visibility": c.default_visibility,
         "automatic_generation_enabled": bool(c.automatic_generation_enabled),
         "automatic_publishing_enabled": bool(c.automatic_publishing_enabled),
+        "publishing_mode": (getattr(c, "publishing_mode", None) or "manual"),
         "last_generated_at": c.last_generated_at.isoformat() if c.last_generated_at else None,
+        **_scheduler_status(c),
         "youtube_channel_id": c.youtube_channel_id,
         "connected_account_id": c.connected_account_id,
         "generation_settings": _j(c.generation_settings_json) or {},
@@ -145,7 +174,7 @@ def _apply_channel_fields(c: Channel, data: dict) -> str | None:
         if raw in (None, "", 0, "0"):
             c.niche_id = None
         else:
-            from saas_models import ContentNiche
+            from app_models import ContentNiche
             from database import SessionLocal as _SL
             _db = _SL()
             try:
@@ -169,6 +198,94 @@ def _apply_channel_fields(c: Channel, data: dict) -> str | None:
     if not (c.default_video_format or "").strip():
         c.default_video_format = "shorts"
     return None
+
+
+@channels_api.route("/channels/<int:channel_id>/publishing-mode", methods=["POST"])
+@require_auth
+def set_publishing_mode(channel_id: int):
+    """Set the channel publishing mode. Enabling 'automatic' (full autopilot)
+    requires explicit confirmation and a connected YouTube channel."""
+    data = request.get_json(silent=True) or {}
+    mode = str(data.get("mode") or "").strip().lower()
+    if mode not in ("manual", "automatic"):
+        return jsonify({"error": "mode must be 'manual' or 'automatic'"}), 400
+    db = SessionLocal()
+    try:
+        c = _own_channel(db, channel_id)
+        if not c:
+            return jsonify({"error": "Channel not found"}), 404
+        if mode == "automatic":
+            if not data.get("confirm"):
+                return jsonify({
+                    "error": "confirmation_required",
+                    "message": "AutoSocial сможет публиковать видео на этот YouTube-канал без индивидуального подтверждения.",
+                }), 409
+            if (c.youtube_connection_status or "") != "connected":
+                return jsonify({
+                    "error": "youtube_not_connected",
+                    "message": "Сначала подключите YouTube-канал, затем включайте автопилот.",
+                }), 409
+        c.publishing_mode = mode
+        c.autopilot_enabled = (mode == "automatic")  # keep the legacy flag in sync
+        db.commit()
+        return jsonify({"channel_id": c.id, "publishing_mode": c.publishing_mode})
+    finally:
+        db.close()
+
+
+@channels_api.route("/channels/<int:channel_id>/cta-settings", methods=["GET", "POST"])
+@require_auth
+def cta_settings(channel_id: int):
+    """Get or update the final-CTA settings for a channel. Stored in the existing
+    channel.generation_settings_json under the 'cta' key (no parallel config)."""
+    import cta_generator as _cta
+    from app_models import VideoProject
+    db = SessionLocal()
+    try:
+        c = _own_channel(db, channel_id)
+        if not c:
+            return jsonify({"error": "Channel not found"}), 404
+        if request.method == "POST":
+            data = request.get_json(silent=True) or {}
+            cur = _cta.read_cta_settings(c)
+            bools = ("cta_enabled", "cta_voice_enabled", "cta_visual_enabled")
+            ints = {"cta_min_words": (1, 30), "cta_max_words": (2, 40),
+                    "cta_history_window": (0, 200), "cta_max_same_type_streak": (1, 20)}
+            for k in bools:
+                if k in data:
+                    cur[k] = bool(data[k])
+            for k, (lo, hi) in ints.items():
+                if k in data:
+                    try:
+                        cur[k] = max(lo, min(hi, int(data[k])))
+                    except (TypeError, ValueError):
+                        return jsonify({"error": f"{k} must be an integer"}), 400
+            if "cta_fallback_text" in data:
+                cur["cta_fallback_text"] = str(data.get("cta_fallback_text") or "").strip()[:300]
+            if int(cur["cta_min_words"]) > int(cur["cta_max_words"]):
+                return jsonify({"error": "cta_min_words cannot exceed cta_max_words"}), 400
+            cfg = _j(c.generation_settings_json) or {}
+            cfg["cta"] = cur
+            c.generation_settings_json = json.dumps(cfg, ensure_ascii=False)
+            db.commit()
+        settings_out = _cta.read_cta_settings(c)
+        last = (db.query(VideoProject.cta_text, VideoProject.cta_type, VideoProject.cta_source)
+                .filter(VideoProject.channel_id == c.id, VideoProject.cta_text.isnot(None))
+                .order_by(VideoProject.id.desc()).first())
+        return jsonify({
+            "channel_id": c.id,
+            "cta_settings": settings_out,
+            "last_cta": ({"text": last[0], "type": last[1], "source": last[2]} if last else None),
+        })
+    finally:
+        db.close()
+
+
+def _j(raw):
+    try:
+        return json.loads(raw) if raw else None
+    except Exception:
+        return None
 
 
 @channels_api.route("/channels", methods=["GET"])

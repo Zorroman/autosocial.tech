@@ -1,59 +1,98 @@
-﻿version: "3.9"
-
 services:
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: autosocial-backend
+    restart: unless-stopped
     env_file:
-      - .env
+      - ./.env
     environment:
-      - DATABASE_URL=sqlite:////app/data/autosocial.db
-      - REDIS_URL=redis://redis:6379/0
-      - SYNC_JOBS=false
-      - USE_MOCK_PROVIDERS=true
-    volumes:
-      - autosocial_data:/app/data
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ports:
       - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
+      - ./data/generated_media:/app/generated_media
+      - ./data/cache:/app/cache
+      - ./data/output:/app/output
+      - ./data/music:/app/assets/music
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=5)"]
+      interval: 20s
+      timeout: 7s
+      retries: 6
+      start_period: 20s
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: autosocial-worker
     command: ["python", "worker.py"]
+    restart: unless-stopped
     env_file:
-      - .env
+      - ./.env
     environment:
-      - DATABASE_URL=sqlite:////app/data/autosocial.db
-      - REDIS_URL=redis://redis:6379/0
-      - SYNC_JOBS=false
-      - USE_MOCK_PROVIDERS=true
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
-      - autosocial_data:/app/data
+      - ./logs:/app/logs
+      - ./data/generated_media:/app/generated_media
+      - ./data/cache:/app/cache
+      - ./data/output:/app/output
+      - ./data/music:/app/assets/music
     depends_on:
-      - redis
-      - backend
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: autosocial-frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   redis:
     image: redis:7-alpine
-    container_name: autosocial-redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
 volumes:
-  autosocial_data:
+  caddy_data:
+  caddy_config:

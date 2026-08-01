@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import threading
 import time
 from datetime import datetime
@@ -18,9 +17,9 @@ REPORT_PATH = ROOT / "tests" / "reports" / "auth-smoke.txt"
 sys.path.insert(0, str(ROOT))
 
 from migrations import run_migrations
-from saas_api import saas_api
-from saas_models import AppUser
-from saas_services import seed_niche_hooks, seed_plans, seed_platform_rules
+from api import api
+from app_models import AppUser
+from app_services import seed_niche_hooks, seed_plans, seed_platform_rules
 from database import SessionLocal
 
 
@@ -43,7 +42,7 @@ def check_frontend_root() -> tuple[bool, str]:
 
 def build_test_app() -> Flask:
     app = Flask(__name__)
-    app.register_blueprint(saas_api)
+    app.register_blueprint(api)
     return app
 
 

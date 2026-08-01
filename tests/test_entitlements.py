@@ -28,12 +28,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
         "services.entitlements",
     ]:
         if name in sys.modules:
@@ -63,7 +63,7 @@ def _headers(token: str) -> dict:
 def test_trial_user_cannot_publish(client):
     data = _register(client, "trial-publish@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
+    from app_models import AppUser
     from services.entitlements import ACTION_POST_PUBLISH, authorizeAction, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -92,7 +92,7 @@ def test_trial_user_cannot_publish(client):
 def test_expired_trial_cannot_generate_or_publish(client):
     data = _register(client, "trial-expired@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
+    from app_models import AppUser
     from services.entitlements import (
         ACTION_POST_GENERATE,
         ACTION_VIDEO_GENERATE,
@@ -130,7 +130,7 @@ def test_expired_trial_cannot_generate_or_publish(client):
 def test_starter_autopublish_is_locked(client):
     data = _register(client, "starter-publish@test.local")
     from database import SessionLocal
-    from saas_models import AppUser, UsageCounter
+    from app_models import AppUser, UsageCounter
     from services.entitlements import ACTION_POST_PUBLISH, authorizeAction, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -176,7 +176,6 @@ def test_starter_autopublish_is_locked(client):
 def test_growth_limits_config(client):
     data = _register(client, "growth-limits@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -203,7 +202,6 @@ def test_growth_limits_config(client):
 def test_legacy_pro_maps_to_growth_limits(client):
     data = _register(client, "pro-map@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])
@@ -229,7 +227,6 @@ def test_legacy_pro_maps_to_growth_limits(client):
 def test_agency_limits_and_unlimited_projects(client):
     data = _register(client, "agency-limits@test.local")
     from database import SessionLocal
-    from saas_models import AppUser
     from services.entitlements import getLimits, sync_subscription_state
 
     user_id = int(data["user"]["id"])

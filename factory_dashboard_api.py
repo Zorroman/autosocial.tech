@@ -17,8 +17,8 @@ from flask import Blueprint, g, jsonify
 from ai_pricing import spent_summary
 from analytics_api import _channel_stats
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import (
+from auth import require_auth
+from app_models import (
     Channel,
     Publication,
     RenderJob,
@@ -26,7 +26,7 @@ from saas_models import (
     VideoProject,
     VideoScene,
 )
-from saas_settings import settings
+from app_settings import settings
 
 factory_dashboard_api = Blueprint("factory_dashboard_api", __name__, url_prefix="/api")
 
@@ -48,7 +48,26 @@ def _redis_status() -> dict:
 
 
 def _worker_status(redis_conn) -> dict:
-    """Real RQ worker heartbeat from Redis; never faked in-process."""
+    """Real RQ worker liveness from Redis — never faked in-process.
+
+    `online` is registration presence (`Worker.all()`), not a hand-rolled
+    heartbeat-age check. RQ already expires a worker's registration key
+    `worker_ttl + 60`s after its last heartbeat and `Worker.all()` excludes
+    anything expired (rq/worker/base.py: `find_by_key` returns None, filtered
+    by `compact()`), so presence here already means "not expired by RQ's own
+    bookkeeping" — re-deriving liveness from `last_heartbeat` age on top of
+    that is redundant, and doing it with a short, arbitrary threshold is
+    actively wrong: RQ's blocking dequeue only returns (and re-heartbeats) at
+    most every `worker_ttl - 15`s (~405s for the 420s default), so a perfectly
+    healthy, idle worker's heartbeat can legitimately be several minutes old.
+    A 120s threshold flagged this system's worker "Offline" during completely
+    normal idle gaps between jobs (Shorts run ~48 min apart) even though it was
+    alive and continued publishing throughout.
+    `alive` per worker is kept as diagnostic detail (how stale is this specific
+    entry), measured against that same worker's own configured `worker_ttl`
+    (+60s, matching RQ's own key-expiry buffer) instead of a shorter constant,
+    so it stays correct if worker_ttl is ever tuned.
+    """
     if not redis_conn:
         return {"online": False, "workers": [], "reason": "redis_unavailable"}
     try:
@@ -57,13 +76,12 @@ def _worker_status(redis_conn) -> dict:
         infos = []
         from datetime import timezone
         now = datetime.now(timezone.utc)
-        online = False
         for w in workers:
             hb = w.last_heartbeat
             if hb and hb.tzinfo is None:
                 hb = hb.replace(tzinfo=timezone.utc)
-            alive = bool(hb and (now - hb).total_seconds() < 120)
-            online = online or alive
+            stale_after = (getattr(w, "worker_ttl", None) or 420) + 60
+            alive = bool(hb and (now - hb).total_seconds() < stale_after)
             infos.append({
                 "name": w.name,
                 "queues": [q.name for q in w.queues],
@@ -71,6 +89,9 @@ def _worker_status(redis_conn) -> dict:
                 "last_heartbeat": _iso(hb),
                 "alive": alive,
             })
+        # Registration presence is the authoritative online/offline signal —
+        # RQ has already excluded anything past its own TTL.
+        online = bool(workers)
         return {"online": online, "workers": infos}
     except Exception as exc:
         return {"online": False, "workers": [], "reason": str(exc)[:120]}
@@ -169,6 +190,10 @@ def factory_dashboard():
             "channels_paused": sum(1 for c in channels if c.status == "paused"),
             "projects_in_progress": sum(1 for p in projects if p.status in {"draft", "ready", "rendering"}),
             "videos_rendered": sum(1 for p in projects if p.status == "rendered"),
+            # Short vs long split (long-form == duration target >= 150s, the same
+            # threshold the generator/pipeline use to switch to the long path).
+            "videos_short": sum(1 for p in projects if int(p.duration_target_seconds or 0) < 150),
+            "videos_long": sum(1 for p in projects if int(p.duration_target_seconds or 0) >= 150),
             "jobs_pending": sum(1 for j in jobs if j.status == "pending"),
             "jobs_processing": sum(1 for j in jobs if j.status == "processing"),
             "jobs_failed": sum(1 for j in jobs if j.status == "failed"),
@@ -310,8 +335,12 @@ def readiness():
 
         _check("ffmpeg", bool(_bin_version(settings.FFMPEG_BIN)), True)
         _check("ffprobe", bool(_bin_version(settings.FFPROBE_BIN)), True)
-        _check("output_writable", os.access(settings.OUTPUT_VIDEOS_DIR, os.W_OK), True,
-               str(settings.OUTPUT_VIDEOS_DIR))
+        _writable = os.access(settings.OUTPUT_VIDEOS_DIR, os.W_OK)
+        # Only surface the absolute server path when there's actually a problem to
+        # troubleshoot — showing it unconditionally leaks the host filesystem layout
+        # to anyone with admin/System access for no operational benefit.
+        _check("output_writable", _writable, True,
+               None if _writable else f"not writable: {settings.OUTPUT_VIDEOS_DIR}")
         free = _disk_free_gb(settings.OUTPUT_DIR)
         _check("disk_space", free is not None and free > 1.0, True, f"{free} GB free" if free is not None else None)
 

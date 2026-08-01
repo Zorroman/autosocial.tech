@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 160
+target-version = "py313"
+exclude = [
+    ".venv",
+    ".venv-audit",
+    "deploy/release",
+    "docs/history",
+]
+
+[tool.ruff.lint]
+# Start narrow: unused imports/variables and undefined names are unambiguous
+# wins. Style rules (import order, line length nits) are deliberately not
+# enabled yet on a codebase that has never been linted — see ROADMAP.md.
+select = ["F401", "F811", "F821", "F841"]

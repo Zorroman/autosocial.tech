@@ -5,7 +5,7 @@ import requests
 
 from footage.types import VideoResult
 
-from saas_settings import settings
+from app_settings import settings
 
 from ._common import download_to_path, index_lookup, remember_index, stable_cache_file
 

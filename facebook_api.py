@@ -1,4 +1,4 @@
-﻿import time
+import time
 import requests
 from config import Config
 

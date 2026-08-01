@@ -1,0 +1,63 @@
+<svg viewBox="0 0 820 700" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="820" height="700" fill="#f8fafc"/>
+  <text x="410" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Scheduler Flow — two polling loops, not cron</text>
+  <text x="410" y="54" text-anchor="middle" font-size="12" fill="#64748b">scheduler.py (Shorts) and longform_scheduler.py (long-form) — see ADR-005</text>
+
+  <rect x="290" y="80" width="240" height="56" rx="28" fill="url(#g1)"/>
+  <text x="410" y="113" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">time.sleep(interval)</text>
+
+  <path d="M410 136 V166" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="230" y="166" width="360" height="66" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+  <text x="410" y="192" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Is a project already pipeline_state=running</text>
+  <text x="410" y="210" text-anchor="middle" font-size="11" fill="#64748b">on this channel? (row-locked reservation check)</text>
+  <text x="410" y="224" text-anchor="middle" font-size="10" fill="#94a3b8">SELECT ... FOR UPDATE SKIP LOCKED</text>
+
+  <path d="M410 232 V262" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- decision diamond -->
+  <polygon points="410,262 500,300 410,338 320,300" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="410" y="296" text-anchor="middle" font-size="11.5" fill="#0f172a">running longer than</text>
+  <text x="410" y="312" text-anchor="middle" font-size="11.5" fill="#0f172a">stale threshold (30 min)?</text>
+
+  <path d="M500 300 H620" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="560" y="292" text-anchor="middle" font-size="11" fill="#64748b">yes</text>
+  <rect x="620" y="270" width="170" height="60" rx="10" fill="#fef3c7" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="705" y="294" text-anchor="middle" font-size="11.5" fill="#78350f">Self-heal: reset to</text>
+  <text x="705" y="310" text-anchor="middle" font-size="11.5" fill="#78350f">needs_review, unblock</text>
+
+  <path d="M410 338 V368" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="424" y="356" font-size="11" fill="#64748b">no</text>
+
+  <rect x="230" y="368" width="360" height="66" rx="10" fill="#ffffff" stroke="#3B82F6" stroke-width="2"/>
+  <text x="410" y="394" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Daily quota + publish window check</text>
+  <text x="410" y="412" text-anchor="middle" font-size="11" fill="#64748b">Shorts: ~48 min cadence · long-form: 1/day</text>
+  <text x="410" y="426" text-anchor="middle" font-size="10" fill="#94a3b8">skip this tick if quota met or outside window</text>
+
+  <path d="M410 434 V464" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="230" y="464" width="360" height="60" rx="10" fill="url(#g1)"/>
+  <text x="410" y="490" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">Enqueue the next generation job</text>
+  <text x="410" y="508" text-anchor="middle" font-size="11" fill="#e0e7ff">onto the shared "render" queue (Redis)</text>
+
+  <path d="M410 524 Q660 560 660 108" stroke="#94a3b8" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/>
+  <path d="M660 108 H530" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="745" y="420" font-size="11" fill="#64748b" text-anchor="middle">back to</text>
+  <text x="745" y="434" font-size="11" fill="#64748b" text-anchor="middle">sleep</text>
+
+  <rect x="60" y="560" width="700" height="110" rx="10" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+  <text x="410" y="584" text-anchor="middle" font-size="12.5" font-weight="700" fill="#334155">Real incident this design exposed</text>
+  <text x="410" y="605" text-anchor="middle" font-size="11" fill="#334155">A render killed by resource contention once left a project stuck "running" forever —</text>
+  <text x="410" y="622" text-anchor="middle" font-size="11" fill="#334155">the guard was doing exactly what it was built to do, with no expiry, so it silently</text>
+  <text x="410" y="639" text-anchor="middle" font-size="11" fill="#334155">blocked all further Shorts generation for ~25 hours before the self-heal check existed.</text>
+  <text x="410" y="656" text-anchor="middle" font-size="10.5" fill="#64748b">See CASE_STUDIES.md #4 — "The scheduler that stopped without saying anything."</text>
+</svg>

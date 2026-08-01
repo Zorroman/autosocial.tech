@@ -18,11 +18,10 @@ candidate scores and the human-readable reasons behind the choice.
 Works with or without analytics; works with or without an AI provider.
 """
 import json
-import math
 import re
 from datetime import datetime, timedelta
 
-from saas_models import (
+from app_models import (
     Channel,
     ContentNiche,
     ContentPerformance,
@@ -30,7 +29,7 @@ from saas_models import (
     DirectorStrategy,
     VideoProject,
 )
-from saas_settings import settings
+from app_settings import settings
 
 # ----------------------------------------------------------------- helpers
 

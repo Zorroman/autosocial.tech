@@ -8,7 +8,7 @@ Responsibilities:
 - record FootageUsage after a successful render, release reservations on
   failure; expired reservations free themselves automatically.
 
-Cooldown rules (env-configurable, see saas_settings):
+Cooldown rules (env-configurable, see app_settings):
 1. never twice inside one project;
 2. same channel: FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS (default 30);
 3. other channels: FOOTAGE_GLOBAL_COOLDOWN_DAYS (default 7);
@@ -18,29 +18,38 @@ Cooldown rules (env-configurable, see saas_settings):
 """
 import hashlib
 import json
-import random
 import re
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from saas_models import FootageAsset, FootageUsage
-from saas_settings import settings
+from app_models import FootageAsset, FootageUsage
+from app_settings import settings
+from media_diversity import (
+    category_penalty,
+    graduated_recency_penalty,
+    infer_category,
+    long_term_cooldown_ok,
+    search_both_providers,
+)
 
 # Rule-based query expansion; no paid AI calls in the footage path.
 _QUERY_SYNONYMS = {
     "candle": ["candlelight", "flame closeup", "burning candle dark"],
     "moon": ["full moon", "moonlight night", "lunar sky"],
     "night": ["dark night", "midnight", "night sky stars"],
-    "mystic": ["mystical fog", "occult atmosphere", "esoteric dark"],
-    "fog": ["mist forest", "smoke dark", "haze"],
-    "sleep": ["insomnia", "person awake night", "bedroom dark"],
-    "ritual": ["ceremony candles", "spiritual practice", "meditation dark"],
-    "symbol": ["ancient symbols", "runes closeup", "sacred geometry"],
-    "tarot": ["tarot cards", "fortune telling", "mystic cards"],
-    "crystal": ["crystal closeup", "gemstones", "quartz light"],
+    "mystic": ["misty forest", "foggy mountains", "candle flame closeup"],
+    "fog": ["mist forest", "foggy morning", "haze mountains"],
+    "sleep": ["person sleeping bedroom", "person awake night", "bedroom dark"],
+    "ritual": ["ceremony candles", "person meditating nature", "hands old book"],
+    "symbol": ["ancient carved symbols stone", "runes closeup", "old temple wall"],
+    "tarot": ["tarot cards hands", "fortune telling table", "old cards closeup"],
+    "crystal": ["crystal closeup", "gemstones", "quartz stone"],
 }
-_BROAD_FALLBACKS = ["dark atmosphere", "mystic abstract", "night mood", "moody cinematic"]
+# Real-scene fallbacks only — no abstract/CGI (the user wants nature/people, not
+# "Windows-screensaver" motion graphics).
+_BROAD_FALLBACKS = ["misty forest morning", "calm ocean waves", "starry night sky",
+                    "person walking in nature"]
 
 
 def query_variants(base_query: str, extra_terms: list[str] | None = None) -> list[str]:
@@ -130,6 +139,7 @@ def register_asset(db, *, provider: str, provider_asset_id: str, local_path: Pat
         search_query=(search_query or "")[:300] or None,
         author=(author or "")[:200] or None,
         license_note=(license_note or "")[:200] or None,
+        category=infer_category(search_query),
     )
     db.add(asset)
     db.flush()
@@ -161,19 +171,39 @@ def _last_usage_map(db, asset_ids: list[int]) -> dict[int, list[FootageUsage]]:
     return out
 
 
+def _recent_channel_categories(db, channel_id: int, limit: int) -> list[str]:
+    """Oldest-first list of the channel's last `limit` used categories, for
+    category_penalty(). Assets with no inferred category are skipped, not
+    treated as a repeat of anything."""
+    rows = (
+        db.query(FootageAsset.category)
+        .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
+        .filter(FootageUsage.channel_id == channel_id, FootageAsset.category.isnot(None))
+        .order_by(FootageUsage.used_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [c for (c,) in reversed(rows)]
+
+
 def score_candidates(db, candidates: list[FootageAsset], *, channel_id: int,
                      project_id: int, job_id: int | None,
                      min_duration: float) -> list[tuple[float, FootageAsset, dict]]:
     """Returns (score, asset, debug) sorted best-first. Assets blocked by hard
-    rules (used in this project / reserved by another job) get score None and
-    are excluded."""
+    rules (used in this project / reserved by another job) get excluded
+    outright; the long-term cooldown rule is instead a severe-but-finite
+    penalty (see long_term_cooldown_ok) so exhausted-search last-resort reuse
+    can still recover it. Every other candidate is additionally scored on
+    category freshness and graduated reuse recency."""
     now = datetime.utcnow()
     same_cd = timedelta(days=settings.FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS)
     global_cd = timedelta(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
     usages = _last_usage_map(db, [a.id for a in candidates])
+    recent_categories = _recent_channel_categories(db, channel_id, settings.FOOTAGE_CATEGORY_MEMORY)
     scored = []
     for a in candidates:
-        debug = {"asset_id": a.id, "provider_asset_id": a.provider_asset_id}
+        debug = {"asset_id": a.id, "provider_asset_id": a.provider_asset_id,
+                 "provider": a.provider, "category": a.category}
         if a.reserved_by_job_id and a.reserved_by_job_id != job_id:
             debug["blocked"] = "reserved_by_other_job"
             continue
@@ -181,7 +211,28 @@ def score_candidates(db, candidates: list[FootageAsset], *, channel_id: int,
         if any(u.video_project_id == project_id for u in a_usages):
             debug["blocked"] = "used_in_this_project"
             continue
-        score = 0.0
+        days_since_used = (now - a.last_used_at).days if a.last_used_at else None
+        uses_since = (
+            db.query(FootageUsage).filter(FootageUsage.used_at > a.last_used_at).count()
+            if a.last_used_at else 0
+        )
+        # A severe penalty, not a hard exclusion: excluding it from `scored`
+        # entirely would silently break the existing exhausted-search
+        # last-resort fallback (acquire_segment_asset's cooldown_pool, built
+        # from low-scoring-but-still-present entries here) -- this must lose
+        # to any fresher candidate but still be recoverable if truly nothing
+        # else exists.
+        long_term_penalty = 0.0
+        if not long_term_cooldown_ok(
+            days_since_used, uses_since,
+            min_days=settings.FOOTAGE_LONG_TERM_COOLDOWN_DAYS,
+            min_uses=settings.FOOTAGE_LONG_TERM_COOLDOWN_USES,
+        ):
+            long_term_penalty = 2000.0
+            debug["long_term_cooldown"] = True
+            debug["reuse_age_days"] = days_since_used
+            debug["uses_since"] = uses_since
+        score = -long_term_penalty
         if (a.orientation or "") == "vertical":
             score += 30
             debug["vertical"] = True
@@ -202,7 +253,12 @@ def score_candidates(db, candidates: list[FootageAsset], *, channel_id: int,
             debug.setdefault("reuse_age_days", (now - other_ch[0].used_at).days)
         score -= cooldown_penalty
         score -= min(20.0, float(a.total_use_count or 0) * 2.0)
+        recency_bonus = graduated_recency_penalty(days_since_used)
+        cat_bonus = category_penalty(a.category, recent_categories)
+        score += recency_bonus + cat_bonus
         debug["use_count"] = a.total_use_count
+        debug["recency_bonus"] = recency_bonus
+        debug["category_bonus"] = cat_bonus
         debug["score"] = round(score, 1)
         scored.append((score, a, debug))
     scored.sort(key=lambda x: -x[0])
@@ -391,46 +447,47 @@ def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
             stats["source"] = f"local:{v}"
             return chosen, stats
 
-    # --- stage 2: Pexels network with bounded budget ---
+    # --- stage 2: Pexels + Pixabay network, merged pool, bounded budget ---
+    # Both providers are searched for every (query, page) attempt instead of
+    # only reaching Pixabay when Pexels raises -- that's the reason Pixabay
+    # was effectively dead in the live pipeline: Pexels rarely raises, it
+    # just sometimes has the weaker candidate. Query/page budget is
+    # unchanged; each attempt now fans out to two providers instead of one.
     if allow_network:
-        try:
-            from footage.providers.pexels import download_video, search_videos
-        except Exception:
-            search_videos = None
-        if search_videos:
-            for v in variants:
-                for page in range(1, settings.PEXELS_MAX_PAGES_PER_QUERY + 1):
-                    stats["pages_attempted"] += 1
+        for v in variants:
+            for page in range(1, settings.PEXELS_MAX_PAGES_PER_QUERY + 1):
+                stats["pages_attempted"] += 1
+                results = search_both_providers(
+                    v, orientation="vertical", min_duration=3, max_duration=60,
+                    limit=settings.PEXELS_CANDIDATES_PER_SEGMENT, page=page,
+                ) or search_both_providers(
+                    v, orientation="horizontal", min_duration=3, max_duration=60,
+                    limit=settings.PEXELS_CANDIDATES_PER_SEGMENT, page=page,
+                )
+                for r in results[: settings.PEXELS_CANDIDATES_PER_SEGMENT * 2]:
+                    stats["candidates_examined"] += 1
                     try:
-                        results = search_videos(
-                            query=v, orientation="vertical", min_duration=3,
-                            max_duration=60,
-                            limit=settings.PEXELS_CANDIDATES_PER_SEGMENT, page=page,
-                        ) or search_videos(
-                            query=v, orientation="horizontal", min_duration=3,
-                            max_duration=60,
-                            limit=settings.PEXELS_CANDIDATES_PER_SEGMENT, page=page,
+                        if r.provider == "pixabay":
+                            from footage.providers.pixabay import download_video as _dl
+                            license_note = "Pixabay License (free to use)"
+                        else:
+                            from footage.providers.pexels import download_video as _dl
+                            license_note = "Pexels License (free to use)"
+                        saved = Path(_dl(
+                            r, settings.FOOTAGE_CACHE_DIR / "stock" / f"{r.provider}_{r.video_id}.mp4"))
+                        if not saved.exists():
+                            continue
+                        asset = register_asset(
+                            db, provider=r.provider,
+                            provider_asset_id=str(r.video_id),
+                            local_path=saved, download_url=r.download_url or "",
+                            original_url=r.page_url or "", search_query=v,
+                            author=r.author or "",
+                            license_note=license_note,
                         )
+                        db.commit()
                     except Exception:
                         continue
-                    for r in results[: settings.PEXELS_CANDIDATES_PER_SEGMENT]:
-                        stats["candidates_examined"] += 1
-                        try:
-                            saved = Path(download_video(
-                                r, settings.FOOTAGE_CACHE_DIR / "stock" / f"pexels_{r.video_id}.mp4"))
-                            if not saved.exists():
-                                continue
-                            asset = register_asset(
-                                db, provider=r.provider,
-                                provider_asset_id=str(r.video_id),
-                                local_path=saved, download_url=r.download_url or "",
-                                original_url=r.page_url or "", search_query=v,
-                                author=r.author or "",
-                                license_note="Pexels License (free to use)",
-                            )
-                            db.commit()
-                        except Exception:
-                            continue
                         if asset.id in used_asset_ids or (asset.file_hash or "") in used_hashes:
                             stats["candidates_rejected_duplicate"] += 1
                             continue
@@ -450,7 +507,7 @@ def acquire_segment_asset(db, *, query: str, channel_id: int, project_id: int,
                         if not _visual_ok(a):
                             continue
                         if reserve_asset(db, a, job_id):
-                            stats["source"] = f"pexels:{v}:p{page}"
+                            stats["source"] = f"{a.provider}:{v}:p{page}"
                             return a, stats
 
     # --- stage 3: search budget exhausted -> cooldown reuse fallback ---

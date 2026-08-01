@@ -142,7 +142,7 @@ def test_scene_normalized_by_allowed_scenes():
 
 def test_manifest_saved_and_reused(monkeypatch, tmp_path):
     import video_pipeline as vp
-    from saas_settings import settings
+    from app_settings import settings
 
     settings.BASE_DIR = tmp_path.resolve()
     settings.CACHE_DIR = (settings.BASE_DIR / "cache").resolve()

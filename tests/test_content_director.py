@@ -83,7 +83,7 @@ def test_requires_niche_and_auth(client):
 def test_pillar_selection_is_deliberate_and_explained(client):
     from content_director import select_pillar
     from database import SessionLocal
-    from saas_models import Channel
+    from app_models import Channel
     ch, nid = _seed_channel(client)
     db = SessionLocal()
     channel = db.query(Channel).filter_by(id=ch).first()
@@ -114,7 +114,7 @@ def test_weighted_rotation_avoids_monotony(client):
 def test_pillar_daily_limit_and_inactive_excluded(client):
     from content_director import select_pillar
     from database import SessionLocal
-    from saas_models import Channel, ContentPillar, VideoProject
+    from app_models import Channel, ContentPillar, VideoProject
     ch, nid = _seed_channel(client)
     db = SessionLocal()
     channel = db.query(Channel).filter_by(id=ch).first()
@@ -168,7 +168,7 @@ def test_topics_are_varied_and_never_repeat(client):
 def test_duplicate_and_cooldown_protection(client):
     from content_director import duplicate_check, normalize_title, similarity
     from database import SessionLocal
-    from saas_models import DirectorStrategy
+    from app_models import DirectorStrategy
     ch, nid = _seed_channel(client)
     db = SessionLocal()
     db.add(DirectorStrategy(channel_id=ch, language="ru",
@@ -259,7 +259,7 @@ def test_works_without_analytics(client):
 def test_uses_analytics_when_present(client):
     from content_director import channel_analytics, select_pillar
     from database import SessionLocal
-    from saas_models import Channel, ContentPerformance, ContentPillar
+    from app_models import Channel, ContentPerformance, ContentPillar
     ch, nid = _seed_channel(client)
     db = SessionLocal()
     pillars = {p.slug: p for p in db.query(ContentPillar).filter_by(niche_id=nid).all()}
@@ -365,8 +365,8 @@ def test_multi_channel_and_multi_niche_isolation(client):
     import importlib, os
     from tests.test_private_admin import ADMIN_EMAIL
     os.environ["ADMIN_ALLOWLIST_EMAILS"] = f"{ADMIN_EMAIL},cd_other@test.local"
-    import saas_settings
-    importlib.reload(saas_settings)
+    import app_settings
+    importlib.reload(app_settings)
     other = _token_for(_seed_admin(email="cd_other@test.local", role="user"))
     r = client.get(f"/api/content-director/{s1['id']}", headers={"Authorization": f"Bearer {other}"})
     assert r.status_code in (403, 404)

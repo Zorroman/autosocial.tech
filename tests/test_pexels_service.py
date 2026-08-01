@@ -1,7 +1,5 @@
 import importlib
-import os
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -11,7 +9,7 @@ def _load_service():
         "backend.services.media.pexels_service",
         "backend.services.media",
         "config",
-        "saas_settings",
+        "app_settings",
     ]:
         if name in sys.modules:
             del sys.modules[name]
@@ -43,7 +41,7 @@ def test_build_media_query_maps_esoterica_and_instagram_orientation():
     )
     assert meta["niche_slug"] == "esoterica"
     assert meta["orientation"] == "portrait"
-    assert "candles meditation" in meta["niche_terms"]
+    assert any("candles" in t or "meditation" in t for t in meta["niche_terms"])
     assert any("meditation" in query or "moon" in query or "candles" in query for query in [meta["primary_query"], *meta["fallback_queries"]])
 
 

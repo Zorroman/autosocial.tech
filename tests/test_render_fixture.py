@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from saas_settings import settings
+from app_settings import settings
 from video.render.render_video import render_video
 
 FIXTURES = Path(__file__).parent / "render_fixtures"

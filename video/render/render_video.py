@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from saas_settings import settings
+from app_settings import settings
 
 
 def _run(cmd: list[str]) -> None:
@@ -37,8 +37,13 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
 
     normalized = []
     is_short_render = sum(float(c.get("duration_target") or 0.0) for c in (clips or [])) <= 60.0
-    temp_preset = "ultrafast"
-    temp_crf = "30" if orientation == "vertical" else "28"
+    # Intermediate per-clip encode. The old ultrafast/crf30 pass produced coarse
+    # blocking that "crawls" on any motion (visible rippling) and then got
+    # re-encoded a second time, compounding the loss. A near-visually-lossless
+    # intermediate (veryfast, crf a few points below the final) removes that
+    # generational shimmer at a modest render-time cost.
+    temp_preset = "veryfast"
+    temp_crf = "18" if orientation == "vertical" else "16"
     fade = max(0.0, min(0.5, float(getattr(settings, "VIDEO_CLIP_FADE_SECONDS", 0.2))))
     n_clips = len(clips or [])
     for idx, clip in enumerate(clips):
@@ -54,18 +59,26 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
         if fade > 0 and idx == n_clips - 1:
             fades.append(f"fade=t=out:st={max(0.0, target - fade)}:d={fade}")
         motion = str(clip.get("motion") or "")
-        motion_vf = ""
         if motion in {"in", "out"}:
             frames = max(1, int(target * fps))
             if motion == "in":
                 zexpr = f"min(1.10,1+0.10*on/{frames})"
             else:
                 zexpr = f"max(1.0,1.10-0.10*on/{frames})"
-            motion_vf = (
-                f",zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-                f":d=1:s={width}x{height}:fps={fps}"
+            # Supersample before zoompan: zooming into a frame that is already
+            # exactly the output size forces zoompan to resample sub-pixel
+            # offsets every frame → shimmering/"rippling" on fine detail. Feed
+            # it a 2x oversize canvas and let zoompan downsample to the target,
+            # which removes the shimmer while keeping the same Ken-Burns zoom.
+            ss = 2
+            vf = (
+                f"scale={width * ss}:{height * ss}:force_original_aspect_ratio=increase,"
+                f"crop={width * ss}:{height * ss},fps={fps},"
+                f"zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":d=1:s={width}x{height}:fps={fps},format=yuv420p"
             )
-        vf = f"{_vf_scale_crop(width, height)},fps={fps}{motion_vf},format=yuv420p"
+        else:
+            vf = f"{_vf_scale_crop(width, height)},fps={fps},format=yuv420p"
         if fades:
             vf += "," + ",".join(fades)
         _run(

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from openai import OpenAI
 
 from config import Config
-from saas_settings import settings
+from app_settings import settings
 
 client = OpenAI(api_key=Config.OPENAI_API_KEY)
 

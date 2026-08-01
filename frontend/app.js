@@ -82,8 +82,8 @@ const LOGIN_I18N = {
     switch_label_login: 'Создать',
     auth_hint_default: 'Введите email и пароль. Отправим 4-значный код на почту.',
     auth_hint_code_prefix: 'Код отправлен на',
-    hero_title: 'AutoSocial.tech — AI-ассистент для контента и автопостинга.',
-    hero_subtitle: 'Создавайте контент, планируйте публикации и управляйте Facebook + Instagram из одного места — автоматически.',
+    hero_title: 'AutoSocial.tech — AI-фабрика видео для YouTube.',
+    hero_subtitle: 'Сценарий, озвучка, видеоряд, музыка, субтитры, рендер и публикация коротких и длинных роликов — полностью автоматически.',
     hero_cta: 'Начать бесплатно по email',
     hero_microcopy: 'Без привязки карт сейчас — начните с Free плана.',
     features_title: 'Всё, что нужно для SMM — в одной панели',
@@ -98,13 +98,13 @@ const LOGIN_I18N = {
     how_2_title: 'Планируйте. Автоматизируйте. Забывайте о ручной публикации',
     how_2_text: 'Настройте расписание — и система публикует сама.',
     how_3_title: 'Следите за эффективностью',
-    how_3_text: 'Показы, вовлечённость, рост аудитории — всё в одной панели.',
+    how_3_text: 'Очередь, рендер, публикации и статус воркера — всё в одной панели.',
     trust_title: 'Почему маркетологи выбирают AutoSocial.tech',
     trust_1: 'Экономит до 10 часов в неделю на публикациях',
     trust_2: 'Генерирует контент, основанный на бест-практиках SMM',
     trust_3: 'Интеграции с Facebook + Instagram Business',
     trust_4: 'SSL / GDPR-ready. Готово к оплате.',
-    quote: '“AutoSocial.tech перевёл наши соцсети на автопилот — посты стали чаще, а вовлечённость выросла.” — Маркетолог, SMB',
+    quote: '«Полностью автоматический конвейер: сценарий, озвучка, монтаж, субтитры, рендер и публикация видео на YouTube — без ручной работы.»',
     final_title: 'Готовы автоматизировать свои соцсети?',
     final_cta_account: 'Создать аккаунт по email',
     final_cta_pricing: 'Узнать тарифы',
@@ -135,8 +135,8 @@ const LOGIN_I18N = {
     switch_label_login: 'Create',
     auth_hint_default: 'Enter email and password. We will send a 4-digit code.',
     auth_hint_code_prefix: 'Code sent to',
-    hero_title: 'AutoSocial.tech — AI assistant for content and autoposting.',
-    hero_subtitle: 'Create content, schedule posts, and manage Facebook + Instagram from one place automatically.',
+    hero_title: 'AutoSocial.tech — an AI video factory for YouTube.',
+    hero_subtitle: 'Script, voiceover, footage, music, subtitles, rendering and publishing of short and long videos — fully automated.',
     hero_cta: 'Start free with email',
     hero_microcopy: 'No card required now — start on the Free plan.',
     features_title: 'Everything you need for SMM in one panel',
@@ -151,13 +151,13 @@ const LOGIN_I18N = {
     how_2_title: 'Plan. Automate. Stop manual posting',
 
     how_3_title: 'Track performance',
-    how_3_text: 'Reach, engagement, and audience growth in one dashboard.',
+    how_3_text: 'Render queue, jobs, publications and worker status in one dashboard.',
     trust_title: 'Why marketers choose AutoSocial.tech',
     trust_1: 'Saves up to 10 hours per week on publishing',
     trust_2: 'Generates content based on SMM best practices',
     trust_3: 'Facebook + Instagram Business integrations',
     trust_4: 'SSL / GDPR-ready. Billing-ready.',
-    quote: '"AutoSocial.tech put our social media on autopilot — posting got consistent and engagement grew." — SMB marketer',
+    quote: '"A fully automated pipeline: script, voiceover, editing, subtitles, rendering and YouTube publishing — no manual work."',
     final_title: 'Ready to automate your social media?',
     final_cta_account: 'Create account with email',
     final_cta_pricing: 'See pricing',
@@ -204,13 +204,13 @@ const LOGIN_I18N = {
     how_2_title: 'Planifica. Automatiza. Olvida la publicacion manual',
     how_2_text: 'Configura un horario y la plataforma publica sola.',
     how_3_title: 'Mide resultados',
-    how_3_text: 'Alcance, interaccion y crecimiento en un solo panel.',
+    how_3_text: 'Cola de render, trabajos, publicaciones y estado del worker en un panel.',
     trust_title: 'Por que los marketers eligen AutoSocial.tech',
     trust_1: 'Ahorra hasta 10 horas por semana en publicaciones',
     trust_2: 'Genera contenido con buenas practicas de SMM',
     trust_3: 'Integraciones con Facebook + Instagram Business',
     trust_4: 'Listo para SSL / GDPR y pagos.',
-    quote: '"AutoSocial.tech puso nuestras redes en piloto automatico: publicamos mas y mejoro la interaccion." — Marketer SMB',
+    quote: '"Un pipeline totalmente automatizado: guion, voz, montaje, subtitulos, render y publicacion en YouTube, sin trabajo manual."',
     final_title: '?Listo para automatizar tus redes sociales?',
     final_cta_account: 'Crear cuenta con email',
     final_cta_pricing: 'Ver precios',
@@ -257,13 +257,13 @@ const LOGIN_I18N = {
     how_2_title: 'Planen. Automatisieren. Manuelles Posten vergessen',
     how_2_text: 'Zeitplan festlegen und die Plattform veroffentlicht automatisch.',
     how_3_title: 'Leistung verfolgen',
-    how_3_text: 'Reichweite, Engagement und Wachstum in einem Panel.',
+    how_3_text: 'Render-Queue, Jobs, Veroeffentlichungen und Worker-Status in einem Panel.',
     trust_title: 'Warum Marketer AutoSocial.tech wahlen',
     trust_1: 'Spart bis zu 10 Stunden pro Woche beim Publizieren',
     trust_2: 'Generiert Content nach SMM-Best-Practices',
     trust_3: 'Integrationen mit Facebook + Instagram Business',
     trust_4: 'SSL / DSGVO-ready. Zahlungsbereit.',
-    quote: '"AutoSocial.tech hat unsere Socials auf Autopilot gebracht: mehr Konsistenz und hoheres Engagement." — SMB-Marketer',
+    quote: '"Eine vollautomatische Pipeline: Skript, Voiceover, Schnitt, Untertitel, Rendering und YouTube-Veroeffentlichung, ohne manuelle Arbeit."',
     final_title: 'Bereit, deine Social Media zu automatisieren?',
     final_cta_account: 'Konto per E-Mail erstellen',
     final_cta_pricing: 'Preise ansehen',
@@ -310,13 +310,13 @@ const LOGIN_I18N = {
     how_2_title: 'Planifiez. Automatisez. Oubliez le manuel',
     how_2_text: 'Definissez un planning et la plateforme publie automatiquement.',
     how_3_title: 'Suivez les performances',
-    how_3_text: "Portee, engagement et croissance dans un seul tableau de bord.",
+    how_3_text: "File de rendu, taches, publications et etat du worker dans un panneau.",
     trust_title: 'Pourquoi les marketeurs choisissent AutoSocial.tech',
     trust_1: "Jusqu'a 10 heures gagnees par semaine",
     trust_2: 'Contenu base sur les bonnes pratiques SMM',
     trust_3: 'Integrations Facebook + Instagram Business',
     trust_4: 'Pret pour SSL / RGPD et paiement.',
-    quote: '"AutoSocial.tech a mis nos reseaux en pilote automatique: plus de regularite et plus d engagement." — Marketeur SMB',
+    quote: '"Un pipeline entierement automatise : script, voix, montage, sous-titres, rendu et publication YouTube, sans travail manuel."',
     final_title: 'Pret a automatiser vos reseaux sociaux ?',
     final_cta_account: 'Creer un compte par e-mail',
     final_cta_pricing: 'Voir les tarifs',
@@ -363,13 +363,13 @@ const LOGIN_I18N = {
     how_2_title: 'Плануйте. Автоматизуйте. Забудьте про ручні публікації',
     how_2_text: 'Налаштуйте графік — і система публікує сама.',
     how_3_title: 'Відстежуйте ефективність',
-    how_3_text: 'Охоплення, залученість і зростання аудиторії — все в одній панелі.',
+    how_3_text: 'Черга рендеру, задачі, публікації та статус воркера — усе в одній панелі.',
     trust_title: 'Чому маркетологи обирають AutoSocial.tech',
     trust_1: 'Економить до 10 годин на тиждень',
     trust_2: 'Генерує контент на основі найкращих SMM-практик',
     trust_3: 'Інтеграції з Facebook + Instagram Business',
     trust_4: 'SSL / GDPR-ready. Готово до оплати.',
-    quote: '«AutoSocial.tech перевів наші соцмережі на автопілот — публікацій стало більше, а залученість зросла.» — Маркетолог, SMB',
+    quote: '«Повністю автоматичний конвеєр: сценарій, озвучення, монтаж, субтитри, рендер і публікація відео на YouTube — без ручної роботи.»',
     final_title: 'Готові автоматизувати свої соцмережі?',
     final_cta_account: 'Створити акаунт через email',
     final_cta_pricing: 'Дізнатися тарифи',
@@ -413,19 +413,19 @@ const APP_SHELL_I18N = {
   ru: {
     language_label: 'Язык',
     nav_admin: 'Админ', nav_dashboard: 'Панель', nav_create: 'Создать', nav_calendar: 'Календарь', nav_connections: 'Подключения', nav_history: 'История', nav_settings: 'Настройки бренда', nav_billing: 'Биллинг', nav_support: 'Поддержка', nav_logout: 'Выйти',
-    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.', footer_right: 'Stripe защищенные платежи · SSL защищено · GDPR совместимо',
+    sidebar_subtitle: 'AI видео-фабрика', footer_left: 'Без скрытых платежей. Прозрачные тарифы. Лимиты считаются в постах.', footer_right: 'Stripe защищенные платежи · SSL защищено · GDPR совместимо',
     theme_light: 'Светлая тема', theme_dark: 'Тёмная тема',
     plan_free: 'Бесплатный trial 7 дней', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Админ без лимитов',
     create_hub_label: 'Центр создания',
-    create_hub_title: 'Что создаём сегодня?',
-    create_hub_lead: 'Разделили создание постов, видео и планов на отдельные студии, чтобы экран оставался лёгким, понятным и профессиональным.',
+    create_hub_title: 'Создать видео',
+    create_hub_lead: 'Короткие и длинные видео для YouTube: сценарий → озвучка → видеоряд → музыка → субтитры → рендер → публикация. Дополнительные инструменты для соцсетей — ниже.',
     create_hub_plan_prefix: 'Тариф',
     create_hub_youtube_hint: 'Студия YouTube остаётся отдельным быстрым режимом для Shorts и длинных видео.',
     create_hub_post_title: 'Студия постов',
     create_hub_post_subtitle: 'Один пост, серия постов или быстрый рабочий черновик для соцсетей.',
     create_hub_post_cta: 'Открыть студию постов',
     create_hub_video_title: 'Студия видео',
-    create_hub_video_subtitle: 'Универсальный короткий или длинный видеоконтент для Meta и YouTube.',
+    create_hub_video_subtitle: 'Короткие и длинные видео: сценарий, озвучка, видеоряд, музыка, субтитры, рендер и публикация на YouTube.',
     create_hub_video_cta: 'Открыть студию видео',
     create_hub_weekly_title: 'План на 7 дней',
     create_hub_weekly_subtitle: 'Недельный контент-план с темами, CTA и готовыми слотами.',
@@ -700,7 +700,7 @@ const APP_SHELL_I18N = {
   en: {
     language_label: 'Language',
     nav_admin: 'Admin', nav_dashboard: 'Dashboard', nav_create: 'Create', nav_calendar: 'Calendar', nav_connections: 'Connections', nav_history: 'History', nav_settings: 'Brand settings', nav_billing: 'Billing', nav_support: 'Support', nav_logout: 'Log out',
-    sidebar_subtitle: 'AI SMM manager', footer_left: 'No hidden fees. Clear pricing. Limits are counted in posts.', footer_right: 'Stripe secure payments · SSL protected · GDPR compliant',
+    sidebar_subtitle: 'AI Video Factory', footer_left: 'No hidden fees. Clear pricing. Limits are counted in posts.', footer_right: 'Stripe secure payments · SSL protected · GDPR compliant',
     theme_light: 'Light theme', theme_dark: 'Dark theme',
     plan_free: 'Free Trial 7 days', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin Unlimited',
     create_hub_label: 'Creation Hub',
@@ -986,7 +986,7 @@ const APP_SHELL_I18N = {
   },
   de: {
     nav_admin: 'Admin', nav_dashboard: 'Ubersicht', nav_create: 'Erstellen', nav_calendar: 'Kalender', nav_connections: 'Verbindungen', nav_history: 'Verlauf', nav_settings: 'Markeneinstellungen', nav_billing: 'Abrechnung', nav_support: 'Hilfe', nav_logout: 'Abmelden',
-    sidebar_subtitle: 'AI SMM Manager', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezahlt.', footer_right: 'Stripe sichere Zahlungen · SSL geschutzt · GDPR konform',
+    sidebar_subtitle: 'AI Video Factory', footer_left: 'Keine versteckten Kosten. Transparente Preise. Limits werden in Posts gezahlt.', footer_right: 'Stripe sichere Zahlungen · SSL geschutzt · GDPR konform',
     theme_light: 'Helles Design', theme_dark: 'Dunkles Design',
     plan_free: 'Kostenlose Testphase 7 Tage', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin ohne Limit',
     create_hub_label: 'Erstellungszentrale',
@@ -1081,7 +1081,7 @@ const APP_SHELL_I18N = {
   },
   es: {
     nav_admin: 'Admin', nav_dashboard: 'Panel', nav_create: 'Crear', nav_calendar: 'Calendario', nav_connections: 'Conexiones', nav_history: 'Historial', nav_settings: 'Configuracion de marca', nav_billing: 'Facturacion', nav_support: 'Soporte', nav_logout: 'Salir',
-    sidebar_subtitle: 'Gestor SMM con IA', footer_left: 'Sin pagos ocultos. Tarifas transparentes. Los limites se cuentan en publicaciones.', footer_right: 'Pagos seguros con Stripe · SSL protegido · Compatible con GDPR',
+    sidebar_subtitle: 'Fábrica de vídeo IA', footer_left: 'Sin pagos ocultos. Tarifas transparentes. Los limites se cuentan en publicaciones.', footer_right: 'Pagos seguros con Stripe · SSL protegido · Compatible con GDPR',
     theme_light: 'Tema claro', theme_dark: 'Tema oscuro',
     archive_title: 'Archivo de publicaciones',
     plan_free: 'Prueba gratis 7 dias', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin sin limites',
@@ -1153,7 +1153,7 @@ const APP_SHELL_I18N = {
   },
   fr: {
     nav_admin: 'Admin', nav_dashboard: 'Tableau de bord', nav_create: 'Creer', nav_calendar: 'Calendrier', nav_connections: 'Connexions', nav_history: 'Historique', nav_settings: 'Parametres de marque', nav_billing: 'Facturation', nav_support: 'Assistance', nav_logout: 'Se deconnecter',
-    sidebar_subtitle: 'Gestionnaire SMM IA', footer_left: 'Aucun frais cache. Tarifs transparents. Les limites sont comptees en publications.', footer_right: 'Paiements Stripe securises · SSL protege · Conforme au GDPR',
+    sidebar_subtitle: 'Usine à vidéos IA', footer_left: 'Aucun frais cache. Tarifs transparents. Les limites sont comptees en publications.', footer_right: 'Paiements Stripe securises · SSL protege · Conforme au GDPR',
     theme_light: 'Theme clair', theme_dark: 'Theme sombre',
     archive_title: 'Archive des publications',
     plan_free: 'Essai gratuit 7 jours', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Admin illimite',
@@ -1225,7 +1225,7 @@ const APP_SHELL_I18N = {
   },
   uk: {
     nav_admin: 'Адмін', nav_dashboard: 'Панель', nav_create: 'Створити', nav_calendar: 'Календар', nav_connections: 'Підключення', nav_history: 'Історія', nav_settings: 'Налаштування бренду', nav_billing: 'Білінг', nav_support: 'Підтримка', nav_logout: 'Вийти',
-    sidebar_subtitle: 'AI SMM менеджер', footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються в постах.', footer_right: 'Stripe захищені платежі · SSL захищено · GDPR сумісно',
+    sidebar_subtitle: 'AI видео-фабрика', footer_left: 'Без прихованих платежів. Прозорі тарифи. Ліміти рахуються в постах.', footer_right: 'Stripe захищені платежі · SSL захищено · GDPR сумісно',
     theme_light: 'Світла тема', theme_dark: 'Темна тема',
     archive_title: 'Архів публікацій',
     plan_free: 'Безкоштовний trial 7 днів', plan_starter: 'Starter', plan_growth: 'Growth', plan_agency: 'Agency', plan_admin: 'Адмін без лімітів',
@@ -6698,6 +6698,19 @@ function pageChannels() {
         <label class="small"><input id="chAutoPub" type="checkbox" ${detail.automatic_publishing_enabled ? 'checked' : ''}/> Автопубликация</label>
         <button id="chAutomationSaveBtn" class="btn btn-secondary" type="button" data-channel-id="${detail.id}">Сохранить автоматику</button>
       </div>
+      ${(() => {
+        if (!detail.scheduler_active) {
+          return `<p class="small" style="opacity:.7;">⚪ Планировщик выключен — включите «Автогенерация», выберите нишу и задайте лимит видео/день, чтобы канал сам делал видео.</p>`;
+        }
+        const im = detail.generation_interval_minutes || 0;
+        const iv = im >= 60 ? `${(im / 60).toFixed(im % 60 ? 1 : 0)} ч` : `${im} мин`;
+        const nx = detail.next_generation_at ? new Date(detail.next_generation_at) : null;
+        const nxT = !nx ? '—' : (nx <= new Date() ? 'скоро' : nx.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+        const pub = (detail.publishing_mode === 'automatic')
+          ? 'публикует на YouTube автоматически'
+          : 'останавливается на проверку перед публикацией (ручной режим)';
+        return `<p class="small" style="color:#22c55e;">🟢 Планировщик активен · новое видео каждые ${iv} · следующее ~${esc(nxT)} · ${pub}.</p>`;
+      })()}
       ${state.channelReadiness ? `<p class="small">Готовность генерации: ${state.channelReadiness.generation_configured ? '✅' : '⚠️ ' + esc((state.channelReadiness.generation_problems || []).join(', '))} · Публикация: ${state.channelReadiness.publishing_ready ? '✅' : '⚠️ ' + esc((state.channelReadiness.publishing_problems || []).join(', '))}</p>` : ''}
       ${channelYouTubeHtml(detail)}
       <h3>Идеи</h3>
@@ -6875,6 +6888,8 @@ function pageProjects() {
 
     detailHtml = `<section class="card">
       <h3 style="margin-top:0;">${esc(detail.title)}</h3>
+      <div id="factoryLine" data-pid="${detail.id}"></div>
+      <details class="fl-adv"><summary>Расширенные инструменты (ручной режим)</summary>
       <label class="small">Сценарий<textarea id="projScript" class="input" rows="4" style="width:100%;">${esc(detail.script_text || '')}</textarea></label>
       <div class="row" style="gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center;">
         <button id="projSaveScriptBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Сохранить сценарий</button>
@@ -6899,6 +6914,7 @@ function pageProjects() {
         <button id="autoMediaBtn" class="btn btn-secondary" type="button" data-project-id="${detail.id}">Подобрать медиа для всех сцен</button>
         <audio id="ttsPreviewAudio" controls style="height:30px;display:none;"></audio>
       </div>
+      </details>
       ${detail.error ? `<div class="notice error">${esc(detail.error)}</div>` : ''}
       ${detail.output_url ? `<div style="margin:10px 0;">
         <video controls style="max-width:270px;border-radius:12px;" src="${API_BASE}${esc(detail.output_url)}"></video>
@@ -6954,7 +6970,194 @@ function pageProjects() {
   return appLayout('/projects', 'Видео-проекты', body);
 }
 
+const FACTORY_COLORS = { waiting: '#94a3b8', running: '#3b82f6', needs_review: '#f59e0b', error: '#ef4444', done: '#10b981' };
+async function _factoryFetchPaint(pid) {
+  const host = document.getElementById('factoryLine');
+  if (!host) { if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; } return; }
+  let st;
+  try { st = await api(`/api/video-projects/${pid}/pipeline/state`); } catch (e) { return; }
+  const stages = st.stages || [];
+  const lineHtml = stages.map((s, i) => {
+    const c = FACTORY_COLORS[s.state] || '#94a3b8';
+    const dotCls = s.state === 'running' ? 'fl-dot fl-pulse' : 'fl-dot';
+    const conn = i < stages.length - 1 ? `<span class="fl-conn" style="background:${s.state === 'done' ? '#10b981' : 'var(--border)'};"></span>` : '';
+    return `<div class="fl-st"><span class="${dotCls}" style="background:${c};"></span><span class="fl-nm">${esc(s.name)}</span></div>${conn}`;
+  }).join('');
+  const sc = stages.find((s) => s.key === 'script') || { state: 'waiting' };
+  const aiPub = stages.find((s) => s.key === 'ai_publisher') || { state: 'waiting' };
+  const hasMeta = !!st.youtube_meta;
+  const anyErr = stages.some((s) => s.state === 'error');
+  const anyReview = stages.some((s) => s.state === 'needs_review' && s.key !== 'script' && s.key !== 'ai_publisher');
+  const running = stages.some((s) => s.state === 'running');
+  let action = '';
+  let msg = st.pipeline_error || '';
+  if (sc.state === 'waiting') {
+    action = `<button class="btn btn-primary" data-fl-act="generate" data-fl-pid="${pid}">✨ Сгенерировать сценарий</button>`;
+    msg = msg || 'Начните с генерации сценария из идеи — дальше линия соберёт видео сама.';
+  } else if (sc.state === 'needs_review') {
+    action = `<button class="btn btn-primary" data-fl-act="approve" data-fl-pid="${pid}">✓ Одобрить сценарий → запустить</button>`;
+    msg = msg || 'Проверьте сценарий в «Расширенных инструментах». Одобрите — фабрика сделает сцены, видеоряд и рендер.';
+  } else if (st.publication_status === 'published') {
+    action = st.youtube_url
+      ? `<a class="fl-done" href="${esc(st.youtube_url)}" target="_blank" rel="noopener">✅ Опубликовано на YouTube ↗</a>`
+      : '<span class="fl-done">✅ Опубликовано</span>';
+  } else if (hasMeta && (aiPub.state === 'needs_review' || aiPub.state === 'done')) {
+    action = '';
+    msg = aiPub.state === 'needs_review'
+      ? 'AI Publisher подготовил пакет к публикации — проверьте предложение ниже.'
+      : (msg || 'Пакет готов к публикации.');
+  } else if (anyErr || anyReview) {
+    action = `<button class="btn btn-primary" data-fl-act="retry" data-fl-pid="${pid}">↻ Повторить этап</button>`;
+  } else if (running) {
+    action = '<span class="fl-run">● идёт производство…</span>';
+  } else {
+    action = '<span class="fl-done">✅ Все этапы готовы</span>';
+  }
+  host.innerHTML = `<div class="fl-wrap"><div class="fl-row">${lineHtml}</div><div class="fl-foot">${action}${msg ? `<span class="fl-msg">${esc(msg)}</span>` : ''}</div></div><div id="aiPubHost"></div>`;
+  if (hasMeta && st.publication_status !== 'published') { try { renderAiPublisherCard(pid, st); } catch (e) {} }
+  host.querySelectorAll('[data-fl-act]').forEach((b) => {
+    b.onclick = async () => {
+      const act = b.getAttribute('data-fl-act');
+      const id = b.getAttribute('data-fl-pid');
+      b.disabled = true; b.textContent = '…';
+      try {
+        if (act === 'generate') {
+          const r = await api(`/api/video-projects/${id}/generate-script`, { method: 'POST' });
+          const ta = document.getElementById('projScript');
+          if (ta && r && r.script_text) ta.value = r.script_text;
+        } else if (act === 'approve') {
+          await api(`/api/video-projects/${id}/pipeline/approve`, { method: 'POST' });
+        } else if (act === 'retry') {
+          await api(`/api/video-projects/${id}/pipeline/retry`, { method: 'POST' });
+        }
+      } catch (e) {
+        state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка') };
+      }
+      _factoryFetchPaint(id);
+    };
+  });
+  if (running && !window.__factoryPoll) window.__factoryPoll = setInterval(() => _factoryFetchPaint(pid), 4000);
+  if (!running && window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
+}
+function factoryConfirmAutopilot(onConfirm) {
+  const ov = document.createElement('div');
+  ov.className = 'aip-modal-ov';
+  ov.innerHTML = `<div class="aip-modal">
+    <div class="aip-modal-h">Включить полный автопилот?</div>
+    <div class="aip-modal-b">AutoSocial сможет публиковать видео на этот YouTube-канал <b>без индивидуального подтверждения</b>. Заголовок, метаданные и обложка будут выбраны автоматически.</div>
+    <div class="aip-modal-f"><button class="btn btn-secondary" data-m="cancel" type="button">Отмена</button><button class="btn btn-primary aip-warn" data-m="ok" type="button">Включить полный автопилот</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('[data-m="cancel"]').onclick = close;
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('[data-m="ok"]').onclick = () => { close(); try { onConfirm(); } catch (e) {} };
+}
+
+function renderAiPublisherCard(pid, st) {
+  const host = document.getElementById('aiPubHost');
+  if (!host) return;
+  const m = st.youtube_meta || {};
+  const titles = m.title_options || [];
+  const descs = m.description_options || [];
+  const selT = Number(m.selected_title || 0);
+  const selD = Number(m.selected_description || 0);
+  const overlay = m.overlay_text || '';
+  const thumbUrl = (m.thumbnail || {}).url || '';
+  const chMode = st.channel_publishing_mode || 'manual';
+  const ovr = st.publishing_override || null;
+  const eff = st.effective_mode || 'manual';
+  const opt = (t, i, sel, name, tall) => `
+    <label class="aip-opt ${i === sel ? 'rec' : ''}">
+      <input type="radio" name="${name}" value="${i}" ${i === sel ? 'checked' : ''}/>
+      <span class="aip-rank">${i === sel ? '🏆 Рекомендуемый' : '○ Вариант ' + (i + 1)}</span>
+      ${tall ? `<textarea class="aip-desctxt input" rows="3">${esc(t)}</textarea>` : `<input class="aip-titletxt input" value="${esc(t)}"/>`}
+    </label>`;
+  host.innerHTML = `<div class="aip">
+    <div class="aip-head"><span class="aip-badge">✦ AI Publisher</span><span class="aip-ok">✓ Пакет для публикации готов</span></div>
+    <div class="aip-sec"><div class="aip-h">Заголовки (${titles.length})</div>${titles.map((t, i) => opt(t, i, selT, 'aipTitle', false)).join('')}</div>
+    <div class="aip-sec"><div class="aip-h">Описания (${descs.length})</div>${descs.map((t, i) => opt(t, i, selD, 'aipDesc', true)).join('')}</div>
+    <div class="aip-grid2">
+      <div class="aip-sec"><div class="aip-h">Ключевые слова</div><input id="aipTags" class="input" value="${esc((m.tags || []).join(', '))}"/></div>
+      <div class="aip-sec"><div class="aip-h">Хэштеги</div><input id="aipHash" class="input" value="${esc((m.hashtags || []).join(' '))}"/></div>
+    </div>
+    <div class="aip-grid2">
+      <div class="aip-sec"><div class="aip-h">Обложка</div>
+        <div class="aip-thumb">${thumbUrl ? `<img src="${API_BASE}${esc(thumbUrl)}" alt=""/>` : ''}<span class="aip-overlay" id="aipOverlayPrev">${esc(overlay)}</span></div>
+        <label class="aip-h" style="margin:10px 0 0;display:block;">Текст на обложке<input id="aipOverlay" class="input" value="${esc(overlay)}"/></label>
+      </div>
+      <div class="aip-sec"><div class="aip-h">Закреплённый комментарий</div><textarea id="aipPinned" class="input" rows="4">${esc(m.pinned_comment || '')}</textarea></div>
+    </div>
+    <div class="aip-sec aip-modebar">
+      <div class="aip-h">Режим публикации</div>
+      <select id="aipMode" class="input">
+        <option value="default" ${!ovr ? 'selected' : ''}>По каналу — ${chMode === 'automatic' ? 'Автопилот' : 'Ручная проверка'}</option>
+        <option value="manual" ${ovr === 'manual' ? 'selected' : ''}>Ручная проверка (этот ролик)</option>
+        <option value="automatic" ${ovr === 'automatic' ? 'selected' : ''}>Полный автопилот (этот ролик)</option>
+      </select>
+      <span class="aip-eff">эффективно: <b>${eff === 'automatic' ? '🤖 Автопилот' : '🖐 Ручная проверка'}</b></span>
+    </div>
+    <div class="aip-foot">
+      <button class="btn btn-secondary" id="aipSave" type="button">Сохранить</button>
+      <button class="btn btn-primary" id="aipPublish" type="button">📡 Опубликовать на YouTube</button>
+    </div>
+  </div>`;
+  const ovIn = document.getElementById('aipOverlay');
+  const ovPrev = document.getElementById('aipOverlayPrev');
+  if (ovIn && ovPrev) ovIn.oninput = () => { ovPrev.textContent = ovIn.value; };
+  host.querySelectorAll('input[name="aipTitle"],input[name="aipDesc"]').forEach((r) => {
+    r.onchange = () => host.querySelectorAll('.aip-opt').forEach((el) => el.classList.toggle('rec', !!el.querySelector('input:checked')));
+  });
+  const gather = () => ({
+    title_options: Array.from(host.querySelectorAll('.aip-titletxt')).map((i) => i.value),
+    selected_title: Number((host.querySelector('input[name="aipTitle"]:checked') || {}).value || 0),
+    description_options: Array.from(host.querySelectorAll('.aip-desctxt')).map((i) => i.value),
+    selected_description: Number((host.querySelector('input[name="aipDesc"]:checked') || {}).value || 0),
+    tags: (document.getElementById('aipTags').value || '').split(',').map((x) => x.trim()).filter(Boolean),
+    hashtags: (document.getElementById('aipHash').value || '').split(/\s+/).map((x) => x.trim()).filter(Boolean),
+    overlay_text: (document.getElementById('aipOverlay').value || '').trim(),
+    pinned_comment: document.getElementById('aipPinned').value || '',
+  });
+  const doSave = () => api(`/api/video-projects/${pid}/ai-publisher/save`, { method: 'POST', body: JSON.stringify(gather()) });
+  document.getElementById('aipSave').onclick = async () => {
+    try { await doSave(); state.notice = { type: 'ok', text: 'Пакет сохранён.' }; }
+    catch (e) { state.notice = { type: 'error', text: 'Не удалось сохранить пакет.' }; }
+    render();
+  };
+  document.getElementById('aipPublish').onclick = async (ev) => {
+    const btn = ev.currentTarget;
+    try { await doSave(); } catch (e) {}
+    if (!window.confirm('Опубликовать это видео на YouTube с выбранными метаданными?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '📡 Публикую…'; }
+    try {
+      await api(`/api/video-projects/${pid}/pipeline/publish`, { method: 'POST' });
+      state.notice = { type: 'ok', text: 'Публикация запущена — идёт загрузка на YouTube…' };
+    } catch (e) {
+      state.notice = { type: 'error', text: String(e?.message || e?.error || 'Не удалось опубликовать') };
+    }
+    render();
+  };
+  const modeSel = document.getElementById('aipMode');
+  if (modeSel) modeSel.onchange = async () => {
+    const v = modeSel.value;
+    const apply = async (override) => {
+      try { await api(`/api/video-projects/${pid}/publishing-override`, { method: 'POST', body: JSON.stringify({ override }) }); _factoryFetchPaint(pid); }
+      catch (e) { state.notice = { type: 'error', text: 'Не удалось сменить режим.' }; render(); }
+    };
+    if (v === 'automatic') { modeSel.value = ovr || 'default'; factoryConfirmAutopilot(() => apply('automatic')); }
+    else if (v === 'manual') { apply('manual'); }
+    else { apply(null); }
+  };
+}
+
+function renderFactoryLine(pid) {
+  if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
+  if (pid) _factoryFetchPaint(pid);
+}
+
 function bindProjectsPage() {
+  const __fl = document.getElementById('factoryLine');
+  if (__fl) renderFactoryLine(__fl.getAttribute('data-pid'));
   const withErr = (fn) => async (...args) => {
     try { await fn(...args); } catch (e) {
       state.notice = { type: 'error', text: String(e?.message || e?.error || 'Ошибка запроса') };
@@ -7135,6 +7338,7 @@ function pageFactoryDashboard() {
     ${stat('Каналы', `${o.channels_total || 0} <span class="small">(${o.channels_active || 0} акт · ${o.channels_testing || 0} тест · ${o.channels_paused || 0} пауза)</span>`)}
     ${stat('Проекты в работе', num(o.projects_in_progress))}
     ${stat('Готовых видео', num(o.videos_rendered))}
+    ${stat('Короткие / Длинные', `${o.videos_short || 0} / ${o.videos_long || 0}`)}
     ${stat('Очередь', `${o.jobs_pending || 0} / ${o.jobs_processing || 0}${o.jobs_failed ? ` · <span style="color:#e5484d;">${o.jobs_failed} fail</span>` : ''}`)}
     ${stat('Публикации 7д/30д', `${o.published_7d || 0} / ${o.published_30d || 0}`)}
     ${stat('Views 7д', num(o.views_7d))}
@@ -7366,8 +7570,14 @@ function bindContentDirector() {
   document.querySelectorAll('[data-cd-approve]').forEach((b) => {
     b.onclick = withErr(async () => {
       const out = await api('/api/content-director/approve', { method: 'POST', body: JSON.stringify({ strategy_id: Number(b.getAttribute('data-cd-approve')) }) });
-      state.notice = { type: 'ok', text: `Одобрено. Создан проект #${out.video_project_id} — сценарист может писать текст.` };
+      const pid = out.video_project_id;
+      // Close the Director→Factory thread: the project appears, AI writes the
+      // script immediately, and we land on its conveyor at the review checkpoint.
+      state.notice = { type: 'ok', text: 'Одобрено. AI пишет сценарий…' };
       render();
+      try { await api(`/api/video-projects/${pid}/generate-script`, { method: 'POST' }); } catch (e) { /* the Сценарий station will show the state */ }
+      state.projectOpenId = pid;
+      nav('/projects');
     });
   });
   document.querySelectorAll('[data-cd-reject]').forEach((b) => {
@@ -7896,6 +8106,7 @@ function appLayout(path, title, body) {
         ['/publications', 'Публикации', 'history'],
         ['/factory-analytics', 'Аналитика каналов', 'dashboard'],
         ['/connections', shellText('nav_connections'), 'connections'],
+        ['/operations', 'Operations', 'dashboard'],
         ['/factory-settings', 'Система', 'settings'],
       ];
   const navHtml = links.map(([p, l, i]) => `<button type="button" data-link="${p}" class="nav-link ${path === p ? 'active' : ''}">${icon(i)}<span>${esc(l)}</span></button>`).join('');
@@ -7920,39 +8131,38 @@ function pageLogin() {
     : t('auth_hint_default');
   const painCards = [
     {
-      title: 'Контент забирает часы каждую неделю',
-      text: 'Идеи, тексты, согласования и публикация вручную съедают время владельца или маркетолога.',
+      title: 'Съёмка и монтаж отнимают часы каждую неделю',
+      text: 'Сценарий, озвучка, подбор видеоряда и монтаж вручную съедают время автора или редактора канала.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
     },
     {
-      title: 'Постинг идёт нерегулярно',
-      text: 'Когда публикации зависят от ручного режима, соцсети быстро становятся хаотичными и нестабильными.',
+      title: 'Ролики выходят нерегулярно',
+      text: 'Когда публикация зависит от ручного режима, канал быстро теряет ритм выхода видео.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3.5" y="4.5" width="17" height="16" rx="2.4"></rect><path d="M8 3v3.5M16 3v3.5M3.5 9h17"></path></svg>',
     },
     {
-      title: 'Посты не приводят к заявкам',
-      text: 'Без понятной структуры, оффера и CTA контент набирает просмотры, но не помогает продавать.',
+      title: 'Короткие и длинные видео тянуть вручную сложно',
+      text: 'Shorts и длинные ролики требуют разного сценария и монтажа — на оба формата вручную не хватает рук.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><path d="M4 18h16M7 14l3-3 3 2 4-5"></path><circle cx="17" cy="8" r="1.1"></circle></svg>',
     },
     {
-      title: 'Рост упирается в операционку',
-      text: 'Чтобы вести больше аккаунтов и кампаний, приходится нанимать людей вместо масштабирования процесса.',
+      title: 'Рост канала упирается в операционку',
+      text: 'Чтобы публиковать чаще и вести больше каналов, приходится нанимать людей вместо масштабирования процесса.',
       icon: '<svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="7" height="7" rx="1.4"></rect><rect x="14" y="4" width="7" height="7" rx="1.4"></rect><rect x="8.5" y="13" width="7" height="7" rx="1.4"></rect></svg>',
     },
   ];
   const features = [
-    ['Готовые темы и идеи', 'Сервис подсказывает темы, углы подачи и форматы, чтобы не начинать с пустого листа.'],
-    ['Посты и видео в одном сервисе', 'Генерируйте тексты, сценарии, структуры и материалы для регулярного контент-потока.'],
-    ['Автопостинг по расписанию', 'Публикуйте в нужное время без ручной рутины и потери ритма.'],
-    ['Контент-календарь', 'Планируйте неделю и месяц вперёд, чтобы видеть весь поток публикаций в одном месте.'],
-    ['Понятно для малого бизнеса', 'Не нужен отдельный контент-отдел: владелец, маркетолог или SMM могут запустить процесс сами.'],
-    ['Рост без хаоса', 'Больше проектов, клиентов и каналов без роста операционной нагрузки на команду.'],
+    ['Сценарии под нишу', 'Сервис пишет сценарий и структуру ролика под вашу нишу и формат.'],
+    ['Озвучка и субтитры', 'TTS-озвучка и субтитры с синхронизацией по словам — без ручной начитки и разметки.'],
+    ['Подбор видеоряда и музыки', 'Видеоряд и музыка подбираются автоматически под тему и настроение ролика.'],
+    ['Shorts и длинные видео', 'Один пайплайн собирает и короткие ролики, и видео на 8–12 минут.'],
+    ['Публикация по расписанию', 'Готовые ролики публикуются на YouTube в заданное время без ручной рутины.'],
+    ['Рост без хаоса', 'Больше каналов и ниш без роста операционной нагрузки на команду.'],
   ];
-  const pricing = MARKETING_PRICING_PLANS;
 
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-07-30-01" alt="AutoSocial.tech"/>
       <div class="landing-2026-top-actions">
         <button class="btn btn-link" data-link="/contact" type="button">${t('footer_support')}</button>
       </div>
@@ -7960,9 +8170,9 @@ function pageLogin() {
 
     <section class="landing-2026-hero reveal">
       <div class="landing-2026-hero-copy">
-        <span class="landing-2026-chip">Для малого бизнеса, маркетолога и in-house SMM без отдельной контент-команды</span>
-        <h1>Генерируйте посты и видео для соцсетей и запускайте автопостинг из одного сервиса.</h1>
-        <p>AutoSocial.tech помогает малому бизнесу быстрее вести соцсети: подсказывает темы, собирает контент, формирует календарь и публикует в Meta и YouTube без ручной рутины.</p>
+        <span class="landing-2026-chip">AI-фабрика видео для YouTube-каналов</span>
+        <h1>Сценарий, озвучка, монтаж и публикация на YouTube — без вашего участия.</h1>
+        <p>AutoSocial.tech пишет сценарий, озвучивает его, подбирает видеоряд и музыку, накладывает субтитры, рендерит готовый ролик и публикует его на YouTube — Shorts и длинные видео, полностью автоматически.</p>
         <div class="cta-row">
           <button id="heroRegisterBtn" class="btn btn-primary cta__button">Войти</button>
         </div>
@@ -7983,7 +8193,7 @@ function pageLogin() {
     </section>
 
     <section class="landing-2026-section">
-      <h2>Почему малому бизнесу сложно вести соцсети стабильно</h2>
+      <h2>Почему каналу сложно выпускать видео стабильно</h2>
       <div class="landing-2026-grid-4">
         ${painCards.map((c) => `<article class="landing-2026-card"><div class="landing-2026-icon">${c.icon}</div><h3>${c.title}</h3><p>${c.text}</p></article>`).join('')}
       </div>
@@ -7992,23 +8202,23 @@ function pageLogin() {
     <section id="landingHow" class="landing-2026-section">
       <h2>Как AutoSocial.tech экономит время каждую неделю</h2>
       <div class="landing-2026-steps">
-        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Выберите тему или получите идеи</h3><p>Сервис предлагает темы, форматы и углы подачи под ваш бизнес.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Сгенерируйте посты и видео</h3><p>Получите текст, структуру, CTA и материалы для контента без долгой ручной подготовки.</p></article>
-        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Запланируйте и публикуйте</h3><p>Соберите контент-календарь и поддерживайте регулярный постинг без хаоса.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">01</span><h3>Настройте канал и нишу</h3><p>Укажите нишу, тон и формат — короткие ролики, длинные видео или оба.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">02</span><h3>Пайплайн собирает видео</h3><p>Сценарий, озвучка, видеоряд, музыка и субтитры собираются автоматически.</p></article>
+        <article class="landing-2026-card"><span class="landing-2026-step">03</span><h3>Рендер и публикация на YouTube</h3><p>Готовый ролик рендерится и публикуется по расписанию без ручной работы.</p></article>
       </div>
     </section>
 
     <section class="landing-2026-demo">
-      <h2>Что получает бизнес на выходе</h2>
-      <p>Вместо ручного цикла "придумать -> написать -> согласовать -> опубликовать" вы получаете один рабочий процесс для идей, контента и автопостинга.</p>
+      <h2>Что получает канал на выходе</h2>
+      <p>Вместо ручного цикла "придумать -> написать -> начитать -> смонтировать -> опубликовать" вы получаете один автоматический процесс от идеи до публикации на YouTube.</p>
       <div class="landing-2026-demo-box">
-        <strong>В одном окне:</strong><br/>
-        идеи и темы -> генерация постов и видео -> календарь -> публикация по расписанию
+        <strong>В одном пайплайне:</strong><br/>
+        идея и сценарий -> озвучка -> видеоряд и субтитры -> рендер -> публикация на YouTube
       </div>
     </section>
 
     <section class="landing-2026-section">
-      <h2>Что получает малый бизнес вместо ручного SMM</h2>
+      <h2>Что получает канал вместо ручного видео-продакшена</h2>
       <div class="landing-2026-grid-3">
         ${features.map(([title, text]) => `<article class="landing-2026-card landing-2026-feature"><h3>${title}</h3><p>${text}</p></article>`).join('')}
       </div>
@@ -8055,7 +8265,7 @@ function pageTrialActivated() {
   const projects = Number(billing?.limits?.projects || 1);
   return `<div class="landing-2026 page">
     <header class="landing-2026-topbar">
-      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-03-22-01" alt="AutoSocial.tech"/>
+      <img src="/assets/brand/logo-full-light.svg?v=brand-full-2026-07-30-01" alt="AutoSocial.tech"/>
     </header>
     <main class="landing-2026-final" style="max-width:920px;margin:48px auto;">
       <span class="landing-2026-chip">Бесплатный период активирован</span>
@@ -8973,8 +9183,11 @@ function pageConnections() {
   };
   const renderConnectionAvatar = (imageUrl, fallbackText, extraClass = '') => {
     const cls = `avatar connection-brand-avatar ${extraClass}`.trim();
-    if (imageUrl) return `<span class="${cls}"><img src="${esc(imageUrl)}" alt="" loading="lazy" /></span>`;
-    return `<span class="${cls}">${esc((safeText(fallbackText, 'A')[0] || 'A').toUpperCase())}</span>`;
+    const initials = esc((safeText(fallbackText, 'A')[0] || 'A').toUpperCase());
+    // Meta/YouTube picture URLs expire; if the image fails to load, fall back to
+    // the initial letter instead of the browser's broken-image "?" glyph.
+    if (imageUrl) return `<span class="${cls}" data-fallback="${initials}"><img src="${esc(imageUrl)}" alt="" loading="lazy" onerror="this.remove();this.parentNode.textContent=this.parentNode.dataset.fallback;" /></span>`;
+    return `<span class="${cls}">${initials}</span>`;
   };
   const platformIcons = {
     facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.8l.4-3h-3.2V9.1c0-.9.3-1.6 1.7-1.6H17V4.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.3V11H8v3h2.2v7h3.3z" fill="currentColor"/></svg>',
@@ -10331,14 +10544,26 @@ function renderSocialPreview(payload) {
 function pageCreateHub() {
   const billingPlan = String(state.billing?.plan || state.user?.plan || 'free').trim().toLowerCase() || 'free';
   const planLabel = String(localizedPlanTitle(billingPlan, state.billing?.plan_title || '') || '\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0442\u0430\u0440\u0438\u0444').trim();
+  // Video Factory first: Short and Long videos are the primary actions.
+  // Both open Content Director -- the real entry point video creation goes
+  // through (pick a channel, approve a topic, the pipeline takes it from
+  // there); short vs long follows the selected channel's own format, there
+  // isn't a separate one-page form per length. /create/video intentionally
+  // NOT used here: getCreatePlannerRoute() intercepts that path before the
+  // route map, so it always opens the legacy multi-platform weekly planner
+  // instead, regardless of any query string -- a real routing bug, not a
+  // naming choice; safer to point at the already-correct destination than to
+  // touch that routing precedence for this audit-scope fix.
   const launcherCards = [
-    { title: shellText('create_hub_post_title'), subtitle: shellText('create_hub_post_subtitle'), href: '/create/post', accent: 'POST', cta: shellText('create_hub_post_cta') },
-    { title: shellText('create_hub_video_title'), subtitle: shellText('create_hub_video_subtitle'), href: '/create/video', accent: 'VIDEO', cta: shellText('create_hub_video_cta') },
-    { title: shellText('create_hub_weekly_title'), subtitle: shellText('create_hub_weekly_subtitle'), href: plannerUrl('post', 7), accent: '7D', cta: shellText('create_hub_weekly_cta') },
-    { title: shellText('create_hub_monthly_title'), subtitle: shellText('create_hub_monthly_subtitle'), href: plannerUrl('post', 30), accent: '30D', cta: shellText('create_hub_monthly_cta') },
+    { title: 'Короткое видео (Shorts)', subtitle: 'Shorts до ~60 секунд: выберите канал в Content Director — сценарий, озвучка, видеоряд, субтитры, рендер и публикация на YouTube.', href: '/content-director', accent: 'SHORT', cta: 'Открыть Content Director' },
+    { title: 'Длинное видео', subtitle: 'Ролик ~8–12 минут: выберите канал в Content Director — тот же конвейер, формат берётся из настроек канала.', href: '/content-director', accent: 'LONG', cta: 'Открыть Content Director' },
   ];
+  // Secondary: navigate the factory, plus additional social-content tools (kept, not primary).
   const secondaryCards = [
-    { title: shellText('create_hub_youtube_title'), subtitle: shellText('create_hub_youtube_subtitle'), href: '/youtube', cta: shellText('create_hub_youtube_cta') },
+    { title: 'Видео-проекты и очередь', subtitle: 'Все проекты, статусы рендера и очередь публикации.', href: '/projects', cta: 'Открыть' },
+    { title: 'Публикации', subtitle: 'Статусы и ссылки опубликованных видео на YouTube.', href: '/publications', cta: 'Открыть' },
+    { title: 'Каналы YouTube', subtitle: 'Подключение каналов и настройки публикации.', href: '/channels', cta: 'Открыть' },
+    { title: shellText('create_hub_post_title'), subtitle: 'Дополнительные инструменты: посты и контент-планы для соцсетей (Meta).', href: '/create/post', cta: shellText('create_hub_post_cta') },
     { title: shellText('create_hub_planner_title'), subtitle: shellText('create_hub_planner_subtitle'), href: '/create/plan', cta: shellText('create_hub_planner_cta') },
   ];
   return appLayout('/create', shellText('nav_create'), `
@@ -10364,6 +10589,8 @@ function pageCreateHub() {
           </article>
         `).join('')}
       </div>
+      <h3 style="margin:22px 0 4px;">Управление и дополнительные инструменты</h3>
+      <p class="small" style="margin:0 0 12px;opacity:.7;">Навигация по фабрике и дополнительные инструменты для соцсетей.</p>
       <div class="create-hub-secondary">
         ${secondaryCards.map((card) => `
           <article class="create-hub-secondary-card">
@@ -12049,11 +12276,17 @@ function pageAdmin() {
   return appLayout('/admin','РђРґРјРёРЅ',`<section class="grid-2"><article class="card"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё</h2><button id="adminUsersBtn" class="btn btn-primary">Р—Р°РіСЂСѓР·РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</button><div style="margin-top:10px;">${adminUsersTable()}</div></article><article class="card"><h2>РўР°СЂРёС„С‹ Рё РєСЂРµРґРёС‚С‹</h2>${field('adminUserId','ID РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')}${selectField('adminPlan','РўР°СЂРёС„','free',[{value:'free',label:'Free Trial'},{value:'starter',label:'Starter'},{value:'growth',label:'Growth'},{value:'agency',label:'Agency'}])}${field('adminDelta','Р·РјРµРЅРµРЅРёРµ РєСЂРµРґРёС‚РѕРІ','number','0')}<div class="cta-row"><button id="adminSetPlanBtn" class="btn btn-secondary">РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С‚Р°СЂРёС„</button><button id="adminCreditsBtn" class="btn btn-ghost">Р·РјРµРЅРёС‚СЊ РєСЂРµРґРёС‚С‹</button></div></article><article class="card"><h2>РџР°РЅРµР»СЊ РІС‹СЂСѓС‡РєРё</h2>${revenue}<button id="adminRevenueBtn" class="btn btn-primary">РћР±РЅРѕРІРёС‚СЊ РІС‹СЂСѓС‡РєСѓ</button></article><article class="card"><h2>Р”РµР№СЃС‚РІРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</h2><div class="cta-row"><button id="adminGenBlogBtn" class="btn btn-secondary">РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СЊСЋ</button><button id="adminRunPlanBtn" class="btn btn-ghost">Р—Р°РїСѓСЃС‚РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РїР»Р°РЅ</button></div></article></section>`);
 }
 
+// Operations Overview lives in frontend/operations.js (separate UTF-8 module —
+// it renders real infra/queue/job data into this mount point).
+function pageOperations() {
+  return appLayout('/operations', 'Operations', '<section id="operationsRoot" class="ops-root"></section>');
+}
+
 function page(path) {
   const planner = getCreatePlannerRoute(path);
   if (planner) return pageCreatePlanner(planner);
   if (String(path || '').startsWith('/campaigns/')) return pageCampaignDetailsV2();
-  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/niches': pageNiches, '/content-director': pageContentDirector, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
+  const routes = { '/login': pageLogin, '/channels': pageChannels, '/projects': pageProjects, '/publications': pagePublications, '/factory-analytics': pageFactoryAnalytics, '/factory-settings': pageFactorySettings, '/niches': pageNiches, '/content-director': pageContentDirector, '/trial-activated': pageTrialActivated, '/dashboard': pageFactoryDashboard, '/analytics': pageAnalytics, '/create': pageCreateHub, '/create/post': pageCreateDirector, '/create/video': pageCreateDirector, '/create/plan': pageCreatePlanHub, '/calendar': pageCalendar, '/youtube': pageYouTubeStudio, '/connections': pageConnections, '/history': pageHistory, '/billing': pageBilling, '/settings': pageSettings, '/admin': pageAdmin, '/operations': pageOperations, '/blog': pageBlog, '/contact': pageContact, '/support': pageSupport };
   return (routes[path] || pageDashboard)();
 }
 
@@ -12264,7 +12497,12 @@ async function preload(path) {
 async function loadBase() { state.user = await api('/api/me'); state.billing = state.user.billing; state.onboarding = state.user.onboarding || null; state.projects = await api('/api/projects'); }
 function bindCommon() {
   const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
-  if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = () => { state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login'); };
+  if (sidebarLogoutBtn) sidebarLogoutBtn.onclick = async () => {
+    // Best-effort server-side revoke of this one session token -- logout must
+    // still work locally even if this call fails (offline, expired token, etc).
+    try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    state.token = ''; localStorage.removeItem('token'); state.user = null; nav('/login');
+  };
   const themeToggle = document.getElementById('themeToggleBtn');
   if (themeToggle) themeToggle.onclick = () => { setTheme(state.theme === 'dark' ? 'light' : 'dark'); render(); };
   const langSelects = Array.from(document.querySelectorAll('#siteLangSelect, #appShellLangSelect'));
@@ -12291,6 +12529,7 @@ async function bindCreateWizardV2(path) {
   if (path !== '/create') {
     if (window.__campaignAutosaveTimer) clearInterval(window.__campaignAutosaveTimer);
     if (window.__campaignDeliveriesPoller) clearInterval(window.__campaignDeliveriesPoller);
+    if (window.__factoryPoll) { clearInterval(window.__factoryPoll); window.__factoryPoll = null; }
     return;
   }
   hydrateCampaignDefaults();

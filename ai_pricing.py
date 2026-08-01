@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timedelta
 
 from database import SessionLocal
-from saas_models import AICostRecord
+from app_models import AICostRecord
 
 # unit: what input_units/output_units are measured in for the model.
 DEFAULT_PRICING = [

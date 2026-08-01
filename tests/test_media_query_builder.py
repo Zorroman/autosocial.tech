@@ -1,5 +1,4 @@
 import importlib
-import os
 import sys
 
 
@@ -80,7 +79,12 @@ def test_pick_image_url_uses_filter_and_fallback(monkeypatch):
             }
         ]
 
-    monkeypatch.setattr(image_picker, "_search_pexels", fake_search)
+    # pick_image_url now delegates to fetch_post_image (returns an image with a
+    # .local_url), not the old internal _search_pexels(query)->list[dict].
+    class _Img:
+        local_url = "https://example.com/haircut.jpg"
+
+    monkeypatch.setattr(image_picker, "fetch_post_image", lambda **k: _Img())
     picked = image_picker.pick_image_url(
         niche_slug="barbershop",
         niche_title="Barbershop",

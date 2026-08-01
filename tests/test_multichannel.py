@@ -3,7 +3,6 @@ visual intent/validation, channel isolation, snapshots."""
 import json
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
 
 import pytest
 
@@ -146,7 +145,7 @@ def test_wrong_channel_publishing_forbidden(client, monkeypatch):
     pub = client.post(f"/api/video-projects/{pid}/prepare-publication", headers=_h(client)).get_json()["publication"]
     # link YouTube to BOTH, but corrupt the publication to point at ch2
     from database import SessionLocal
-    from saas_models import Channel, Publication
+    from app_models import Channel, Publication
     db = SessionLocal()
     for cid in (ch1, ch2):
         c = db.query(Channel).filter_by(id=cid).first()
@@ -169,7 +168,7 @@ def test_automatic_publishing_disabled_blocks_upload(client):
     client.post(f"/api/video-projects/{pid}/render", headers=_h(client))
     pub = client.post(f"/api/video-projects/{pid}/prepare-publication", headers=_h(client)).get_json()["publication"]
     from database import SessionLocal
-    from saas_models import Channel
+    from app_models import Channel
     db = SessionLocal()
     c = db.query(Channel).filter_by(id=ch).first()
     c.youtube_channel_id = "UCx"
@@ -204,7 +203,7 @@ def test_generation_readiness_rules(client):
 def test_weighted_rotation_and_daily_limits(client):
     import content_api as ca
     from database import SessionLocal
-    from saas_models import Channel, ContentPillar, VideoProject
+    from app_models import Channel, ContentPillar, VideoProject
     nid = _seed_eso(client)
     ch = client.post("/api/channels", json={"name": "Rot"}, headers=_h(client)).get_json()["channel"]["id"]
     client.patch(f"/api/channels/{ch}", json={"niche_id": nid}, headers=_h(client))
@@ -256,7 +255,7 @@ def test_topic_requires_pillar_and_niche(client):
 def test_topic_duplicate_score(client):
     from content_api import _topic_duplicate_score
     from database import SessionLocal
-    from saas_models import ChannelIdea
+    from app_models import ChannelIdea
     ch = client.post("/api/channels", json={"name": "Dup"}, headers=_h(client)).get_json()["channel"]["id"]
     db = SessionLocal()
     db.add(ChannelIdea(channel_id=ch, title="Почему снится вода каждую ночь", topic="сны про воду"))
@@ -313,11 +312,10 @@ def test_visual_validation_cache_and_frames_cleanup(client, tmp_path, monkeypatc
     import subprocess as sp
     from database import SessionLocal
     from footage_library import register_asset
-    from saas_models import VisualValidationRecord
-    from visual_validation import validate_asset
+    from app_models import VisualValidationRecord
     monkeypatch.setenv("VISUAL_VALIDATION_ENABLED", "true")
-    import saas_settings, importlib
-    importlib.reload(saas_settings)
+    import app_settings, importlib
+    importlib.reload(app_settings)
     import visual_validation
     importlib.reload(visual_validation)
     db = SessionLocal()
@@ -344,12 +342,12 @@ def test_visual_validation_cache_and_frames_cleanup(client, tmp_path, monkeypatc
 def test_render_with_visual_validation_manifest(client, monkeypatch):
     """E2E with mock visual provider: manifest records visual stats; no network."""
     monkeypatch.setenv("VISUAL_VALIDATION_ENABLED", "true")
-    import importlib, saas_settings
-    importlib.reload(saas_settings)
+    import importlib, app_settings
+    importlib.reload(app_settings)
     for m in ("visual_validation", "footage_library"):
         if m in sys.modules:
             importlib.reload(sys.modules[m])
-    from saas_settings import settings
+    from app_settings import settings
     nid = _seed_eso(client)
     ch = client.post("/api/channels", json={"name": "ЭзоE2E"}, headers=_h(client)).get_json()["channel"]["id"]
     client.patch(f"/api/channels/{ch}", json={"niche_id": nid}, headers=_h(client))

@@ -18,10 +18,10 @@ import requests
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, Publication, RenderJob, SocialAccount, VideoProject
-from saas_services import decrypt_meta_token, encrypt_meta_token
-from saas_settings import settings
+from auth import require_auth
+from app_models import Channel, Publication, SocialAccount, VideoProject, VideoScene
+from app_services import decrypt_meta_token, encrypt_meta_token
+from app_settings import settings
 
 publications_api = Blueprint("publications_api", __name__, url_prefix="/api")
 
@@ -544,6 +544,54 @@ def manual_complete(pub_id: int):
 
 # ------------------------------------------------------------- auto upload
 
+_YT_PLAYLIST_ITEMS = "https://www.googleapis.com/youtube/v3/playlistItems"
+
+
+def _add_video_to_playlist(db, project, video_id: str, token: str) -> str:
+    """Add a just-published video to its content pillar's YouTube playlist.
+    Idempotent (skips when already present or already recorded). Best-effort —
+    never raises; publishing is never failed because of a playlist add."""
+    try:
+        from app_models import ContentPillar
+        if not project or not getattr(project, "content_pillar_id", None):
+            return "no_playlist"
+        if (getattr(project, "playlist_status", "") or "") == "added":
+            return "added"
+        pillar = db.query(ContentPillar).filter_by(id=project.content_pillar_id).first()
+        plid = ((pillar.youtube_playlist_id or "").strip() if pillar else "")
+        if not plid:
+            project.playlist_status = "no_playlist"
+            db.commit()
+            return "no_playlist"
+        # idempotency: already in the playlist?
+        chk = requests.get(_YT_PLAYLIST_ITEMS,
+                           params={"part": "snippet", "playlistId": plid,
+                                   "videoId": video_id, "maxResults": 1},
+                           headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        if chk.ok and (chk.json().get("items")):
+            project.playlist_status = "added"
+            db.commit()
+            return "added"
+        body = {"snippet": {"playlistId": plid,
+                            "resourceId": {"kind": "youtube#video", "videoId": video_id}}}
+        r = requests.post(_YT_PLAYLIST_ITEMS, params={"part": "snippet"}, json=body,
+                          headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        if r.ok:
+            project.playlist_status = "added"
+            db.commit()
+            return "added"
+        project.playlist_status = "failed"
+        db.commit()
+        return f"failed:{r.status_code}"
+    except Exception as exc:
+        try:
+            project.playlist_status = "failed"
+            db.commit()
+        except Exception:
+            pass
+        return f"error:{str(exc)[:120]}"
+
+
 def run_upload_job(pub_id: int) -> None:
     """Uploads the project MP4 to YouTube. Only runs when explicitly enqueued.
     Status flips to published only after the API confirms a video id."""
@@ -623,17 +671,35 @@ def run_upload_job(pub_id: int) -> None:
             pub.published_at = datetime.utcnow()
             pub.last_error = None
             pub.updated_at = datetime.utcnow()
+            # Content Factory: mark the publish station done.
+            _proj = db.query(VideoProject).filter_by(id=pub.project_id).first()
+            if _proj:
+                _proj.pipeline_stage = "publish"
+                _proj.pipeline_state = "done"
+                _proj.pipeline_error = None
             db.commit()
             from ai_pricing import record_cost
             record_cost(provider="google", model="youtube-data-api", operation_type="YouTube upload",
                         channel_id=pub.channel_id, project_id=pub.project_id,
                         request_id=f"upload:{pub.id}:{video_id}", db=db)
+            # Sort the published video into its pillar's playlist (best-effort).
+            try:
+                _add_video_to_playlist(db, _proj, video_id, token)
+            except Exception:
+                pass
         except Exception as exc:
             pub = db.query(Publication).filter_by(id=pub_id).first()
             if pub and pub.status == "uploading":
                 pub.status = "failed"
                 pub.last_error = str(exc)[:1000]
                 pub.updated_at = datetime.utcnow()
+                # Content Factory: a failed publish needs a human — never auto-retry
+                # in a way that could duplicate the upload.
+                _proj = db.query(VideoProject).filter_by(id=pub.project_id).first()
+                if _proj:
+                    _proj.pipeline_stage = "publish"
+                    _proj.pipeline_state = "needs_review"
+                    _proj.pipeline_error = f"Публикация не удалась: {str(exc)[:200]}"
                 db.commit()
     finally:
         db.close()
@@ -693,6 +759,152 @@ def start_upload(pub_id: int):
     finally:
         db.close()
     mode = _enqueue_upload(pid)
+    payload["queue_mode"] = mode
+    return jsonify({"publication": payload}), 202
+
+
+@publications_api.route("/video-projects/<int:project_id>/pipeline/publish", methods=["POST"])
+@require_auth
+def factory_publish(project_id: int):
+    """Content Factory publish station. Builds a Publication from the AI Publisher
+    selected metadata and uploads to YouTube. Explicit publish is allowed in both
+    modes (the mode + confirmation dialog already govern autonomy). Idempotent:
+    never double-publishes. Pass dry_run=true to preview without uploading."""
+    data = request.get_json(silent=True) or {}
+    dry_run = bool(data.get("dry_run"))
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        channel = db.query(Channel).filter_by(id=p.channel_id).first()
+        # safety gate: AI Publisher package present
+        if not (p.youtube_meta_json or "").strip():
+            return jsonify({"error": "Нет пакета публикации — сначала запустите AI Publisher."}), 409
+        try:
+            meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            meta = {}
+        titles = meta.get("title_options") or []
+        descs = meta.get("description_options") or []
+        ti = min(max(int(meta.get("selected_title") or 0), 0), max(0, len(titles) - 1))
+        di = min(max(int(meta.get("selected_description") or 0), 0), max(0, len(descs) - 1))
+        title = (titles[ti] if titles else p.title).strip()[:100]
+        description = (descs[di] if descs else (p.script_text or "")).strip()
+        hashtags = [h for h in (meta.get("hashtags") or []) if str(h).strip()]
+        if hashtags:
+            description = (description + "\n\n" + " ".join(hashtags))
+        description = description[:4900]
+        tags = [str(t).strip() for t in (meta.get("tags") or []) if str(t).strip()][:15]
+        privacy = (meta.get("privacy") or getattr(channel, "default_visibility", None) or "private")
+        if privacy not in ("public", "unlisted", "private"):
+            privacy = "private"
+        # safety gate: required metadata
+        if not title:
+            return jsonify({"error": "Нет заголовка — выберите заголовок в AI Publisher."}), 409
+        # safety gate: rendered video present
+        if p.status != "rendered" or not _project_output_file(p):
+            return jsonify({"error": "Готовое видео отсутствует."}), 409
+        # safety gate: YouTube connection valid
+        if not channel or not channel.youtube_channel_id or channel.youtube_connection_status != "connected":
+            return jsonify({"error": "YouTube-канал не подключён."}), 409
+        # idempotency: already published?
+        published = (db.query(Publication)
+                     .filter(Publication.project_id == p.id, Publication.status == "published")
+                     .first())
+        if published:
+            return jsonify({"error": "Это видео уже опубликовано.", "publication": _pub_dict(published)}), 409
+
+        # ---- Content Factory auto-publish safety gates ---------------------
+        # Any failure here leaves the project at needs_review with a precise
+        # reason and never uploads. These protect both manual and automatic
+        # publishing; automatic (public) publishing must clear all of them.
+        def _gate_fail(msg: str, code: int = 409):
+            p.pipeline_stage = "publish"
+            p.pipeline_state = "needs_review"
+            p.pipeline_error = msg
+            db.commit()
+            return jsonify({"error": msg, "gate": True}), code
+
+        # gate: every scene has media, none left for review
+        scenes = db.query(VideoScene).filter_by(project_id=p.id).all()
+        if not scenes or any(not (s.selected_media_path or "").strip() for s in scenes):
+            return _gate_fail("Не у всех сцен подобран видеоряд — публикация запрещена.")
+
+        # gate: final duration within target tolerance (e.g. 27–33s for 30s)
+        out_file = _project_output_file(p)
+        target = int(p.duration_target_seconds
+                     or getattr(channel, "default_video_duration_seconds", 0) or 0)
+        if target and out_file:
+            try:
+                from footage_library import probe_media
+                actual = float((probe_media(out_file) or {}).get("duration") or 0.0)
+            except Exception:
+                actual = 0.0
+            tol = 3 if target <= 60 else round(target * 0.15)  # Shorts tight, long-form ±15%
+            lo, hi = target - tol, target + tol
+            if not (lo <= actual <= hi):
+                return _gate_fail(
+                    f"Длительность {actual:.1f}s вне диапазона {lo}–{hi}s — публикация запрещена.")
+
+        # gate: final MP4 must carry an audio track (voiceover) spanning the video.
+        # A broken/cut voiceover → needs_review (never publish silent/truncated).
+        if out_file:
+            try:
+                from music_mix import _probe_dims
+                dims = _probe_dims(out_file)
+            except Exception:
+                dims = {"has_audio": False, "audio_duration": 0.0, "duration": 0.0}
+            if not dims.get("has_audio"):
+                return _gate_fail("В итоговом видео нет звуковой дорожки — публикация запрещена.")
+            if dims.get("audio_duration", 0.0) < (dims.get("duration", 0.0) - 1.0):
+                return _gate_fail("Звук короче видео (голос обрезан) — публикация запрещена.")
+
+        # gate: description must be non-empty
+        if not (description or "").strip():
+            return _gate_fail("Пустое описание — публикация запрещена.")
+
+        # gate: automatic publishing must be explicitly public
+        from factory_pipeline import effective_mode
+        if effective_mode(p, channel) == "automatic" and privacy != "public":
+            return _gate_fail(
+                f"Автопубликация разрешена только как public (privacy={privacy}).")
+        # -------------------------------------------------------------------
+
+        if dry_run:
+            return jsonify({"dry_run": True, "would_publish": {
+                "title": title, "description_chars": len(description),
+                "tags": tags, "privacy": privacy}}), 200
+        # reuse an inactive publication if any, else create
+        pub = (db.query(Publication)
+               .filter(Publication.project_id == p.id,
+                       Publication.status.in_(("draft", "ready", "failed", "needs_review")))
+               .order_by(Publication.id.desc()).first())
+        active = (db.query(Publication)
+                  .filter(Publication.project_id == p.id, Publication.status == "uploading").first())
+        if active:
+            return jsonify({"error": "Загрузка уже идёт."}), 409
+        if not pub:
+            pub = Publication(channel_id=p.channel_id, project_id=p.id, status="draft")
+            db.add(pub)
+        pub.title = title
+        pub.description = description
+        pub.tags_json = json.dumps(tags, ensure_ascii=False)
+        pub.privacy_status = privacy
+        pub.publish_mode = "immediate"
+        pub.last_error = None
+        pub.status = "uploading"  # atomic claim
+        pub.updated_at = datetime.utcnow()
+        p.pipeline_stage = "publish"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+        db.refresh(pub)
+        pub_id = pub.id
+        payload = _pub_dict(pub)
+    finally:
+        db.close()
+    mode = _enqueue_upload(pub_id)
     payload["queue_mode"] = mode
     return jsonify({"publication": payload}), 202
 

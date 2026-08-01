@@ -7,7 +7,7 @@ from openai import OpenAI
 import edge_tts
 
 from config import Config
-from saas_settings import settings
+from app_settings import settings
 
 
 _VOICE_BY_PROFILE = {
@@ -117,6 +117,12 @@ def _atempo_chain(speed_factor: float) -> str:
     return ",".join(parts)
 
 
+# Valid OpenAI TTS voices — an unknown name (e.g. "eddy") makes the API 400,
+# which is why every request fell back to the robotic offline engine.
+_OPENAI_TTS_VOICES = {"alloy", "ash", "ballad", "coral", "echo", "fable",
+                      "onyx", "nova", "sage", "shimmer", "verse"}
+
+
 def _tts_phrase_openai(
     text: str,
     out_path: Path,
@@ -124,6 +130,7 @@ def _tts_phrase_openai(
     voice_name: str | None = None,
     voice_gender: str | None = None,
     voice_tone: str | None = None,
+    instructions: str | None = None,
 ) -> None:
     key = (os.getenv("OPENAI_API_KEY") or Config.OPENAI_API_KEY or "").strip()
     if not key:
@@ -131,15 +138,17 @@ def _tts_phrase_openai(
     client = OpenAI(api_key=key, timeout=120)
     selected_voice = _resolve_openai_voice(voice_gender=voice_gender, voice_tone=voice_tone, voice_name=voice_name)
     fallback_voice = str(settings.OPENAI_TTS_VOICE or "alloy")
+    # keep only voices the API accepts; guarantee a valid default last.
+    candidates = [v for v in (selected_voice, fallback_voice) if v in _OPENAI_TTS_VOICES]
+    candidates.append("onyx")
     err: Exception | None = None
-    for voice_try in [selected_voice, fallback_voice]:
+    for voice_try in dict.fromkeys(candidates):  # dedupe, keep order
         try:
-            with client.audio.speech.with_streaming_response.create(
-                model=settings.OPENAI_TTS_MODEL,
-                voice=voice_try,
-                input=text,
-                format="mp3",
-            ) as response:
+            kwargs = dict(model=settings.OPENAI_TTS_MODEL, voice=voice_try,
+                          input=text, response_format="mp3")
+            if instructions and "gpt-4o-mini-tts" in (settings.OPENAI_TTS_MODEL or ""):
+                kwargs["instructions"] = instructions
+            with client.audio.speech.with_streaming_response.create(**kwargs) as response:
                 response.stream_to_file(str(out_path))
             return
         except Exception as exc:
@@ -237,17 +246,38 @@ def synthesize_voiceover(
     voice_tone: str | None = None,
     voice_name: str | None = None,
     speech_speed: str | float | int | None = None,
+    gap_before: list[float] | None = None,
+    instructions: str | None = None,
 ) -> tuple[str, list[float]]:
     out_dir.mkdir(parents=True, exist_ok=True)
     phrase_files: list[Path] = []
     durations: list[float] = []
+    has_gap = False
     for idx, phrase in enumerate(phrases):
         line = str(phrase or "").strip()
         if not line:
             line = " "
+        gap = 0.0
+        if gap_before and idx < len(gap_before):
+            try:
+                gap = max(0.0, float(gap_before[idx]))
+            except Exception:
+                gap = 0.0
+        if gap > 0:
+            sil = out_dir / f"{prefix}_gap_{idx:03d}.mp3"
+            _run([settings.FFMPEG_BIN, "-y", "-f", "lavfi",
+                  "-i", f"anullsrc=r=44100:cl=mono:d={gap:.3f}",
+                  "-c:a", "libmp3lame", "-q:a", "4", str(sil)])
+            phrase_files.append(sil)
+            has_gap = True
         p = out_dir / f"{prefix}_phrase_{idx:03d}.mp3"
         primary = _primary_tts_provider()
-        order = ("edge", "openai") if primary == "edge" else ("openai", "edge")
+        # A tone `instructions` block is an OpenAI gpt-4o-mini-tts feature — when
+        # supplied (long-form), prefer OpenAI for its warmer, controllable voice.
+        if instructions:
+            order = ("openai", "edge")
+        else:
+            order = ("edge", "openai") if primary == "edge" else ("openai", "edge")
         synthesized = False
         for provider in order:
             try:
@@ -266,6 +296,7 @@ def synthesize_voiceover(
                         voice_name=voice_name,
                         voice_gender=voice_gender,
                         voice_tone=voice_tone,
+                        instructions=instructions,
                     )
                 synthesized = True
                 break
@@ -277,7 +308,7 @@ def synthesize_voiceover(
         d = max(0.2, d)
         if min_phrase_seconds is not None:
             d = max(d, float(min_phrase_seconds))
-        durations.append(d)
+        durations.append(d + gap)  # the pause belongs to this phrase's slot
         phrase_files.append(p)
 
     concat_list = out_dir / f"{prefix}_concat.txt"
@@ -286,6 +317,9 @@ def synthesize_voiceover(
         encoding="utf-8",
     )
     final_audio = out_dir / f"{prefix}_voiceover.mp3"
+    # Copy-concat when all segments share codec params; re-encode when we inserted
+    # silence gaps (mixed params) so the concat is always clean.
+    codec_args = ["-c:a", "libmp3lame", "-q:a", "2"] if has_gap else ["-c", "copy"]
     _run(
         [
             settings.FFMPEG_BIN,
@@ -296,8 +330,7 @@ def synthesize_voiceover(
             "0",
             "-i",
             str(concat_list),
-            "-c",
-            "copy",
+            *codec_args,
             str(final_audio),
         ]
     )

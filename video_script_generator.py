@@ -42,10 +42,15 @@ def _normalize_phrases(raw) -> list[str]:
     return out[:120]
 
 
+# Calibrated against real OpenAI-TTS renders (project 5: 449 chars → 35.1s ≈
+# 12.8 chars/s incl. per-scene padding). Using the measured rate makes the
+# estimate track actual rendered duration so the 27–33s publish gate is hit.
+_TTS_CHARS_PER_SEC = 12.5
+
+
 def _estimate_seconds_from_phrases(phrases: list[str]) -> float:
     total_chars = sum(len(str(x or "").strip()) for x in (phrases or []))
-    # Средняя скорость живой речи ~13-15 символов/сек с паузами.
-    return max(0.0, total_chars / 14.0)
+    return max(0.0, total_chars / _TTS_CHARS_PER_SEC)
 
 
 def _sanitize_phrase(text: str, topic: str) -> str:
@@ -102,32 +107,43 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
     if not out:
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
 
-    target_seconds = max(20, min(480, int(target_seconds or 30)))
-    desired_scenes = max(4, int(round(float(target_seconds) / 4.0)))
-    if target_seconds <= 30:
-        desired_scenes = max(4, min(desired_scenes, 6))
-    elif target_seconds <= 40:
-        desired_scenes = max(5, min(desired_scenes, 8))
+    target_seconds = max(20, min(1800, int(target_seconds or 30)))
     fillers = _topic_fillers(topic, offer)
+
+    # Duration is the hard constraint (the 27–33s publish gate for a 30s target),
+    # so shape by TIME, not a fixed scene count. Keep a sane minimum of scenes,
+    # then pad up to / trim down to the target band. Scene count emerges from the
+    # phrase lengths, which lands ~6–8 short scenes for a 30s Short.
+    min_scenes = 4
     cursor = 0
-    while len(out) < desired_scenes:
+    while len(out) < min_scenes:
         out.append(fillers[cursor % len(fillers)])
         cursor += 1
         out = _dedupe_keep_order(out)
         if cursor > 24:
             break
 
-    # Добиваем длительность, но не раздуваем бесконечно.
+    # Pad up toward the target when the script is too short.
+    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
     loop_guard = 0
-    fill_target_ratio = 0.92
-    if target_seconds <= 30:
-        fill_target_ratio = 0.78
-    elif target_seconds <= 40:
-        fill_target_ratio = 0.84
     while _estimate_seconds_from_phrases(out) < float(target_seconds) * fill_target_ratio and loop_guard < 24:
         out.append(fillers[(cursor + loop_guard) % len(fillers)])
         out = _dedupe_keep_order(out)
         loop_guard += 1
+
+    # Trim down when the script overshoots (renders too long → gate rejects it).
+    # Never cut the hook (first) or the closing CTA (last); drop the longest
+    # middle phrase until inside the band.
+    ceiling = float(target_seconds) + 1.0
+    guard = 0
+    while (len(out) > min_scenes
+           and _estimate_seconds_from_phrases(out) > ceiling and guard < 24):
+        middle = out[1:-1]
+        if not middle:
+            break
+        longest = max(range(len(middle)), key=lambda i: len(middle[i]))
+        del out[1 + longest]
+        guard += 1
 
     return out[:120]
 
@@ -213,6 +229,127 @@ def _fallback(topic: str, offer: str | None, language: str, target_seconds: int,
     )
 
 
+def _generate_longform(topic, offer, language, target_seconds, style, style_pack) -> ScriptBundle:
+    """Calm long-form narration (12–20 min). Generated in chunks — an outline of
+    distinct sections, then each section expanded — so a 15-minute script stays
+    coherent and varied instead of being padded with repetitive filler."""
+    from openai_client import generate_json_with_retry
+
+    # More sections + over-ask words: gpt-4o-mini under-delivers ~30%, so we ask
+    # for more than the naive target and top up until the estimate hits target.
+    n_sections = max(8, min(22, round(target_seconds / 55)))
+    words_per_section = max(110, round(target_seconds * 2.9 / n_sections))
+
+    # Channel persona (a recurring narrator identity/values passed via `style`)
+    # kept consistent across every video — a strong authenticity signal.
+    _persona = (style or "").strip()
+    _voice = (f"Личность рассказчика (соблюдай тон и взгляд во всём тексте): {_persona}\n"
+              if _persona else "")
+    sys1 = (_voice + "Ты — сценарист спокойного глубокого закадрового повествования для "
+            "длинного медитативного видео. Верни только валидный JSON.")
+    usr1 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+            f"Составь план из {n_sections} последовательных смысловых частей — каждая "
+            "раскрывает отдельную грань темы (учение, идея, притча, практика, "
+            "размышление), логично развивая повествование, без повторов.\n"
+            'JSON: {"title":"...","description":"...","hashtags":["#..."],'
+            '"sections":["краткая тема части 1","краткая тема части 2"]}')
+
+    def _v1(p):
+        if not isinstance(p.get("sections"), list) or len(p["sections"]) < 3:
+            raise ValueError("sections required")
+
+    out = generate_json_with_retry(system_prompt=sys1, user_prompt=usr1, validator=_v1,
+                                   max_output_tokens=1100, temperature=0.7).payload
+    sections = [str(s).strip() for s in (out.get("sections") or []) if str(s).strip()][:n_sections]
+
+    phrases: list[str] = []
+    sys2 = (_voice + "Ты пишешь спокойный естественный закадровый текст для медитативного "
+            "видео от лица этого рассказчика. Живой человеческий язык, без клише, списков "
+            "и повторов. Верни только валидный JSON.")
+
+    def _v2(p):
+        if not isinstance(p.get("sentences"), list) or not p["sentences"]:
+            raise ValueError("sentences required")
+
+    def _expand(sec: str, i: int, n: int) -> None:
+        usr2 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                f"Часть {i + 1} из {n}: {sec}\n"
+                f"Напиши примерно {words_per_section} слов связного повествования по этой "
+                "части — несколько законченных предложений, спокойный созерцательный тон. "
+                "Иногда добавляй собственную интерпретацию рассказчика или мягкий вопрос "
+                "к зрителю — естественно, не навязчиво: это придаёт авторский взгляд, а не "
+                "сухой пересказ. Не повторяй уже сказанное, без вступлений вроде «в этой части».\n"
+                'JSON: {"sentences":["предложение","предложение"]}')
+        try:
+            sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr2, validator=_v2,
+                                          max_output_tokens=900, temperature=0.75).payload
+            for s in (sp.get("sentences") or []):
+                s = _sanitize_phrase(s, topic)
+                if s:
+                    phrases.append(s)
+        except Exception:
+            pass
+
+    for i, sec in enumerate(sections):
+        _expand(sec, i, len(sections))
+
+    # Top-up: keep adding fresh distinct sections until we reach ~target duration.
+    guard = 0
+    while (_estimate_seconds_from_phrases(_dedupe_keep_order(phrases)) < target_seconds * 0.9
+           and guard < 10):
+        guard += 1
+        try:
+            covered = "; ".join(sections[-12:])
+            usr3 = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                    f"Уже раскрыты части: {covered}\n"
+                    "Предложи ОДНУ новую, ещё не раскрытую смысловую часть по теме "
+                    "(другой аспект/притча/практика/пример), не повторяющую предыдущие.\n"
+                    'JSON: {"section":"краткая тема"}')
+            def _v3(p):
+                if not str(p.get("section") or "").strip():
+                    raise ValueError("section required")
+            ns = generate_json_with_retry(
+                system_prompt=sys1, user_prompt=usr3, validator=_v3, max_output_tokens=200,
+                temperature=0.8).payload.get("section", "").strip()
+        except Exception:
+            ns = ""
+        if not ns:
+            break
+        sections.append(ns)
+        _expand(ns, len(sections) - 1, len(sections))
+
+    # Closing authorial synthesis — a short first-person takeaway ("авторский
+    # вывод"): the narrator's own conclusion + a gentle question to the viewer.
+    # Lands last, so it becomes the final scene and drives the insight card.
+    try:
+        usr_syn = (f"Тема видео: {topic}\nЯзык: {language}\n"
+                   "Напиши короткий авторский вывод от первого лица (2–3 предложения): "
+                   "личная мысль-интерпретация рассказчика и мягкий вопрос к зрителю. "
+                   "Начни с ёмкой запоминающейся фразы. Без клише и без слова «итак».\n"
+                   'JSON: {"sentences":["...","..."]}')
+        sp = generate_json_with_retry(system_prompt=sys2, user_prompt=usr_syn, validator=_v2,
+                                      max_output_tokens=320, temperature=0.8).payload
+        for s in (sp.get("sentences") or []):
+            s = _sanitize_phrase(s, topic)
+            if s:
+                phrases.append(s)
+    except Exception:
+        pass
+
+    phrases = _dedupe_keep_order(phrases)
+    if len(phrases) < 8:
+        raise RuntimeError("longform_too_short")
+    shotlist = [{"phrase_index": i, "queries": [], "mood": "calm", "scene_type": "nature"}
+                for i in range(len(phrases))]
+    return ScriptBundle(
+        phrases=phrases, shotlist=shotlist,
+        title=str(out.get("title") or topic)[:100],
+        description=str(out.get("description") or topic),
+        hashtags=[str(h) for h in (out.get("hashtags") or []) if str(h).strip()][:8],
+        safety_rules=["only realistic calm footage", "no cgi", "no fantasy creatures"],
+    )
+
+
 def generate(
     topic: str,
     offer: str | None,
@@ -224,10 +361,17 @@ def generate(
     topic = str(topic or "").strip()
     if not topic:
         raise ValueError("topic is required")
-    target_seconds = max(20, min(480, int(target_seconds or 30)))
+    target_seconds = max(20, min(1800, int(target_seconds or 30)))
     style_pack = style_pack or {}
     if not is_openai_enabled():
         return _fallback(topic, offer, language, target_seconds, style_pack)
+
+    # Long-form (calm narration, e.g. 12–20 min): different generation path.
+    if target_seconds >= 150:
+        try:
+            return _generate_longform(topic, offer, language, target_seconds, style, style_pack)
+        except Exception:
+            pass  # fall through to the standard path on any failure
 
     allowed_scenes = list(style_pack.get("allowed_scenes") or [])
     query_bias = list(style_pack.get("query_bias") or [])
@@ -254,8 +398,14 @@ def generate(
         f"banned_tokens: {json.dumps(banned_tokens, ensure_ascii=False)}\n"
         f"preferred_mood: {mood}\n"
         f"motion_level: {motion_level}\n"
+        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 2.0))} слов "
+        f"(~{int(round(target_seconds * _TTS_CHARS_PER_SEC))} символов) — это {target_seconds}s при текущем TTS. Не превышай.\n"
+        f"Сделай {max(6, min(8, int(round(target_seconds / 4.0))))}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
         "Требования к phrases:\n"
-        "- каждая фраза это законченное предложение 8-16 слов;\n"
+        "- каждая фраза это законченное предложение 8-12 слов;\n"
+        "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
+        "- предпоследняя фраза — короткий авторский вывод или неожиданный поворот мысли (твоё наблюдение, а не пересказ факта);\n"
+        "- последняя фраза — короткий CTA, ровно одно предложение;\n"
         "- не используй императивные заготовки вида «покажем один», «добавим конкретику»;\n"
         "- фразы должны быть уникальны и логично развивать мысль;\n"
         "- никакой фантастики или AI-арта.\n"

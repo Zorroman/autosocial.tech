@@ -7,9 +7,9 @@ import stripe
 
 from database import SessionLocal
 from plans_catalog import get_plan_spec, normalize_plan_code
-from saas_models import AppUser, PaymentEvent, Plan
-from saas_services import CREDIT_PACKS, add_credits, reset_monthly_credits
-from saas_settings import settings
+from app_models import AppUser, PaymentEvent, Plan
+from app_services import CREDIT_PACKS, add_credits, reset_monthly_credits
+from app_settings import settings
 from services.entitlements import sync_subscription_state
 
 

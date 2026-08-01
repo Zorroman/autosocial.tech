@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ PY = sys.executable
 # ============================================================ publishing default
 
 def test_channel_model_default_publishing_off():
-    from saas_models import Channel
+    from app_models import Channel
     col = Channel.__table__.c.automatic_publishing_enabled
     assert col.default.arg is False, "new channels must default to auto-publish OFF"
     assert Channel.__table__.c.automatic_generation_enabled.default.arg is False
@@ -36,7 +37,7 @@ def test_migration_ddl_publishing_off():
 @pytest.fixture()
 def client(tmp_path):
     # fresh app on an isolated DB
-    for m in ("app", "database", "saas_models", "saas_settings", "channels_api",
+    for m in ("app", "database", "app_models", "app_settings", "channels_api",
               "content_api", "content_director", "content_director_api",
               "publications_api", "video_projects_api", "migrations"):
         sys.modules.pop(m, None)
@@ -118,12 +119,12 @@ def test_youtube_link_does_not_enable_publishing(client, monkeypatch):
     import publications_api as pa
     ch = client.post("/api/channels", json={"name": "YT"}, headers=_h(client)).get_json()["channel"]["id"]
     from database import SessionLocal
-    from saas_models import Channel, SocialAccount
+    from app_models import SocialAccount
     db = SessionLocal()
     acc = SocialAccount(user_id=client.admin_id, provider="youtube", status="connected_ready",
                         token_encrypted="x", token_expires_at=__import__("datetime").datetime.utcnow()
                         + __import__("datetime").timedelta(hours=1))
-    db.add(acc); db.commit(); db.refresh(acc); acc_id = acc.id; db.close()
+    db.add(acc); db.commit(); db.refresh(acc); db.close()
     monkeypatch.setattr(pa, "_valid_account_token", lambda db, a: "tok")
     monkeypatch.setattr(pa, "_yt_list_my_channels", lambda tok: ([{"id": "UCx", "title": "My"}], None))
     r = client.post(f"/api/channels/{ch}/youtube/link", json={"youtube_channel_id": "UCx"}, headers=_h(client))
@@ -279,7 +280,23 @@ def deploy_env(tmp_path):
     con = sqlite3.connect(app / "autosocial.db")
     con.execute("CREATE TABLE t(x)"); con.execute("INSERT INTO t VALUES(1)"); con.commit(); con.close()
     sha = _sha(ROOT / "frontend/app.js")
-    base = {**os.environ, "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
+    # deploy_production.sh invokes bare `python3` internally (correct in
+    # production, where that resolves to an interpreter with the app's
+    # dependencies already installed). Prepend the current interpreter's own
+    # bin dir so the same holds true for this subprocess -- without this, on
+    # a machine where the venv isn't activated (PATH untouched), `python3`
+    # resolves to the system interpreter and migrations.py's `import
+    # sqlalchemy` fails with a misleading, environment-only error unrelated
+    # to the script's actual logic.
+    # NOTE: do NOT .resolve() this path -- venv/bin/python3 is a symlink to
+    # the base interpreter, and resolving it walks past the venv directory
+    # entirely (losing the pyvenv.cfg venv detection that makes site-packages
+    # visible), landing back on the very system interpreter this is meant to
+    # avoid.
+    py_dir = str(Path(sys.executable).parent)
+    path_with_venv = py_dir + os.pathsep + os.environ.get("PATH", "")
+    base = {**os.environ, "PATH": path_with_venv,
+            "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
             "BACKUP_DIR": str(tmp_path / "backups"), "LOCK_FILE": str(tmp_path / "deploy.lock"),
             "TARGET_COMMIT": "HEADSHA", "FRONTEND_EXPECTED_SHA": sha}
     return app, sha, base
@@ -349,13 +366,36 @@ def test_deploy_empty_backup_rejected(deploy_env, tmp_path):
 
 def test_deploy_lock_prevents_concurrent(deploy_env):
     app, sha, env = deploy_env
-    # pre-create the lock dir to simulate a held lock
+    # deploy_production.sh uses flock on the lock *file* when `flock` is on
+    # PATH (true on both this CI runner and the real Linux production host)
+    # and only falls back to an atomic mkdir-based lock *dir* when it isn't
+    # (true on macOS, which ships no `flock` binary). Simulating only the
+    # mkdir-dir form of the lock silently no-ops on Linux -- the script never
+    # looks at that path there -- so the "concurrent deploy blocked" case
+    # went completely unverified on the actual deploy target until this was
+    # caught by a real GitHub Actions run.
+    has_flock = shutil.which("flock") is not None
+    holder = None
     lock_dir = Path(env["LOCK_FILE"] + ".d")
-    lock_dir.mkdir(parents=True)
-    (lock_dir / "owner").write_text("pid=1 held")
     try:
+        if has_flock:
+            holder = subprocess.Popen(
+                ["flock", env["LOCK_FILE"], "sleep", "30"],
+            )
+            for _ in range(50):  # wait for the holder to actually acquire it
+                if Path(env["LOCK_FILE"]).exists():
+                    break
+                time.sleep(0.1)
+            time.sleep(0.2)
+        else:
+            lock_dir.mkdir(parents=True)
+            (lock_dir / "owner").write_text("pid=1 held")
+
         r = _run_deploy(env)
         assert r.returncode == 3
         assert "another deployment holds the lock" in (r.stdout + r.stderr)
     finally:
+        if holder is not None:
+            holder.kill()
+            holder.wait()
         shutil.rmtree(lock_dir, ignore_errors=True)

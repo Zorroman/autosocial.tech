@@ -1,9 +1,8 @@
 import json
 import re
-from pathlib import Path
 from typing import Any
 
-from saas_settings import settings
+from app_settings import settings
 
 
 _KEYWORDS_PATH = settings.BASE_DIR / "data" / "niche_media_keywords.json"

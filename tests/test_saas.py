@@ -1,7 +1,6 @@
 import importlib
 import os
 import sys
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -38,12 +37,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
         "services.entitlements",
         "plans_catalog",
     ]:
@@ -328,7 +327,7 @@ def test_delete_project_requires_exact_confirmation_and_deletes_related_data(cli
     assert payload["deleted_project_id"] == project_id
 
     from database import SessionLocal
-    from saas_models import CreditLedger, Post, Project, TopicSuggestion
+    from app_models import CreditLedger, Post, Project, TopicSuggestion
 
     db = SessionLocal()
     try:
@@ -414,8 +413,8 @@ def test_delete_project_via_post_endpoint(client):
 
 def test_stripe_webhook_subscription_updates_plan_for_dynamic_price(client, monkeypatch):
     from database import SessionLocal
-    from saas_auth import hash_password
-    from saas_models import AppUser
+    from auth import hash_password
+    from app_models import AppUser
     import stripe_service as stripe_service_module
 
     stripe_service = importlib.reload(stripe_service_module)
@@ -472,8 +471,8 @@ def test_stripe_webhook_subscription_updates_plan_for_dynamic_price(client, monk
 
 def test_stripe_portal_creates_customer_when_missing(client, monkeypatch):
     from database import SessionLocal
-    from saas_auth import hash_password
-    from saas_models import AppUser
+    from auth import hash_password
+    from app_models import AppUser
     import stripe_service as stripe_service_module
 
     stripe_service = importlib.reload(stripe_service_module)
@@ -692,10 +691,10 @@ def test_free_trial_and_plans_do_not_call_stripe_without_prices(client, monkeypa
 
 
 def test_auth_challenge_fails_closed_when_smtp_delivery_fails(client, monkeypatch):
-    import saas_api
+    import api
 
-    monkeypatch.setattr(saas_api.settings, "ENV", "production")
-    monkeypatch.setattr(saas_api, "_send_auth_email_code", lambda **kwargs: False)
+    monkeypatch.setattr(api.settings, "ENV", "production")
+    monkeypatch.setattr(api, "_send_auth_email_code", lambda **kwargs: False)
 
     response = client.post(
         "/api/auth/challenge",
@@ -715,10 +714,10 @@ def test_auth_challenge_fails_closed_when_smtp_delivery_fails(client, monkeypatc
 
 
 def test_auth_challenge_successful_smtp_path_returns_email_delivery(client, monkeypatch):
-    import saas_api
+    import api
 
-    monkeypatch.setattr(saas_api.settings, "ENV", "production")
-    monkeypatch.setattr(saas_api, "_send_auth_email_code", lambda **kwargs: True)
+    monkeypatch.setattr(api.settings, "ENV", "production")
+    monkeypatch.setattr(api, "_send_auth_email_code", lambda **kwargs: True)
 
     response = client.post(
         "/api/auth/challenge",

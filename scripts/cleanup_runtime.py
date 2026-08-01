@@ -26,8 +26,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 from database import SessionLocal  # noqa: E402
-from saas_models import RenderJob, VideoProject, VideoScene  # noqa: E402
-from saas_settings import settings  # noqa: E402
+from app_models import RenderJob, VideoProject, VideoScene  # noqa: E402
+from app_settings import settings  # noqa: E402
 
 DAY = 86400
 

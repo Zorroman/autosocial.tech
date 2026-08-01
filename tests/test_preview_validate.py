@@ -27,12 +27,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
     ]:
         if name in sys.modules:
             del sys.modules[name]

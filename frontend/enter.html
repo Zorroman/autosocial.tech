@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex,nofollow" />
+<meta name="theme-color" content="#05060a" />
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg?v=cyber-2026-07-22-01" />
+<title>AUTOSOCIAL // ACCESS</title>
+<style>
+  :root{
+    --bg:#05060a; --panel:#0a0e17; --cyan:#00f0ff; --mag:#ff2bd6;
+    --line:rgba(0,240,255,.16); --txt:#c7f7ff; --dim:#5b7686; --err:#ff3b6b;
+    --glow:0 0 14px rgba(0,240,255,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;
+    display:grid; place-items:center; overflow:hidden; position:relative;
+  }
+  /* animated grid floor + neon fog */
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(0,240,255,.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, rgba(255,43,214,.12), transparent 60%),
+      var(--bg);
+  }
+  .grid{position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.35;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:44px 44px;
+    transform:perspective(420px) rotateX(62deg) translateY(6%) scale(2.2);
+    transform-origin:center 70%;
+    mask-image:linear-gradient(to bottom, transparent, #000 46%, #000 62%, transparent);
+    animation:scroll 7s linear infinite;
+  }
+  @keyframes scroll{to{background-position:0 44px,44px 0}}
+  .scan{position:fixed; inset:0; z-index:3; pointer-events:none; mix-blend-mode:overlay; opacity:.5;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);
+    animation:flick 5s steps(60) infinite;}
+  @keyframes flick{0%,97%{opacity:.5}98%{opacity:.2}100%{opacity:.55}}
+
+  .card{position:relative; z-index:2; width:min(92vw,420px);
+    background:linear-gradient(180deg, rgba(10,14,23,.92), rgba(6,8,14,.96));
+    border:1px solid var(--line);
+    box-shadow:var(--glow), inset 0 0 40px rgba(0,240,255,.05);
+    padding:30px 28px 26px; clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+  }
+  .card::before{content:""; position:absolute; inset:-1px; z-index:-1; padding:1px;
+    background:linear-gradient(120deg,var(--cyan),transparent 30%,transparent 70%,var(--mag));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.5;}
+  .tag{font-size:11px; letter-spacing:.32em; color:var(--dim); text-transform:uppercase}
+  h1{margin:6px 0 2px; font-size:26px; letter-spacing:.06em; line-height:1.05;
+    color:#eafcff; text-shadow:0 0 12px rgba(0,240,255,.45);}
+  h1 .b{color:var(--mag); text-shadow:0 0 12px rgba(255,43,214,.55)}
+  h1.glitch{position:relative}
+  h1.glitch::before,h1.glitch::after{content:attr(data-t); position:absolute; left:0; top:0; width:100%; overflow:hidden; opacity:.85}
+  h1.glitch::before{color:var(--mag); clip-path:inset(0 0 55% 0); animation:g1 3.2s infinite steps(2)}
+  h1.glitch::after{color:var(--cyan); clip-path:inset(52% 0 0 0); animation:g2 2.6s infinite steps(2)}
+  @keyframes g1{0%,90%,100%{transform:translate(0)}92%{transform:translate(-2px,-1px)}96%{transform:translate(2px,1px)}}
+  @keyframes g2{0%,90%,100%{transform:translate(0)}93%{transform:translate(2px,1px)}97%{transform:translate(-2px,-1px)}}
+  .sub{color:var(--dim); font-size:12px; margin:8px 0 22px; letter-spacing:.04em}
+  .sub .on{color:var(--cyan)}
+  label{display:block; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); margin:0 0 6px}
+  .fieldwrap{margin-bottom:16px}
+  input[type=email],input[type=password]{
+    width:100%; background:#04070d; color:var(--txt); border:1px solid var(--line);
+    padding:12px 12px; font:inherit; font-size:14px; letter-spacing:.04em; outline:none;
+    transition:border-color .15s, box-shadow .15s;}
+  input::placeholder{color:#2f4553}
+  input:focus{border-color:var(--cyan); box-shadow:var(--glow)}
+  .hp{position:absolute; left:-9999px; width:1px; height:1px; opacity:0}
+  button.go{width:100%; margin-top:6px; cursor:pointer; font:inherit; font-size:14px; letter-spacing:.18em;
+    text-transform:uppercase; color:#04121a; font-weight:700;
+    background:linear-gradient(90deg,var(--cyan),#7af9ff); border:0; padding:13px 14px;
+    clip-path:polygon(0 0,100% 0,100% 100%,10px 100%,0 calc(100% - 10px));
+    box-shadow:0 0 18px rgba(0,240,255,.5); transition:transform .08s, box-shadow .15s, filter .15s}
+  button.go:hover{filter:brightness(1.08); box-shadow:0 0 26px rgba(0,240,255,.75)}
+  button.go:active{transform:translateY(1px)}
+  button.go:disabled{opacity:.55; cursor:wait; filter:grayscale(.3)}
+  .msg{min-height:18px; margin-top:14px; font-size:12.5px; letter-spacing:.03em}
+  .msg.err{color:var(--err); text-shadow:0 0 10px rgba(255,59,107,.5)}
+  .msg.ok{color:var(--cyan)}
+  .foot{margin-top:20px; padding-top:14px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.18em; color:var(--dim); text-transform:uppercase}
+  .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); animation:pulse 1.6s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (max-width:420px){h1{font-size:22px} .card{padding:24px 20px}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="grid"></div>
+<main class="card" role="main">
+  <div class="tag">// secure terminal · node autosocial-prod</div>
+  <h1 class="glitch" data-t="ADMIN ACCESS">ADMIN <span class="b">ACCESS</span></h1>
+  <div class="sub"><span class="dot"></span> система <span class="on">online</span> · private single-admin</div>
+
+  <form id="f" autocomplete="on" novalidate>
+    <div class="fieldwrap">
+      <label for="email">Оператор / email</label>
+      <input id="email" name="email" type="email" autocomplete="username" placeholder="you@domain" required />
+    </div>
+    <div class="fieldwrap">
+      <label for="password">Ключ доступа / пароль</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+    </div>
+    <input class="hp" type="text" id="website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+    <button class="go" id="go" type="submit">Authenticate →</button>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  </form>
+
+  <div class="foot"><span>Authorized personnel only</span><span>v42a1a8c</span></div>
+</main>
+<div class="scan"></div>
+
+<script>
+(function(){
+  "use strict";
+  // Dedicated password entry: always show the form (no auto-redirect, so a
+  // stale token can never cause a bounce loop). Login stores a fresh token.
+
+  var host = location.hostname.replace(/^www\./,'');
+  var API = location.protocol + '//api.' + host;
+  var f = document.getElementById('f');
+  var go = document.getElementById('go');
+  var msg = document.getElementById('msg');
+
+  function say(text, kind){ msg.className = 'msg ' + (kind||''); msg.textContent = text || ''; }
+
+  f.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var email = document.getElementById('email').value.trim().toLowerCase();
+    var password = document.getElementById('password').value;
+    var website = document.getElementById('website').value; // honeypot
+    if (!email || !password){ say('Введите email и пароль.', 'err'); return; }
+    go.disabled = true; say('Проверка учётных данных…', 'ok');
+    try {
+      var res = await fetch(API + '/api/auth/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: email, password: password, website: website })
+      });
+      var data = {};
+      try { data = await res.json(); } catch(e){}
+      if (res.ok && data && data.token){
+        try { localStorage.setItem('token', data.token); } catch(e){}
+        say('Доступ разрешён. Инициализация панели…', 'ok');
+        location.replace('/dashboard/');
+        return;
+      }
+      if (res.status === 403){ say('Доступ ограничён: этот email не в списке администраторов. Проверьте адрес.', 'err'); }
+      else if (data && data.challenge_token){ say('Неверный пароль (или требуется код с почты). Проверьте пароль и повторите.', 'err'); }
+      else { say((data && (data.error || data.message)) || ('Ошибка входа ('+res.status+').'), 'err'); }
+    } catch(err){
+      say('Сеть недоступна. Повторите попытку.', 'err');
+    } finally {
+      go.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

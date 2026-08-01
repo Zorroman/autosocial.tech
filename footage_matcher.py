@@ -14,11 +14,10 @@ from footage.ranking import (
     near_duplicate,
     penalty_score,
     rank_candidates,
-    select_best_clip,
 )
-from footage.shots import DEFAULT_SCENE_QUERIES, ShotSpec
+from footage.shots import ShotSpec
 from footage.types import VideoResult
-from saas_settings import settings
+from app_settings import settings
 from style_packs import get_style_pack, normalize_scene
 
 

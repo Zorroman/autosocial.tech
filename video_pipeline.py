@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 import threading
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ from pathlib import Path
 from footage_matcher import match_shots
 from footage.shots import expand_short_shot_specs, normalize_shot_specs
 from footage.types import VideoResult
-from saas_settings import settings
+from app_settings import settings
 from style_packs import get_style_pack, snapshot_style_pack
 from video.render.render_video import render_video
 from video.subtitles import build_ass_subtitles, build_srt_subtitles, load_subtitle_lines, resolve_subtitle_profile

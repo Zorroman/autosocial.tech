@@ -8,6 +8,7 @@ thread (dev fallback; jobs are lost on restart - documented limitation).
 Progress values are written at real pipeline stages, never simulated.
 """
 import json
+import logging
 import re
 import socket
 import subprocess
@@ -18,9 +19,9 @@ from pathlib import Path
 from flask import Blueprint, g, jsonify, request
 
 from database import SessionLocal
-from saas_auth import require_auth
-from saas_models import Channel, ChannelIdea, RenderJob, VideoProject, VideoScene
-from saas_settings import settings
+from auth import require_auth
+from app_models import Channel, ChannelIdea, Publication, RenderJob, VideoProject, VideoScene
+from app_settings import settings
 
 video_projects_api = Blueprint("video_projects_api", __name__, url_prefix="/api")
 
@@ -75,6 +76,22 @@ def _own_project(db, project_id: int) -> VideoProject | None:
     )
 
 
+def _output_file_exists(p) -> bool:
+    """True when the project's rendered file is actually on disk.
+
+    Guards the UI against an empty <video> player and a dead Download link when
+    output_path is set but the file is gone (cleanup, failed render, restored DB).
+    """
+    rel = (getattr(p, "output_path", None) or "").strip()
+    if not rel:
+        return False
+    try:
+        f = (settings.BASE_DIR / rel).resolve()
+        return settings.BASE_DIR in f.parents and f.is_file()
+    except Exception:
+        return False
+
+
 def _iso(dt):
     return dt.isoformat() if dt else None
 
@@ -111,7 +128,9 @@ def _project_dict(p: VideoProject, scenes=None, jobs=None) -> dict:
         "aspect_ratio": p.aspect_ratio,
         "duration_target_seconds": p.duration_target_seconds,
         "output_path": p.output_path,
-        "output_url": f"/api/media/{p.output_path}" if p.output_path else None,
+        # Only expose a playable/downloadable URL when the file really exists —
+        # otherwise the UI renders an empty <video> and a dead Download link.
+        "output_url": f"/api/media/{p.output_path}" if _output_file_exists(p) else None,
         "content_pillar_id": p.content_pillar_id,
         "generation_profile": (json.loads(p.generation_profile_json) if p.generation_profile_json else None),
         "error": p.error,
@@ -188,13 +207,13 @@ def create_project():
         pillar = None
         pillar_id = data.get("content_pillar_id")
         if pillar_id:
-            from saas_models import ContentPillar
+            from app_models import ContentPillar
             pillar = db.query(ContentPillar).filter_by(id=int(pillar_id)).first()
             if not pillar:
                 return jsonify({"error": "content_pillar_id does not exist"}), 400
             if c.niche_id and pillar.niche_id != c.niche_id:
                 return jsonify({"error": "Pillar belongs to a different niche than the channel"}), 400
-        from saas_models import ContentNiche
+        from app_models import ContentNiche
         niche = db.query(ContentNiche).filter_by(id=c.niche_id).first() if c.niche_id else None
         snapshot = {
             "youtube_channel_id": c.youtube_channel_id,
@@ -296,6 +315,138 @@ def update_project(project_id: int):
 _SENTENCE_RE = re.compile(r"(?<=[.!?…])\s+")
 
 
+@video_projects_api.route("/video-projects/<int:project_id>/generate-script", methods=["POST"])
+@require_auth
+def generate_project_script(project_id: int):
+    """Content Factory — station «Сценарий».
+
+    Writes the script for a project from its idea/title with the AI script
+    generator, so a project never opens with an empty script. After success the
+    pipeline stops at the human checkpoint (state=needs_review) unless the
+    channel has full autopilot enabled (state=done)."""
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if (p.script_text or "").strip() and not data.get("replace"):
+            return jsonify({"error": "Script already exists; pass replace=true to regenerate"}), 409
+        topic = (p.title or "").strip()
+        if not topic:
+            return jsonify({"error": "Project has no idea to write about"}), 400
+        ch = db.query(Channel).filter_by(id=p.channel_id).first()
+        language = (getattr(ch, "language", None) or "ru")
+        target_seconds = int(p.duration_target_seconds or getattr(ch, "default_video_duration_seconds", 45) or 45)
+        style = (getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or "")
+        # Channel persona (recurring narrator identity/values) — prepended to the
+        # style so every video shares one authorial voice (authenticity signal).
+        try:
+            _gs = json.loads(getattr(ch, "generation_settings_json", None) or "{}")
+            _persona = str(_gs.get("persona") or "").strip()
+        except Exception:
+            _persona = ""
+        if _persona:
+            style = (_persona + "\n" + style).strip()
+
+        # Persist the resolved target + aspect on the project so every downstream
+        # station (split-scenes, media, render, publish gate) agrees. Essential
+        # for long-form, which those stations detect via duration_target_seconds.
+        if not p.duration_target_seconds:
+            p.duration_target_seconds = target_seconds
+        _fmt = (getattr(ch, "default_video_format", "") or "").lower()
+        if _fmt in ("16:9", "horizontal", "long", "longform", "long-form"):
+            p.aspect_ratio = "16:9"
+        db.commit()
+
+        # CTA reserves ~4s of the target so main content + CTA stays in the band.
+        import cta_generator as _cta
+        cta_cfg = _cta.read_cta_settings(ch)
+        cta_on = bool(cta_cfg.get("cta_enabled"))
+        main_target = target_seconds
+        if cta_on and target_seconds > (_cta.CTA_RESERVE_SECONDS + 8):
+            main_target = int(round(target_seconds - _cta.CTA_RESERVE_SECONDS))
+
+        p.pipeline_stage = "script"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+
+        try:
+            from video_script_generator import generate as _generate_script
+            bundle = _generate_script(topic=topic, offer=None, language=language,
+                                      target_seconds=main_target, style=style)
+        except Exception as exc:  # noqa: BLE001 — surface as a station error, don't 500
+            p.pipeline_state = "error"
+            p.pipeline_error = f"script: {str(exc)[:280]}"
+            db.commit()
+            return jsonify({"error": "Не удалось написать сценарий. Попробуйте ещё раз.",
+                            "detail": str(exc)[:280], "pipeline_state": "error"}), 502
+
+        phrases = [str(ph).strip() for ph in (getattr(bundle, "phrases", None) or []) if str(ph).strip()]
+        script_text = "\n".join(phrases).strip()
+        if not script_text:
+            p.pipeline_state = "error"
+            p.pipeline_error = "script: empty result"
+            db.commit()
+            return jsonify({"error": "Сгенерированный сценарий оказался пустым.",
+                            "pipeline_state": "error"}), 502
+
+        p.script_text = script_text
+        # --- final subscribe CTA (optional; never blocks the script station) ---
+        if cta_on:
+            try:
+                window = int(cta_cfg.get("cta_history_window") or 20)
+                recent_rows = (db.query(VideoProject.cta_text, VideoProject.cta_type)
+                               .filter(VideoProject.channel_id == p.channel_id,
+                                       VideoProject.cta_text.isnot(None))
+                               .order_by(VideoProject.id.desc()).limit(window).all())
+                recent_ctas = [r[0] for r in recent_rows if r[0]]
+                recent_types = [r[1] for r in recent_rows if r[1]]
+                cta = _cta.generate_cta({
+                    "language": language,
+                    "niche": getattr(ch, "niche", None),
+                    "project_title": p.title,
+                    "topic": topic,
+                    "last_line": phrases[-1] if phrases else "",
+                    "channel_promise": (cta_cfg.get("cta_fallback_text") or ""),
+                    "recent_ctas": recent_ctas,
+                    "recent_types": recent_types,
+                    "min_words": cta_cfg.get("cta_min_words"),
+                    "max_words": cta_cfg.get("cta_max_words"),
+                    "max_same_type_streak": cta_cfg.get("cta_max_same_type_streak"),
+                })
+                p.cta_enabled = True
+                p.cta_text = cta["text"]
+                p.cta_type = cta["type"]
+                p.cta_language = cta["language"]
+                p.cta_source = cta["source"]
+                p.cta_fallback_used = bool(cta["fallback_used"])
+            except Exception as exc:  # CTA is optional — log and continue
+                p.cta_enabled = True
+                p.cta_source = "fallback"
+                p.pipeline_error = None
+                logging.getLogger("factory.cta").warning("cta gen failed: %s", str(exc)[:200])
+        else:
+            p.cta_enabled = False
+            p.cta_source = "disabled"
+
+        autopilot = bool(getattr(ch, "autopilot_enabled", False))
+        p.pipeline_stage = "script"
+        p.pipeline_state = "done" if autopilot else "needs_review"
+        db.commit()
+        db.refresh(p)
+        return jsonify({
+            "script_text": p.script_text,
+            "title": getattr(bundle, "title", None) or p.title,
+            "pipeline_stage": p.pipeline_stage,
+            "pipeline_state": p.pipeline_state,
+            "checkpoint": (not autopilot),
+        }), 200
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/video-projects/<int:project_id>/split-scenes", methods=["POST"])
 @require_auth
 def split_scenes(project_id: int):
@@ -318,7 +469,9 @@ def split_scenes(project_id: int):
         sentences = [s.strip() for s in _SENTENCE_RE.split(script) if s.strip()]
         if not sentences:
             return jsonify({"error": "Could not split script into sentences"}), 400
-        per_scene = 2
+        # Long-form (calm narration) → fewer, longer scenes; Shorts stay punchy.
+        _tgt = int(p.duration_target_seconds or 0)
+        per_scene = 4 if _tgt >= 150 else 2
         chunks = [" ".join(sentences[i:i + per_scene]) for i in range(0, len(sentences), per_scene)]
         # ~2.5 words/second speaking pace, clamped to sane shot lengths.
         scenes = []
@@ -335,7 +488,26 @@ def split_scenes(project_id: int):
             )
             db.add(s)
             scenes.append(s)
+        # Long-form: the last content beat is the authorial synthesis (the script
+        # generator writes it there) — mark it so the render shows an insight card.
+        if _tgt >= 150 and scenes:
+            scenes[-1].visual_type = "insight"
+        # Append the final subscribe CTA as its own scene, so it flows through
+        # the same TTS / subtitles / render path (voiced last, own subtitle cue).
+        if getattr(p, "cta_enabled", False) and (p.cta_text or "").strip():
+            import cta_generator as _cta
+            db.add(VideoScene(
+                project_id=p.id,
+                order_index=len(scenes),
+                voiceover_text=p.cta_text.strip(),
+                on_screen_text=None,
+                estimated_duration=_cta.CTA_RESERVE_SECONDS,
+                status="draft",
+                is_cta=True,
+            ))
         db.commit()
+        scenes = (db.query(VideoScene).filter_by(project_id=p.id)
+                  .order_by(VideoScene.order_index.asc()).all())
         for s in scenes:
             db.refresh(s)
         return jsonify({"scenes": [_scene_dict(s) for s in scenes]}), 201
@@ -440,6 +612,27 @@ def delete_scene(scene_id: int):
         db.close()
 
 
+def _generate_fixture_clip(s: "VideoScene") -> tuple[str | None, str | None]:
+    """Generate (if needed) a local synthetic placeholder clip for a scene, no
+    stock API involved. Returns (path, None) on success or (None, error)."""
+    fixtures_dir = (settings.CACHE_DIR / "fixture_clips").resolve()
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    colors = ["0x1a1a2e", "0x16213e", "0x0f3460", "0x1f1d36", "0x2a2438"]
+    color = colors[s.order_index % len(colors)]
+    dur = max(2.0, min(15.0, float(s.estimated_duration or 4.0)))
+    out = fixtures_dir / f"fixture_{color[2:]}_{int(dur * 10)}.mp4"
+    if not out.exists():
+        proc = subprocess.run(
+            [settings.FFMPEG_BIN, "-y", "-f", "lavfi",
+             "-i", f"color=c={color}:s=640x1136:d={dur}:r=30",
+             "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)],
+            capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            return None, f"ffmpeg fixture generation failed: {(proc.stderr or '')[:300]}"
+    return str(out), None
+
+
 @video_projects_api.route("/scenes/<int:scene_id>/fixture-media", methods=["POST"])
 @require_auth
 def scene_fixture_media(scene_id: int):
@@ -450,22 +643,10 @@ def scene_fixture_media(scene_id: int):
         s = _own_scene(db, scene_id)
         if not s:
             return jsonify({"error": "Scene not found"}), 404
-        fixtures_dir = (settings.CACHE_DIR / "fixture_clips").resolve()
-        fixtures_dir.mkdir(parents=True, exist_ok=True)
-        colors = ["0x1a1a2e", "0x16213e", "0x0f3460", "0x1f1d36", "0x2a2438"]
-        color = colors[s.order_index % len(colors)]
-        dur = max(2.0, min(15.0, float(s.estimated_duration or 4.0)))
-        out = fixtures_dir / f"fixture_{color[2:]}_{int(dur * 10)}.mp4"
-        if not out.exists():
-            proc = subprocess.run(
-                [settings.FFMPEG_BIN, "-y", "-f", "lavfi",
-                 "-i", f"color=c={color}:s=640x1136:d={dur}:r=30",
-                 "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)],
-                capture_output=True, text=True,
-            )
-            if proc.returncode != 0:
-                return jsonify({"error": f"ffmpeg fixture generation failed: {(proc.stderr or '')[:300]}"}), 500
-        s.selected_media_path = str(out)
+        out, err = _generate_fixture_clip(s)
+        if err:
+            return jsonify({"error": err}), 500
+        s.selected_media_path = out
         s.visual_type = "fixture"
         s.status = "ready"
         db.commit()
@@ -564,15 +745,31 @@ def run_render_job(job_id: int) -> None:
                     phrases = [(s.voiceover_text or "").strip() for s in scenes]
                     if not any(phrases):
                         raise RuntimeError("tts_no_text: scenes have no voiceover_text")
+                    # 0.3s pause before the final CTA (same voice, natural break).
+                    gap_before = [0.3 if getattr(s, "is_cta", False) else 0.0 for s in scenes]
+                    # Clamp the combined voiceover (main + CTA) to the target so the
+                    # finished Short stays inside the 27–33s publish band even with
+                    # the appended CTA. TTS speeds up/pads to fit.
+                    _ch = db.query(Channel).filter_by(id=project.channel_id).first()
+                    _raw_tgt = float(project.duration_target_seconds
+                                     or getattr(_ch, "default_video_duration_seconds", 0) or 0)
+                    # Clamp only short-form to an exact target; long-form keeps its
+                    # natural length (a wide publish band applies instead).
+                    _tgt = _raw_tgt if (0 < _raw_tgt < 120) else None
                     voice_str, durations = synthesize_voiceover(
                         phrases, audio_dir, f"project_{project.id}",
-                        voice_name=(db.query(Channel).filter_by(id=project.channel_id).first() or Channel()).default_voice or None,
+                        voice_name=(_ch or Channel()).default_voice or None,
+                        gap_before=gap_before,
+                        target_total_seconds=_tgt,
                     )
                     voice_path = Path(voice_str)
                     for s, d in zip(scenes, durations):
                         if d and d > 0:
                             s.actual_duration = float(d)
                             s.estimated_duration = float(d)
+                            if getattr(s, "is_cta", False):
+                                # slot includes the 0.3s pause; spoken audio is the rest
+                                project.cta_audio_duration_seconds = round(max(0.1, float(d) - 0.3), 2)
                     db.commit()
                 _set_job(db, job_id, progress=15)
 
@@ -584,22 +781,47 @@ def run_render_job(job_id: int) -> None:
                 cue_scenes = []
                 for s in scenes:
                     sdur = float(s.estimated_duration or 4.0)
+                    c_start, c_dur = cursor, sdur
+                    if getattr(s, "is_cta", False):
+                        # CTA subtitle starts after the 0.3s pause, with the speech
+                        c_start, c_dur = cursor + 0.3, max(0.1, sdur - 0.3)
                     cue_scenes.append({
                         "text": (s.on_screen_text or s.voiceover_text or "").strip(),
-                        "start": cursor,
-                        "duration": sdur,
+                        "start": c_start,
+                        "duration": c_dur,
                     })
                     cursor += sdur
                 cues = build_cues(cue_scenes)
                 ass_path = subs_dir / f"project_{project.id}.ass"
                 if cues:
                     write_ass(cues, ass_path)
+                # Optional visual CTA badge: a positioned libass line over the CTA
+                # window (Cyrillic-safe, top-center, clear of bottom subtitles).
+                # Non-blocking: never fails the render.
+                try:
+                    import cta_generator as _cta
+                    _ccfg = _cta.read_cta_settings(_channel_for_cta := db.query(Channel).filter_by(id=project.channel_id).first())
+                    cta_scene = next((s for s in scenes if getattr(s, "is_cta", False)), None)
+                    if cues and cta_scene and _ccfg.get("cta_visual_enabled"):
+                        st = sum(float(x.estimated_duration or 4.0) for x in scenes
+                                 if x.order_index < cta_scene.order_index) + 0.3
+                        en = st + max(0.1, float(cta_scene.estimated_duration or 4.0) - 0.3)
+                        def _ass_t(t):
+                            h = int(t // 3600); m = int((t % 3600) // 60); s2 = t % 60
+                            return f"{h}:{m:02d}:{s2:05.2f}"
+                        label = {"ru": "Подпишись", "en": "Subscribe", "uk": "Підпишись"}.get(
+                            (project.cta_language or "ru"), "Подпишись")
+                        with open(ass_path, "a", encoding="utf-8") as _fh:
+                            _fh.write(f"Dialogue: 0,{_ass_t(st)},{_ass_t(en)},Default,,0,0,0,,"
+                                      f"{{\\an8\\fs44\\bord3\\shad1}}{label}\n")
+                except Exception:
+                    pass
                 _set_job(db, job_id, progress=30)
 
                 # --- footage segmentation with repeat protection ---
                 from footage_library import (
-                    commit_usage, pick_local_candidates, register_asset,
-                    release_job_reservations, reserve_asset, segment_plan,
+                    commit_usage, register_asset,
+                    release_job_reservations, segment_plan,
                 )
                 clips = []
                 timeline = []
@@ -611,7 +833,7 @@ def run_render_job(job_id: int) -> None:
                 _niche = None
                 _pillar = None
                 try:
-                    from saas_models import ContentNiche, ContentPillar
+                    from app_models import ContentNiche, ContentPillar
                     if _channel and _channel.niche_id:
                         _niche = db.query(ContentNiche).filter_by(id=_channel.niche_id).first()
                     if project.content_pillar_id:
@@ -732,12 +954,19 @@ def run_render_job(job_id: int) -> None:
                     release_job_reservations(db, job_id)
                     raise RuntimeError("render_output_invalid: output file missing or too small")
 
+                # --- quiet background music bed (never breaks render) ---
+                try:
+                    from music_mix import add_music_bed
+                    add_music_bed(project, out_abs, db)
+                except Exception:
+                    project.music_status = "no_music"
+
                 # --- commit footage usage history + manifest ---
                 assets_by_id = {}
                 for seg in timeline:
                     a = assets_by_id.get(seg["asset_id"])
                     if a is None:
-                        from saas_models import FootageAsset
+                        from app_models import FootageAsset
                         a = db.query(FootageAsset).filter_by(id=seg["asset_id"]).first()
                         assets_by_id[seg["asset_id"]] = a
                     if a:
@@ -769,6 +998,14 @@ def run_render_job(job_id: int) -> None:
             project.output_path = out_rel
             project.error = None
             db.commit()
+            # Content Factory: auto-continue the line render → AI Publisher.
+            try:
+                from auth import create_token
+                _owner = db.query(Channel.owner_user_id).filter(Channel.id == project.channel_id).scalar()
+                if _owner:
+                    _enqueue_factory(project.id, create_token(_owner))
+            except Exception:
+                pass
         except Exception as exc:
             err = str(exc)[:1500]
             try:
@@ -836,6 +1073,288 @@ def start_render(project_id: int):
     mode = _enqueue_render(job_id)
     payload["queue_mode"] = mode
     return jsonify({"job": payload}), 202
+
+
+# ============================================================ Content Factory
+# Pipeline orchestrator: drives a project script→scenes→media→render, honouring
+# the human checkpoint after the script. The heavy work runs on the worker
+# (factory_pipeline.run) which reuses the station endpoints above.
+
+def _enqueue_factory(project_id: int, token: str) -> str:
+    import factory_pipeline
+    if settings.SYNC_JOBS:
+        factory_pipeline.run(project_id, token)
+        return "sync"
+    try:
+        from redis import Redis
+        from rq import Queue
+        redis_conn = Redis.from_url(settings.REDIS_URL)
+        redis_conn.ping()
+        Queue("render", connection=redis_conn).enqueue(
+            factory_pipeline.run, project_id, token, job_timeout=1800)
+        return "rq"
+    except Exception:
+        t = threading.Thread(target=factory_pipeline.run, args=(project_id, token), daemon=True)
+        t.start()
+        return "thread"
+
+
+def _pipeline_state_dict(db, p) -> dict:
+    ch = db.query(Channel).filter_by(id=p.channel_id).first()
+    scenes = db.query(VideoScene).filter_by(project_id=p.id).all()
+    n = len(scenes)
+    with_media = sum(1 for s in scenes if s.selected_media_path)
+    job = (db.query(RenderJob).filter_by(project_id=p.id)
+           .order_by(RenderJob.created_at.desc()).first())
+    has_script = bool((p.script_text or "").strip())
+    stg, stt = (p.pipeline_stage or ""), (p.pipeline_state or "")
+
+    def station(key, done, running=False):
+        if stg == key and stt in ("error", "needs_review"):
+            return stt
+        if stg == key and stt == "running":
+            return "running"
+        return "done" if done else ("running" if running else "waiting")
+
+    render_state = "waiting"
+    if p.output_path:
+        render_state = "done"
+    elif job:
+        js = (job.status or "").lower()
+        if js in ("done", "completed", "success"):
+            render_state = "done"
+        elif js in ("failed", "error"):
+            render_state = "error"
+        elif js in JOB_ACTIVE:
+            render_state = "running"
+
+    pub = (db.query(Publication).filter_by(project_id=p.id)
+           .order_by(Publication.id.desc()).first())
+    publish_state = "waiting"
+    if pub:
+        ps = (pub.status or "").lower()
+        publish_state = {"published": "done", "uploading": "running",
+                         "failed": "error", "needs_review": "needs_review"}.get(ps, "waiting")
+    has_meta = bool((p.youtube_meta_json or "").strip())
+    stages = [
+        {"key": "script", "name": "Сценарий",
+         "state": station("script", has_script)},
+        {"key": "scenes", "name": "Сцены",
+         "state": station("scenes", n > 0)},
+        {"key": "media", "name": "Медиа",
+         "state": station("media", n > 0 and with_media == n)},
+        {"key": "render", "name": "Рендер", "state": render_state},
+        {"key": "ai_publisher", "name": "AI Publisher",
+         "state": station("ai_publisher", has_meta)},
+        {"key": "publish", "name": "Публикация", "state": publish_state},
+    ]
+    youtube_meta = None
+    if has_meta:
+        try:
+            youtube_meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            youtube_meta = None
+    from factory_pipeline import effective_mode
+    return {
+        "youtube_meta": youtube_meta,
+        "project_id": p.id, "title": p.title,
+        "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state,
+        "pipeline_error": p.pipeline_error,
+        "stages": stages,
+        "scenes_total": n, "scenes_with_media": with_media,
+        "render_job": _job_dict(job) if job else None,
+        "publishing_override": p.publishing_override,
+        "channel_publishing_mode": (ch.publishing_mode if ch else "manual"),
+        "effective_mode": effective_mode(p, ch),
+        "publication_status": (pub.status if pub else None),
+        "youtube_url": (pub.youtube_url if pub and pub.status == "published" else None),
+    }
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/state", methods=["GET"])
+@require_auth
+def pipeline_state(project_id: int):
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        return jsonify(_pipeline_state_dict(db, p))
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/approve", methods=["POST"])
+@require_auth
+def pipeline_approve(project_id: int):
+    """Pass the script checkpoint and launch the rest of the line."""
+    from auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if not (p.script_text or "").strip():
+            return jsonify({"error": "Сначала сгенерируйте сценарий"}), 400
+        p.pipeline_stage = "script"
+        p.pipeline_state = "done"
+        p.pipeline_error = None
+        db.commit()
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/run", methods=["POST"])
+@require_auth
+def pipeline_run(project_id: int):
+    """Advance the line as far as it can (stops at the checkpoint if the script
+    isn't approved and the channel isn't on full autopilot)."""
+    from auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/pipeline/retry", methods=["POST"])
+@require_auth
+def pipeline_retry(project_id: int):
+    """Retry the current (failed) station without recreating the video."""
+    from auth import create_token
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        p.pipeline_error = None
+        if (p.pipeline_state or "") == "error":
+            p.pipeline_state = "running"
+        db.commit()
+        mode = _enqueue_factory(p.id, create_token(g.current_user.id))
+        return jsonify({"ok": True, "queue_mode": mode}), 202
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/publishing-override", methods=["POST"])
+@require_auth
+def set_publishing_override(project_id: int):
+    """Per-video publishing override: null (use channel default) | manual | automatic."""
+    data = request.get_json(silent=True) or {}
+    raw = data.get("override")
+    ov = (str(raw).strip().lower() if raw not in (None, "", "default") else None)
+    if ov not in (None, "manual", "automatic"):
+        return jsonify({"error": "override must be null, 'manual' or 'automatic'"}), 400
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        p.publishing_override = ov
+        db.commit()
+        return jsonify({"project_id": p.id, "publishing_override": ov})
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/ai-publisher", methods=["POST"])
+@require_auth
+def ai_publisher_run(project_id: int):
+    """Station «AI Publisher»: prepare YouTube metadata (title/description
+    alternatives, tags, hashtags, pinned comment, privacy) + a thumbnail from
+    the best frame. Manual → stops at needs_review; automatic → marks done."""
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        ch = db.query(Channel).filter_by(id=p.channel_id).first()
+        if not (p.script_text or "").strip():
+            return jsonify({"error": "Нет сценария — сначала пройдите станцию «Сценарий»."}), 400
+        p.pipeline_stage = "ai_publisher"
+        p.pipeline_state = "running"
+        p.pipeline_error = None
+        db.commit()
+        import ai_publisher
+        import factory_pipeline
+        try:
+            pkg = ai_publisher.generate_publish_package(
+                topic=p.title, script_text=(p.script_text or ""),
+                language=(getattr(ch, "language", None) or "ru"),
+                style=(getattr(ch, "narration_style", None) or getattr(ch, "content_style", None) or ""),
+                niche=(getattr(ch, "niche", None) or ""),
+                privacy=(getattr(ch, "default_visibility", None) or "public"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            p.pipeline_state = "error"
+            p.pipeline_error = f"ai_publisher: {str(exc)[:280]}"
+            db.commit()
+            return jsonify({"error": "Не удалось подготовить публикацию.", "detail": str(exc)[:280]}), 502
+        if p.output_path:
+            try:
+                thumb = ai_publisher.build_thumbnail(p.output_path, p.id)
+                if thumb:
+                    pkg["thumbnail"] = thumb
+            except Exception:
+                pass
+        p.youtube_meta_json = json.dumps(pkg, ensure_ascii=False)
+        mode = factory_pipeline.effective_mode(p, ch)
+        p.pipeline_stage = "ai_publisher"
+        p.pipeline_state = "done" if mode == "automatic" else "needs_review"
+        db.commit()
+        db.refresh(p)
+        return jsonify({"meta": pkg, "effective_mode": mode,
+                        "pipeline_stage": p.pipeline_stage, "pipeline_state": p.pipeline_state}), 200
+    finally:
+        db.close()
+
+
+@video_projects_api.route("/video-projects/<int:project_id>/ai-publisher/save", methods=["POST"])
+@require_auth
+def ai_publisher_save(project_id: int):
+    """Persist the user's edits to the AI Publisher package (selection + fields)."""
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        if not (p.youtube_meta_json or "").strip():
+            return jsonify({"error": "Нет метаданных — сначала запустите AI Publisher."}), 400
+        try:
+            meta = json.loads(p.youtube_meta_json)
+        except Exception:
+            meta = {}
+        if isinstance(data.get("title_options"), list):
+            opts = [str(x)[:95] for x in data["title_options"] if str(x).strip()][:6]
+            if opts:
+                meta["title_options"] = opts
+        if isinstance(data.get("description_options"), list):
+            opts = [str(x)[:4900] for x in data["description_options"] if str(x).strip()][:4]
+            if opts:
+                meta["description_options"] = opts
+        if "selected_title" in data:
+            meta["selected_title"] = max(0, min(int(data.get("selected_title") or 0), len(meta.get("title_options", [1])) - 1))
+        if "selected_description" in data:
+            meta["selected_description"] = max(0, min(int(data.get("selected_description") or 0), len(meta.get("description_options", [1])) - 1))
+        for k in ("tags", "hashtags"):
+            if isinstance(data.get(k), list):
+                meta[k] = [str(x).strip() for x in data[k] if str(x).strip()][:20]
+        for k in ("pinned_comment", "overlay_text", "privacy"):
+            if k in data:
+                meta[k] = str(data.get(k) or "").strip()
+        p.youtube_meta_json = json.dumps(meta, ensure_ascii=False)
+        db.commit()
+        return jsonify({"ok": True, "meta": meta})
+    finally:
+        db.close()
 
 
 @video_projects_api.route("/render-jobs", methods=["GET"])
@@ -1100,15 +1619,20 @@ def _stock_result_dict(r) -> dict:
 
 
 def _pexels_search(query: str, page: int = 1, limit: int = 8):
-    from footage.providers.pexels import search_videos
+    """Despite the name (kept for compatibility with existing call sites),
+    this searches Pexels AND Pixabay together and returns the merged pool --
+    see media_diversity.search_both_providers. Previously Pixabay was only
+    ever reached if Pexels raised an exception, which in practice meant it
+    was almost never used."""
+    from media_diversity import search_both_providers
 
-    results = search_videos(
-        query=query, orientation="vertical", min_duration=3, max_duration=60,
+    results = search_both_providers(
+        query, orientation="vertical", min_duration=3, max_duration=60,
         limit=limit, page=page,
     )
     if not results:
-        results = search_videos(
-            query=query, orientation="horizontal", min_duration=3, max_duration=60,
+        results = search_both_providers(
+            query, orientation="horizontal", min_duration=3, max_duration=60,
             limit=limit, page=page,
         )
     return results[:limit]
@@ -1172,11 +1696,44 @@ def scene_stock_search(scene_id: int):
         db.close()
 
 
+def _persist_scene_media(db, s: VideoScene, query: str, match, extra_meta: dict | None = None):
+    """Download a resolved (server-side, trusted) Pexels result, attach it to the
+    scene, register it in the footage library and record cost. Shared by the
+    manual selection path and the auto matcher."""
+    from footage.providers.pexels import download_video
+
+    stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
+    stock_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        saved = Path(download_video(match, stock_dir / f"pexels_{match.video_id}.mp4"))
+    except Exception as exc:
+        return None, f"Download failed: {str(exc)[:300]}"
+    if not saved.exists() or saved.stat().st_size < 10_000:
+        return None, "Downloaded file is missing or too small"
+    s.selected_media_path = str(saved)
+    s.visual_type = "stock"
+    s.status = "ready"
+    meta = _stock_result_dict(match)
+    if extra_meta:
+        meta = {**meta, **extra_meta}
+    s.media_meta_json = json.dumps(meta, ensure_ascii=False)
+    from footage_library import register_asset
+    register_asset(
+        db, provider=match.provider, provider_asset_id=str(match.video_id),
+        local_path=saved, download_url=match.download_url or "",
+        original_url=match.page_url or "", search_query=query,
+        author=match.author or "", license_note="Pexels License (free to use)",
+    )
+    from ai_pricing import record_cost
+    record_cost(provider="pexels", model="stock", operation_type="stock_download",
+                project_id=s.project_id, image_count=1,
+                request_id=f"stock:{match.provider}:{match.video_id}:{s.id}", db=db)
+    return match, None
+
+
 def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
     """SSRF-safe selection: re-search Pexels server-side and match by video_id;
     the client never supplies a download URL."""
-    from footage.providers.pexels import download_video
-
     match = None
     for page in (1, 2, 3):
         for r in _pexels_search(query, page=page, limit=20):
@@ -1193,30 +1750,7 @@ def _download_stock_for_scene(db, s: VideoScene, query: str, video_id: str):
                 break
     if not match:
         return None, "Selected video not found in Pexels results; search again"
-    stock_dir = (settings.FOOTAGE_CACHE_DIR / "stock").resolve()
-    stock_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        saved = Path(download_video(match, stock_dir / f"pexels_{match.video_id}.mp4"))
-    except Exception as exc:
-        return None, f"Download failed: {str(exc)[:300]}"
-    if not saved.exists() or saved.stat().st_size < 10_000:
-        return None, "Downloaded file is missing or too small"
-    s.selected_media_path = str(saved)
-    s.visual_type = "stock"
-    s.status = "ready"
-    s.media_meta_json = json.dumps(_stock_result_dict(match), ensure_ascii=False)
-    from footage_library import register_asset
-    register_asset(
-        db, provider=match.provider, provider_asset_id=str(match.video_id),
-        local_path=saved, download_url=match.download_url or "",
-        original_url=match.page_url or "", search_query=query,
-        author=match.author or "", license_note="Pexels License (free to use)",
-    )
-    from ai_pricing import record_cost
-    record_cost(provider="pexels", model="stock", operation_type="stock_download",
-                project_id=s.project_id, image_count=1,
-                request_id=f"stock:{match.provider}:{match.video_id}:{s.id}", db=db)
-    return match, None
+    return _persist_scene_media(db, s, query, match)
 
 
 @video_projects_api.route("/scenes/<int:scene_id>/stock-select", methods=["POST"])
@@ -1244,16 +1778,59 @@ def scene_stock_select(scene_id: int):
         db.close()
 
 
+def _auto_media_fixtures(project_id: int, overwrite: bool):
+    """Local/CI counterpart of project_auto_media for USE_MOCK_PROVIDERS=true:
+    every scene missing media (or all, if overwrite) gets a synthetic fixture
+    clip instead of a real stock-footage lookup. Only ever runs when mock
+    providers are enabled -- the real Pexels path below is untouched and still
+    requires a configured PEXELS_API_KEY when USE_MOCK_PROVIDERS=false."""
+    db = SessionLocal()
+    try:
+        p = _own_project(db, project_id)
+        if not p:
+            return jsonify({"error": "Project not found"}), 404
+        scenes = (
+            db.query(VideoScene).filter_by(project_id=p.id)
+            .order_by(VideoScene.order_index.asc()).all()
+        )
+        if not scenes:
+            return jsonify({"error": "Project has no scenes"}), 400
+        report = []
+        for s in scenes:
+            if s.selected_media_path and not overwrite:
+                report.append({"scene_id": s.id, "skipped": "already has media"})
+                continue
+            out, err = _generate_fixture_clip(s)
+            if err:
+                report.append({"scene_id": s.id, "error": err})
+                continue
+            s.selected_media_path = out
+            s.visual_type = "fixture"
+            s.status = "ready"
+            report.append({"scene_id": s.id, "fixture": True})
+        db.commit()
+        missing = [s.id for s in scenes if not s.selected_media_path]
+        return jsonify({"report": report, "scenes_needing_review": missing,
+                        "plan_source": "mock_fixture"})
+    finally:
+        db.close()
+
+
 @video_projects_api.route("/video-projects/<int:project_id>/auto-media", methods=["POST"])
 @require_auth
 def project_auto_media(project_id: int):
     """Pick real stock media for every scene missing media (or all with
-    overwrite=true, which still skips manually attached files unless forced)."""
+    overwrite=true, which still skips manually attached files unless forced).
+    Local/CI only: when USE_MOCK_PROVIDERS=true, uses synthetic fixture clips
+    instead (see _auto_media_fixtures) -- never reached when
+    USE_MOCK_PROVIDERS=false, so production behavior is unchanged."""
     import os as _os
-    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
-        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
     data = request.get_json(silent=True) or {}
     overwrite = bool(data.get("overwrite"))
+    if settings.USE_MOCK_PROVIDERS:
+        return _auto_media_fixtures(project_id, overwrite)
+    if not (_os.getenv("PEXELS_API_KEY") or "").strip():
+        return jsonify({"error": "PEXELS_API_KEY is not configured"}), 503
     db = SessionLocal()
     try:
         p = _own_project(db, project_id)
@@ -1266,72 +1843,131 @@ def project_auto_media(project_id: int):
         if not scenes:
             return jsonify({"error": "Project has no scenes"}), 400
         channel = db.query(Channel).filter_by(id=p.channel_id).first()
-        base_query = (channel.niche if channel else "") or "mystic"
         report = []
-        prev_video_id = None
-        for s in scenes:
-            if s.selected_media_path and not overwrite:
-                report.append({"scene_id": s.id, "skipped": "already has media"})
-                prev_video_id = json.loads(s.media_meta_json)["video_id"] if s.media_meta_json else prev_video_id
-                continue
-            query = (s.stock_search_query or s.visual_prompt or "").strip()
-            if not query:
-                words = re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", s.voiceover_text or "")
-                query = f"{base_query} {' '.join(words[:2])}".strip() or base_query
 
-            # Blacklist provider ids used recently (repeat protection at search time).
-            from datetime import timedelta as _td
-            from saas_models import FootageAsset, FootageUsage
-            recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
-            recent_ids = {
-                pid for (pid,) in (
+        # Semantic query plan (concrete English b-roll per scene). Built once for
+        # the whole project. Uses the LLM when available, deterministic fallback
+        # otherwise — see media_matcher for the reasoning.
+        import media_matcher as _mm
+        pending = [s for s in scenes if overwrite or not s.selected_media_path]
+        plan = _mm.plan_project_queries(
+            pending or scenes,
+            (channel.niche if channel else "") or "",
+            (channel.language if channel else "") or "ru",
+        )
+
+        # Global cooldown blacklist (recently used provider ids) computed once.
+        from datetime import timedelta as _td
+        from app_models import FootageAsset, FootageUsage
+        recent_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_GLOBAL_COOLDOWN_DAYS)
+        recent_ids = {
+            str(pid) for (pid,) in (
+                db.query(FootageAsset.provider_asset_id)
+                .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
+                .filter(FootageUsage.used_at >= recent_cutoff)
+                .all()
+            )
+        }
+        # Media Diversity Engine long-term rule: a clip stays excluded until
+        # BOTH the day threshold and the usage-count threshold clear, not
+        # whichever comes first. Cheap approximation at this scene-level
+        # granularity (the precise per-asset check lives in
+        # footage_library.score_candidates for the segment-level picker):
+        # if fewer than FOOTAGE_LONG_TERM_COOLDOWN_USES usages have happened
+        # globally in the last FOOTAGE_LONG_TERM_COOLDOWN_DAYS days, nothing
+        # used before that window is eligible yet either.
+        long_term_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_LONG_TERM_COOLDOWN_DAYS)
+        uses_in_long_term_window = (
+            db.query(FootageUsage).filter(FootageUsage.used_at >= long_term_cutoff).count()
+        )
+        if uses_in_long_term_window < settings.FOOTAGE_LONG_TERM_COOLDOWN_USES:
+            recent_ids |= {
+                str(pid) for (pid,) in (
                     db.query(FootageAsset.provider_asset_id)
                     .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
-                    .filter(FootageUsage.used_at >= recent_cutoff)
+                    .filter(FootageUsage.used_at < long_term_cutoff)
                     .all()
                 )
             }
-            if prev_video_id:
-                recent_ids.add(str(prev_video_id))
+        used_in_project: set[str] = set()  # never reuse a clip within one video
+        # Long-form needs dozens of scenes — allow calm clips to cycle/repeat
+        # (a curated serene set) instead of failing on Pexels uniqueness.
+        _longform = int(p.duration_target_seconds or 0) >= 150
 
-            from footage_library import segment_plan
+        from footage_library import segment_plan
+        for s in scenes:
+            if s.selected_media_path and not overwrite:
+                report.append({"scene_id": s.id, "skipped": "already has media"})
+                try:
+                    vid = (json.loads(s.media_meta_json) or {}).get("video_id") if s.media_meta_json else None
+                    if vid:
+                        used_in_project.add(str(vid))
+                except Exception:
+                    pass
+                continue
+
+            # The final CTA scene reuses the previous clip (visual continuity) —
+            # handled after the loop, once main scenes have their media.
+            if getattr(s, "is_cta", False):
+                continue
+
+            sp = plan.scenes.get(s.id) or _mm.ScenePlan(
+                scene_id=s.id, queries=[(channel.niche if channel else "") or "abstract"],
+                simple="abstract", keywords=[],
+            )
+            # A manually set query on the scene takes priority as the top concrete stage.
+            manual_q = (s.stock_search_query or s.visual_prompt or "").strip()
+            if manual_q and manual_q not in sp.queries:
+                sp = _mm.ScenePlan(scene_id=s.id, queries=[manual_q, *sp.queries][:3],
+                                   simple=sp.simple or manual_q, keywords=sp.keywords)
+
             needed = len(segment_plan(float(s.estimated_duration or 4.0)))
-            try:
-                results = _pexels_search_diverse(query, limit=max(6, needed * 2), exclude_ids=recent_ids)
-            except Exception as exc:
-                report.append({"scene_id": s.id, "error": f"search failed: {str(exc)[:200]}"})
+            exclude = recent_ids if _longform else (recent_ids | used_in_project)
+
+            def _search(q, excl, _needed=needed):
+                return _pexels_search_diverse(q, limit=max(6, _needed * 2), exclude_ids=excl)
+
+            pick = _mm.pick_media(sp, plan.atmospheric, search_fn=_search, exclude_ids=exclude)
+            diag = {"stage": pick.stage, "confidence": pick.confidence,
+                    "plan_source": plan.source, **pick.diagnostics}
+
+            if pick.candidate is None:
+                # Honest: no relevant footage found — leave the scene for review
+                # instead of attaching something irrelevant. Persist diagnostics.
+                s.media_meta_json = json.dumps({"video_id": None, "needs_review": True,
+                                                "matcher": diag}, ensure_ascii=False)
+                report.append({"scene_id": s.id, "confidence": "needs_review",
+                               "queries_tried": [t.get("query") for t in pick.diagnostics.get("stages_tried", [])]})
                 continue
-            if not results:
-                report.append({"scene_id": s.id, "error": f"no fresh results for '{query}'"})
-                continue
-            # primary pick for the scene + extra clips to stock the local library
-            match, err = _download_stock_for_scene(db, s, query, results[0].video_id)
+
+            chosen_q = pick.diagnostics.get("chosen_query", sp.queries[0])
+            match, err = _persist_scene_media(db, s, chosen_q, pick.candidate,
+                                              extra_meta={"matcher": diag})
             if err:
                 report.append({"scene_id": s.id, "error": err})
                 continue
-            extras = 0
-            for r in results[1:needed]:
-                try:
-                    from footage.providers.pexels import download_video
-                    from footage_library import register_asset
-                    saved = Path(download_video(r, settings.FOOTAGE_CACHE_DIR / "stock" / f"pexels_{r.video_id}.mp4"))
-                    if saved.exists():
-                        register_asset(
-                            db, provider=r.provider, provider_asset_id=str(r.video_id),
-                            local_path=saved, download_url=r.download_url or "",
-                            original_url=r.page_url or "", search_query=query,
-                            author=r.author or "", license_note="Pexels License (free to use)",
-                        )
-                        db.commit()
-                        extras += 1
-                except Exception:
-                    continue
-            prev_video_id = str(match.video_id)
-            report.append({"scene_id": s.id, "query": query, "video_id": prev_video_id,
+            used_in_project.add(str(match.video_id))
+            report.append({"scene_id": s.id, "query": chosen_q, "video_id": str(match.video_id),
                            "orientation": match.orientation, "author": match.author,
-                           "extra_clips_cached": extras, "segments_planned": needed})
+                           "stage": pick.stage, "confidence": pick.confidence,
+                           "relevance": pick.diagnostics.get("chosen_score"),
+                           "segments_planned": needed})
+        # CTA scene(s): reuse the preceding scene's clip (visual continuity).
+        ordered = sorted(scenes, key=lambda x: x.order_index)
+        for i, s in enumerate(ordered):
+            if getattr(s, "is_cta", False) and not s.selected_media_path and i > 0:
+                prev = ordered[i - 1]
+                if prev.selected_media_path:
+                    s.selected_media_path = prev.selected_media_path
+                    s.visual_type = prev.visual_type
+                    s.media_meta_json = prev.media_meta_json
+                    s.status = "ready"
+                    report.append({"scene_id": s.id, "cta": True, "reused_previous_clip": True})
         db.commit()
-        return jsonify({"report": report})
+        # Scenes still without media after matching → the station needs review.
+        missing = [s.id for s in scenes if not s.selected_media_path]
+        return jsonify({"report": report, "scenes_needing_review": missing,
+                        "plan_source": plan.source})
     finally:
         db.close()
 
@@ -1345,7 +1981,7 @@ def media_library_stats():
 
     from sqlalchemy import func
 
-    from saas_models import FootageAsset, FootageUsage
+    from app_models import FootageAsset, FootageUsage
 
     db = SessionLocal()
     try:

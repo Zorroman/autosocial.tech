@@ -2,7 +2,7 @@ import copy
 import json
 from pathlib import Path
 
-from saas_settings import settings
+from app_settings import settings
 
 
 DEFAULT_STYLE_PACK_ID = "default_pro"

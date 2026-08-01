@@ -1,7 +1,10 @@
+import os
+from datetime import datetime, timedelta
+
 from sqlalchemy import inspect, text
 
 from database import engine
-from saas_models import SaaSBase
+from app_models import SaaSBase
 
 
 APP_USER_ADDITIONAL_COLUMNS = {
@@ -253,6 +256,13 @@ def run_migrations() -> None:
                 # never re-touched (add_missing_columns skips existing columns),
                 # so existing values are preserved.
                 "automatic_publishing_enabled": "BOOLEAN DEFAULT 0",
+                # Content Factory full-autopilot toggle. Fail-safe default OFF.
+                # NOTE: Postgres rejects "DEFAULT 0" for boolean on a NEW column
+                # (the pre-existing flags above only work because they already
+                # exist and are skipped). Use FALSE for a fresh boolean column.
+                "autopilot_enabled": "BOOLEAN DEFAULT FALSE",
+                # Publishing mode (source of truth). String default is fine on PG.
+                "publishing_mode": "VARCHAR(20) DEFAULT 'manual'",
                 "oauth_last_error": "VARCHAR(300)",
                 "last_generated_at": "DATETIME",
             },
@@ -264,7 +274,39 @@ def run_migrations() -> None:
                 "content_pillar_id": "INTEGER",
                 "generation_profile_json": "TEXT",
                 "content_strategy_id": "INTEGER",
+                # Content Factory pipeline orchestrator state.
+                "pipeline_stage": "VARCHAR(20)",
+                "pipeline_state": "VARCHAR(20)",
+                "pipeline_error": "TEXT",
+                # Stage 3 — per-video publishing override + AI Publisher output.
+                "publishing_override": "VARCHAR(20)",
+                "youtube_meta_json": "TEXT",
+                # Background music bed.
+                "music_track_id": "VARCHAR(64)",
+                "music_title": "VARCHAR(200)",
+                "music_provider": "VARCHAR(40)",
+                "music_start_seconds": "DOUBLE PRECISION",
+                "music_end_seconds": "DOUBLE PRECISION",
+                "music_gain_db": "DOUBLE PRECISION",
+                "music_status": "VARCHAR(20)",
+                "music_mix_version": "VARCHAR(10)",
+                # Final spoken CTA.
+                "cta_enabled": "BOOLEAN",
+                "cta_text": "TEXT",
+                "cta_type": "VARCHAR(30)",
+                "cta_language": "VARCHAR(10)",
+                "cta_source": "VARCHAR(20)",
+                "cta_audio_duration_seconds": "DOUBLE PRECISION",
+                "cta_fallback_used": "BOOLEAN",
+                "playlist_status": "VARCHAR(20)",
             },
+        )
+    if "content_pillars" in tables:
+        add_missing_columns("content_pillars", {"youtube_playlist_id": "VARCHAR(64)"})
+    if "video_scenes" in tables:
+        add_missing_columns(
+            "video_scenes",
+            {"is_cta": "BOOLEAN DEFAULT FALSE"},
         )
     if "channel_ideas" in tables:
         add_missing_columns(
@@ -285,6 +327,11 @@ def run_migrations() -> None:
                 "youtube_connected_at": "DATETIME",
                 "youtube_social_account_id": "INTEGER",
                 "youtube_last_verified_at": "DATETIME",
+                # Daily long-form autopilot (separate, memory-safe pipeline —
+                # NOT the Shorts factory render). One video/day, paced by
+                # longform_last_generated_at.
+                "longform_enabled": "BOOLEAN DEFAULT FALSE NOT NULL",
+                "longform_last_generated_at": "DATETIME",
             },
         )
     if "posts" in tables:
@@ -485,6 +532,36 @@ def run_migrations() -> None:
                       )
                     """
                 )
+            )
+
+    # footage_assets.category: additive column for the Media Diversity Engine
+    # (repeat-category penalty). No backfill needed -- NULL means "unknown
+    # category", which the penalty logic treats as neutral (no bonus/penalty),
+    # never as a false repeat.
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "footage_assets" in tables:
+        add_missing_columns("footage_assets", {"category": "VARCHAR(60)"})
+
+    # api_tokens.expires_at: additive column, then a ONE-TIME backfill for
+    # legacy rows written before this column existed. Bounded transitional
+    # grace period rather than leaving them valid forever -- but not an
+    # immediate cutoff either, since that would silently log out every
+    # already-logged-in user the moment this migration runs. Naturally
+    # idempotent: after the first run every previously-NULL row has a real
+    # expires_at, so this UPDATE has nothing left to touch on later boots.
+    # Never touches YouTube/Google OAuth connections -- those live in a
+    # separate table (connected_accounts) entirely untouched here.
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "api_tokens" in tables:
+        add_missing_columns("api_tokens", {"expires_at": "DATETIME"})
+        grace_days = max(1, int(os.getenv("API_TOKEN_LEGACY_GRACE_DAYS", "30")))
+        legacy_expiry = datetime.utcnow() + timedelta(days=grace_days)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE api_tokens SET expires_at = :exp WHERE expires_at IS NULL"),
+                {"exp": legacy_expiry},
             )
 
 

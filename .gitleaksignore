@@ -1,0 +1,22 @@
+# tests/test_saas.py: literal placeholder string "sk_test_configured" used via
+# monkeypatch.setattr() to make a truthiness check pass in unit tests. Not a
+# real Stripe key (no valid entropy/format beyond the sk_test_ prefix).
+tests/test_saas.py:stripe-access-token:612
+tests/test_saas.py:stripe-access-token:644
+tests/test_saas.py:stripe-access-token:666
+
+# SECURITY.md quotes the same placeholder string verbatim when describing the
+# false positive above (so a reader can see exactly what gitleaks matched).
+# Not a real key for the same reason as above.
+SECURITY.md:stripe-access-token:7
+
+# This file's own comment above (line 1) quotes the placeholder string too,
+# which gitleaks matches against itself. Same false positive, same reasoning.
+.gitleaksignore:stripe-access-token:1
+
+# .env.example: a freshly-generated Fernet key committed on purpose so the
+# local/mock Docker Compose stack works out of the box. It protects nothing
+# real (TOKEN_ENCRYPTION_KEY only matters once a real OAuth token exists to
+# encrypt) -- flagged only because it's structurally high-entropy, like any
+# valid Fernet key would be.
+.env.example:generic-api-key:65

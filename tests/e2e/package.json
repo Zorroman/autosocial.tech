@@ -3,8 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e": "playwright test factory.spec.ts",
+    "test:e2e:headed": "playwright test factory.spec.ts --headed",
+    "test:e2e:legacy": "playwright test connections.spec.ts dashboard.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1"

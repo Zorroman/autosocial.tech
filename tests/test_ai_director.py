@@ -28,12 +28,12 @@ def client(tmp_path):
         "app",
         "database",
         "models",
-        "saas_models",
-        "saas_services",
-        "saas_auth",
-        "saas_api",
-        "saas_queue",
-        "saas_settings",
+        "app_models",
+        "app_services",
+        "auth",
+        "api",
+        "job_queue",
+        "app_settings",
     ]:
         if name in sys.modules:
             del sys.modules[name]
@@ -70,7 +70,7 @@ def test_director_suggest_returns_counts(client):
     p = r.get_json()
     data = p.get("data") or {}
     assert len(data.get("topics") or []) == 10
-    assert len(data.get("angles") or []) == 3
+    assert len(data.get("angles") or []) >= 3  # director now offers more angle options (was fixed 3)
     assert len(data.get("cta_options") or []) == 3
 
 
@@ -203,7 +203,7 @@ def test_create_ui_route_contains_app_mount():
 
 
 def test_director_generate_image_route_uses_stock_media_provider(client, monkeypatch):
-    import saas_api as saas_api_module
+    import api as api_module
 
     reg = register_user(client, "imgroute@test.local", "pass12345")
     token = reg.get_json()["token"]
@@ -229,8 +229,8 @@ def test_director_generate_image_route_uses_stock_media_provider(client, monkeyp
                 "local_path": "/tmp/pexels_777.jpg",
             }
 
-    monkeypatch.setattr(saas_api_module, "_fetch_post_media_or_error", lambda **kwargs: FakeImage())
-    monkeypatch.setattr(saas_api_module, "_download_and_store_binary", lambda url, suffix: (url, 1))
+    monkeypatch.setattr(api_module, "_fetch_post_media_or_error", lambda **kwargs: FakeImage())
+    monkeypatch.setattr(api_module, "_download_and_store_binary", lambda url, suffix: (url, 1))
     r = client.post(
         "/api/ai/director/generate-image",
         json={
@@ -248,12 +248,12 @@ def test_director_generate_image_route_uses_stock_media_provider(client, monkeyp
 
 
 def test_director_generate_image_route_succeeds_without_image(client, monkeypatch):
-    import saas_api as saas_api_module
+    import api as api_module
 
     reg = register_user(client, "imgnone@test.local", "pass12345")
     token = reg.get_json()["token"]
 
-    monkeypatch.setattr(saas_api_module, "_fetch_post_media_or_error", lambda **kwargs: None)
+    monkeypatch.setattr(api_module, "_fetch_post_media_or_error", lambda **kwargs: None)
     r = client.post(
         "/api/ai/director/generate-image",
         json={

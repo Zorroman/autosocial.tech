@@ -17,6 +17,8 @@ ngrok.log
 # generated artifacts
 tests/reports/
 tests/artifacts/
+tests/e2e/node_modules/
+tests/e2e/playwright-report/
 
 # OS/editor
 .DS_Store
@@ -45,3 +47,15 @@ tests/render_fixtures/
 *.bak_factory
 *.bak_mojibake
 autosocial.db.bak_*
+music_import/
+test_output/
+
+# local audit dev stack (not for commit)
+autosocial_audit.db
+
+# python virtual environments
+# (not relying on the nested .gitignore that `python -m venv` writes inside
+# itself on newer Python versions -- that's a side effect, not a guarantee)
+.venv/
+venv/
+.venv*/

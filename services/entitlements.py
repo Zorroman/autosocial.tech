@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from database import SessionLocal
 from plans_catalog import PUBLIC_PLAN_ORDER, get_plan_spec, next_public_plan, normalize_plan_code
-from saas_models import AppUser, Project, SocialAccount, Subscription, UsageCounter, UsageEvent
-from saas_settings import settings
+from app_models import AppUser, Project, SocialAccount, Subscription, UsageCounter, UsageEvent
+from app_settings import settings
 
 ACTION_POST_GENERATE = "POST_GENERATE"
 ACTION_POST_PUBLISH = "POST_PUBLISH"
