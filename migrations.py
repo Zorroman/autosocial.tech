@@ -534,6 +534,15 @@ def run_migrations() -> None:
                 )
             )
 
+    # footage_assets.category: additive column for the Media Diversity Engine
+    # (repeat-category penalty). No backfill needed -- NULL means "unknown
+    # category", which the penalty logic treats as neutral (no bonus/penalty),
+    # never as a false repeat.
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "footage_assets" in tables:
+        add_missing_columns("footage_assets", {"category": "VARCHAR(60)"})
+
     # api_tokens.expires_at: additive column, then a ONE-TIME backfill for
     # legacy rows written before this column existed. Bounded transitional
     # grace period rather than leaving them valid forever -- but not an

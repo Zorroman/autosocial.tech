@@ -37,6 +37,14 @@ class Settings:
     FOOTAGE_SEGMENT_MAX_SECONDS = float(os.getenv("FOOTAGE_SEGMENT_MAX_SECONDS", "3.5"))
     FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS = int(os.getenv("FOOTAGE_SAME_CHANNEL_COOLDOWN_DAYS", "30"))
     FOOTAGE_GLOBAL_COOLDOWN_DAYS = int(os.getenv("FOOTAGE_GLOBAL_COOLDOWN_DAYS", "7"))
+    # Hard long-term rule (Media Diversity Engine): a clip stays excluded until
+    # BOTH thresholds clear -- whichever is later, not whichever is first. This
+    # is stricter than, and layered on top of, the softer same-channel/global
+    # cooldowns above (which stay as scoring penalties, not hard exclusions).
+    FOOTAGE_LONG_TERM_COOLDOWN_DAYS = int(os.getenv("FOOTAGE_LONG_TERM_COOLDOWN_DAYS", "90"))
+    FOOTAGE_LONG_TERM_COOLDOWN_USES = int(os.getenv("FOOTAGE_LONG_TERM_COOLDOWN_USES", "500"))
+    # How many of the channel's most recent categories to penalize a repeat of.
+    FOOTAGE_CATEGORY_MEMORY = int(os.getenv("FOOTAGE_CATEGORY_MEMORY", "5"))
     FOOTAGE_ALLOW_REUSE_FALLBACK = os.getenv("FOOTAGE_ALLOW_REUSE_FALLBACK", "true").lower() in {"1", "true", "yes"}
     FOOTAGE_RESERVATION_TTL_SECONDS = int(os.getenv("FOOTAGE_RESERVATION_TTL_SECONDS", "1800"))
     # Search budget before a reuse is ever allowed (mass-generation safety).

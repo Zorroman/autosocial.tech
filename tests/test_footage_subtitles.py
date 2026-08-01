@@ -131,14 +131,22 @@ def test_same_channel_and_global_cooldown(client, tmp_path):
     db.commit()
     scored = score_candidates(db, [a, b], channel_id=1, project_id=902, job_id=None, min_duration=1)
     by_id = {x[1].id: x for x in scored}
-    assert by_id[a.id][0] < -400  # same-channel cooldown penalty
+    same_channel_score = by_id[a.id][0]
+    assert same_channel_score < -400  # same-channel cooldown penalty
     assert by_id[b.id][0] > 0
     assert by_id[a.id][2].get("same_channel_cooldown") is True
-    # on another channel -> softer global-cooldown penalty
+    # on another channel -> softer global-cooldown penalty than same-channel
+    # (both are also very negative now on top of that: `a` was used moments
+    # ago, so the Media Diversity Engine's graduated recency penalty and
+    # long-term-cooldown penalty apply equally regardless of channel -- see
+    # test_media_diversity.py for those in isolation. What this test actually
+    # checks is the same_channel vs global cooldown *relationship*.)
     scored2 = score_candidates(db, [a], channel_id=2, project_id=903, job_id=None, min_duration=1)
     sc, _, dbg = scored2[0]
-    assert -1000 < sc < 0
+    assert sc < 0
+    assert sc > same_channel_score  # global cooldown alone is softer than same-channel
     assert dbg.get("global_cooldown") is True
+    assert not dbg.get("same_channel_cooldown")
     db.close()
 
 

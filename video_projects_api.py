@@ -1619,15 +1619,20 @@ def _stock_result_dict(r) -> dict:
 
 
 def _pexels_search(query: str, page: int = 1, limit: int = 8):
-    from footage.providers.pexels import search_videos
+    """Despite the name (kept for compatibility with existing call sites),
+    this searches Pexels AND Pixabay together and returns the merged pool --
+    see media_diversity.search_both_providers. Previously Pixabay was only
+    ever reached if Pexels raised an exception, which in practice meant it
+    was almost never used."""
+    from media_diversity import search_both_providers
 
-    results = search_videos(
-        query=query, orientation="vertical", min_duration=3, max_duration=60,
+    results = search_both_providers(
+        query, orientation="vertical", min_duration=3, max_duration=60,
         limit=limit, page=page,
     )
     if not results:
-        results = search_videos(
-            query=query, orientation="horizontal", min_duration=3, max_duration=60,
+        results = search_both_providers(
+            query, orientation="horizontal", min_duration=3, max_duration=60,
             limit=limit, page=page,
         )
     return results[:limit]
@@ -1863,6 +1868,27 @@ def project_auto_media(project_id: int):
                 .all()
             )
         }
+        # Media Diversity Engine long-term rule: a clip stays excluded until
+        # BOTH the day threshold and the usage-count threshold clear, not
+        # whichever comes first. Cheap approximation at this scene-level
+        # granularity (the precise per-asset check lives in
+        # footage_library.score_candidates for the segment-level picker):
+        # if fewer than FOOTAGE_LONG_TERM_COOLDOWN_USES usages have happened
+        # globally in the last FOOTAGE_LONG_TERM_COOLDOWN_DAYS days, nothing
+        # used before that window is eligible yet either.
+        long_term_cutoff = datetime.utcnow() - _td(days=settings.FOOTAGE_LONG_TERM_COOLDOWN_DAYS)
+        uses_in_long_term_window = (
+            db.query(FootageUsage).filter(FootageUsage.used_at >= long_term_cutoff).count()
+        )
+        if uses_in_long_term_window < settings.FOOTAGE_LONG_TERM_COOLDOWN_USES:
+            recent_ids |= {
+                str(pid) for (pid,) in (
+                    db.query(FootageAsset.provider_asset_id)
+                    .join(FootageUsage, FootageUsage.footage_asset_id == FootageAsset.id)
+                    .filter(FootageUsage.used_at < long_term_cutoff)
+                    .all()
+                )
+            }
         used_in_project: set[str] = set()  # never reuse a clip within one video
         # Long-form needs dozens of scenes — allow calm clips to cycle/repeat
         # (a curated serene set) instead of failing on Pexels uniqueness.

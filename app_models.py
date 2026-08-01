@@ -847,6 +847,11 @@ class FootageAsset(SaaSBase):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True, index=True)
     total_use_count = Column(Integer, nullable=False, default=0)
+    # Media Diversity Engine: coarse visual theme (e.g. "forest", "monk",
+    # "meditation"), inferred once at registration from search_query/tags.
+    # Nullable -- rows written before this column existed just have no
+    # category penalty applied (treated as neutral, not repeated).
+    category = Column(String(60), nullable=True, index=True)
 
 
 class FootageUsage(SaaSBase):
