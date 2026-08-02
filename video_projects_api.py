@@ -374,8 +374,35 @@ def generate_project_script(project_id: int):
 
         try:
             from video_script_generator import generate as _generate_script
+            # Hook-diversity history (Shorts only, this channel): last 50 or
+            # last 14 days, whichever set is larger. See shorts_hook_diversity.py
+            # — this only affects the opening 1-2 phrases, nothing else here.
+            hook_recent_hooks: list[str] = []
+            hook_recent_types: list[str] = []
+            if main_target < 150:
+                from datetime import timedelta as _hook_td
+                _hook_cutoff = datetime.utcnow() - _hook_td(days=14)
+                _hook_rows = (
+                    db.query(VideoProject.script_text, VideoProject.hook_type, VideoProject.created_at)
+                    .filter(VideoProject.channel_id == p.channel_id,
+                            VideoProject.duration_target_seconds < 150,
+                            VideoProject.script_text.isnot(None),
+                            VideoProject.id != p.id)
+                    .order_by(VideoProject.created_at.desc())
+                    .limit(500)
+                    .all()
+                )
+                _by_days = [r for r in _hook_rows if r.created_at and r.created_at >= _hook_cutoff]
+                _by_count = _hook_rows[:50]
+                _hook_history = _by_days if len(_by_days) > len(_by_count) else _by_count
+                for _r in _hook_history:
+                    _first_line = (_r.script_text or "").split("\n", 1)[0].strip()
+                    if _first_line:
+                        hook_recent_hooks.append(_first_line)
+                    hook_recent_types.append(_r.hook_type)
             bundle = _generate_script(topic=topic, offer=None, language=language,
-                                      target_seconds=main_target, style=style)
+                                      target_seconds=main_target, style=style,
+                                      recent_hooks=hook_recent_hooks, recent_types=hook_recent_types)
         except Exception as exc:  # noqa: BLE001 — surface as a station error, don't 500
             p.pipeline_state = "error"
             p.pipeline_error = f"script: {str(exc)[:280]}"
@@ -393,6 +420,7 @@ def generate_project_script(project_id: int):
                             "pipeline_state": "error"}), 502
 
         p.script_text = script_text
+        p.hook_type = getattr(bundle, "hook_type", None)
         # --- final subscribe CTA (optional; never blocks the script station) ---
         if cta_on:
             try:

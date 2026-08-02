@@ -2,6 +2,8 @@ import json
 import re
 from dataclasses import dataclass
 
+import shorts_hook_diversity as hookdiv
+from app_settings import settings
 from footage.shots import DEFAULT_SCENE_QUERIES
 from openai_client import OpenAIClientError, generate_json_with_retry, is_openai_enabled
 from style_packs import normalize_scene
@@ -15,6 +17,10 @@ class ScriptBundle:
     description: str
     hashtags: list[str]
     safety_rules: list[str]
+    # Which of shorts_hook_diversity.HOOK_TYPES produced phrases[0], only when
+    # we ourselves picked/regenerated it. None = long-form, or a Short whose
+    # model-generated hook passed the checks unmodified.
+    hook_type: str | None = None
 
 
 _BAD_FRAGMENTS = (
@@ -188,8 +194,9 @@ def _validator(payload: dict) -> None:
 
 
 def _fallback(topic: str, offer: str | None, language: str, target_seconds: int, style_pack: dict) -> ScriptBundle:
+    hook_type = hookdiv.fallback_hook_type_for_topic(topic)
     lines = [
-        f"Сегодня коротко и понятно разбираем тему «{topic}».",
+        hookdiv.deterministic_hook(topic, hook_type),
         "Начнем с базового принципа и сразу переведем его в практическое действие.",
         "Покажем пример из реальной ситуации, чтобы было ясно, как это работает.",
         "Отметим частую ошибку и дадим простой способ ее избежать.",
@@ -226,6 +233,7 @@ def _fallback(topic: str, offer: str | None, language: str, target_seconds: int,
             "no cartoon or CGI looking footage",
             "avoid ai generated or synthetic visuals",
         ],
+        hook_type=hook_type,
     )
 
 
@@ -350,6 +358,105 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
     )
 
 
+# ------------------------------------------------------------- hook diversity
+# Shorts only (long-form never reaches this: it returns from
+# _generate_longform above before hitting the code below).
+
+_MAX_HOOK_ATTEMPTS = 3
+
+
+def _hook_needs_fix(hook: str, title: str, recent_hooks: list[str], threshold: float) -> bool:
+    if not hook:
+        return True
+    if hookdiv.is_templated_hook(hook):
+        return True
+    norm = hookdiv.normalize_hook(hook)
+    word_count = len(norm.split())
+    if not (5 <= word_count <= 14):
+        return True
+    if title and norm == hookdiv.normalize_hook(title):
+        return True
+    if hookdiv.most_similar_score(hook, recent_hooks) >= threshold:
+        return True
+    return False
+
+
+def _regenerate_hook_via_llm(topic: str, hook_type: str, language: str) -> str | None:
+    if not is_openai_enabled():
+        return None
+    type_desc = hookdiv.HOOK_TYPE_DESCRIPTIONS.get(hook_type, hook_type)
+    system_prompt = (
+        "Ты senior video copywriter. Пиши живым естественным языком, без канцелярита. "
+        "Верни только валидный JSON."
+    )
+    user_prompt = (
+        f"Придумай ОДНУ фразу-хук для короткого видео на тему: {topic}\n"
+        f"Язык: {language}\n"
+        f"Тип хука: {type_desc}.\n"
+        "Требования:\n"
+        "- 5-14 слов, ровно одно законченное предложение;\n"
+        "- сразу дает суть: интригу, конфликт, вопрос, факт, предупреждение или обещание результата;\n"
+        "- никаких вводных вроде «сегодня поговорим», «сегодня коротко и понятно», "
+        "«давайте разберемся», «в этом видео», «а вы знали», «мало кто знает», "
+        "«вы когда-нибудь задумывались», «сейчас расскажу»;\n"
+        "- не повторяй тему слово в слово, как заголовок.\n"
+        'JSON: {"hook": "..."}'
+    )
+
+    def _v(p):
+        if not isinstance(p.get("hook"), str) or not p["hook"].strip():
+            raise ValueError("hook required")
+
+    try:
+        result = generate_json_with_retry(
+            system_prompt=system_prompt, user_prompt=user_prompt, validator=_v,
+            max_output_tokens=200, temperature=0.85,
+        )
+        return str(result.payload.get("hook") or "").strip()
+    except OpenAIClientError:
+        return None
+
+
+def _diversify_hook(
+    phrases: list[str], topic: str, title: str, language: str,
+    recent_hooks: list[str] | None, recent_types: list[str] | None,
+) -> tuple[list[str], str | None]:
+    if not phrases:
+        return phrases, None
+    recent_hooks = list(recent_hooks or [])
+    recent_types = list(recent_types or [])
+    threshold = float(getattr(settings, "SHORTS_HOOK_SIMILARITY_THRESHOLD", 0.72))
+
+    hook = phrases[0]
+    if not _hook_needs_fix(hook, title, recent_hooks, threshold):
+        return phrases, None  # model's own hook passed unmodified -- type stays unclassified
+
+    attempted_types: list[str] = []
+    for _ in range(_MAX_HOOK_ATTEMPTS):
+        hook_type = hookdiv.next_hook_type(recent_types + attempted_types)
+        attempted_types.append(hook_type)
+        candidate = _regenerate_hook_via_llm(topic, hook_type, language)
+        candidate = _sanitize_phrase(candidate, topic) if candidate else ""
+        if candidate and not _hook_needs_fix(candidate, title, recent_hooks, threshold):
+            return [candidate] + phrases[1:], hook_type
+
+    # 3 LLM attempts still produced a templated/too-similar/wrong-length hook
+    # (or OpenAI is down) -- guaranteed-non-templated deterministic resort.
+    hook_type = hookdiv.next_hook_type(recent_types + attempted_types)
+    return [hookdiv.deterministic_hook(topic, hook_type)] + phrases[1:], hook_type
+
+
+def _apply_hook_diversity(
+    bundle: ScriptBundle, topic: str, language: str,
+    recent_hooks: list[str] | None, recent_types: list[str] | None,
+) -> ScriptBundle:
+    phrases, hook_type = _diversify_hook(bundle.phrases, topic, bundle.title, language, recent_hooks, recent_types)
+    bundle.phrases = phrases
+    if hook_type:
+        bundle.hook_type = hook_type
+    return bundle
+
+
 def generate(
     topic: str,
     offer: str | None,
@@ -357,6 +464,8 @@ def generate(
     target_seconds: int,
     style: str,
     style_pack: dict | None = None,
+    recent_hooks: list[str] | None = None,
+    recent_types: list[str] | None = None,
 ) -> ScriptBundle:
     topic = str(topic or "").strip()
     if not topic:
@@ -364,7 +473,8 @@ def generate(
     target_seconds = max(20, min(1800, int(target_seconds or 30)))
     style_pack = style_pack or {}
     if not is_openai_enabled():
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     # Long-form (calm narration, e.g. 12–20 min): different generation path.
     if target_seconds >= 150:
@@ -404,6 +514,10 @@ def generate(
         "Требования к phrases:\n"
         "- каждая фраза это законченное предложение 8-12 слов;\n"
         "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
+        "- хук НИКОГДА не начинай с фраз-клише вроде «сегодня поговорим», «сегодня коротко и понятно», "
+        "«давайте разберемся», «в этом видео», «а вы знали», «мало кто знает», «вы когда-нибудь задумывались», "
+        "«сейчас расскажу» — вместо этого сразу дай интригу, конфликт, сильный вопрос, неожиданный факт, "
+        "предупреждение или обещание результата;\n"
         "- предпоследняя фраза — короткий авторский вывод или неожиданный поворот мысли (твоё наблюдение, а не пересказ факта);\n"
         "- последняя фраза — короткий CTA, ровно одно предложение;\n"
         "- не используй императивные заготовки вида «покажем один», «добавим конкретику»;\n"
@@ -431,12 +545,14 @@ def generate(
         )
         payload = result.payload
     except OpenAIClientError:
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     phrases = _normalize_phrases(payload.get("phrases"))
     phrases = _ensure_target_duration_phrases(phrases, topic, target_seconds, offer)
     if not phrases:
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     shotlist = _normalize_shotlist(payload.get("shotlist"), len(phrases), style_pack)
     if not shotlist:
@@ -456,7 +572,7 @@ def generate(
     if not safety_rules:
         safety_rules = _fallback(topic, offer, language, target_seconds, style_pack).safety_rules
 
-    return ScriptBundle(
+    bundle = ScriptBundle(
         phrases=phrases,
         shotlist=shotlist,
         title=str(payload.get("title") or f"{topic}: практический разбор")[:70],
@@ -464,6 +580,7 @@ def generate(
         hashtags=tags,
         safety_rules=safety_rules,
     )
+    return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
 
 def to_json(bundle: ScriptBundle) -> str:

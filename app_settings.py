@@ -47,6 +47,10 @@ class Settings:
     FOOTAGE_CATEGORY_MEMORY = int(os.getenv("FOOTAGE_CATEGORY_MEMORY", "5"))
     FOOTAGE_ALLOW_REUSE_FALLBACK = os.getenv("FOOTAGE_ALLOW_REUSE_FALLBACK", "true").lower() in {"1", "true", "yes"}
     FOOTAGE_RESERVATION_TTL_SECONDS = int(os.getenv("FOOTAGE_RESERVATION_TTL_SECONDS", "1800"))
+    # Shorts hook diversity: a candidate opening phrase whose similarity to
+    # any recent Short's hook (same channel) meets or exceeds this triggers
+    # regeneration of the hook only, not the rest of the script.
+    SHORTS_HOOK_SIMILARITY_THRESHOLD = float(os.getenv("SHORTS_HOOK_SIMILARITY_THRESHOLD", "0.72"))
     # Search budget before a reuse is ever allowed (mass-generation safety).
     PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT", "4")))
     PEXELS_MAX_PAGES_PER_QUERY = max(1, int(os.getenv("PEXELS_MAX_PAGES_PER_QUERY", "2")))
