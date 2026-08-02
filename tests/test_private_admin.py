@@ -27,6 +27,7 @@ def _fresh_app(tmp_path, allowlist=ADMIN_EMAIL, private="true"):
         "api", "job_queue", "app_settings", "channels_api", "video_projects_api",
         "services.entitlements", "plans_catalog", "factory_pipeline", "footage_library",
         "media_diversity", "video_script_generator", "shorts_hook_diversity",
+        "openai_client", "openai_quota_guard",
     ]:
         sys.modules.pop(name, None)
     return importlib.import_module("app")

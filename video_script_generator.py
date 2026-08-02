@@ -2,11 +2,19 @@ import json
 import re
 from dataclasses import dataclass
 
+import openai_quota_guard as quotaguard
 import shorts_hook_diversity as hookdiv
 from app_settings import settings
 from footage.shots import DEFAULT_SCENE_QUERIES
 from openai_client import OpenAIClientError, generate_json_with_retry, is_openai_enabled
 from style_packs import normalize_scene
+
+
+class LongformProviderBlockedError(RuntimeError):
+    """Raised instead of silently degrading to a low-quality short-style
+    script when a long-form generation fails specifically because OpenAI is
+    quota/billing-unavailable -- there is no safe long-form fallback, so the
+    caller should block the project rather than publish something bad."""
 
 
 @dataclass
@@ -21,6 +29,11 @@ class ScriptBundle:
     # we ourselves picked/regenerated it. None = long-form, or a Short whose
     # model-generated hook passed the checks unmodified.
     hook_type: str | None = None
+    # True when this bundle came from _fallback() (deterministic, not a real
+    # OpenAI response). openai_error_class is set alongside it only when the
+    # fallback was specifically triggered by a classified OpenAI failure.
+    used_fallback: bool = False
+    openai_error_class: str | None = None
 
 
 _BAD_FRAGMENTS = (
@@ -194,6 +207,7 @@ def _validator(payload: dict) -> None:
 
 
 def _fallback(topic: str, offer: str | None, language: str, target_seconds: int, style_pack: dict) -> ScriptBundle:
+    quotaguard.record_event("fallback_short_generated")
     hook_type = hookdiv.fallback_hook_type_for_topic(topic)
     lines = [
         hookdiv.deterministic_hook(topic, hook_type),
@@ -234,6 +248,7 @@ def _fallback(topic: str, offer: str | None, language: str, target_seconds: int,
             "avoid ai generated or synthetic visuals",
         ],
         hook_type=hook_type,
+        used_fallback=True,
     )
 
 
@@ -295,7 +310,13 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
                 s = _sanitize_phrase(s, topic)
                 if s:
                     phrases.append(s)
-        except Exception:
+        except Exception as exc:
+            # Quota/billing won't resolve on the next section either --
+            # propagate so the caller blocks instead of publishing a
+            # truncated long-form video. Any other failure (parse hiccup,
+            # single bad response) keeps the existing graceful-degrade.
+            if isinstance(exc, OpenAIClientError) and exc.error_class == "quota_billing":
+                raise
             pass
 
     for i, sec in enumerate(sections):
@@ -319,7 +340,9 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
             ns = generate_json_with_retry(
                 system_prompt=sys1, user_prompt=usr3, validator=_v3, max_output_tokens=200,
                 temperature=0.8).payload.get("section", "").strip()
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc, OpenAIClientError) and exc.error_class == "quota_billing":
+                raise
             ns = ""
         if not ns:
             break
@@ -480,8 +503,18 @@ def generate(
     if target_seconds >= 150:
         try:
             return _generate_longform(topic, offer, language, target_seconds, style, style_pack)
+        except OpenAIClientError as exc:
+            if exc.error_class == "quota_billing":
+                # No safe long-form fallback exists (unlike Shorts) -- block
+                # the project instead of silently publishing a short-style
+                # script padded out to a long-form duration.
+                quotaguard.record_event("longform_blocked_provider")
+                raise LongformProviderBlockedError(
+                    "long-form blocked: OpenAI quota/billing unavailable, no safe long-form fallback"
+                ) from exc
+            pass  # any other OpenAI failure: fall through to the standard path
         except Exception:
-            pass  # fall through to the standard path on any failure
+            pass  # fall through to the standard path on any other failure
 
     allowed_scenes = list(style_pack.get("allowed_scenes") or [])
     query_bias = list(style_pack.get("query_bias") or [])
@@ -544,8 +577,9 @@ def generate(
             temperature=0.55,
         )
         payload = result.payload
-    except OpenAIClientError:
+    except OpenAIClientError as exc:
         bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle.openai_error_class = exc.error_class
         return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     phrases = _normalize_phrases(payload.get("phrases"))

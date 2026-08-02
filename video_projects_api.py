@@ -372,8 +372,9 @@ def generate_project_script(project_id: int):
         p.pipeline_error = None
         db.commit()
 
+        import openai_quota_guard as _quotaguard
         try:
-            from video_script_generator import generate as _generate_script
+            from video_script_generator import LongformProviderBlockedError, generate as _generate_script
             # Hook-diversity history (Shorts only, this channel): last 50 or
             # last 14 days, whichever set is larger. See shorts_hook_diversity.py
             # — this only affects the opening 1-2 phrases, nothing else here.
@@ -403,12 +404,34 @@ def generate_project_script(project_id: int):
             bundle = _generate_script(topic=topic, offer=None, language=language,
                                       target_seconds=main_target, style=style,
                                       recent_hooks=hook_recent_hooks, recent_types=hook_recent_types)
+        except LongformProviderBlockedError as exc:
+            # No safe long-form fallback exists -- block this project rather
+            # than publish a low-quality short-style script padded to a
+            # long-form duration. Does not touch any other project/job.
+            p.pipeline_state = "blocked_external_provider"
+            p.pipeline_error = str(exc)[:280]
+            db.commit()
+            _quotaguard.handle_quota_event(
+                db, stage="script", project_id=p.id, channel_name=getattr(ch, "name", None),
+                error_class="quota_billing", fallback_target="long-form blocked (no safe fallback)",
+            )
+            return jsonify({"error": "Генерация недоступна: закончилась квота OpenAI. "
+                                     "Полноценный fallback для длинного видео небезопасен, проект остановлен.",
+                            "pipeline_state": "blocked_external_provider"}), 503
         except Exception as exc:  # noqa: BLE001 — surface as a station error, don't 500
             p.pipeline_state = "error"
             p.pipeline_error = f"script: {str(exc)[:280]}"
             db.commit()
             return jsonify({"error": "Не удалось написать сценарий. Попробуйте ещё раз.",
                             "detail": str(exc)[:280], "pipeline_state": "error"}), 502
+
+        if getattr(bundle, "used_fallback", False) and getattr(bundle, "openai_error_class", None) == "quota_billing":
+            _quotaguard.handle_quota_event(
+                db, stage="script", project_id=p.id, channel_name=getattr(ch, "name", None),
+                error_class="quota_billing", fallback_target="Shorts diverse deterministic fallback",
+            )
+        elif not getattr(bundle, "used_fallback", False):
+            _quotaguard.handle_recovery_event(db)
 
         phrases = [str(ph).strip() for ph in (getattr(bundle, "phrases", None) or []) if str(ph).strip()]
         script_text = "\n".join(phrases).strip()
