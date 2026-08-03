@@ -142,11 +142,17 @@ def _tts_phrase_openai(
     # keep only voices the API accepts; guarantee a valid default last.
     candidates = [v for v in (selected_voice, fallback_voice) if v in _OPENAI_TTS_VOICES]
     candidates.append("onyx")
+    # A slower native `speed` reads as calmer/more measured than the natural-
+    # language `instructions` alone reliably achieve, and unlike the post-hoc
+    # atempo stretch (_atempo_chain) used to hit a target duration, this
+    # shapes the actual generated speech rather than pitch-preserving it
+    # after the fact -- more natural for a genuinely calm delivery.
+    tts_speed = 0.92 if str(voice_tone or "").strip().lower() == "calm" else 1.0
     err: Exception | None = None
     for voice_try in dict.fromkeys(candidates):  # dedupe, keep order
         try:
             kwargs = dict(model=settings.OPENAI_TTS_MODEL, voice=voice_try,
-                          input=text, response_format="mp3")
+                          input=text, response_format="mp3", speed=tts_speed)
             if instructions and "gpt-4o-mini-tts" in (settings.OPENAI_TTS_MODEL or ""):
                 kwargs["instructions"] = instructions
             with client.audio.speech.with_streaming_response.create(**kwargs) as response:

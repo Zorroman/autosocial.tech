@@ -210,3 +210,63 @@ def test_longform_render_blocks_with_clear_status_when_both_tts_providers_down(c
         assert "TTS blocked" in (p.pipeline_error or "")
     finally:
         db.close()
+
+
+# --------------------------------------------------- calm tone -> slower native speed
+
+def test_calm_tone_uses_slower_openai_speed(tts_module, tmp_path, monkeypatch):
+    """Root cause of 'голос не спокойный': voice_tone was never actually
+    passed at either Shorts or long-form call sites, so it silently defaulted
+    to neutral even though a calm profile already existed in the code. This
+    checks the fix at the level that actually reaches the API: a native
+    `speed` argument, which shapes real generated pacing rather than
+    stretching it after the fact."""
+    captured = {}
+
+    class _FakeStreamingResponse:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def stream_to_file(self, path):
+            _write_tiny_mp3(path)
+
+    class _FakeSpeech:
+        with_streaming_response = type(
+            "R", (), {"create": staticmethod(lambda **kw: _FakeStreamingResponse(**kw))})()
+
+    class _FakeAudio:
+        speech = _FakeSpeech()
+
+    class _FakeClient:
+        def __init__(self, *a, **kw):
+            self.audio = _FakeAudio()
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(tts_module, "OpenAI", _FakeClient)
+
+    out_path = tmp_path / "phrase.mp3"
+    tts_module._tts_phrase_openai("Спокойный текст.", out_path, voice_tone="calm")
+    assert captured["speed"] == pytest.approx(0.92)
+
+    captured.clear()
+    tts_module._tts_phrase_openai("Обычный текст.", out_path, voice_tone="neutral")
+    assert captured["speed"] == pytest.approx(1.0)
+
+
+def test_shorts_and_longform_call_sites_pass_calm_tone():
+    """The actual root cause: voice_tone existed in the code but was never
+    passed at either real call site, so it silently defaulted to neutral."""
+    import inspect
+    import video_projects_api
+    import longform_pipeline
+
+    src1 = inspect.getsource(video_projects_api)
+    src2 = inspect.getsource(longform_pipeline)
+    assert 'voice_tone="calm"' in src1
+    assert 'voice_tone="calm"' in src2

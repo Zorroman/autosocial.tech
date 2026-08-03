@@ -810,6 +810,7 @@ def run_render_job(job_id: int) -> None:
                     voice_str, durations = synthesize_voiceover(
                         phrases, audio_dir, f"project_{project.id}",
                         voice_name=(_ch or Channel()).default_voice or None,
+                        voice_tone="calm",
                         gap_before=gap_before,
                         target_total_seconds=_tgt,
                     )

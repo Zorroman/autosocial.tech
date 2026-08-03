@@ -469,6 +469,12 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             voice_str, durations = synthesize_voiceover(
                 phrases, audio_dir, f"project_{project_id}",
                 voice_name="onyx",  # warm, calm narrator (valid OpenAI voice)
+                voice_tone="calm",  # was never actually passed before -- the
+                # `instructions` text alone asked for calm delivery but had no
+                # native pacing lever backing it; voice_tone="calm" now also
+                # applies a native, slightly slower `speed` (see
+                # _tts_phrase_openai), which reads as genuinely calmer than
+                # instructions text alone.
                 instructions=("Читай спокойно, тепло и размеренно, как опытный "
                               "рассказчик-документалист. Естественные паузы между "
                               "мыслями, живая интонация, без спешки и без монотонности."),
