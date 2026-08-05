@@ -809,8 +809,16 @@ def run_render_job(job_id: int) -> None:
                     _tgt = _raw_tgt if (0 < _raw_tgt < 120) else None
                     voice_str, durations = synthesize_voiceover(
                         phrases, audio_dir, f"project_{project.id}",
-                        voice_name=(_ch or Channel()).default_voice or None,
+                        # Unified with long-form's narrator (longform_pipeline.py)
+                        # by explicit request -- same voice everywhere, regardless
+                        # of any per-channel default_voice setting. That setting
+                        # still exists and is editable in channel settings, but no
+                        # longer affects what's actually synthesized here.
+                        voice_name="onyx",
                         voice_tone="calm",
+                        instructions=("Читай спокойно, тепло и размеренно, как опытный "
+                                      "рассказчик-документалист. Естественные паузы между "
+                                      "мыслями, живая интонация, без спешки и без монотонности."),
                         gap_before=gap_before,
                         target_total_seconds=_tgt,
                     )

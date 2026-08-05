@@ -270,3 +270,21 @@ def test_shorts_and_longform_call_sites_pass_calm_tone():
     src2 = inspect.getsource(longform_pipeline)
     assert 'voice_tone="calm"' in src1
     assert 'voice_tone="calm"' in src2
+
+
+def test_shorts_use_the_same_narrator_voice_as_longform():
+    """By explicit request: Shorts must sound like the same narrator as
+    long-form, unconditionally -- even overriding a channel's own explicit
+    default_voice setting (confirmed: channel 1 already had one set to an
+    edge_tts voice, and the request was to override it too, not just fill in
+    the unset case)."""
+    import inspect
+    import video_projects_api
+    import longform_pipeline
+
+    src1 = inspect.getsource(video_projects_api)
+    src2 = inspect.getsource(longform_pipeline)
+    assert 'voice_name="onyx"' in src1
+    assert 'voice_name="onyx"' in src2
+    # The old per-channel override must no longer decide the Shorts voice.
+    assert "voice_name=(_ch or Channel()).default_voice or None" not in src1
