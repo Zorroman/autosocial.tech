@@ -28,6 +28,13 @@ if __name__ == "__main__":
         longform_scheduler.start_in_background()
     except Exception as exc:  # never let it stop the worker
         logging.getLogger("longform.scheduler").warning("longform scheduler not started: %s", exc)
+    # Daily Telegram summary of published videos (evening, once/day; kill
+    # switch DAILY_SUMMARY_ENABLED=false).
+    try:
+        import daily_summary
+        daily_summary.start_in_background()
+    except Exception as exc:  # never let it stop the worker
+        logging.getLogger("daily.summary").warning("daily summary not started: %s", exc)
     redis_conn = Redis.from_url(settings.REDIS_URL)
     worker = Worker(["generation", "render"], connection=redis_conn)
     worker.work()
