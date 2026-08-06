@@ -126,6 +126,66 @@ def test_disabled_via_env_var_never_fires_in_loop(monkeypatch):
     assert ds._enabled() is False
 
 
+def test_format_summary_includes_subscribers_with_delta():
+    import daily_summary as ds
+    now = datetime(2026, 8, 5, 20, 0, 0)
+    text = ds.format_summary({"shorts": 1, "longform": 0, "total": 1}, now,
+                             subscribers_total=1050, subscribers_prev=1000)
+    assert "Подписчиков: 1050 (+50 за день)" in text
+
+
+def test_format_summary_negative_delta_has_sign():
+    import daily_summary as ds
+    now = datetime(2026, 8, 5, 20, 0, 0)
+    text = ds.format_summary({"shorts": 0, "longform": 0, "total": 0}, now,
+                             subscribers_total=990, subscribers_prev=1000)
+    assert "(-10 за день)" in text
+
+
+def test_format_summary_omits_subscribers_when_unavailable():
+    import daily_summary as ds
+    now = datetime(2026, 8, 5, 20, 0, 0)
+    text = ds.format_summary({"shorts": 0, "longform": 0, "total": 0}, now)
+    assert "Подписчиков" not in text
+
+
+def test_fetch_subscribers_total_none_without_connected_channel(client):
+    from database import SessionLocal
+    import daily_summary as ds
+
+    r = client.post("/api/channels", json={"name": "C", "niche": "test"}, headers=_h(client))
+    assert r.status_code in (200, 201)
+
+    db = SessionLocal()
+    try:
+        assert ds.fetch_subscribers_total(db) is None  # no channel has a connected YouTube account
+    finally:
+        db.close()
+
+
+def test_send_stores_subscriber_total_for_next_day_delta(client, monkeypatch):
+    """The subscriber total captured today becomes tomorrow's baseline via
+    the marker row's context -- no separate snapshot table."""
+    import daily_summary as ds
+    monkeypatch.setenv("DAILY_SUMMARY_HOUR", "18")
+    sent = []
+    monkeypatch.setattr("openai_quota_guard.send_telegram_alert", lambda text: sent.append(text) or True)
+
+    counts_iter = iter([1000, 1080])
+    monkeypatch.setattr(ds, "fetch_subscribers_total", lambda db: next(counts_iter))
+
+    day1 = datetime(2026, 8, 5, 19, 0, 0)
+    ok1 = ds.maybe_send_daily_summary(day1)
+    assert ok1 is True
+    assert "Подписчиков: 1000" in sent[0]
+    assert "за день" not in sent[0]  # no prior baseline yet
+
+    day2 = datetime(2026, 8, 6, 19, 0, 0)
+    ok2 = ds.maybe_send_daily_summary(day2)
+    assert ok2 is True
+    assert "Подписчиков: 1080 (+80 за день)" in sent[1]
+
+
 def test_telegram_not_configured_degrades_gracefully(client, monkeypatch):
     """send_telegram_alert already logs+returns False when unconfigured
     (openai_quota_guard.py) -- confirm the daily summary still records the
