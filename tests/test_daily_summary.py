@@ -163,6 +163,46 @@ def test_fetch_subscribers_total_none_without_connected_channel(client):
         db.close()
 
 
+def test_fetch_subscribers_total_dedupes_same_youtube_channel(client, monkeypatch):
+    """Two Channel rows (different content pillars) can point at the same
+    real YouTube channel -- must not be counted twice."""
+    from database import SessionLocal
+    from app_models import Channel
+    import daily_summary as ds
+
+    r = client.post("/api/channels", json={"name": "C1", "niche": "test"}, headers=_h(client))
+    c1 = r.get_json()["channel"]["id"]
+    r = client.post("/api/channels", json={"name": "C2", "niche": "test"}, headers=_h(client))
+    c2 = r.get_json()["channel"]["id"]
+
+    db = SessionLocal()
+    try:
+        for cid in (c1, c2):
+            ch = db.query(Channel).filter(Channel.id == cid).first()
+            ch.youtube_channel_id = "UCsame"
+            ch.youtube_connection_status = "connected"
+        db.commit()
+
+        monkeypatch.setattr(ds, "_channel_youtube_token", lambda db, ch: "fake-token")
+
+        calls = []
+
+        class _Resp:
+            ok = True
+
+            def json(self):
+                calls.append(1)
+                return {"items": [{"statistics": {"subscriberCount": "345"}}]}
+
+        monkeypatch.setattr(ds.requests, "get", lambda *a, **kw: _Resp())
+
+        total = ds.fetch_subscribers_total(db)
+        assert total == 345  # not 690 -- the duplicate youtube_channel_id must be counted once
+        assert len(calls) == 1
+    finally:
+        db.close()
+
+
 def test_send_stores_subscriber_total_for_next_day_delta(client, monkeypatch):
     """The subscriber total captured today becomes tomorrow's baseline via
     the marker row's context -- no separate snapshot table."""

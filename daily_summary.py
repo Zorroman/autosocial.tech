@@ -115,11 +115,16 @@ def _channel_youtube_token(db, channel) -> str | None:
 
 
 def fetch_subscribers_total(db) -> int | None:
-    """Sum of current subscriberCount across every connected YouTube channel,
-    via the YouTube Data API (channels.list?part=statistics; already-granted
-    youtube.readonly scope, same as analytics_api.py's video sync). Returns
-    None (never 0) if there are no connected channels or every lookup
-    failed, so the summary can omit the line instead of reporting a fake 0."""
+    """Sum of current subscriberCount across every distinct connected YouTube
+    channel, via the YouTube Data API (channels.list?part=statistics;
+    already-granted youtube.readonly scope, same as analytics_api.py's video
+    sync). Returns None (never 0) if there are no connected channels or every
+    lookup failed, so the summary can omit the line instead of reporting a
+    fake 0.
+
+    Multiple Channel rows (different content pillars/niches) can point at
+    the same real youtube_channel_id -- dedupe by youtube_channel_id first,
+    or the same subscriber count gets counted once per row."""
     from app_models import Channel
 
     channels = (
@@ -129,9 +134,16 @@ def fetch_subscribers_total(db) -> int | None:
     )
     if not channels:
         return None
+    seen_yt_ids: set[str] = set()
+    unique_channels = []
+    for ch in channels:
+        if ch.youtube_channel_id in seen_yt_ids:
+            continue
+        seen_yt_ids.add(ch.youtube_channel_id)
+        unique_channels.append(ch)
     total = 0
     got_any = False
-    for ch in channels:
+    for ch in unique_channels:
         token = _channel_youtube_token(db, ch)
         if not token:
             continue
