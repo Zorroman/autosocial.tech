@@ -70,6 +70,58 @@ def test_min_phrases_matches_prompt_lower_bound():
     assert g._min_phrases_for(20) == 6  # floor: never demand fewer than 6
 
 
+def test_raw_count_passing_but_sanitized_too_short_is_rejected(monkeypatch):
+    """Real project-180 failure mode: the model returned 9 phrases (passing
+    a raw count check), but _sanitize_phrase drops short/banned lines and
+    _dedupe_keep_order merges near-duplicates, leaving only ~4 phrases
+    totalling ~19s against a 27s floor -- _ensure_target_duration_phrases
+    then silently padded with generic filler anyway. The validator must
+    check the *sanitized* survivor set, not the raw payload count."""
+    monkeypatch.setattr(g, "is_openai_enabled", lambda: True)
+
+    calls = []
+
+    def fake_generate(*, validator, **kwargs):
+        if calls.count("accepted_full") >= 1:
+            class _HookResult:
+                payload = {"hook": "Настоящий хук уже был принят без изменений."}
+            return _HookResult()
+
+        # 9 raw phrases: 5 are under _sanitize_phrase's 20-char floor (empty
+        # after cleanup), the other 4 total well under the 27s duration floor.
+        raw_9 = {
+            "phrases": (
+                ["Коротко.", "Ещё.", "Да.", "Верно.", "Именно так."]
+                + ["Первая настоящая мысль про тему сегодня.",
+                   "Вторая настоящая мысль про эту же тему.",
+                   "Третья мысль тоже про эту самую тему.",
+                   "Четвёртая мысль подводит итог всему."]
+            ),
+            "shotlist": [], "title": "t", "description": "d", "hashtags": [], "safety_rules": [],
+        }
+        with pytest.raises(ValueError, match="too short after cleanup"):
+            validator(raw_9)
+        calls.append("rejected_short_after_cleanup")
+
+        enough = {
+            "phrases": [f"Мысль {i} про личные границы человека сегодня." for i in range(8)],
+            "shotlist": [], "title": "t", "description": "d", "hashtags": [], "safety_rules": [],
+        }
+        validator(enough)
+        calls.append("accepted_full")
+
+        class _Result:
+            payload = enough
+        return _Result()
+
+    monkeypatch.setattr(g, "generate_json_with_retry", fake_generate)
+
+    bundle = g.generate(topic="Тема", offer=None, language="ru", target_seconds=30, style="")
+    assert calls == ["rejected_short_after_cleanup", "accepted_full"]
+    assert bundle.used_fallback is False
+    assert "Добавим короткий пример из жизни" not in " ".join(bundle.phrases)
+
+
 def test_short_first_response_retried_then_accepted(monkeypatch):
     """A too-short first response (the project-176 failure mode: 2-3 real
     phrases padded out with generic _topic_fillers() filler) must not reach

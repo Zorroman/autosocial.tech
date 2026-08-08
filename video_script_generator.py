@@ -127,9 +127,19 @@ def _dedupe_keep_order(lines: list[str]) -> list[str]:
     return out
 
 
-def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_seconds: int, offer: str | None) -> list[str]:
+def _sanitize_and_dedupe(phrases: list[str], topic: str) -> list[str]:
+    """The same cleanup _ensure_target_duration_phrases starts with, pulled
+    out so the retry validator in generate() can check what will actually
+    survive into duration shaping -- a raw phrase count from the model can
+    look sufficient and still collapse well below the target once
+    _sanitize_phrase drops short/banned lines and _dedupe_keep_order merges
+    near-duplicates, silently triggering the generic-filler padding below."""
     cleaned = [_sanitize_phrase(x, topic) for x in (phrases or [])]
-    out = _dedupe_keep_order([x for x in cleaned if x])
+    return _dedupe_keep_order([x for x in cleaned if x])
+
+
+def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_seconds: int, offer: str | None) -> list[str]:
+    out = _sanitize_and_dedupe(phrases, topic)
 
     if not out:
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
@@ -156,8 +166,7 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
     # single filler phrase is coarser than the 27-33s band is wide), so this
     # has to be a loop, not two sequential fixed passes. Never cuts the hook
     # (first) or the closing CTA (last) when trimming.
-    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
-    floor = float(target_seconds) * fill_target_ratio
+    floor = _duration_floor(target_seconds)
     ceiling = float(target_seconds) + 1.0
     loop_guard = 0
     while loop_guard < 48:
@@ -216,6 +225,13 @@ def _min_phrases_for(target_seconds: int) -> int:
     (see the 'Сделай N-M коротких сцен' line in generate()) -- kept as one
     function so the prompt's ask and the retry check can't drift apart."""
     return max(6, min(8, int(round(target_seconds / 4.0))))
+
+
+def _duration_floor(target_seconds: int) -> float:
+    """Same floor _ensure_target_duration_phrases pads up to -- one function
+    so the retry validator's duration check can't drift out of sync."""
+    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
+    return float(target_seconds) * fill_target_ratio
 
 
 def _validator(payload: dict) -> None:
@@ -589,19 +605,29 @@ def generate(
     )
 
     min_phrases = _min_phrases_for(target_seconds)
+    duration_floor = _duration_floor(target_seconds)
 
     def _validate_enough_phrases(payload: dict) -> None:
-        # Base shape check first, then the count floor -- a script that's too
-        # short passes the base check but used to fall straight through to
-        # _ensure_target_duration_phrases, which pads the gap with generic
-        # filler lines (see _topic_fillers()) instead of real, on-topic
-        # content. Raising here spends the second generate_json_with_retry
-        # attempt on getting the model to actually write enough, before ever
-        # reaching for filler.
+        # Base shape check first. Then two independent floors on what will
+        # actually survive into _ensure_target_duration_phrases, not just
+        # the raw phrase count: a response can pass a raw-count check and
+        # still collapse well under the target once _sanitize_phrase drops
+        # short/banned lines and _dedupe_keep_order merges near-duplicates
+        # (real failure mode, not hypothetical -- observed with the model
+        # returning 9 phrases that sanitize+dedupe reduced to 4, totalling
+        # ~19s against a 27s floor). Checking the *sanitized* set is what
+        # actually predicts whether the generic-filler padding will fire.
         _validator(payload)
         phrases = _normalize_phrases(payload.get("phrases"))
         if len(phrases) < min_phrases:
             raise ValueError(f"too few phrases: got {len(phrases)}, need at least {min_phrases}")
+        survivors = _sanitize_and_dedupe(phrases, topic)
+        estimated = _estimate_seconds_from_phrases(survivors)
+        if estimated < duration_floor:
+            raise ValueError(
+                f"phrases too short after cleanup: {len(survivors)} survived "
+                f"({estimated:.1f}s), need at least {duration_floor:.1f}s"
+            )
 
     try:
         result = generate_json_with_retry(
