@@ -47,6 +47,12 @@ class Segment:
     image: str
     seconds: float
     motion: str
+    # "photo" (Ken-Burns pan of a still, via render_segment) or "clip" (real
+    # video footage, via render_clip_segment -- no Ken-Burns, the clip's own
+    # motion is the motion). Defaults to "photo" so every existing caller
+    # that only ever built photo segments keeps working unchanged.
+    kind: str = "photo"
+    clip_start: float = 0.0
 
 
 @dataclass
@@ -152,12 +158,15 @@ def render_video(segments: list[Segment], out_path: Path, work_dir: Path,
     seg_dir = work_dir / "segments"; seg_dir.mkdir(exist_ok=True)
     chunk_dir = work_dir / "chunks"; chunk_dir.mkdir(exist_ok=True)
 
-    # 1) render each segment (memory-safe, one still at a time; resumable)
+    # 1) render each segment (memory-safe, one source at a time; resumable)
     seg_files: list[Path] = []
     for i, s in enumerate(segments):
         sf = seg_dir / f"seg_{i:04d}.mp4"
         if not (sf.exists() and sf.stat().st_size > 2000):
-            ok, err = render_segment(Path(s.image), sf, s.seconds, s.motion)
+            if s.kind == "clip":
+                ok, err = render_clip_segment(Path(s.image), sf, s.seconds, s.clip_start)
+            else:
+                ok, err = render_segment(Path(s.image), sf, s.seconds, s.motion)
             if not ok:
                 return {"status": "failed", "stage": "segment", "index": i, "error": err}
         seg_files.append(sf)
