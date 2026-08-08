@@ -385,7 +385,7 @@ def acquire_clips(groups, work: Path, per_group: int = 2) -> tuple[list[dict], d
             key = f"{r.provider}_{r.video_id}"
             if key in seen_ids:
                 continue
-            dst = clips_dir / f"{key}.mp4"
+            target = clips_dir / f"{key}.mp4"
             try:
                 if r.provider == "pixabay":
                     from footage.providers.pixabay import download_video as _dl
@@ -393,8 +393,11 @@ def acquire_clips(groups, work: Path, per_group: int = 2) -> tuple[list[dict], d
                 else:
                     from footage.providers.pexels import download_video as _dl
                     license_name, license_url = "Pexels License", "https://www.pexels.com/license/"
-                if not dst.exists():
-                    _dl(r, dst)
+                # download_video() ignores most of `target` (it has its own
+                # stable cache path, keyed by provider+id) and returns the
+                # REAL saved path -- must use the return value, not assume
+                # `target` itself got written.
+                dst = Path(_dl(r, target))
                 if not dst.exists() or dst.stat().st_size < 10_000:
                     continue
                 probed = lr._probe(dst)
