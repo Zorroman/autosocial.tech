@@ -9,8 +9,11 @@ def _est(phrases):
 
 
 def test_estimator_matches_real_tts():
-    # project 5: 449 chars rendered to 35.1s -> ~12.5 chars/s
-    assert abs(_est(["x" * 449]) - 35.9) < 1.5
+    # project 175 (onyx + voice_tone="calm", the current Shorts narrator):
+    # 397 chars rendered to 42.16s -> ~9.4 chars/s. Supersedes the old 12.5
+    # chars/s calibration (project 5), which predates the voice unification
+    # onto onyx+calm and was measured against a faster voice/pace.
+    assert abs(_est(["x" * 397]) - 42.23) < 1.5
 
 
 def test_overlong_script_trimmed_into_band():

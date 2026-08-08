@@ -61,10 +61,18 @@ def _normalize_phrases(raw) -> list[str]:
     return out[:120]
 
 
-# Calibrated against real OpenAI-TTS renders (project 5: 449 chars → 35.1s ≈
-# 12.8 chars/s incl. per-scene padding). Using the measured rate makes the
-# estimate track actual rendered duration so the 27–33s publish gate is hit.
-_TTS_CHARS_PER_SEC = 12.5
+# Calibrated against real onyx+calm renders (project 175: 397 chars → 42.16s
+# ≈ 9.4 chars/s). The previous value (12.5) was calibrated before the Shorts
+# narrator was unified onto OpenAI's onyx voice with voice_tone="calm" (see
+# video/tts.py) -- both the voice swap and the calm instructions/speed=0.92
+# slow real speech down substantially, and the stale estimate was writing
+# scripts ~30-40% too long, which the post-hoc duration-fit speedup in
+# video.tts.synthesize_voiceover() then had to claw back by speeding the
+# audio up again -- undoing the calm pacing it was supposed to have. Using
+# the measured rate makes the estimate track actual rendered duration so the
+# 27–33s publish gate is hit with only mild post-hoc adjustment, not a
+# rewrite of the pacing.
+_TTS_CHARS_PER_SEC = 9.4
 
 
 def _estimate_seconds_from_phrases(phrases: list[str]) -> float:
@@ -142,27 +150,32 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
         if cursor > 24:
             break
 
-    # Pad up toward the target when the script is too short.
+    # Converge on the target band by alternating pad-up / trim-down, rather
+    # than one pass of each: a trim that undershoots the floor needs padding
+    # back, and that padding can in turn overshoot the ceiling again (a
+    # single filler phrase is coarser than the 27-33s band is wide), so this
+    # has to be a loop, not two sequential fixed passes. Never cuts the hook
+    # (first) or the closing CTA (last) when trimming.
     fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
-    loop_guard = 0
-    while _estimate_seconds_from_phrases(out) < float(target_seconds) * fill_target_ratio and loop_guard < 24:
-        out.append(fillers[(cursor + loop_guard) % len(fillers)])
-        out = _dedupe_keep_order(out)
-        loop_guard += 1
-
-    # Trim down when the script overshoots (renders too long → gate rejects it).
-    # Never cut the hook (first) or the closing CTA (last); drop the longest
-    # middle phrase until inside the band.
+    floor = float(target_seconds) * fill_target_ratio
     ceiling = float(target_seconds) + 1.0
-    guard = 0
-    while (len(out) > min_scenes
-           and _estimate_seconds_from_phrases(out) > ceiling and guard < 24):
-        middle = out[1:-1]
-        if not middle:
-            break
-        longest = max(range(len(middle)), key=lambda i: len(middle[i]))
-        del out[1 + longest]
-        guard += 1
+    loop_guard = 0
+    while loop_guard < 48:
+        est = _estimate_seconds_from_phrases(out)
+        if est < floor:
+            out.append(fillers[(cursor + loop_guard) % len(fillers)])
+            out = _dedupe_keep_order(out)
+            loop_guard += 1
+            continue
+        if est > ceiling and len(out) > min_scenes:
+            middle = out[1:-1]
+            if not middle:
+                break
+            longest = max(range(len(middle)), key=lambda i: len(middle[i]))
+            del out[1 + longest]
+            loop_guard += 1
+            continue
+        break
 
     return out[:120]
 
@@ -541,7 +554,7 @@ def generate(
         f"banned_tokens: {json.dumps(banned_tokens, ensure_ascii=False)}\n"
         f"preferred_mood: {mood}\n"
         f"motion_level: {motion_level}\n"
-        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 2.0))} слов "
+        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 1.5))} слов "
         f"(~{int(round(target_seconds * _TTS_CHARS_PER_SEC))} символов) — это {target_seconds}s при текущем TTS. Не превышай.\n"
         f"Сделай {max(6, min(8, int(round(target_seconds / 4.0))))}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
         "Требования к phrases:\n"
