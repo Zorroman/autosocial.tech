@@ -264,7 +264,7 @@ def test_after_recovery_normal_openai_path_is_used(monkeypatch):
     def fake_generate(system_prompt, user_prompt, validator, max_output_tokens, temperature):
         payload = {
             "phrases": ["Одно число может преследовать вас не случайно."] +
-                       [f"Фраза номер {i} длинного связного повествования по теме." for i in range(2, 6)],
+                       [f"Фраза номер {i} длинного связного повествования по теме." for i in range(2, 9)],
             "shotlist": [], "title": "t", "description": "d", "hashtags": [], "safety_rules": [],
         }
         validator(payload)

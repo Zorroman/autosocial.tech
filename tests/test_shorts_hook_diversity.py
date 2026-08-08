@@ -95,10 +95,18 @@ def test_similarity_above_threshold_regenerates_only_hook(monkeypatch):
 
     calls = {"n": 0}
 
+    # Short (~30-35 char) phrases, deliberately close to the 9.4 chars/s * 30s
+    # publish budget across all 8 -- long ones would trip the unrelated
+    # duration-trim in _ensure_target_duration_phrases, changing which
+    # phrases survive and breaking the exact-list assertion below.
     body = [
-        "Второй шаг — простое действие, которое можно сделать сразу, без долгой подготовки и лишних условий.",
-        "Третий момент — частая ошибка, которую легко избежать, если знать, на что обратить внимание заранее.",
-        "В финале — четкий шаг, который можно проверить на практике уже сегодня вечером, без специальных инструментов.",
+        "Второй шаг — простое действие сразу.",
+        "Третий момент — частая ошибка людей.",
+        "Четвертый момент — еще одна грань темы.",
+        "Пятый момент — пример из жизни.",
+        "Шестой момент — короткий вывод.",
+        "Седьмой момент — итог для зрителя.",
+        "В финале — четкий следующий шаг.",
     ]
 
     def fake_generate(system_prompt, user_prompt, validator, max_output_tokens, temperature):
@@ -149,6 +157,10 @@ def test_regeneration_checks_against_recent_channel_hooks(monkeypatch):
                     "Сегодня поговорим про числа.",  # templated -> forces regeneration
                     "Второй шаг — простое действие.",
                     "Третий момент — частая ошибка.",
+                    "Четвертый момент раскрывает еще одну грань темы.",
+                    "Пятый момент показывает практический пример из жизни.",
+                    "Шестой момент связывает мысли в единую картину.",
+                    "Седьмой момент дает короткий вывод для зрителя.",
                     "В финале — четкий шаг.",
                 ],
                 "shotlist": [], "title": "t", "description": "d",

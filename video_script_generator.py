@@ -211,6 +211,13 @@ def _normalize_shotlist(raw, phrase_count: int, style_pack: dict) -> list[dict]:
     return out
 
 
+def _min_phrases_for(target_seconds: int) -> int:
+    """Lower bound of the scene-count range given to the model in the prompt
+    (see the 'Сделай N-M коротких сцен' line in generate()) -- kept as one
+    function so the prompt's ask and the retry check can't drift apart."""
+    return max(6, min(8, int(round(target_seconds / 4.0))))
+
+
 def _validator(payload: dict) -> None:
     if not isinstance(payload, dict):
         raise ValueError("payload must be object")
@@ -556,7 +563,7 @@ def generate(
         f"motion_level: {motion_level}\n"
         f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 1.5))} слов "
         f"(~{int(round(target_seconds * _TTS_CHARS_PER_SEC))} символов) — это {target_seconds}s при текущем TTS. Не превышай.\n"
-        f"Сделай {max(6, min(8, int(round(target_seconds / 4.0))))}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
+        f"Сделай {_min_phrases_for(target_seconds)}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
         "Требования к phrases:\n"
         "- каждая фраза это законченное предложение 8-12 слов;\n"
         "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
@@ -581,11 +588,26 @@ def generate(
         "scene_type выбирай только из allowed_scenes."
     )
 
+    min_phrases = _min_phrases_for(target_seconds)
+
+    def _validate_enough_phrases(payload: dict) -> None:
+        # Base shape check first, then the count floor -- a script that's too
+        # short passes the base check but used to fall straight through to
+        # _ensure_target_duration_phrases, which pads the gap with generic
+        # filler lines (see _topic_fillers()) instead of real, on-topic
+        # content. Raising here spends the second generate_json_with_retry
+        # attempt on getting the model to actually write enough, before ever
+        # reaching for filler.
+        _validator(payload)
+        phrases = _normalize_phrases(payload.get("phrases"))
+        if len(phrases) < min_phrases:
+            raise ValueError(f"too few phrases: got {len(phrases)}, need at least {min_phrases}")
+
     try:
         result = generate_json_with_retry(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            validator=_validator,
+            validator=_validate_enough_phrases,
             max_output_tokens=1800,
             temperature=0.55,
         )
