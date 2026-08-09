@@ -252,7 +252,10 @@ def _ai_candidates(pillar: ContentPillar, niche: ContentNiche, channel: Channel,
         'Return JSON {"ideas":[{"topic","seed"}]} with short, concrete, curiosity-driven '
         "topics for the given content pillar. Write in the requested language. "
         "Speculative practices must be framed as tradition/belief, never proven fact. "
-        "Avoid the recent topics listed."
+        "Avoid the recent topics listed. Prefer concrete, actionable topics (how to "
+        "attract/choose/recognize a specific thing) over abstract philosophical framing "
+        "('what is karma', 'signs from the universe' as a vague general theme) -- on this "
+        "channel, concrete topics have measurably driven more subscriber growth."
     )
     user_prompt = json.dumps({
         "niche": niche.name if niche else None,
