@@ -227,11 +227,49 @@ def delete_snapshot(snap_id: int):
 
 # ----------------------------------------------------------------- API sync
 
+def _fetch_subscribers_by_video(token: str, video_ids: list[str]) -> dict:
+    """Lifetime-to-date subscribersGained per video via the YouTube Analytics
+    API (scope yt-analytics.readonly -- already requested at OAuth time, see
+    api.py's youtube oauth_url, but the underlying Google Cloud API also
+    needs a one-time manual "Enable" in Cloud Console, a project-level
+    toggle separate from the OAuth scope; confirmed live 2026-08-09).
+    subscribers_gained on VideoAnalyticsSnapshot is a cumulative per-video
+    total re-fetched on every sync (same as views/likes/comments), not a
+    delta -- _channel_stats() only ever sums the LATEST snapshot per video.
+    Never raises: an API-disabled/quota/network failure just leaves
+    subscribers_gained None, the same manual-first fallback already used for
+    watch time/revenue."""
+    if not video_ids:
+        return {}
+    try:
+        resp = requests.get(
+            "https://youtubeanalytics.googleapis.com/v2/reports",
+            params={
+                "ids": "channel==MINE",
+                "startDate": "2020-01-01",
+                "endDate": datetime.utcnow().strftime("%Y-%m-%d"),
+                "metrics": "subscribersGained",
+                "dimensions": "video",
+                "filters": "video==" + ",".join(video_ids[:50]),
+                "maxResults": 50,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+        if not resp.ok:
+            return {}
+        rows = (resp.json() or {}).get("rows") or []
+        return {r[0]: int(r[1]) for r in rows if len(r) >= 2}
+    except Exception:
+        return {}
+
+
 @analytics_api.route("/channels/<int:channel_id>/analytics/sync", methods=["POST"])
 @require_auth
 def sync_channel_analytics(channel_id: int):
     """Pull views/likes/comments for this channel's published videos via the
-    YouTube Data API (scope youtube.readonly, already granted). Creates new
+    YouTube Data API (scope youtube.readonly, already granted), plus
+    subscribers_gained per video via the YouTube Analytics API. Creates new
     snapshots (data_source='youtube_api'); never touches manual records."""
     db = SessionLocal()
     try:
@@ -280,6 +318,7 @@ def sync_channel_analytics(channel_id: int):
             return jsonify({"error": f"youtube_api_{resp.status_code}"}), 502
 
         items = {str(it.get("id")): it.get("statistics") or {} for it in (resp.json() or {}).get("items") or []}
+        subs_by_video = _fetch_subscribers_by_video(token, ids)
         captured = datetime.utcnow().replace(microsecond=0)
         created = []
         for p in pubs:
@@ -301,6 +340,7 @@ def sync_channel_analytics(channel_id: int):
                 views=_n("viewCount"),
                 likes=_n("likeCount"),
                 comments=_n("commentCount"),
+                subscribers_gained=subs_by_video.get(p.youtube_video_id),
                 raw_data_json=json.dumps(stats, ensure_ascii=False)[:4000],
             )
             db.add(snap)
