@@ -60,6 +60,55 @@ def test_realistic_short_script_in_band():
     assert 27 <= _est(out) <= 33
 
 
+def test_trim_prefers_restoring_real_content_over_generic_filler():
+    # Real failure mode (2026-08-11): the model wrote 9 solid, on-topic
+    # phrases (~48s) -- comfortably over the ceiling. The old trim-then-pad
+    # logic cut 5 of them down to fit under the ceiling, then papered the
+    # resulting gap under the floor with a topic-agnostic _topic_fillers()
+    # line ("Добавим короткий пример из жизни...") instead of putting back
+    # one of the perfectly good real phrases it had just discarded -- the
+    # host's script kept surfacing this exact filler verbatim in production.
+    phrases = [
+        "Сны могут не только развлекать, но и предсказывать будущее.",
+        "Вещие сны часто оставляют яркие эмоции и образы.",
+        "Обратите внимание на детали: даты, лица и места.",
+        "Если сон повторяется, это знак, что он важен.",
+        "Записывайте сны, чтобы заметить закономерности.",
+        "Чувство тревоги после сна может быть предостережением.",
+        "Некоторые сны требуют вашего внимания и анализа.",
+        "Иногда ответы приходят в самых неожиданных формах.",
+        "Слушайте свои сны — они могут быть ключом к пониманию.",
+    ]
+    topic = "Как понять, что сон был вещим"
+    out = g._ensure_target_duration_phrases(list(phrases), topic, 30, None)
+    assert 27 <= _est(out) <= 33
+    real_kept = sum(1 for p in out if p in phrases)
+    assert real_kept >= 4  # most of the 9 real phrases survive, not 3-of-9
+    fillers = set(g._topic_fillers(topic, None))
+    assert sum(1 for p in out if p in fillers) <= 1  # filler only as a last resort
+
+
+def test_trim_pad_convergence_never_infinite_loops():
+    # Guard against the oscillation this fix could otherwise introduce:
+    # restoring a trimmed phrase can overshoot the ceiling, trimming it back
+    # can undershoot the floor, forever, if no phrase combination lands
+    # exactly in-band. Must terminate promptly (not spin the 48-iteration
+    # budget) and still return a sane, real-content-only-or-better result.
+    phrases = [
+        "Хук про скрытый знак вокруг тебя сегодня.",
+        "Число 11 11 повторяется в жизни не случайно.",
+        "Оно мягко тянет внимание к твоей главной цели.",
+        "Древние видели в нём знак важного перехода.",
+        "Проверь где именно оно встречается сегодня.",
+        "Запиши свою первую мысль в этот момент.",
+        "Так простой символ становится твоим ориентиром.",
+        "Подпишись чтобы не потерять эти знаки.",
+    ]
+    out = g._ensure_target_duration_phrases(list(phrases), "знаки", 30, None)
+    assert 27 <= _est(out) <= 33
+    assert len(out) <= 12  # didn't blow up padding/trimming indefinitely
+
+
 # ---------------------------------------- minimum phrase count + retry
 
 def test_min_phrases_matches_prompt_lower_bound():

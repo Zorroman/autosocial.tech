@@ -166,13 +166,49 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
     # single filler phrase is coarser than the 27-33s band is wide), so this
     # has to be a loop, not two sequential fixed passes. Never cuts the hook
     # (first) or the closing CTA (last) when trimming.
+    #
+    # A trim that undershoots the floor restores one of its OWN just-trimmed
+    # real phrases before ever reaching for a generic filler: the model
+    # routinely writes more good, on-topic material than the ceiling allows
+    # (observed live: 9 solid phrases, ~48s, trimmed to fit ~30s), so padding
+    # the resulting gap with canned _topic_fillers() text was discarding real
+    # content only to paper over the hole with something worse -- the exact
+    # "дурацкие заглушки" the host's script kept showing. Fillers stay as the
+    # last resort, once nothing real is left to restore.
     floor = _duration_floor(target_seconds)
     ceiling = float(target_seconds) + 1.0
+    trimmed: list[str] = []
+    seen_states: set[tuple[str, ...]] = set()
     loop_guard = 0
     while loop_guard < 48:
+        state = tuple(out)
+        if state in seen_states:
+            # No phrase-swap lands in-band (real sentences are chunkier than
+            # the floor-ceiling gap, so restoring one overshoots the ceiling
+            # and trimming it back undershoots the floor forever) -- stop
+            # oscillating and keep this all-real state rather than burn the
+            # rest of the budget or fall through to a filler that wasn't
+            # needed in the first place.
+            break
+        seen_states.add(state)
         est = _estimate_seconds_from_phrases(out)
         if est < floor:
-            out.append(fillers[(cursor + loop_guard) % len(fillers)])
+            # Prefer the smallest remaining real phrase that still fits under
+            # the ceiling: a single big swap can overshoot when a combination
+            # of two smaller ones would land in-band, and picking blind
+            # (LIFO) can grab one too large for a small gap. If every
+            # remaining real phrase alone would already overshoot (real
+            # sentences here are all chunkier than the gap left to close), a
+            # generic filler is more flexible padding for just that last bit
+            # than forcing back a chunky real sentence and re-triggering a
+            # trim next iteration.
+            fitting = [p for p in trimmed if est + len(p) / _TTS_CHARS_PER_SEC <= ceiling]
+            if fitting:
+                pick = min(fitting, key=len)
+                trimmed.remove(pick)
+                out.append(pick)
+            else:
+                out.append(fillers[(cursor + loop_guard) % len(fillers)])
             out = _dedupe_keep_order(out)
             loop_guard += 1
             continue
@@ -181,6 +217,7 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
             if not middle:
                 break
             longest = max(range(len(middle)), key=lambda i: len(middle[i]))
+            trimmed.append(middle[longest])
             del out[1 + longest]
             loop_guard += 1
             continue
