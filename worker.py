@@ -35,6 +35,13 @@ if __name__ == "__main__":
         daily_summary.start_in_background()
     except Exception as exc:  # never let it stop the worker
         logging.getLogger("daily.summary").warning("daily summary not started: %s", exc)
+    # Disk-usage cleanup for the footage cache + confirmed-published render
+    # outputs (once/day; kill switch STORAGE_CLEANUP_ENABLED=false).
+    try:
+        import storage_cleanup
+        storage_cleanup.start_in_background()
+    except Exception as exc:  # never let it stop the worker
+        logging.getLogger("storage.cleanup").warning("storage cleanup not started: %s", exc)
     redis_conn = Redis.from_url(settings.REDIS_URL)
     worker = Worker(["generation", "render"], connection=redis_conn)
     worker.work()
