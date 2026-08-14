@@ -50,7 +50,7 @@ def _enabled() -> bool:
 
 def _footage_retention_days() -> int:
     try:
-        return max(1, int(os.getenv("FOOTAGE_CACHE_RETENTION_DAYS", "21")))
+        return max(1, int(os.getenv("FOOTAGE_CACHE_RETENTION_DAYS", "10")))
     except Exception:
         return 21
 
