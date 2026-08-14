@@ -6,7 +6,19 @@ generated phrase's exact word ("moonlit") never matched the synonym
 dictionary's key ("moon"), and the two lowest-value variants (widened,
 first-word) crowded the real synonyms/broad fallbacks out of the caller's
 bounded per-segment query budget."""
+import sys
+
+import pytest
+
 import footage_library as fl
+from tests.test_private_admin import _fresh_app
+
+
+@pytest.fixture()
+def app_module(tmp_path):
+    for m in ("footage_library",):
+        sys.modules.pop(m, None)
+    return _fresh_app(tmp_path)
 
 
 def test_inflected_word_still_matches_its_synonym_stem():
@@ -57,3 +69,59 @@ def test_broad_fallbacks_always_present_and_deduped():
     variants = fl.query_variants("crystal healing energy")
     assert "starry night sky" in variants
     assert len(variants) == len(set(v.lower() for v in variants))
+
+
+def test_all_new_niche_synonym_stems_resolve_from_realistic_phrasing():
+    # Each stem key added for the categories observed repeating (2026-08-14)
+    # must actually fire on a plausible AI-generated scene phrase -- a typo
+    # in the stem (e.g. "zodiak" instead of "zodiac") would silently make
+    # that whole category fall through to the generic broad fallbacks again,
+    # exactly the failure mode this fix targets.
+    cases = {
+        "zodiac symbols aesthetic in the night sky": "constellations",
+        "ancient rune carved in stone": "carved runes stone",
+        "person balancing their chakra energy": "hands energy closeup",
+        "a vivid dream about flying": "surreal dreamy scene",
+        "old buddhist temple at sunrise": "old temple ruins",
+        "digital clock showing repeating numbers": "digital clock numbers",
+        "feeling drained of energy today": "person alone thoughtful",
+    }
+    for phrase, expected_synonym in cases.items():
+        variants = fl.query_variants(phrase)
+        assert expected_synonym in variants, f"{phrase!r} -> missing {expected_synonym!r} in {variants}"
+
+
+def test_acquire_segment_asset_sends_the_reordered_variants_to_providers(app_module, monkeypatch):
+    # Integration-level check at the real call site of the bug (not just
+    # query_variants() in isolation): with an empty local library, the
+    # network stage must try the synonym-bearing queries before the
+    # low-value widened/first-word ones, within the real configured budget.
+    import footage_library as fl_mod
+    from database import SessionLocal
+    from app_settings import settings
+
+    attempted_queries: list[str] = []
+
+    def fake_search_both_providers(query, **kwargs):
+        attempted_queries.append(query)
+        return []  # force exhaustion so the loop keeps advancing through variants
+
+    monkeypatch.setattr(fl_mod, "search_both_providers", fake_search_both_providers)
+
+    db = SessionLocal()
+    try:
+        chosen, stats = fl_mod.acquire_segment_asset(
+            db, query="moonlit night sky", channel_id=999999, project_id=999999,
+            job_id=999999, min_duration=3.0, used_asset_ids=set(), used_hashes=set(),
+            allow_network=True,
+        )
+    finally:
+        db.close()
+
+    assert chosen is None  # every candidate was force-exhausted, as intended
+    budget = settings.PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT
+    expected_variants = fl_mod.query_variants("moonlit night sky")[:budget]
+    # dedupe attempted_queries to variant identity, preserving first-seen order
+    seen_order = list(dict.fromkeys(attempted_queries))
+    assert seen_order == expected_variants
+    assert "full moon" in seen_order[:3]  # reaches the real synonym early, not buried past budget
