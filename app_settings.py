@@ -52,7 +52,7 @@ class Settings:
     # regeneration of the hook only, not the rest of the script.
     SHORTS_HOOK_SIMILARITY_THRESHOLD = float(os.getenv("SHORTS_HOOK_SIMILARITY_THRESHOLD", "0.72"))
     # Search budget before a reuse is ever allowed (mass-generation safety).
-    PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT", "4")))
+    PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT", "6")))
     PEXELS_MAX_PAGES_PER_QUERY = max(1, int(os.getenv("PEXELS_MAX_PAGES_PER_QUERY", "2")))
     PEXELS_CANDIDATES_PER_SEGMENT = max(1, int(os.getenv("PEXELS_CANDIDATES_PER_SEGMENT", "12")))
     FOOTAGE_REUSE_ONLY_AFTER_EXHAUSTED_SEARCH = os.getenv("FOOTAGE_REUSE_ONLY_AFTER_EXHAUSTED_SEARCH", "true").lower() in {"1", "true", "yes"}
