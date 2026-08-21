@@ -162,6 +162,67 @@ def test_sync_requires_connection_and_mocked_paths(client, monkeypatch):
     assert r.status_code == 409
 
 
+def test_sync_prefers_most_recent_publications_when_over_the_50_cap(client, monkeypatch):
+    # Real bug (found 2026-08-21 investigating a subscriber-drop report):
+    # the YouTube Data API call only ever takes the first 50 ids from an
+    # UNORDERED query -- once a channel has more than 50 published videos,
+    # that stayed pinned to the OLDEST 50 forever, so freshly published
+    # videos never got synced. Only a handful of extra publications are
+    # needed here to prove the *ordering*, not the full 50+ to reproduce
+    # the cap itself.
+    from database import SessionLocal
+    from app_models import Channel, Publication, VideoProject
+    from datetime import datetime, timedelta
+
+    ch, pid, pub = _mk_published(client)
+    h = _h(client)
+    db = SessionLocal()
+    try:
+        c = db.query(Channel).filter_by(id=ch).first()
+        c.youtube_channel_id = "UCx"
+        c.youtube_connection_status = "connected"
+        base = datetime(2026, 1, 1)
+        # oldest publication already exists (from _mk_published); add two
+        # newer ones with distinct, out-of-insertion-order timestamps.
+        first_pub = db.query(Publication).filter_by(id=pub).first()
+        first_pub.published_at = base
+        for i, days in enumerate((10, 5)):  # deliberately not chronological insert order
+            p = VideoProject(channel_id=ch, title=f"V{i}", status="rendered",
+                             duration_target_seconds=30)
+            db.add(p)
+            db.flush()
+            db.add(Publication(channel_id=ch, project_id=p.id, title=p.title,
+                               status="published", privacy_status="public", publish_mode="immediate",
+                               youtube_video_id=f"newvid{i}", youtube_url="https://x",
+                               published_at=base + timedelta(days=days)))
+        db.commit()
+    finally:
+        db.close()
+
+    import analytics_api as aa
+    monkeypatch.setattr(aa, "_valid_account_token", lambda db, acc: "tok")
+    monkeypatch.setattr(aa, "_user_youtube_account", lambda db: object())
+
+    captured_ids = []
+
+    class FakeResp:
+        status_code = 200
+        ok = True
+        def json(self):
+            return {"items": []}
+
+    def fake_get(url, **kw):
+        captured_ids.extend((kw.get("params") or {}).get("id", "").split(","))
+        return FakeResp()
+    monkeypatch.setattr(aa.requests, "get", fake_get)
+
+    r = client.post(f"/api/channels/{ch}/analytics/sync", headers=h)
+    assert r.status_code == 200
+    # most-recently-published first: "newvid0" (base+10d) then "newvid1"
+    # (base+5d) then the original (base) -- never the reverse/insertion order
+    assert captured_ids[:2] == ["newvid0", "newvid1"]
+
+
 def test_sync_populates_subscribers_gained_from_analytics_api(client, monkeypatch):
     """subscribers_gained on the snapshot comes from a second, separate call
     to the YouTube Analytics API (youtubeanalytics.googleapis.com) -- distinct

@@ -283,6 +283,14 @@ def sync_channel_analytics(channel_id: int):
             .filter(Publication.channel_id == c.id,
                     Publication.status == "published",
                     Publication.youtube_video_id.isnot(None))
+            # Most-recent-first: the YouTube Data API call below only takes
+            # the first 50 (its own hard limit). Without this ordering, a
+            # channel with >50 published videos gets an arbitrary DB-order
+            # slice -- in practice that stayed pinned to the OLDEST 50
+            # forever once the channel grew past 50, so newer videos never
+            # synced (real bug found 2026-08-21 while investigating a
+            # subscriber-drop report).
+            .order_by(Publication.published_at.desc())
             .all()
         )
         if not pubs:
