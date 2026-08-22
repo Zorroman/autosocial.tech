@@ -255,7 +255,13 @@ def _ai_candidates(pillar: ContentPillar, niche: ContentNiche, channel: Channel,
         "Avoid the recent topics listed. Prefer concrete, actionable topics (how to "
         "attract/choose/recognize a specific thing) over abstract philosophical framing "
         "('what is karma', 'signs from the universe' as a vague general theme) -- on this "
-        "channel, concrete topics have measurably driven more subscriber growth."
+        "channel, concrete topics have measurably driven more subscriber growth. When it "
+        "fits the pillar, especially favor a RITUAL/PRACTICE framed around a specific "
+        "occasion or method with a specific desired outcome (e.g. 'ritual for the new moon "
+        "to attract X', 'how to charge Y during the full moon', 'a rune spread for Z') -- "
+        "this exact pattern (ritual + specific timing/method + specific outcome) has the "
+        "highest measured likes AND subscriber conversion of any topic shape on this "
+        "channel, well above general/explanatory framings."
     )
     user_prompt = json.dumps({
         "niche": niche.name if niche else None,
