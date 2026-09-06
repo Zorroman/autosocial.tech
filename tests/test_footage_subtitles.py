@@ -342,9 +342,9 @@ def test_project_asset_blocked_regardless_of_cooldown(client, tmp_path):
 
 
 def test_failed_render_does_not_consume_cooldown(client, monkeypatch):
-    """reservation released + no FootageUsage when render fails."""
+    """render failure is terminal for factory backlog + does not consume cooldown."""
     from database import SessionLocal
-    from app_models import FootageAsset, FootageUsage
+    from app_models import FootageAsset, FootageUsage, VideoProject
     import importlib
     rv = importlib.import_module("video.render.render_video")
 
@@ -368,6 +368,18 @@ def test_failed_render_does_not_consume_cooldown(client, monkeypatch):
     assert "ffmpeg_exploded_for_test" in job["error"]
 
     db = SessionLocal()
+    project = db.query(VideoProject).filter_by(id=pid).first()
+    assert project.status == "failed"
+    assert "ffmpeg_exploded_for_test" in project.error
+    assert project.pipeline_stage == "render"
+    assert project.pipeline_state == "error"
+    assert "ffmpeg_exploded_for_test" in project.pipeline_error
+    unfinished = (db.query(VideoProject)
+                  .filter(VideoProject.channel_id == ch,
+                          VideoProject.pipeline_stage.isnot(None),
+                          VideoProject.pipeline_state.notin_(["done", "error"]))
+                  .count())
+    assert unfinished == 0
     assert db.query(FootageUsage).count() == usage_before  # cooldown NOT consumed
     assert db.query(FootageAsset).filter(FootageAsset.reserved_by_job_id.isnot(None)).count() == 0
     db.close()
