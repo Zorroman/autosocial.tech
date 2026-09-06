@@ -33,10 +33,21 @@ from media_diversity import (
     search_both_providers,
 )
 
-# Rule-based query expansion; no paid AI calls in the footage path.
+# Rule-based query expansion; no paid AI calls in the footage path. Keys are
+# matched by prefix (see _synonyms_for_word), not exact word equality, so a
+# generated phrase like "moonlit night sky" or "person meditating peacefully"
+# still resolves to the "moon"/"meditat" entry -- an AI-written scene query
+# almost never repeats the exact inflection a hardcoded key was written in
+# (real repeated-footage case: "moonlit" != "moon" under exact match, so the
+# moon-themed synonyms never fired and the same handful of cached clips kept
+# getting reused despite the 30-day same-channel cooldown penalty). Stem-ish
+# keys (meditat, energ, forest, zodiac, rune, chakra, templ, number) are
+# deliberately short/truncated for the same reason. Content added here is
+# drawn from the niche's own curated ContentPillar.visual_keywords so it
+# stays on-brand rather than generic stock-photo filler.
 _QUERY_SYNONYMS = {
     "candle": ["candlelight", "flame closeup", "burning candle dark"],
-    "moon": ["full moon", "moonlight night", "lunar sky"],
+    "moon": ["full moon", "moonlight night", "lunar sky", "moon phases", "moon over water"],
     "night": ["dark night", "midnight", "night sky stars"],
     "mystic": ["misty forest", "foggy mountains", "candle flame closeup"],
     "fog": ["mist forest", "foggy morning", "haze mountains"],
@@ -45,6 +56,15 @@ _QUERY_SYNONYMS = {
     "symbol": ["ancient carved symbols stone", "runes closeup", "old temple wall"],
     "tarot": ["tarot cards hands", "fortune telling table", "old cards closeup"],
     "crystal": ["crystal closeup", "gemstones", "quartz stone"],
+    "meditat": ["person meditating nature", "sunrise meditation", "yoga calm"],
+    "energ": ["person alone thoughtful", "hands energy closeup", "deep breathing"],
+    "forest": ["misty forest morning", "dark forest", "zen forest path"],
+    "zodiac": ["zodiac symbols aesthetic", "constellations", "starry night sky"],
+    "rune": ["carved runes stone", "ancient symbols wall", "engraved stone"],
+    "chakra": ["hands energy closeup", "person meditating nature", "yoga calm"],
+    "dream": ["person sleeping in bed at night", "surreal dreamy scene", "closed eyes closeup"],
+    "templ": ["ancient stone ruins", "old temple ruins", "buddhist temple"],
+    "number": ["digital clock numbers", "handwritten numbers", "calendar closeup"],
 }
 # Real-scene fallbacks only — no abstract/CGI (the user wants nature/people, not
 # "Windows-screensaver" motion graphics).
@@ -52,19 +72,41 @@ _BROAD_FALLBACKS = ["misty forest morning", "calm ocean waves", "starry night sk
                     "person walking in nature"]
 
 
+def _synonyms_for_word(word: str) -> list[str]:
+    """Prefix match in both directions: 'moonlit'.startswith('moon') covers
+    inflections of a short key, 'meditat'.startswith is deliberately a stem
+    so it matches 'meditation'/'meditating'/'meditate' alike. The reverse
+    direction (key.startswith(word)) only applies to words of 4+ letters --
+    shorter ones (e.g. "for") would otherwise spuriously match longer keys
+    like "forest" by pure coincidence."""
+    out: list[str] = []
+    for key, syns in _QUERY_SYNONYMS.items():
+        if word.startswith(key) or (len(word) >= 4 and key.startswith(word)):
+            out.extend(syns[:2])
+    return out
+
+
 def query_variants(base_query: str, extra_terms: list[str] | None = None) -> list[str]:
-    """Deterministic-ish expansion: base -> widened -> synonyms -> broad."""
+    """Deterministic-ish expansion: base -> synonyms -> widened -> broad.
+
+    Synonyms are listed before the widened (fewer-words) and first-word
+    variants on purpose: those two are near-subsets of the original phrase
+    and tend to return heavily overlapping provider results, while the
+    caller only tries a bounded number of variants per segment
+    (PEXELS_MAX_SEARCH_QUERIES_PER_SEGMENT) -- letting them crowd out the
+    synonyms/broad fallbacks starved niche-topic searches (moon, meditation,
+    forest, ...) of genuinely different candidates, forcing repeated reuse
+    of the same few cached clips well inside the cooldown window."""
     base = (base_query or "").strip()
     out: list[str] = []
     if base:
         out.append(base)
         words = [w for w in re.findall(r"[a-zA-Z]{3,}", base.lower())]
+        for w in words:
+            out.extend(_synonyms_for_word(w))
         if len(words) > 1:
             out.append(" ".join(words[:2]))          # widened (fewer words)
             out.append(words[0])
-        for w in words:
-            for syn in _QUERY_SYNONYMS.get(w, [])[:2]:
-                out.append(syn)
     for t in (extra_terms or []):
         if t and t not in out:
             out.append(t)

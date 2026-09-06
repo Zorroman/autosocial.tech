@@ -543,6 +543,17 @@ def run_migrations() -> None:
     if "footage_assets" in tables:
         add_missing_columns("footage_assets", {"category": "VARCHAR(60)"})
 
+    # video_projects.hook_type: additive column for the Shorts hook-diversity
+    # fix (see shorts_hook_diversity.py). Only set when the hook-diversity
+    # logic itself picked/regenerated the opening phrase -- NULL means either
+    # a pre-existing row, a long-form video, or a Short whose model-generated
+    # hook passed the checks unmodified (its type was never classified, since
+    # classifying it would need an extra LLM call this feature deliberately
+    # avoids). NULL is treated as "unclassified", never as a false repeat of
+    # any specific hook type.
+    if "video_projects" in tables:
+        add_missing_columns("video_projects", {"hook_type": "VARCHAR(30)"})
+
     # api_tokens.expires_at: additive column, then a ONE-TIME backfill for
     # legacy rows written before this column existed. Bounded transitional
     # grace period rather than leaving them valid forever -- but not an

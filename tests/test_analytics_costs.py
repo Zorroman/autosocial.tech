@@ -162,6 +162,152 @@ def test_sync_requires_connection_and_mocked_paths(client, monkeypatch):
     assert r.status_code == 409
 
 
+def test_sync_prefers_most_recent_publications_when_over_the_50_cap(client, monkeypatch):
+    # Real bug (found 2026-08-21 investigating a subscriber-drop report):
+    # the YouTube Data API call only ever takes the first 50 ids from an
+    # UNORDERED query -- once a channel has more than 50 published videos,
+    # that stayed pinned to the OLDEST 50 forever, so freshly published
+    # videos never got synced. Only a handful of extra publications are
+    # needed here to prove the *ordering*, not the full 50+ to reproduce
+    # the cap itself.
+    from database import SessionLocal
+    from app_models import Channel, Publication, VideoProject
+    from datetime import datetime, timedelta
+
+    ch, pid, pub = _mk_published(client)
+    h = _h(client)
+    db = SessionLocal()
+    try:
+        c = db.query(Channel).filter_by(id=ch).first()
+        c.youtube_channel_id = "UCx"
+        c.youtube_connection_status = "connected"
+        base = datetime(2026, 1, 1)
+        # oldest publication already exists (from _mk_published); add two
+        # newer ones with distinct, out-of-insertion-order timestamps.
+        first_pub = db.query(Publication).filter_by(id=pub).first()
+        first_pub.published_at = base
+        for i, days in enumerate((10, 5)):  # deliberately not chronological insert order
+            p = VideoProject(channel_id=ch, title=f"V{i}", status="rendered",
+                             duration_target_seconds=30)
+            db.add(p)
+            db.flush()
+            db.add(Publication(channel_id=ch, project_id=p.id, title=p.title,
+                               status="published", privacy_status="public", publish_mode="immediate",
+                               youtube_video_id=f"newvid{i}", youtube_url="https://x",
+                               published_at=base + timedelta(days=days)))
+        db.commit()
+    finally:
+        db.close()
+
+    import analytics_api as aa
+    monkeypatch.setattr(aa, "_valid_account_token", lambda db, acc: "tok")
+    monkeypatch.setattr(aa, "_user_youtube_account", lambda db: object())
+
+    captured_ids = []
+
+    class FakeResp:
+        status_code = 200
+        ok = True
+        def json(self):
+            return {"items": []}
+
+    def fake_get(url, **kw):
+        captured_ids.extend((kw.get("params") or {}).get("id", "").split(","))
+        return FakeResp()
+    monkeypatch.setattr(aa.requests, "get", fake_get)
+
+    r = client.post(f"/api/channels/{ch}/analytics/sync", headers=h)
+    assert r.status_code == 200
+    # most-recently-published first: "newvid0" (base+10d) then "newvid1"
+    # (base+5d) then the original (base) -- never the reverse/insertion order
+    assert captured_ids[:2] == ["newvid0", "newvid1"]
+
+
+def test_sync_populates_subscribers_gained_from_analytics_api(client, monkeypatch):
+    """subscribers_gained on the snapshot comes from a second, separate call
+    to the YouTube Analytics API (youtubeanalytics.googleapis.com) -- distinct
+    from the YouTube Data API call for views/likes/comments. Must degrade to
+    None (not 0, not crash) if that second call fails, same manual-first
+    fallback already used for watch time/revenue."""
+    ch, pid, pub = _mk_published(client)
+    h = _h(client)
+    from database import SessionLocal
+    from app_models import Channel
+    db = SessionLocal()
+    c = db.query(Channel).filter_by(id=ch).first()
+    c.youtube_channel_id = "UCx"
+    c.youtube_connection_status = "connected"
+    db.commit(); db.close()
+
+    import analytics_api as aa
+    monkeypatch.setattr(aa, "_valid_account_token", lambda db, acc: "tok")
+    monkeypatch.setattr(aa, "_user_youtube_account", lambda db: object())
+    vid = "vid" + str(pub).zfill(8)
+
+    class DataApiResp:
+        status_code = 200
+        ok = True
+        def json(self):
+            return {"items": [{"id": vid, "statistics": {"viewCount": "500", "likeCount": "40", "commentCount": "3"}}]}
+
+    class AnalyticsApiResp:
+        status_code = 200
+        ok = True
+        def json(self):
+            return {"rows": [[vid, 7]]}
+
+    def fake_get(url, **kw):
+        if "youtubeanalytics" in url:
+            return AnalyticsApiResp()
+        return DataApiResp()
+    monkeypatch.setattr(aa.requests, "get", fake_get)
+
+    # captured_at is truncated to whole seconds and is part of a real DB
+    # unique constraint (publication_id, captured_at, data_source) -- two
+    # syncs in the same wall-clock second would collide, so pin distinct
+    # fake "now" values for the two sync calls below instead of relying on
+    # real time to advance between them.
+    from datetime import datetime as _real_datetime
+
+    class _FakeDatetime(_real_datetime):
+        _now = _real_datetime(2026, 1, 1, 12, 0, 0)
+
+        @classmethod
+        def utcnow(cls):
+            return cls._now
+
+    monkeypatch.setattr(aa, "datetime", _FakeDatetime)
+
+    r = client.post(f"/api/channels/{ch}/analytics/sync", headers=h)
+    assert r.status_code == 200
+    snaps = client.get(f"/api/analytics/snapshots?publication_id={pub}", headers=h).get_json()["snapshots"]
+    api_snap = next(s for s in snaps if s["data_source"] == "youtube_api")
+    assert api_snap["views"] == 500
+    assert api_snap["subscribers_gained"] == 7
+
+    # analytics-side failure (e.g. API not enabled in Cloud Console, a real
+    # production case seen 2026-08-09) must not break the views/likes sync
+    class AnalyticsDisabledResp:
+        status_code = 403
+        ok = False
+        def json(self):
+            return {"error": {"message": "SERVICE_DISABLED"}}
+
+    def fake_get_disabled(url, **kw):
+        if "youtubeanalytics" in url:
+            return AnalyticsDisabledResp()
+        return DataApiResp()
+    monkeypatch.setattr(aa.requests, "get", fake_get_disabled)
+    _FakeDatetime._now = _real_datetime(2026, 1, 1, 12, 0, 1)
+
+    r2 = client.post(f"/api/channels/{ch}/analytics/sync", headers=h)
+    assert r2.status_code == 200
+    snaps2 = client.get(f"/api/analytics/snapshots?publication_id={pub}", headers=h).get_json()["snapshots"]
+    latest_api_snap = max((s for s in snaps2 if s["data_source"] == "youtube_api"), key=lambda s: s["id"])
+    assert latest_api_snap["views"] == 500  # views/likes sync still worked
+    assert latest_api_snap["subscribers_gained"] is None  # degraded, not 0/crash
+
+
 def test_cost_records_and_free_ops(client):
     ch, pid, pub = _mk_published(client)
     out = client.get("/api/analytics/costs", headers=_h(client)).get_json()

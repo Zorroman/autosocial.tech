@@ -18,6 +18,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     restart: unless-stopped
     env_file:
       - ./.env
@@ -48,6 +50,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     command: ["python", "worker.py"]
     restart: unless-stopped
     env_file:

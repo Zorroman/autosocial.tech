@@ -11,7 +11,7 @@ Targets:
 - .tmp_* render work directories older than 1 day
 - tts_preview_*.mp3 older than 7 days
 - fixture clips in cache/fixture_clips not referenced by any scene
-- stock clips in cache/footage not referenced by any scene (older than 30 days)
+- stock clips in cache/footage not referenced by any scene (older than 10 days)
 """
 import argparse
 import shutil
@@ -82,7 +82,15 @@ def collect_candidates(db):
         for f in footage_dir.rglob("*.mp4"):
             if str(f.resolve()) in refs:
                 continue
-            if now - f.stat().st_mtime > 30 * DAY:
+            # Lowered from 30 to 10 days: footage was accumulating ~2 GB/day
+            # against a fixed VPS disk, projected to fill it well before the
+            # old 30-day window ever made anything eligible. Safe to shorten:
+            # a deleted file just drops out of pick_local_candidates()
+            # (footage_library.py checks Path.exists() before scoring) and
+            # forces a fresh re-download next time -- the 90-day reuse
+            # cooldown itself is tracked in the DB record, not the file, so
+            # cooldown correctness is unaffected either way.
+            if now - f.stat().st_mtime > 10 * DAY:
                 candidates.append(("old_stock", f))
 
     return candidates

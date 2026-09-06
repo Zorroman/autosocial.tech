@@ -191,6 +191,7 @@ def _reserve(channel_id: int) -> tuple[bool, int | None, int | None]:
         stale_min = int(os.getenv("FACTORY_RUNNING_STALE_MIN", "30"))
         stale_before = now - timedelta(minutes=stale_min)
         active = 0
+        healed = False
         for rp in (db.query(VideoProject)
                    .filter(VideoProject.channel_id == channel_id,
                            VideoProject.pipeline_state == "running").all()):
@@ -198,18 +199,33 @@ def _reserve(channel_id: int) -> tuple[bool, int | None, int | None]:
                 rp.pipeline_state = "needs_review"
                 rp.pipeline_error = f"Рендер завис в running >{stale_min} мин; авто-сброс планировщиком."
                 rp.updated_at = now
+                healed = True
                 log.warning("scheduler: reset stale-running project %s (channel %s)", rp.id, channel_id)
             else:
                 active += 1
+        if healed:
+            # Commit the self-heal fix HERE, before either early-return below
+            # can skip it. Previously this only committed at the very end
+            # (after the backlog-cap check), so a channel with a stuck
+            # "running" project AND a full backlog silently discarded every
+            # self-heal attempt, forever -- the two conditions compounded
+            # into a permanent stall instead of the backlog draining once
+            # the stale project was reclassified.
+            db.commit()
         if active > 0:
             return False, None, None
         # Backlog cap: never let more than BACKLOG_LIMIT unfinished factory
         # projects pile up (e.g. many needs_review). Retry a later tick once the
         # backlog drains — last_generated_at is NOT advanced on this skip.
+        # "error" and "done" are both terminal -- a project given up on for
+        # good (see e.g. the >30min self-heal above) must stop counting
+        # against the cap the same way a successfully finished one does,
+        # or a channel that accumulates enough permanent failures can never
+        # recover on its own.
         unfinished = (db.query(VideoProject)
                       .filter(VideoProject.channel_id == channel_id,
                               VideoProject.pipeline_stage.isnot(None),
-                              VideoProject.pipeline_state != "done").count())
+                              VideoProject.pipeline_state.notin_(["done", "error"])).count())
         if unfinished >= _BACKLOG_LIMIT:
             return False, None, None
         # Reserve: spend the slot before the long pipeline runs.
