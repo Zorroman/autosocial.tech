@@ -295,10 +295,15 @@ def deploy_env(tmp_path):
     # avoid.
     py_dir = str(Path(sys.executable).parent)
     path_with_venv = py_dir + os.pathsep + os.environ.get("PATH", "")
+    target_commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
+    ).strip()
     base = {**os.environ, "PATH": path_with_venv,
             "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
             "BACKUP_DIR": str(tmp_path / "backups"), "LOCK_FILE": str(tmp_path / "deploy.lock"),
-            "TARGET_COMMIT": "HEADSHA", "FRONTEND_EXPECTED_SHA": sha}
+            "TARGET_COMMIT": target_commit, "FRONTEND_EXPECTED_SHA": sha}
     return app, sha, base
 
 
@@ -309,9 +314,17 @@ def _run_deploy(env):
 
 def test_deploy_dry_run_success(deploy_env):
     app, sha, env = deploy_env
+    (app / ".env").write_text("SECRET=keep\n")
+    (app / "data").mkdir()
+    (app / "data" / "runtime.txt").write_text("keep\n")
+    (app / "logs" / "runtime.log").write_text("keep\n")
     r = _run_deploy(env)
     assert r.returncode == 0, r.stderr + r.stdout
     assert "DEPLOY SUCCEEDED" in r.stdout
+    assert (app / ".deployed_commit").read_text().strip() == env["TARGET_COMMIT"]
+    assert (app / ".env").read_text() == "SECRET=keep\n"
+    assert (app / "data" / "runtime.txt").read_text() == "keep\n"
+    assert (app / "logs" / "runtime.log").read_text() == "keep\n"
     backups = list((Path(env["BACKUP_DIR"])).glob("db_*.db"))
     assert backups and backups[0].stat().st_size > 0          # backup created + non-empty
     assert not Path(env["LOCK_FILE"] + ".d").exists()          # lock released
@@ -329,12 +342,26 @@ def test_deploy_sha_mismatch_blocks_activation(deploy_env):
     assert not Path(env["LOCK_FILE"] + ".d").exists()          # lock released after failure
 
 
+def test_deploy_release_source_revision_mismatch_blocks_activation(deploy_env, tmp_path):
+    app, sha, env = deploy_env
+    rel = tmp_path / "wrongrelease"
+    shutil.copytree(ROOT, rel, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__",
+                                                             "output", "cache", "data", "*.db"))
+    (rel / ".release_commit").write_text("not-" + env["TARGET_COMMIT"])
+    before = _sha(app / "frontend/app.js")
+    r = _run_deploy({**env, "RELEASE_SOURCE": str(rel)})
+    assert r.returncode != 0
+    assert "does not prove target_commit" in (r.stdout + r.stderr).lower()
+    assert _sha(app / "frontend/app.js") == before
+
+
 def test_deploy_migration_failure_blocks_activation(deploy_env, tmp_path):
     app, sha, env = deploy_env
     # point RELEASE_SOURCE at a copy whose migrations.py fails
     rel = tmp_path / "badrelease"
     shutil.copytree(ROOT, rel, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__",
                                                              "output", "cache", "data", "*.db"))
+    (rel / ".release_commit").write_text(env["TARGET_COMMIT"])
     (rel / "migrations.py").write_text("import sys; sys.exit(2)\n")
     (rel / "frontend").mkdir(exist_ok=True)
     shutil.copy(ROOT / "frontend/app.js", rel / "frontend/app.js")
