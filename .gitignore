@@ -25,6 +25,7 @@ tests/e2e/playwright-report/
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 
 # backups
 *.before_oauthfix

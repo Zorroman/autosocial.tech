@@ -7,7 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./frontend:/srv/frontend:ro
+      - ${APP_FRONTEND_DIR:-./frontend}:/srv/frontend:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -16,8 +16,10 @@ services:
 
   backend:
     build:
-      context: .
+      context: ${APP_SOURCE_DIR:-.}
       dockerfile: Dockerfile.backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     restart: unless-stopped
     env_file:
       - ./.env
@@ -32,6 +34,7 @@ services:
       - ./data/cache:/app/cache
       - ./data/output:/app/output
       - ./data/music:/app/assets/music
+      - ./data/fonts:/app/assets/fonts
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,8 +49,10 @@ services:
 
   worker:
     build:
-      context: .
+      context: ${APP_SOURCE_DIR:-.}
       dockerfile: Dockerfile.backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     command: ["python", "worker.py"]
     restart: unless-stopped
     env_file:
@@ -61,6 +66,7 @@ services:
       - ./data/cache:/app/cache
       - ./data/output:/app/output
       - ./data/music:/app/assets/music
+      - ./data/fonts:/app/assets/fonts
     depends_on:
       postgres:
         condition: service_healthy
