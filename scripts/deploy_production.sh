@@ -23,6 +23,7 @@
 # Optional env:
 #   APP_DIR RELEASE_SOURCE BACKUP_DIR LOCK_FILE API_URL FRONT_URL DEPLOY_PYTHON
 #   COMPOSE_DIR RESTART_MODE WEB_SERVICE WORKER_SERVICE MIN_FREE_MB DEPLOY_DRY_RUN
+#   FORCE_DOCKER_PG_DUMP
 #   CONFIRM_REPLACE_APP_SOURCE CONFIRM_REPLACE_COMPOSE
 set -euo pipefail
 export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8   # guard against mojibake on copy
@@ -231,7 +232,14 @@ if [ -f "$APP_DIR/autosocial.db" ]; then
   sqlite3 "$APP_DIR/autosocial.db" ".backup '$DB_BACKUP'" || fail "sqlite backup"
 elif [ -n "${DATABASE_URL:-}" ]; then
   DB_BACKUP="$BACKUP_DIR/db_$STAMP.sql"
-  pg_dump "$DATABASE_URL" > "$DB_BACKUP" || fail "pg_dump"
+  if [ "${FORCE_DOCKER_PG_DUMP:-0}" != "1" ] && command -v pg_dump >/dev/null 2>&1; then
+    pg_dump "$DATABASE_URL" > "$DB_BACKUP" || fail "pg_dump"
+  elif command -v docker >/dev/null 2>&1 && [ -f "$COMPOSE_DIR/docker-compose.yml" ]; then
+    ( cd "$COMPOSE_DIR" && docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' ) \
+      > "$DB_BACKUP" || fail "docker compose postgres pg_dump"
+  else
+    fail "pg_dump unavailable and docker compose postgres fallback unavailable"
+  fi
 fi
 if [ -n "$DB_BACKUP" ]; then
   [ -s "$DB_BACKUP" ] || fail "database backup is empty: $DB_BACKUP"
