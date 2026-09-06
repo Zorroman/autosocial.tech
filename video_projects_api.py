@@ -1069,10 +1069,17 @@ def run_render_job(job_id: int) -> None:
         except Exception as exc:
             err = str(exc)[:1500]
             try:
+                db.rollback()
+            except Exception:
+                pass
+            try:
                 from footage_library import release_job_reservations
                 release_job_reservations(db, job_id)
             except Exception:
-                pass
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
             job = db.query(RenderJob).filter_by(id=job_id).first()
             if job and job.status != "cancelled":
                 job.status = "failed"
@@ -1081,6 +1088,9 @@ def run_render_job(job_id: int) -> None:
             if project:
                 project.status = "failed"
                 project.error = err
+                project.pipeline_stage = "render"
+                project.pipeline_state = "error"
+                project.pipeline_error = f"Рендер: {err}"
             db.commit()
     finally:
         db.close()
