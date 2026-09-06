@@ -525,7 +525,14 @@ def test_deploy_does_not_install_host_python_dependencies():
 def test_deploy_uses_backend_container_for_post_deploy_smoke():
     src = (SCRIPTS / "deploy_production.sh").read_text(encoding="utf-8")
     assert 'python3 "$SCRIPT_DIR/post_deploy_smoke.py"' not in src
-    assert "docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py" in src
+    assert "docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py --allow-auth-skip" in src
+
+
+def test_post_deploy_smoke_requires_explicit_auth_skip_for_anonymous_only():
+    src = (SCRIPTS / "post_deploy_smoke.py").read_text(encoding="utf-8")
+    assert 'parser.add_argument("--allow-auth-skip", action="store_true")' in src
+    assert "if not args.allow_auth_skip:" in src
+    assert "authenticated checks skipped: no SMOKE_TOKEN / SMOKE_EMAIL+SMOKE_PASSWORD" in src
 
 
 def test_deploy_builds_release_image_before_migrations():

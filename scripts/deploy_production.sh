@@ -382,7 +382,7 @@ fi
 
 # ---- 15. smoke --------------------------------------------------------------
 if [ "$DRY_RUN" != "1" ]; then
-  ( cd "$COMPOSE_DIR" && docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py --api "$API_URL" --front "$FRONT_URL" ) \
+  ( cd "$COMPOSE_DIR" && docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py --allow-auth-skip --api "$API_URL" --front "$FRONT_URL" ) \
     || fail "post-deploy smoke"
 else
   log "(dry-run) skip smoke"

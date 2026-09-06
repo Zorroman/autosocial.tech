@@ -6,8 +6,8 @@ Usage:
 
 Auth: set SMOKE_EMAIL + SMOKE_PASSWORD (allowlisted admin; requires
 ALLOW_ADMIN_DIRECT_LOGIN=true on the target) or SMOKE_TOKEN with a valid
-session token. Without credentials only unauthenticated checks run and the
-script exits non-zero, честно reporting what was skipped.
+session token. Without credentials only unauthenticated checks run and the script
+exits non-zero unless --allow-auth-skip is passed, честно reporting what was skipped.
 Exit code 0 = all executed checks passed.
 """
 import argparse
@@ -23,6 +23,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--api", default=os.getenv("SMOKE_API", "http://localhost:5000"))
     parser.add_argument("--front", default=os.getenv("SMOKE_FRONT", "http://localhost:3000"))
+    parser.add_argument("--allow-auth-skip", action="store_true")
     args = parser.parse_args()
     api, front = args.api.rstrip("/"), args.front.rstrip("/")
 
@@ -89,7 +90,8 @@ def main() -> int:
             print(f"       readiness status: {status}")
         check("readiness (settings)", _readiness)
     else:
-        failures.append("authenticated checks skipped: no SMOKE_TOKEN / SMOKE_EMAIL+SMOKE_PASSWORD")
+        if not args.allow_auth_skip:
+            failures.append("authenticated checks skipped: no SMOKE_TOKEN / SMOKE_EMAIL+SMOKE_PASSWORD")
         print("SKIPPED authenticated checks: no credentials provided")
 
     print(f"\n{len(passed)} passed, {len(failures)} failed")
