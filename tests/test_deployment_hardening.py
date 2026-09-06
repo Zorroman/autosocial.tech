@@ -516,21 +516,22 @@ def test_deploy_compose_env_loader_does_not_execute_or_override_controls(tmp_pat
     assert (app / ".deployed_commit").read_text().strip() == target_commit
 
 
-def test_deploy_uses_python_module_pip_not_bare_pip():
+def test_deploy_does_not_install_host_python_dependencies():
     src = (SCRIPTS / "deploy_production.sh").read_text(encoding="utf-8")
     assert re.search(r"(^|[;&|]\s*)pip install\b", src, re.MULTILINE) is None
-    assert '"$DEPLOY_PYTHON" -m pip install' in src
+    assert "-m pip install" not in src
 
 
-def test_deploy_uses_deploy_python_for_post_deploy_smoke():
+def test_deploy_uses_backend_container_for_post_deploy_smoke():
     src = (SCRIPTS / "deploy_production.sh").read_text(encoding="utf-8")
     assert 'python3 "$SCRIPT_DIR/post_deploy_smoke.py"' not in src
-    assert '"$DEPLOY_PYTHON" "$SCRIPT_DIR/post_deploy_smoke.py"' in src
+    assert "docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py" in src
 
 
-def test_deploy_venv_path_is_reusable_not_timestamped():
+def test_deploy_builds_release_image_before_migrations():
     src = (SCRIPTS / "deploy_production.sh").read_text(encoding="utf-8")
-    assert 'DEPLOY_VENV="${DEPLOY_VENV:-$BACKUP_DIR/deploy_venv}"' in src
+    assert 'release_compose build --build-arg "GIT_SHA=$TARGET_COMMIT" backend worker' in src
+    assert "release_compose run --rm -T backend python migrations.py" in src
     assert "deploy_venv_$STAMP" not in src
 
 
