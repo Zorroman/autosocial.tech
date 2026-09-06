@@ -42,7 +42,6 @@ WEB_SERVICE="${WEB_SERVICE:-autosocial-web}"
 WORKER_SERVICE="${WORKER_SERVICE:-autosocial-worker}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_PYTHON="${DEPLOY_PYTHON:-}"
-DEPLOY_VENV="${DEPLOY_VENV:-}"
 APP_RSYNC_EXCLUDES=(
   --exclude='.git/'
   --exclude='.env'
@@ -105,6 +104,16 @@ load_compose_env() {
         ;;
     esac
   done < "$env_file"
+}
+
+release_compose() {
+  (
+    cd "$COMPOSE_DIR"
+    APP_SOURCE_DIR="$RELEASE_SOURCE" \
+    APP_FRONTEND_DIR="$RELEASE_SOURCE/frontend" \
+    GIT_SHA="$TARGET_COMMIT" \
+    docker compose --project-directory "$COMPOSE_DIR" -f "$RELEASE_SOURCE/docker-compose.yml" "$@"
+  )
 }
 
 post_failure_rollback() {
@@ -279,26 +288,18 @@ verify_release_source_revision "$RELEASE_SOURCE" || fail "RELEASE_SOURCE does no
 log "release staged at $RELEASE_SOURCE"
 
 # ---- 7. install dependencies -----------------------------------------------
-if [ -z "$DEPLOY_PYTHON" ]; then
-  if [ "$DRY_RUN" != "1" ]; then
-    DEPLOY_VENV="${DEPLOY_VENV:-$BACKUP_DIR/deploy_venv}"
-    python3 -m venv "$DEPLOY_VENV" || fail "create deploy venv"
-    DEPLOY_PYTHON="$DEPLOY_VENV/bin/python"
-  else
-    DEPLOY_PYTHON="$(command -v python3 || true)"
-  fi
-fi
-[ -n "$DEPLOY_PYTHON" ] || fail "python3 not found"
 if [ "$DRY_RUN" != "1" ]; then
-  ( cd "$RELEASE_SOURCE" && "$DEPLOY_PYTHON" -m pip install -r requirements.txt --quiet ) \
-    || fail "pip install"
+  release_compose build --build-arg "GIT_SHA=$TARGET_COMMIT" backend worker \
+    || fail "docker build release image"
 else
-  log "(dry-run) skip pip install"
+  DEPLOY_PYTHON="${DEPLOY_PYTHON:-$(command -v python3 || true)}"
+  [ -n "$DEPLOY_PYTHON" ] || fail "python3 not found"
+  log "(dry-run) skip docker build"
 fi
 
 # ---- 8. validate production environment ------------------------------------
 if [ "$DRY_RUN" != "1" ]; then
-  "$DEPLOY_PYTHON" "$SCRIPT_DIR/validate_production_env.py" --require production --quiet \
+  release_compose run --rm -T --no-deps backend python scripts/validate_production_env.py --require production --quiet \
     || fail "production env validation"
 else
   log "(dry-run) skip env validation"
@@ -312,7 +313,7 @@ log "staged frontend verified before activation"
 # ---- 10. migrations (only after a validated backup exists) -----------------
 if [ "$DRY_RUN" != "1" ]; then
   [ -z "$DB_BACKUP" ] || [ -s "$DB_BACKUP" ] || fail "refusing migrations without a valid backup"
-  ( cd "$RELEASE_SOURCE" && "$DEPLOY_PYTHON" migrations.py ) || fail "migrations failed — release NOT activated"
+  release_compose run --rm -T backend python migrations.py || fail "migrations failed — release NOT activated"
 else
   # dry-run: exercise migrations against a throwaway sqlite copy of the backup
   if [ -n "$DB_BACKUP" ] && [ -s "$DB_BACKUP" ]; then
@@ -381,7 +382,7 @@ fi
 
 # ---- 15. smoke --------------------------------------------------------------
 if [ "$DRY_RUN" != "1" ]; then
-  "$DEPLOY_PYTHON" "$SCRIPT_DIR/post_deploy_smoke.py" --api "$API_URL" --front "$FRONT_URL" \
+  ( cd "$COMPOSE_DIR" && docker compose run --rm -T --no-deps backend python scripts/post_deploy_smoke.py --api "$API_URL" --front "$FRONT_URL" ) \
     || fail "post-deploy smoke"
 else
   log "(dry-run) skip smoke"
