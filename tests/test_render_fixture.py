@@ -5,14 +5,41 @@ Run: python -m pytest tests/test_render_fixture.py -q
 """
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from app_settings import settings
-from video.render.render_video import render_video
+from video.render.render_video import _run, render_video
+
+# video/render/__init__.py does `from .render_video import render_video`,
+# which shadows the render_video submodule's own name in the package
+# namespace with the function -- fetch the real submodule via sys.modules.
+render_video_module = sys.modules["video.render.render_video"]
 
 FIXTURES = Path(__file__).parent / "render_fixtures"
+
+
+def test_run_reports_the_actual_ffmpeg_error_not_the_version_banner(monkeypatch):
+    """ffmpeg always opens stderr with its version/build-configuration banner
+    (regularly >1200 chars on its own) before any real error line -- a head
+    slice of stderr can never surface the actual failure reason. Regression
+    test for a bug where every render failure's stored error was just this
+    banner, making every real ffmpeg error undiagnosable in production."""
+    banner = "ffmpeg version 7.1.5 ...\n" + ("configuration: --enable-x\n" * 100)
+    real_error = "Unknown encoder 'libx264'"
+    fake_stderr = banner + real_error
+
+    class _Proc:
+        returncode = 1
+        stderr = fake_stderr
+        stdout = ""
+
+    monkeypatch.setattr(render_video_module.subprocess, "run", lambda *a, **kw: _Proc())
+    with pytest.raises(RuntimeError) as exc_info:
+        _run(["ffmpeg", "-y"])
+    assert real_error in str(exc_info.value)
 
 
 def _ffmpeg(*args):

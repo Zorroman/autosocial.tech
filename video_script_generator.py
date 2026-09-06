@@ -2,9 +2,19 @@ import json
 import re
 from dataclasses import dataclass
 
+import openai_quota_guard as quotaguard
+import shorts_hook_diversity as hookdiv
+from app_settings import settings
 from footage.shots import DEFAULT_SCENE_QUERIES
 from openai_client import OpenAIClientError, generate_json_with_retry, is_openai_enabled
 from style_packs import normalize_scene
+
+
+class LongformProviderBlockedError(RuntimeError):
+    """Raised instead of silently degrading to a low-quality short-style
+    script when a long-form generation fails specifically because OpenAI is
+    quota/billing-unavailable -- there is no safe long-form fallback, so the
+    caller should block the project rather than publish something bad."""
 
 
 @dataclass
@@ -15,6 +25,15 @@ class ScriptBundle:
     description: str
     hashtags: list[str]
     safety_rules: list[str]
+    # Which of shorts_hook_diversity.HOOK_TYPES produced phrases[0], only when
+    # we ourselves picked/regenerated it. None = long-form, or a Short whose
+    # model-generated hook passed the checks unmodified.
+    hook_type: str | None = None
+    # True when this bundle came from _fallback() (deterministic, not a real
+    # OpenAI response). openai_error_class is set alongside it only when the
+    # fallback was specifically triggered by a classified OpenAI failure.
+    used_fallback: bool = False
+    openai_error_class: str | None = None
 
 
 _BAD_FRAGMENTS = (
@@ -42,10 +61,18 @@ def _normalize_phrases(raw) -> list[str]:
     return out[:120]
 
 
-# Calibrated against real OpenAI-TTS renders (project 5: 449 chars → 35.1s ≈
-# 12.8 chars/s incl. per-scene padding). Using the measured rate makes the
-# estimate track actual rendered duration so the 27–33s publish gate is hit.
-_TTS_CHARS_PER_SEC = 12.5
+# Calibrated against real onyx+calm renders (project 175: 397 chars → 42.16s
+# ≈ 9.4 chars/s). The previous value (12.5) was calibrated before the Shorts
+# narrator was unified onto OpenAI's onyx voice with voice_tone="calm" (see
+# video/tts.py) -- both the voice swap and the calm instructions/speed=0.92
+# slow real speech down substantially, and the stale estimate was writing
+# scripts ~30-40% too long, which the post-hoc duration-fit speedup in
+# video.tts.synthesize_voiceover() then had to claw back by speeding the
+# audio up again -- undoing the calm pacing it was supposed to have. Using
+# the measured rate makes the estimate track actual rendered duration so the
+# 27–33s publish gate is hit with only mild post-hoc adjustment, not a
+# rewrite of the pacing.
+_TTS_CHARS_PER_SEC = 9.4
 
 
 def _estimate_seconds_from_phrases(phrases: list[str]) -> float:
@@ -100,9 +127,19 @@ def _dedupe_keep_order(lines: list[str]) -> list[str]:
     return out
 
 
-def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_seconds: int, offer: str | None) -> list[str]:
+def _sanitize_and_dedupe(phrases: list[str], topic: str) -> list[str]:
+    """The same cleanup _ensure_target_duration_phrases starts with, pulled
+    out so the retry validator in generate() can check what will actually
+    survive into duration shaping -- a raw phrase count from the model can
+    look sufficient and still collapse well below the target once
+    _sanitize_phrase drops short/banned lines and _dedupe_keep_order merges
+    near-duplicates, silently triggering the generic-filler padding below."""
     cleaned = [_sanitize_phrase(x, topic) for x in (phrases or [])]
-    out = _dedupe_keep_order([x for x in cleaned if x])
+    return _dedupe_keep_order([x for x in cleaned if x])
+
+
+def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_seconds: int, offer: str | None) -> list[str]:
+    out = _sanitize_and_dedupe(phrases, topic)
 
     if not out:
         out = [f"Разбираем тему: {topic}.", f"Переходим к практическим шагам по теме «{topic}»."]
@@ -123,27 +160,68 @@ def _ensure_target_duration_phrases(phrases: list[str], topic: str, target_secon
         if cursor > 24:
             break
 
-    # Pad up toward the target when the script is too short.
-    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
-    loop_guard = 0
-    while _estimate_seconds_from_phrases(out) < float(target_seconds) * fill_target_ratio and loop_guard < 24:
-        out.append(fillers[(cursor + loop_guard) % len(fillers)])
-        out = _dedupe_keep_order(out)
-        loop_guard += 1
-
-    # Trim down when the script overshoots (renders too long → gate rejects it).
-    # Never cut the hook (first) or the closing CTA (last); drop the longest
-    # middle phrase until inside the band.
+    # Converge on the target band by alternating pad-up / trim-down, rather
+    # than one pass of each: a trim that undershoots the floor needs padding
+    # back, and that padding can in turn overshoot the ceiling again (a
+    # single filler phrase is coarser than the 27-33s band is wide), so this
+    # has to be a loop, not two sequential fixed passes. Never cuts the hook
+    # (first) or the closing CTA (last) when trimming.
+    #
+    # A trim that undershoots the floor restores one of its OWN just-trimmed
+    # real phrases before ever reaching for a generic filler: the model
+    # routinely writes more good, on-topic material than the ceiling allows
+    # (observed live: 9 solid phrases, ~48s, trimmed to fit ~30s), so padding
+    # the resulting gap with canned _topic_fillers() text was discarding real
+    # content only to paper over the hole with something worse -- the exact
+    # "дурацкие заглушки" the host's script kept showing. Fillers stay as the
+    # last resort, once nothing real is left to restore.
+    floor = _duration_floor(target_seconds)
     ceiling = float(target_seconds) + 1.0
-    guard = 0
-    while (len(out) > min_scenes
-           and _estimate_seconds_from_phrases(out) > ceiling and guard < 24):
-        middle = out[1:-1]
-        if not middle:
+    trimmed: list[str] = []
+    seen_states: set[tuple[str, ...]] = set()
+    loop_guard = 0
+    while loop_guard < 48:
+        state = tuple(out)
+        if state in seen_states:
+            # No phrase-swap lands in-band (real sentences are chunkier than
+            # the floor-ceiling gap, so restoring one overshoots the ceiling
+            # and trimming it back undershoots the floor forever) -- stop
+            # oscillating and keep this all-real state rather than burn the
+            # rest of the budget or fall through to a filler that wasn't
+            # needed in the first place.
             break
-        longest = max(range(len(middle)), key=lambda i: len(middle[i]))
-        del out[1 + longest]
-        guard += 1
+        seen_states.add(state)
+        est = _estimate_seconds_from_phrases(out)
+        if est < floor:
+            # Prefer the smallest remaining real phrase that still fits under
+            # the ceiling: a single big swap can overshoot when a combination
+            # of two smaller ones would land in-band, and picking blind
+            # (LIFO) can grab one too large for a small gap. If every
+            # remaining real phrase alone would already overshoot (real
+            # sentences here are all chunkier than the gap left to close), a
+            # generic filler is more flexible padding for just that last bit
+            # than forcing back a chunky real sentence and re-triggering a
+            # trim next iteration.
+            fitting = [p for p in trimmed if est + len(p) / _TTS_CHARS_PER_SEC <= ceiling]
+            if fitting:
+                pick = min(fitting, key=len)
+                trimmed.remove(pick)
+                out.append(pick)
+            else:
+                out.append(fillers[(cursor + loop_guard) % len(fillers)])
+            out = _dedupe_keep_order(out)
+            loop_guard += 1
+            continue
+        if est > ceiling and len(out) > min_scenes:
+            middle = out[1:-1]
+            if not middle:
+                break
+            longest = max(range(len(middle)), key=lambda i: len(middle[i]))
+            trimmed.append(middle[longest])
+            del out[1 + longest]
+            loop_guard += 1
+            continue
+        break
 
     return out[:120]
 
@@ -179,6 +257,20 @@ def _normalize_shotlist(raw, phrase_count: int, style_pack: dict) -> list[dict]:
     return out
 
 
+def _min_phrases_for(target_seconds: int) -> int:
+    """Lower bound of the scene-count range given to the model in the prompt
+    (see the 'Сделай N-M коротких сцен' line in generate()) -- kept as one
+    function so the prompt's ask and the retry check can't drift apart."""
+    return max(6, min(8, int(round(target_seconds / 4.0))))
+
+
+def _duration_floor(target_seconds: int) -> float:
+    """Same floor _ensure_target_duration_phrases pads up to -- one function
+    so the retry validator's duration check can't drift out of sync."""
+    fill_target_ratio = 0.90 if target_seconds <= 40 else 0.92
+    return float(target_seconds) * fill_target_ratio
+
+
 def _validator(payload: dict) -> None:
     if not isinstance(payload, dict):
         raise ValueError("payload must be object")
@@ -188,8 +280,10 @@ def _validator(payload: dict) -> None:
 
 
 def _fallback(topic: str, offer: str | None, language: str, target_seconds: int, style_pack: dict) -> ScriptBundle:
+    quotaguard.record_event("fallback_short_generated")
+    hook_type = hookdiv.fallback_hook_type_for_topic(topic)
     lines = [
-        f"Сегодня коротко и понятно разбираем тему «{topic}».",
+        hookdiv.deterministic_hook(topic, hook_type),
         "Начнем с базового принципа и сразу переведем его в практическое действие.",
         "Покажем пример из реальной ситуации, чтобы было ясно, как это работает.",
         "Отметим частую ошибку и дадим простой способ ее избежать.",
@@ -226,6 +320,8 @@ def _fallback(topic: str, offer: str | None, language: str, target_seconds: int,
             "no cartoon or CGI looking footage",
             "avoid ai generated or synthetic visuals",
         ],
+        hook_type=hook_type,
+        used_fallback=True,
     )
 
 
@@ -287,7 +383,13 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
                 s = _sanitize_phrase(s, topic)
                 if s:
                     phrases.append(s)
-        except Exception:
+        except Exception as exc:
+            # Quota/billing won't resolve on the next section either --
+            # propagate so the caller blocks instead of publishing a
+            # truncated long-form video. Any other failure (parse hiccup,
+            # single bad response) keeps the existing graceful-degrade.
+            if isinstance(exc, OpenAIClientError) and exc.error_class == "quota_billing":
+                raise
             pass
 
     for i, sec in enumerate(sections):
@@ -311,7 +413,9 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
             ns = generate_json_with_retry(
                 system_prompt=sys1, user_prompt=usr3, validator=_v3, max_output_tokens=200,
                 temperature=0.8).payload.get("section", "").strip()
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc, OpenAIClientError) and exc.error_class == "quota_billing":
+                raise
             ns = ""
         if not ns:
             break
@@ -350,6 +454,105 @@ def _generate_longform(topic, offer, language, target_seconds, style, style_pack
     )
 
 
+# ------------------------------------------------------------- hook diversity
+# Shorts only (long-form never reaches this: it returns from
+# _generate_longform above before hitting the code below).
+
+_MAX_HOOK_ATTEMPTS = 3
+
+
+def _hook_needs_fix(hook: str, title: str, recent_hooks: list[str], threshold: float) -> bool:
+    if not hook:
+        return True
+    if hookdiv.is_templated_hook(hook):
+        return True
+    norm = hookdiv.normalize_hook(hook)
+    word_count = len(norm.split())
+    if not (5 <= word_count <= 14):
+        return True
+    if title and norm == hookdiv.normalize_hook(title):
+        return True
+    if hookdiv.most_similar_score(hook, recent_hooks) >= threshold:
+        return True
+    return False
+
+
+def _regenerate_hook_via_llm(topic: str, hook_type: str, language: str) -> str | None:
+    if not is_openai_enabled():
+        return None
+    type_desc = hookdiv.HOOK_TYPE_DESCRIPTIONS.get(hook_type, hook_type)
+    system_prompt = (
+        "Ты senior video copywriter. Пиши живым естественным языком, без канцелярита. "
+        "Верни только валидный JSON."
+    )
+    user_prompt = (
+        f"Придумай ОДНУ фразу-хук для короткого видео на тему: {topic}\n"
+        f"Язык: {language}\n"
+        f"Тип хука: {type_desc}.\n"
+        "Требования:\n"
+        "- 5-14 слов, ровно одно законченное предложение;\n"
+        "- сразу дает суть: интригу, конфликт, вопрос, факт, предупреждение или обещание результата;\n"
+        "- никаких вводных вроде «сегодня поговорим», «сегодня коротко и понятно», "
+        "«давайте разберемся», «в этом видео», «а вы знали», «мало кто знает», "
+        "«вы когда-нибудь задумывались», «сейчас расскажу»;\n"
+        "- не повторяй тему слово в слово, как заголовок.\n"
+        'JSON: {"hook": "..."}'
+    )
+
+    def _v(p):
+        if not isinstance(p.get("hook"), str) or not p["hook"].strip():
+            raise ValueError("hook required")
+
+    try:
+        result = generate_json_with_retry(
+            system_prompt=system_prompt, user_prompt=user_prompt, validator=_v,
+            max_output_tokens=200, temperature=0.85,
+        )
+        return str(result.payload.get("hook") or "").strip()
+    except OpenAIClientError:
+        return None
+
+
+def _diversify_hook(
+    phrases: list[str], topic: str, title: str, language: str,
+    recent_hooks: list[str] | None, recent_types: list[str] | None,
+) -> tuple[list[str], str | None]:
+    if not phrases:
+        return phrases, None
+    recent_hooks = list(recent_hooks or [])
+    recent_types = list(recent_types or [])
+    threshold = float(getattr(settings, "SHORTS_HOOK_SIMILARITY_THRESHOLD", 0.72))
+
+    hook = phrases[0]
+    if not _hook_needs_fix(hook, title, recent_hooks, threshold):
+        return phrases, None  # model's own hook passed unmodified -- type stays unclassified
+
+    attempted_types: list[str] = []
+    for _ in range(_MAX_HOOK_ATTEMPTS):
+        hook_type = hookdiv.next_hook_type(recent_types + attempted_types)
+        attempted_types.append(hook_type)
+        candidate = _regenerate_hook_via_llm(topic, hook_type, language)
+        candidate = _sanitize_phrase(candidate, topic) if candidate else ""
+        if candidate and not _hook_needs_fix(candidate, title, recent_hooks, threshold):
+            return [candidate] + phrases[1:], hook_type
+
+    # 3 LLM attempts still produced a templated/too-similar/wrong-length hook
+    # (or OpenAI is down) -- guaranteed-non-templated deterministic resort.
+    hook_type = hookdiv.next_hook_type(recent_types + attempted_types)
+    return [hookdiv.deterministic_hook(topic, hook_type)] + phrases[1:], hook_type
+
+
+def _apply_hook_diversity(
+    bundle: ScriptBundle, topic: str, language: str,
+    recent_hooks: list[str] | None, recent_types: list[str] | None,
+) -> ScriptBundle:
+    phrases, hook_type = _diversify_hook(bundle.phrases, topic, bundle.title, language, recent_hooks, recent_types)
+    bundle.phrases = phrases
+    if hook_type:
+        bundle.hook_type = hook_type
+    return bundle
+
+
 def generate(
     topic: str,
     offer: str | None,
@@ -357,6 +560,8 @@ def generate(
     target_seconds: int,
     style: str,
     style_pack: dict | None = None,
+    recent_hooks: list[str] | None = None,
+    recent_types: list[str] | None = None,
 ) -> ScriptBundle:
     topic = str(topic or "").strip()
     if not topic:
@@ -364,14 +569,25 @@ def generate(
     target_seconds = max(20, min(1800, int(target_seconds or 30)))
     style_pack = style_pack or {}
     if not is_openai_enabled():
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     # Long-form (calm narration, e.g. 12–20 min): different generation path.
     if target_seconds >= 150:
         try:
             return _generate_longform(topic, offer, language, target_seconds, style, style_pack)
+        except OpenAIClientError as exc:
+            if exc.error_class == "quota_billing":
+                # No safe long-form fallback exists (unlike Shorts) -- block
+                # the project instead of silently publishing a short-style
+                # script padded out to a long-form duration.
+                quotaguard.record_event("longform_blocked_provider")
+                raise LongformProviderBlockedError(
+                    "long-form blocked: OpenAI quota/billing unavailable, no safe long-form fallback"
+                ) from exc
+            pass  # any other OpenAI failure: fall through to the standard path
         except Exception:
-            pass  # fall through to the standard path on any failure
+            pass  # fall through to the standard path on any other failure
 
     allowed_scenes = list(style_pack.get("allowed_scenes") or [])
     query_bias = list(style_pack.get("query_bias") or [])
@@ -398,12 +614,16 @@ def generate(
         f"banned_tokens: {json.dumps(banned_tokens, ensure_ascii=False)}\n"
         f"preferred_mood: {mood}\n"
         f"motion_level: {motion_level}\n"
-        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 2.0))} слов "
+        f"ЖЁСТКИЙ бюджет длительности: вся озвучка вместе ~{int(round(target_seconds * 1.5))} слов "
         f"(~{int(round(target_seconds * _TTS_CHARS_PER_SEC))} символов) — это {target_seconds}s при текущем TTS. Не превышай.\n"
-        f"Сделай {max(6, min(8, int(round(target_seconds / 4.0))))}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
+        f"Сделай {_min_phrases_for(target_seconds)}–{max(6, min(9, int(round(target_seconds / 4.0)) + 1))} коротких сцен.\n"
         "Требования к phrases:\n"
         "- каждая фраза это законченное предложение 8-12 слов;\n"
         "- первая фраза — цепляющий хук, который бьёт в тему в первые 1-2 секунды (без длинного вступления);\n"
+        "- хук НИКОГДА не начинай с фраз-клише вроде «сегодня поговорим», «сегодня коротко и понятно», "
+        "«давайте разберемся», «в этом видео», «а вы знали», «мало кто знает», «вы когда-нибудь задумывались», "
+        "«сейчас расскажу» — вместо этого сразу дай интригу, конфликт, сильный вопрос, неожиданный факт, "
+        "предупреждение или обещание результата;\n"
         "- предпоследняя фраза — короткий авторский вывод или неожиданный поворот мысли (твоё наблюдение, а не пересказ факта);\n"
         "- последняя фраза — короткий CTA, ровно одно предложение;\n"
         "- не используй императивные заготовки вида «покажем один», «добавим конкретику»;\n"
@@ -421,22 +641,50 @@ def generate(
         "scene_type выбирай только из allowed_scenes."
     )
 
+    min_phrases = _min_phrases_for(target_seconds)
+    duration_floor = _duration_floor(target_seconds)
+
+    def _validate_enough_phrases(payload: dict) -> None:
+        # Base shape check first. Then two independent floors on what will
+        # actually survive into _ensure_target_duration_phrases, not just
+        # the raw phrase count: a response can pass a raw-count check and
+        # still collapse well under the target once _sanitize_phrase drops
+        # short/banned lines and _dedupe_keep_order merges near-duplicates
+        # (real failure mode, not hypothetical -- observed with the model
+        # returning 9 phrases that sanitize+dedupe reduced to 4, totalling
+        # ~19s against a 27s floor). Checking the *sanitized* set is what
+        # actually predicts whether the generic-filler padding will fire.
+        _validator(payload)
+        phrases = _normalize_phrases(payload.get("phrases"))
+        if len(phrases) < min_phrases:
+            raise ValueError(f"too few phrases: got {len(phrases)}, need at least {min_phrases}")
+        survivors = _sanitize_and_dedupe(phrases, topic)
+        estimated = _estimate_seconds_from_phrases(survivors)
+        if estimated < duration_floor:
+            raise ValueError(
+                f"phrases too short after cleanup: {len(survivors)} survived "
+                f"({estimated:.1f}s), need at least {duration_floor:.1f}s"
+            )
+
     try:
         result = generate_json_with_retry(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            validator=_validator,
+            validator=_validate_enough_phrases,
             max_output_tokens=1800,
             temperature=0.55,
         )
         payload = result.payload
-    except OpenAIClientError:
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+    except OpenAIClientError as exc:
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle.openai_error_class = exc.error_class
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     phrases = _normalize_phrases(payload.get("phrases"))
     phrases = _ensure_target_duration_phrases(phrases, topic, target_seconds, offer)
     if not phrases:
-        return _fallback(topic, offer, language, target_seconds, style_pack)
+        bundle = _fallback(topic, offer, language, target_seconds, style_pack)
+        return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
     shotlist = _normalize_shotlist(payload.get("shotlist"), len(phrases), style_pack)
     if not shotlist:
@@ -456,7 +704,7 @@ def generate(
     if not safety_rules:
         safety_rules = _fallback(topic, offer, language, target_seconds, style_pack).safety_rules
 
-    return ScriptBundle(
+    bundle = ScriptBundle(
         phrases=phrases,
         shotlist=shotlist,
         title=str(payload.get("title") or f"{topic}: практический разбор")[:70],
@@ -464,6 +712,7 @@ def generate(
         hashtags=tags,
         safety_rules=safety_rules,
     )
+    return _apply_hook_diversity(bundle, topic, language, recent_hooks, recent_types)
 
 
 def to_json(bundle: ScriptBundle) -> str:

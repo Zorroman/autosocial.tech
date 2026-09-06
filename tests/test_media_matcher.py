@@ -290,3 +290,90 @@ def test_scheduler_single_active_pipeline(tmp_path):
 
     reserved, _, _ = scheduler._reserve(cid)
     assert reserved is False  # one pipeline already running → no new generation
+
+
+# 13) Scheduler self-heal must persist even when the backlog is simultaneously
+# full — previously the self-heal commit only happened at the very end of
+# _reserve(), after the backlog-cap early return, so a channel with both a
+# stale "running" project AND a full backlog silently discarded every
+# self-heal attempt forever.
+def test_scheduler_self_heal_commits_even_when_backlog_full(tmp_path, monkeypatch):
+    from tests.test_private_admin import _fresh_app, _seed_admin
+    for m in ("scheduler",):
+        sys.modules.pop(m, None)
+    _fresh_app(tmp_path)
+    admin_id = _seed_admin()
+
+    from datetime import datetime, timedelta
+    from database import SessionLocal
+    from app_models import Channel, VideoProject
+    import scheduler
+    monkeypatch.setattr(scheduler, "_BACKLOG_LIMIT", 3)
+    monkeypatch.setenv("FACTORY_RUNNING_STALE_MIN", "30")
+
+    db = SessionLocal()
+    ch = Channel(owner_user_id=admin_id, name="Ch", slug="ch4", niche="ЭЗОТЕРИКА",
+                 language="ru", status="active", niche_id=1, daily_video_limit=6,
+                 automatic_generation_enabled=True, last_generated_at=None)
+    db.add(ch)
+    db.commit()
+    cid = ch.id
+
+    stale_running = VideoProject(channel_id=cid, title="stuck", status="draft",
+                                 pipeline_stage="render", pipeline_state="running")
+    db.add(stale_running)
+    # 3 more unfinished (needs_review) projects → backlog already at/over the
+    # (monkeypatched) limit of 3, independent of the stuck "running" one.
+    for i in range(3):
+        db.add(VideoProject(channel_id=cid, title=f"p{i}", status="draft",
+                            pipeline_stage="media", pipeline_state="needs_review"))
+    db.commit()
+    stale_id = stale_running.id
+    old = datetime.utcnow() - timedelta(minutes=31)
+    db.query(VideoProject).filter(VideoProject.id == stale_id).update({"updated_at": old})
+    db.commit()
+    db.close()
+
+    reserved, _, _ = scheduler._reserve(cid)
+    assert reserved is False  # backlog still full this tick, no new generation
+
+    # But the self-heal fix must have been persisted despite the early return.
+    db2 = SessionLocal()
+    healed = db2.query(VideoProject).filter(VideoProject.id == stale_id).first()
+    assert healed.pipeline_state == "needs_review"
+    db2.close()
+
+
+# 14) Scheduler backlog cap must not count permanently-failed ("error")
+# projects — only "done" was excluded before, so a channel that accumulates
+# enough permanent failures could never structurally recover.
+def test_scheduler_backlog_excludes_error_state(tmp_path, monkeypatch):
+    from tests.test_private_admin import _fresh_app, _seed_admin
+    for m in ("scheduler",):
+        sys.modules.pop(m, None)
+    _fresh_app(tmp_path)
+    admin_id = _seed_admin()
+
+    from database import SessionLocal
+    from app_models import Channel, VideoProject
+    import scheduler
+    monkeypatch.setattr(scheduler, "_BACKLOG_LIMIT", 3)
+
+    db = SessionLocal()
+    ch = Channel(owner_user_id=admin_id, name="Ch", slug="ch5", niche="ЭЗОТЕРИКА",
+                 language="ru", status="active", niche_id=1, daily_video_limit=6,
+                 automatic_generation_enabled=True, last_generated_at=None)
+    db.add(ch)
+    db.commit()
+    cid = ch.id
+    # 3 permanently-failed projects — would have filled the (monkeypatched)
+    # backlog limit of 3 under the old "!= done" query.
+    for i in range(3):
+        db.add(VideoProject(channel_id=cid, title=f"p{i}", status="draft",
+                            pipeline_stage="media", pipeline_state="error"))
+    db.commit()
+    db.close()
+
+    reserved, owner, limit = scheduler._reserve(cid)
+    assert reserved is True  # error-state projects don't count against backlog
+    assert owner == admin_id and limit == 6

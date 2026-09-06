@@ -1,14 +1,20 @@
-"""Long-form image-first orchestrator — one real end-to-end 1080p job, NO publish.
+"""Long-form real-footage orchestrator — one real end-to-end 1080p job, NO publish.
 
 Stages (each persisted to job dir, idempotent/resumable):
-  script(reuse) → visual_groups → photo_acquisition → voiceover → subtitles →
-  graphics(overlays) → segments → chunked_render → final_mix → final_qc.
+  script(reuse) → visual_groups → photo_acquisition → clip_acquisition →
+  voiceover → subtitles → graphics(overlays) → segments → chunked_render →
+  final_mix → final_qc.
 
-Reuses proven components: footage.providers.pexels.search_photos (real licensed
-stock photos), video.tts.synthesize_voiceover, subtitle_builder, longform_render
-(memory-safe chunked Ken Burns), the user's music library. No AI images, no AI
-video, no publishing. Evidence package (manifests + QC + resources) is written
-to the job dir.
+Reuses proven components: footage.providers.pexels.search_photos (real
+licensed stock photos), media_diversity.search_both_providers (real licensed
+Pexels+Pixabay video clips, same dual-provider search Shorts uses),
+video.tts.synthesize_voiceover, subtitle_builder, longform_render
+(memory-safe chunked rendering -- Ken Burns pan for photos, straight
+scale+crop+trim for clips), the user's music library. No AI images, no AI
+video, no publishing. Real video clips are preferred per visual group;
+photos remain the required, always-available fallback (acquire_clips() is
+best-effort and never blocks the pipeline the way photo acquisition does).
+Evidence package (manifests + QC + resources) is written to the job dir.
 """
 from __future__ import annotations
 
@@ -344,16 +350,103 @@ def acquire_photos(groups, work: Path, per_group: int = 4) -> tuple[list[dict], 
     return manifest, group_photos
 
 
+# ---- real video clips (preferred; photos remain the required fallback) ----
+# Downloads real licensed footage per visual group, same dual-provider search
+# Shorts already uses (media_diversity.search_both_providers), normalized via
+# longform_render.render_clip_segment -- one ffmpeg process per clip, which is
+# what keeps this OOM-safe on the 3.8 GB box (see that function's docstring).
+# Best-effort and fully optional: acquire_photos() above is still called
+# unconditionally and still gates the pipeline (n_photos < 12 -> blocked), so
+# a total clip-acquisition failure (network, both providers down, no results
+# for the niche) degrades silently to the existing all-photo behaviour rather
+# than blocking a video that would otherwise render fine.
+LONGFORM_MIN_CLIP_SECONDS = 6.0  # margin over seg_len so a full segment always fits
+
+
+def acquire_clips(groups, work: Path, per_group: int = 2) -> tuple[list[dict], dict]:
+    """Download real video clips per group; manifest mirrors acquire_photos()'s
+    shape (asset_id/provider/license/...) for the same evidence-package use."""
+    from media_diversity import search_both_providers
+    clips_dir = work / "clips"; clips_dir.mkdir(parents=True, exist_ok=True)
+    manifest: list[dict] = []
+    group_clips: dict[str, list[tuple[str, float]]] = {}
+    seen_ids: set[str] = set()
+    for g in groups:
+        got: list[tuple[str, float]] = []
+        try:
+            results = search_both_providers(
+                g["query"], orientation="horizontal",
+                min_duration=int(LONGFORM_MIN_CLIP_SECONDS), max_duration=40,
+                limit=per_group + 4, page=1,
+            )
+        except Exception:
+            results = []
+        for r in results:
+            key = f"{r.provider}_{r.video_id}"
+            if key in seen_ids:
+                continue
+            target = clips_dir / f"{key}.mp4"
+            try:
+                if r.provider == "pixabay":
+                    from footage.providers.pixabay import download_video as _dl
+                    license_name, license_url = "Pixabay License", "https://pixabay.com/service/license/"
+                else:
+                    from footage.providers.pexels import download_video as _dl
+                    license_name, license_url = "Pexels License", "https://www.pexels.com/license/"
+                # download_video() ignores most of `target` (it has its own
+                # stable cache path, keyed by provider+id) and returns the
+                # REAL saved path -- must use the return value, not assume
+                # `target` itself got written.
+                dst = Path(_dl(r, target))
+                if not dst.exists() or dst.stat().st_size < 10_000:
+                    continue
+                probed = lr._probe(dst)
+                real_dur = float(probed.get("duration") or r.duration or 0)
+                if real_dur < LONGFORM_MIN_CLIP_SECONDS:
+                    continue
+                seen_ids.add(key)
+                got.append((str(dst), real_dur))
+                manifest.append({
+                    "asset_id": key, "provider": r.provider,
+                    "provider_asset_id": r.video_id, "source_url": r.page_url,
+                    "download_url": r.download_url, "author": r.author,
+                    "license_name": license_name, "license_url": license_url,
+                    "commercial_use_allowed": True, "search_query": g["query"],
+                    "visual_group_id": g["visual_group_id"],
+                    "downloaded_at": datetime.utcnow().isoformat() + "Z",
+                    "file_path": str(dst), "duration": round(real_dur, 2),
+                })
+                if len(got) >= per_group:
+                    break
+            except Exception:
+                continue
+        group_clips[g["visual_group_id"]] = got
+    return manifest, group_clips
+
+
 # ---- segment timeline (Ken Burns matched to narration durations) ----------
 
-def build_timeline(scenes, groups, group_photos, seg_len: float = 5.0) -> list[lr.Segment]:
-    """Interleave photos ACROSS groups (round-robin) so subjects alternate
-    (temple→monk→mountain→ocean…) with a GLOBAL cursor — no group's first photo
-    repeats every scene, no two adjacent segments share a photo, and Ken-Burns
-    motion cycles (3+ patterns, never the same twice in a row)."""
-    # round-robin interleave: photo #0 of each group, then #1 of each, …
-    per_group = [group_photos.get(g["visual_group_id"], []) for g in groups]
-    interleaved: list[str] = []
+def build_timeline(scenes, groups, group_photos, group_clips=None, seg_len: float = 5.0) -> list[lr.Segment]:
+    """Interleave real footage ACROSS groups (round-robin) so subjects alternate
+    (temple→monk→mountain→ocean…) with a GLOBAL cursor — no group's first asset
+    repeats every scene, no two adjacent segments share an asset, and Ken-Burns
+    motion cycles (3+ patterns, never the same twice in a row).
+
+    Each group's own asset list is video clips first, photos after -- so the
+    round-robin naturally prefers real footage everywhere it's available and
+    only reaches for a photo once a group's clips run out (or it has none)."""
+    group_clips = group_clips or {}
+    # (path, kind, max_seconds) -- max_seconds is None for photos (unbounded;
+    # Ken-Burns can stretch a still across any segment length) and the real
+    # ffprobe'd clip duration for clips (a segment can never ask for more of
+    # a clip than it actually contains).
+    per_group: list[list[tuple[str, str, float | None]]] = []
+    for g in groups:
+        gid = g["visual_group_id"]
+        assets = [(path, "clip", dur) for path, dur in group_clips.get(gid, [])]
+        assets += [(path, "photo", None) for path in group_photos.get(gid, [])]
+        per_group.append(assets)
+    interleaved: list[tuple[str, str, float | None]] = []
     for j in range(max((len(p) for p in per_group), default=0)):
         for gp in per_group:
             if j < len(gp):
@@ -364,16 +457,18 @@ def build_timeline(scenes, groups, group_photos, seg_len: float = 5.0) -> list[l
     segs: list[lr.Segment] = []
     pi = mi = 0
     remaining = total
-    last_img = None
+    last_path = None
     motions = lr._MOTIONS
     while remaining > 0.5:
-        img = interleaved[pi % len(interleaved)]
-        if img == last_img and len(interleaved) > 1:
+        path, kind, max_seconds = interleaved[pi % len(interleaved)]
+        if path == last_path and len(interleaved) > 1:
             pi += 1
-            img = interleaved[pi % len(interleaved)]
-        seg = min(seg_len, remaining)
-        segs.append(lr.Segment(image=img, seconds=round(seg, 2), motion=motions[mi % len(motions)]))
-        last_img = img
+            path, kind, max_seconds = interleaved[pi % len(interleaved)]
+        cap = min(seg_len, max_seconds) if max_seconds is not None else seg_len
+        seg = min(cap, remaining)
+        segs.append(lr.Segment(image=path, seconds=round(seg, 2),
+                               motion=motions[mi % len(motions)], kind=kind))
+        last_path = path
         remaining -= seg
         pi += 1
         mi += 1
@@ -459,6 +554,19 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             return status
         _stage("photo_acquisition", photos=n_photos, manifest="photo_manifest.json")
 
+        # Real video clips, preferred over the photos above wherever available
+        # (build_timeline() picks clips first per group, falls back to photos).
+        # Best-effort: photos already satisfied the n_photos>=12 gate above, so
+        # a clip-acquisition failure just means an all-photo render, not a
+        # blocked one.
+        try:
+            clip_manifest, group_clips = acquire_clips(groups, work)
+        except Exception:
+            clip_manifest, group_clips = [], {}
+        if clip_manifest:
+            (work / "clip_manifest.json").write_text(json.dumps(clip_manifest, ensure_ascii=False, indent=1))
+        _stage("clip_acquisition", clips=len(clip_manifest), manifest="clip_manifest.json")
+
         # voiceover (cache: reuse if present)
         audio_dir = work / "audio"; audio_dir.mkdir(exist_ok=True)
         voice_file = audio_dir / f"project_{project_id}_voiceover.mp3"
@@ -469,6 +577,12 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             voice_str, durations = synthesize_voiceover(
                 phrases, audio_dir, f"project_{project_id}",
                 voice_name="onyx",  # warm, calm narrator (valid OpenAI voice)
+                voice_tone="calm",  # was never actually passed before -- the
+                # `instructions` text alone asked for calm delivery but had no
+                # native pacing lever backing it; voice_tone="calm" now also
+                # applies a native, slightly slower `speed` (see
+                # _tts_phrase_openai), which reads as genuinely calmer than
+                # instructions text alone.
                 instructions=("Читай спокойно, тепло и размеренно, как опытный "
                               "рассказчик-документалист. Естественные паузы между "
                               "мыслями, живая интонация, без спешки и без монотонности."),
@@ -556,7 +670,7 @@ def run(project_id: int, job_root: str = "/app/output/longform_jobs") -> dict:
             cards.append({"png": _op, "start": round(max(0.0, vdur - 3.4), 2), "end": round(vdur, 2)})
         _stage("graphics", cards=len(cards))
 
-        segs = build_timeline(scenes, groups, group_photos)
+        segs = build_timeline(scenes, groups, group_photos, group_clips)
         _stage("segments", count=len(segs))
 
         # chunked silent render

@@ -701,6 +701,11 @@ class VideoProject(SaaSBase):
     cta_audio_duration_seconds = Column(Float, nullable=True)
     cta_fallback_used = Column(Boolean, nullable=True)
     playlist_status = Column(String(20), nullable=True)  # added | no_playlist | failed
+    # Which of the 8 hook types (see shorts_hook_diversity.py) produced this
+    # project's opening phrase, when the hook-diversity logic itself picked
+    # or regenerated it. NULL = long-form, a pre-existing row, or a Short
+    # whose model-generated hook passed unmodified (never classified).
+    hook_type = Column(String(30), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

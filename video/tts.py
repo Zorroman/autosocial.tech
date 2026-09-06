@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import asyncio
@@ -141,11 +142,17 @@ def _tts_phrase_openai(
     # keep only voices the API accepts; guarantee a valid default last.
     candidates = [v for v in (selected_voice, fallback_voice) if v in _OPENAI_TTS_VOICES]
     candidates.append("onyx")
+    # A slower native `speed` reads as calmer/more measured than the natural-
+    # language `instructions` alone reliably achieve, and unlike the post-hoc
+    # atempo stretch (_atempo_chain) used to hit a target duration, this
+    # shapes the actual generated speech rather than pitch-preserving it
+    # after the fact -- more natural for a genuinely calm delivery.
+    tts_speed = 0.92 if str(voice_tone or "").strip().lower() == "calm" else 1.0
     err: Exception | None = None
     for voice_try in dict.fromkeys(candidates):  # dedupe, keep order
         try:
             kwargs = dict(model=settings.OPENAI_TTS_MODEL, voice=voice_try,
-                          input=text, response_format="mp3")
+                          input=text, response_format="mp3", speed=tts_speed)
             if instructions and "gpt-4o-mini-tts" in (settings.OPENAI_TTS_MODEL or ""):
                 kwargs["instructions"] = instructions
             with client.audio.speech.with_streaming_response.create(**kwargs) as response:
@@ -181,58 +188,57 @@ def _tts_phrase_edge(
     asyncio.run(_synth())
 
 
-def _tts_phrase_fallback(text: str, out_path: Path, *, voice_gender: str | None = None) -> None:
-    # Fallback with actual speech via ffmpeg+flite to avoid silent videos.
-    # If flite is unavailable, keep the last-resort silent audio to preserve pipeline stability.
-    phrase = " ".join(str(text or "").split()).strip() or "Content update."
-    tmp_txt = out_path.with_suffix(".txt")
-    tmp_txt.write_text(phrase, encoding="utf-8")
-    flite_voice = "slt" if str(voice_gender or "").strip().lower() == "female" else "kal"
-    try:
-        _run(
-            [
-                settings.FFMPEG_BIN,
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                f"flite=textfile='{tmp_txt.as_posix()}':voice={flite_voice}",
-                "-q:a",
-                "3",
-                "-acodec",
-                "libmp3lame",
-                str(out_path),
-            ]
-        )
-        if probe_duration(str(out_path)) > 0.2:
-            return
-    except Exception:
-        pass
-    finally:
-        try:
-            if tmp_txt.exists():
-                tmp_txt.unlink()
-        except Exception:
-            pass
+class TTSProviderUnavailableError(RuntimeError):
+    """Raised when no TTS provider can produce audio for a video. No silent
+    fallback, no flite (not installed / not verified in production) -- the
+    caller must surface this as a blocked state, not a video with dead air."""
 
-    seconds = max(1.2, min(9.0, len(phrase) / 18.0))
-    _run(
-        [
-            settings.FFMPEG_BIN,
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=channel_layout=mono:sample_rate=44100",
-            "-t",
-            str(seconds),
-            "-q:a",
-            "9",
-            "-acodec",
-            "libmp3lame",
-            str(out_path),
-        ]
-    )
+
+# Per-phrase retries of the SAME provider before it's considered failed for
+# this video. A single transient hiccup shouldn't switch providers (that's
+# what caused inconsistent voices within one video); a provider that's
+# genuinely down should fail fast rather than retry forever.
+_MAX_PHRASE_RETRIES = 2
+
+
+def _synthesize_one_phrase(provider: str, text: str, out_path: Path, *,
+                           voice_name, voice_gender, voice_tone, instructions) -> None:
+    if provider == "edge":
+        _tts_phrase_edge(text, out_path, voice_name=voice_name,
+                         voice_gender=voice_gender, voice_tone=voice_tone)
+    else:
+        _tts_phrase_openai(text, out_path, voice_name=voice_name, voice_gender=voice_gender,
+                           voice_tone=voice_tone, instructions=instructions)
+
+
+def _synthesize_all_with_provider(
+    provider: str, lines: list[str], out_dir: Path, prefix: str, *,
+    voice_name, voice_gender, voice_tone, instructions,
+) -> list[Path]:
+    """Synthesize every phrase with ONE provider, retrying the same provider
+    on a transient per-phrase failure. Raises TTSProviderUnavailableError
+    (and does not leave partial output for the caller to accidentally mix
+    with another provider's files) if this provider can't complete the
+    whole video."""
+    paths: list[Path] = []
+    for idx, line in enumerate(lines):
+        p = out_dir / f"{prefix}_phrase_{idx:03d}.mp3"
+        last_exc: Exception | None = None
+        for _attempt in range(_MAX_PHRASE_RETRIES):
+            try:
+                _synthesize_one_phrase(provider, line, p, voice_name=voice_name,
+                                       voice_gender=voice_gender, voice_tone=voice_tone,
+                                       instructions=instructions)
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+        if last_exc is not None:
+            raise TTSProviderUnavailableError(
+                f"{provider} failed on phrase {idx} after {_MAX_PHRASE_RETRIES} attempts: {last_exc}"
+            )
+        paths.append(p)
+    return paths
 
 
 def synthesize_voiceover(
@@ -250,13 +256,43 @@ def synthesize_voiceover(
     instructions: str | None = None,
 ) -> tuple[str, list[float]]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    lines = [str(phrase or "").strip() or " " for phrase in phrases]
+
+    # Provider chosen ONCE for the whole video, not per phrase -- a single
+    # transient failure on one phrase must never leave that one phrase in a
+    # different voice than the rest. See TTSProviderUnavailableError.
+    primary = _primary_tts_provider()
+    # A tone `instructions` block is an OpenAI gpt-4o-mini-tts feature — when
+    # supplied (long-form), prefer OpenAI for its warmer, controllable voice.
+    order = ("openai", "edge") if instructions else (
+        ("edge", "openai") if primary == "edge" else ("openai", "edge"))
+
+    used_provider = order[0]
+    switched_to_fallback = False
+    try:
+        phrase_paths = _synthesize_all_with_provider(
+            order[0], lines, out_dir, prefix, voice_name=voice_name,
+            voice_gender=voice_gender, voice_tone=voice_tone, instructions=instructions)
+    except TTSProviderUnavailableError as exc1:
+        try:
+            phrase_paths = _synthesize_all_with_provider(
+                order[1], lines, out_dir, prefix, voice_name=voice_name,
+                voice_gender=voice_gender, voice_tone=voice_tone, instructions=instructions)
+            used_provider = order[1]
+            switched_to_fallback = True
+        except TTSProviderUnavailableError as exc2:
+            raise TTSProviderUnavailableError(
+                f"both TTS providers unavailable ({order[0]}: {exc1}; {order[1]}: {exc2})"
+            ) from exc2
+
+    used_voice = (_resolve_edge_voice(voice_gender, voice_tone, voice_name) if used_provider == "edge"
+                 else _resolve_openai_voice(voice_gender, voice_tone, voice_name))
+
     phrase_files: list[Path] = []
     durations: list[float] = []
     has_gap = False
-    for idx, phrase in enumerate(phrases):
-        line = str(phrase or "").strip()
-        if not line:
-            line = " "
+    tts_log: list[dict] = []
+    for idx, p in enumerate(phrase_paths):
         gap = 0.0
         if gap_before and idx < len(gap_before):
             try:
@@ -270,46 +306,23 @@ def synthesize_voiceover(
                   "-c:a", "libmp3lame", "-q:a", "4", str(sil)])
             phrase_files.append(sil)
             has_gap = True
-        p = out_dir / f"{prefix}_phrase_{idx:03d}.mp3"
-        primary = _primary_tts_provider()
-        # A tone `instructions` block is an OpenAI gpt-4o-mini-tts feature — when
-        # supplied (long-form), prefer OpenAI for its warmer, controllable voice.
-        if instructions:
-            order = ("openai", "edge")
-        else:
-            order = ("edge", "openai") if primary == "edge" else ("openai", "edge")
-        synthesized = False
-        for provider in order:
-            try:
-                if provider == "edge":
-                    _tts_phrase_edge(
-                        line,
-                        p,
-                        voice_name=voice_name,
-                        voice_gender=voice_gender,
-                        voice_tone=voice_tone,
-                    )
-                else:
-                    _tts_phrase_openai(
-                        line,
-                        p,
-                        voice_name=voice_name,
-                        voice_gender=voice_gender,
-                        voice_tone=voice_tone,
-                        instructions=instructions,
-                    )
-                synthesized = True
-                break
-            except Exception:
-                continue
-        if not synthesized:
-            _tts_phrase_fallback(line, p, voice_gender=voice_gender)
         d = probe_duration(str(p))
         d = max(0.2, d)
         if min_phrase_seconds is not None:
             d = max(d, float(min_phrase_seconds))
         durations.append(d + gap)  # the pause belongs to this phrase's slot
         phrase_files.append(p)
+        tts_log.append({
+            "phrase_index": idx,
+            "text_start": lines[idx][:60],
+            "provider": used_provider,
+            "voice": used_voice,
+            "duration": round(d, 2),
+            "fallback_reason": ("primary provider unavailable, whole video switched to fallback"
+                               if switched_to_fallback else None),
+        })
+    (out_dir / f"{prefix}_tts_log.json").write_text(
+        json.dumps(tts_log, ensure_ascii=False, indent=1), encoding="utf-8")
 
     concat_list = out_dir / f"{prefix}_concat.txt"
     concat_list.write_text(

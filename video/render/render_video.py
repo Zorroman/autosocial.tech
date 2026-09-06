@@ -4,10 +4,17 @@ from pathlib import Path
 from app_settings import settings
 
 
+def _tail(text: str, max_chars: int = 1200) -> str:
+    """Last max_chars of ffmpeg output. ffmpeg always opens stderr with its
+    version/build-configuration banner (well over 1200 chars on its own), so
+    a head slice never reaches the actual error -- it's on the last lines."""
+    return (text or "").strip()[-max_chars:]
+
+
 def _run(cmd: list[str]) -> None:
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg_failed: {(proc.stderr or proc.stdout)[:1200]}")
+        raise RuntimeError(f"ffmpeg_failed: {_tail(proc.stderr or proc.stdout)}")
 
 
 def _resolution(orientation: str, resolution: str | None) -> tuple[int, int]:

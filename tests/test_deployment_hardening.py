@@ -274,12 +274,13 @@ def test_verifier_missing_marker(tmp_path):
 
 @pytest.fixture()
 def deploy_env(tmp_path):
+    release, target_commit = _make_git_release_source(tmp_path)
     app = tmp_path / "app"; (app / "frontend").mkdir(parents=True); (app / "logs").mkdir()
-    shutil.copy(ROOT / "frontend/app.js", app / "frontend/app.js")
+    shutil.copy(release / "frontend/app.js", app / "frontend/app.js")
     import sqlite3
     con = sqlite3.connect(app / "autosocial.db")
     con.execute("CREATE TABLE t(x)"); con.execute("INSERT INTO t VALUES(1)"); con.commit(); con.close()
-    sha = _sha(ROOT / "frontend/app.js")
+    sha = _sha(release / "frontend/app.js")
     # deploy_production.sh invokes bare `python3` internally (correct in
     # production, where that resolves to an interpreter with the app's
     # dependencies already installed). Prepend the current interpreter's own
@@ -296,9 +297,9 @@ def deploy_env(tmp_path):
     py_dir = str(Path(sys.executable).parent)
     path_with_venv = py_dir + os.pathsep + os.environ.get("PATH", "")
     base = {**os.environ, "PATH": path_with_venv,
-            "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(ROOT),
+            "DEPLOY_DRY_RUN": "1", "APP_DIR": str(app), "RELEASE_SOURCE": str(release),
             "BACKUP_DIR": str(tmp_path / "backups"), "LOCK_FILE": str(tmp_path / "deploy.lock"),
-            "TARGET_COMMIT": "HEADSHA", "FRONTEND_EXPECTED_SHA": sha}
+            "TARGET_COMMIT": target_commit, "FRONTEND_EXPECTED_SHA": sha}
     return app, sha, base
 
 
@@ -307,14 +308,75 @@ def _run_deploy(env):
                           env=env, capture_output=True, text=True)
 
 
+def _make_git_release_source(tmp_path, name="release"):
+    rel = tmp_path / name
+    shutil.copytree(ROOT, rel, ignore=shutil.ignore_patterns(
+        ".git", ".venv", "__pycache__", "output", "cache", "data", "*.db", ".env", ".env.*"
+    ))
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "deploy-test",
+        "GIT_AUTHOR_EMAIL": "deploy-test@example.invalid",
+        "GIT_COMMITTER_NAME": "deploy-test",
+        "GIT_COMMITTER_EMAIL": "deploy-test@example.invalid",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=rel, env=env, check=True)
+    subprocess.run(["git", "add", "."], cwd=rel, env=env, check=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "release"],
+                   cwd=rel, env=env, check=True)
+    sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=rel, text=True).strip()
+    return rel, sha
+
+
 def test_deploy_dry_run_success(deploy_env):
     app, sha, env = deploy_env
+    (app / ".env").write_text("SECRET=keep\n")
+    (app / "data").mkdir()
+    (app / "data" / "runtime.txt").write_text("keep\n")
+    (app / "logs" / "runtime.log").write_text("keep\n")
     r = _run_deploy(env)
     assert r.returncode == 0, r.stderr + r.stdout
     assert "DEPLOY SUCCEEDED" in r.stdout
+    assert (app / ".deployed_commit").read_text().strip() == env["TARGET_COMMIT"]
+    assert (app.parent / "docker-compose.yml").exists()
+    assert (app / ".env").read_text() == "SECRET=keep\n"
+    assert (app / "data" / "runtime.txt").read_text() == "keep\n"
+    assert (app / "logs" / "runtime.log").read_text() == "keep\n"
     backups = list((Path(env["BACKUP_DIR"])).glob("db_*.db"))
     assert backups and backups[0].stat().st_size > 0          # backup created + non-empty
     assert not Path(env["LOCK_FILE"] + ".d").exists()          # lock released
+
+
+def test_deploy_dry_run_supports_external_compose_root(tmp_path):
+    release, target_commit = _make_git_release_source(tmp_path)
+    compose_root = tmp_path / "prodroot"
+    app = compose_root / "src"
+    (app / "frontend").mkdir(parents=True)
+    (app / "logs").mkdir()
+    shutil.copy(ROOT / "frontend/app.js", app / "frontend/app.js")
+    (compose_root / "docker-compose.yml").write_text("old compose\n")
+    import sqlite3
+    con = sqlite3.connect(app / "autosocial.db")
+    con.execute("CREATE TABLE t(x)")
+    con.commit()
+    con.close()
+    env = {
+        **os.environ,
+        "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", ""),
+        "DEPLOY_DRY_RUN": "1",
+        "APP_DIR": str(app),
+        "COMPOSE_DIR": str(compose_root),
+        "RELEASE_SOURCE": str(release),
+        "BACKUP_DIR": str(tmp_path / "backups"),
+        "LOCK_FILE": str(tmp_path / "deploy.lock"),
+        "TARGET_COMMIT": target_commit,
+        "FRONTEND_EXPECTED_SHA": _sha(release / "frontend/app.js"),
+    }
+    r = _run_deploy(env)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert (app / ".deployed_commit").read_text().strip() == target_commit
+    assert (compose_root / "docker-compose.yml").read_text() == (release / "docker-compose.yml").read_text()
+    assert list((tmp_path / "backups").glob("docker-compose.yml_*.bak"))
 
 
 def test_deploy_sha_mismatch_blocks_activation(deploy_env):
@@ -329,17 +391,45 @@ def test_deploy_sha_mismatch_blocks_activation(deploy_env):
     assert not Path(env["LOCK_FILE"] + ".d").exists()          # lock released after failure
 
 
+def test_deploy_release_source_revision_mismatch_blocks_activation(deploy_env, tmp_path):
+    app, sha, env = deploy_env
+    rel, _wrong_commit = _make_git_release_source(tmp_path, "wrongrelease")
+    before = _sha(app / "frontend/app.js")
+    r = _run_deploy({**env, "RELEASE_SOURCE": str(rel), "TARGET_COMMIT": "0" * 40})
+    assert r.returncode != 0
+    assert "does not prove target_commit" in (r.stdout + r.stderr).lower()
+    assert _sha(app / "frontend/app.js") == before
+
+
+def test_deploy_dirty_git_release_source_blocks_activation(deploy_env, tmp_path):
+    app, sha, env = deploy_env
+    rel, target_commit = _make_git_release_source(tmp_path, "dirtyrelease")
+    (rel / "frontend" / "app.js").write_text("dirty\n")
+    before = _sha(app / "frontend/app.js")
+    r = _run_deploy({**env, "RELEASE_SOURCE": str(rel), "TARGET_COMMIT": target_commit})
+    assert r.returncode != 0
+    assert "git tree is dirty" in (r.stdout + r.stderr).lower()
+    assert _sha(app / "frontend/app.js") == before
+
+
 def test_deploy_migration_failure_blocks_activation(deploy_env, tmp_path):
     app, sha, env = deploy_env
     # point RELEASE_SOURCE at a copy whose migrations.py fails
-    rel = tmp_path / "badrelease"
-    shutil.copytree(ROOT, rel, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__",
-                                                             "output", "cache", "data", "*.db"))
+    rel, _old_commit = _make_git_release_source(tmp_path, "badrelease")
     (rel / "migrations.py").write_text("import sys; sys.exit(2)\n")
-    (rel / "frontend").mkdir(exist_ok=True)
-    shutil.copy(ROOT / "frontend/app.js", rel / "frontend/app.js")
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "deploy-test",
+        "GIT_AUTHOR_EMAIL": "deploy-test@example.invalid",
+        "GIT_COMMITTER_NAME": "deploy-test",
+        "GIT_COMMITTER_EMAIL": "deploy-test@example.invalid",
+    }
+    subprocess.run(["git", "add", "migrations.py"], cwd=rel, env=commit_env, check=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "bad migration"],
+                   cwd=rel, env=commit_env, check=True)
+    target_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=rel, text=True).strip()
     before = _sha(app / "frontend/app.js")
-    env = {**env, "RELEASE_SOURCE": str(rel)}
+    env = {**env, "RELEASE_SOURCE": str(rel), "TARGET_COMMIT": target_commit}
     r = _run_deploy(env)
     assert r.returncode != 0
     assert "migrations failed" in (r.stdout + r.stderr).lower()

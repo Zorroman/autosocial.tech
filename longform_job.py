@@ -124,8 +124,29 @@ def render_and_publish(project_id: int) -> dict:
     import longform_pipeline
     from database import SessionLocal
     from app_models import VideoProject, Channel
+    from video.tts import TTSProviderUnavailableError
 
-    res = longform_pipeline.run(project_id, job_root=_JOB_ROOT)
+    try:
+        res = longform_pipeline.run(project_id, job_root=_JOB_ROOT)
+    except TTSProviderUnavailableError as exc:
+        # No safe long-form fallback exists for TTS either -- block with a
+        # clear status instead of letting this crash the RQ job silently
+        # (which would leave pipeline_state stale, not just this video dead
+        # air). Mirrors the same-named state used for OpenAI script-quota
+        # blocks (see LongformProviderBlockedError / openai_quota_guard.py).
+        db = SessionLocal()
+        try:
+            p = db.query(VideoProject).filter_by(id=project_id).first()
+            if p:
+                p.pipeline_stage = "render"
+                p.pipeline_state = "blocked_external_provider"
+                p.pipeline_error = f"long-form TTS blocked: {str(exc)[:280]}"
+                db.commit()
+        finally:
+            db.close()
+        log.warning("longform %s: TTS blocked (%s) — not rendering", project_id, str(exc)[:200])
+        return {"published": False, "reason": "tts_provider_unavailable", "qc": {}}
+
     qc = (res or {}).get("qc") or {}
     if not qc.get("passed"):
         db = SessionLocal()
