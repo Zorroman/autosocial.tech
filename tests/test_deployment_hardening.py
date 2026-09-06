@@ -365,6 +365,7 @@ def test_deploy_dry_run_supports_external_compose_root(tmp_path):
         **os.environ,
         "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", ""),
         "DEPLOY_DRY_RUN": "1",
+        "FORCE_DOCKER_PG_DUMP": "1",
         "APP_DIR": str(app),
         "COMPOSE_DIR": str(compose_root),
         "RELEASE_SOURCE": str(release),
@@ -422,6 +423,60 @@ def test_deploy_loads_compose_env_for_database_backup(tmp_path):
     assert r.returncode == 0, r.stderr + r.stdout
     backups = list((tmp_path / "backups").glob("db_*.sql"))
     assert backups and backups[0].read_text() == "dump-from-compose-env\n"
+
+
+def test_deploy_uses_compose_postgres_backup_when_host_pg_dump_missing(tmp_path):
+    release, target_commit = _make_git_release_source(tmp_path)
+    (release / "migrations.py").write_text("print('noop migrations')\n")
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "deploy-test",
+        "GIT_AUTHOR_EMAIL": "deploy-test@example.invalid",
+        "GIT_COMMITTER_NAME": "deploy-test",
+        "GIT_COMMITTER_EMAIL": "deploy-test@example.invalid",
+    }
+    subprocess.run(["git", "add", "migrations.py"], cwd=release, env=commit_env, check=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "noop migration"],
+                   cwd=release, env=commit_env, check=True)
+    target_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=release, text=True).strip()
+    compose_root = tmp_path / "prodroot"
+    app = compose_root / "src"
+    app.mkdir(parents=True)
+    (app / "frontend").mkdir()
+    shutil.copy(ROOT / "frontend/app.js", app / "frontend/app.js")
+    (compose_root / "docker-compose.yml").write_text("services:\n  postgres:\n    image: postgres\n")
+    (compose_root / ".env").write_text(
+        "DATABASE_URL=postgresql://prod/db\nPOSTGRES_USER=prod\nPOSTGRES_DB=autosocial\n"
+    )
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    (stub_bin / "docker").write_text(
+        "#!/usr/bin/env bash\n"
+        "if [ \"$1 $2 $3 $4 $5\" = \"compose exec -T postgres sh\" ]; then\n"
+        "  printf 'dump-from-container\\n'\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 99\n"
+    )
+    (stub_bin / "docker").chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": str(stub_bin) + os.pathsep + str(Path(sys.executable).parent)
+                + os.pathsep + "/bin:/usr/bin",
+        "DEPLOY_DRY_RUN": "1",
+        "FORCE_DOCKER_PG_DUMP": "1",
+        "APP_DIR": str(app),
+        "COMPOSE_DIR": str(compose_root),
+        "RELEASE_SOURCE": str(release),
+        "BACKUP_DIR": str(tmp_path / "backups"),
+        "LOCK_FILE": str(tmp_path / "deploy.lock"),
+        "TARGET_COMMIT": target_commit,
+        "FRONTEND_EXPECTED_SHA": _sha(release / "frontend/app.js"),
+    }
+    r = _run_deploy(env)
+    assert r.returncode == 0, r.stderr + r.stdout
+    backups = list((tmp_path / "backups").glob("db_*.sql"))
+    assert backups and backups[0].read_text() == "dump-from-container\n"
 
 
 def test_deploy_compose_env_loader_does_not_execute_or_override_controls(tmp_path):
