@@ -46,6 +46,80 @@ def _ffmpeg(*args):
     subprocess.run([settings.FFMPEG_BIN, "-y", *args], check=True, capture_output=True)
 
 
+def test_short_final_encode_bounds_ffmpeg_parallelism(monkeypatch, tmp_path):
+    calls = []
+
+    def _capture(cmd):
+        calls.append(cmd)
+
+    monkeypatch.setattr(render_video_module, "_run", _capture)
+
+    source = tmp_path / "source.mp4"
+    voice = tmp_path / "voice.mp3"
+    subs = tmp_path / "subs.ass"
+    source.write_bytes(b"not executed")
+    voice.write_bytes(b"not executed")
+    subs.write_text("[Script Info]\n", encoding="utf-8")
+
+    out = tmp_path / "out.mp4"
+    render_video(
+        clips=[{"clip_path": str(source), "duration_target": 3.0}],
+        voiceover_path=str(voice),
+        subtitles_path=str(subs),
+        out_path=str(out),
+        orientation="vertical",
+        fps=30,
+        resolution="1080x1920",
+    )
+
+    final_cmd = calls[-1]
+    assert final_cmd[:2] == [settings.FFMPEG_BIN, "-y"]
+    assert final_cmd[final_cmd.index("-filter_threads") + 1] == "1"
+    assert final_cmd[final_cmd.index("-filter_complex_threads") + 1] == "1"
+    assert final_cmd.index("-filter_threads") < final_cmd.index("-filter_complex")
+    assert final_cmd.index("-filter_complex_threads") < final_cmd.index("-filter_complex")
+    assert final_cmd[final_cmd.index("-threads") + 1] == "1"
+    assert final_cmd.index("-c:v") < final_cmd.index("-threads") < final_cmd.index("-preset")
+    assert final_cmd[final_cmd.index("-c:v") + 1] == "libx264"
+    assert final_cmd[final_cmd.index("-preset") + 1] == "veryfast"
+    assert final_cmd[final_cmd.index("-crf") + 1] == "22"
+    assert final_cmd[final_cmd.index("-c:a") + 1] == "aac"
+    assert final_cmd[final_cmd.index("-r") + 1] == "30"
+    assert final_cmd[final_cmd.index("-pix_fmt") + 1] == "yuv420p"
+    assert "subtitles='" in final_cmd[final_cmd.index("-filter_complex") + 1]
+    assert final_cmd[-1] == str(out)
+
+
+def test_long_form_final_encode_keeps_existing_thread_defaults(monkeypatch, tmp_path):
+    calls = []
+
+    def _capture(cmd):
+        calls.append(cmd)
+
+    monkeypatch.setattr(render_video_module, "_run", _capture)
+
+    source = tmp_path / "source.mp4"
+    voice = tmp_path / "voice.mp3"
+    source.write_bytes(b"not executed")
+    voice.write_bytes(b"not executed")
+
+    render_video(
+        clips=[{"clip_path": str(source), "duration_target": 61.0}],
+        voiceover_path=str(voice),
+        subtitles_path=None,
+        out_path=str(tmp_path / "out.mp4"),
+        orientation="horizontal",
+        fps=30,
+        resolution="1920x1080",
+    )
+
+    final_cmd = calls[-1]
+    assert "-threads" not in final_cmd
+    assert "-filter_threads" not in final_cmd
+    assert "-filter_complex_threads" not in final_cmd
+    assert final_cmd[final_cmd.index("-preset") + 1] == "fast"
+
+
 @pytest.fixture(scope="module")
 def fixtures():
     FIXTURES.mkdir(exist_ok=True)

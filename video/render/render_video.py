@@ -166,6 +166,8 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
         filter_chain.append("[2:a]volume=0.08,aresample=44100[bgm]")
         filter_chain.append("[1:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]")
         audio_map = "[aout]"
+    if filter_chain and is_short_render:
+        cmd.extend(["-filter_threads", "1", "-filter_complex_threads", "1"])
     if filter_chain:
         cmd.extend(["-filter_complex", ";".join(filter_chain)])
     cmd.extend(["-map", video_map, "-map", audio_map])
@@ -173,6 +175,7 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
         [
             "-c:v",
             "libx264",
+            *(["-threads", "1"] if is_short_render else []),
             "-preset",
             "veryfast" if is_short_render else "fast",
             "-crf",
