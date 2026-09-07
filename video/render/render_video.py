@@ -177,7 +177,7 @@ def render_video(clips, voiceover_path, subtitles_path, out_path, orientation, f
             "libx264",
             *(["-threads", "1"] if is_short_render else []),
             "-preset",
-            "veryfast" if is_short_render else "fast",
+            "ultrafast" if is_short_render else "fast",
             "-crf",
             "22" if orientation == "vertical" else "20",
             "-c:a",

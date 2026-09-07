@@ -81,7 +81,7 @@ def test_short_final_encode_bounds_ffmpeg_parallelism(monkeypatch, tmp_path):
     assert final_cmd[final_cmd.index("-threads") + 1] == "1"
     assert final_cmd.index("-c:v") < final_cmd.index("-threads") < final_cmd.index("-preset")
     assert final_cmd[final_cmd.index("-c:v") + 1] == "libx264"
-    assert final_cmd[final_cmd.index("-preset") + 1] == "veryfast"
+    assert final_cmd[final_cmd.index("-preset") + 1] == "ultrafast"
     assert final_cmd[final_cmd.index("-crf") + 1] == "22"
     assert final_cmd[final_cmd.index("-c:a") + 1] == "aac"
     assert final_cmd[final_cmd.index("-r") + 1] == "30"
