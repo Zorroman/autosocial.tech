@@ -1,16 +1,30 @@
 # AutoSocial — AI Video Factory
 
-Autonomous production pipeline that writes, voices, edits, and publishes short- and
-long-form video to YouTube — end to end, with no manual intervention in the default
-path. It currently runs a real YouTube channel that publishes ~10 Shorts/day and one
-long-form video/day, fully automated.
+A personal software project by **Yaroslav Gross** for producing and publishing
+YouTube Shorts and long-form video. It connects script generation, voiceover,
+visual selection, FFmpeg rendering, subtitles and upload through background jobs
+and an operations dashboard.
 
-**This is not a SaaS demo or a wrapper around an API.** It is a working content
-factory: script generation → TTS voiceover → stock-footage selection → FFmpeg
-rendering (memory-safe on a 3.8 GB VPS) → subtitle burn-in (word-level, forced
-alignment) → AI-generated metadata → YouTube upload, orchestrated by a scheduler
-and background workers, with a real operations dashboard reading real
-infrastructure state.
+**Stack:** Python · Flask · PostgreSQL · Redis/RQ · FFmpeg · JavaScript · Docker
+
+[Architecture](ARCHITECTURE.md) · [Case studies](CASE_STUDIES.md) ·
+[Local setup](#quick-start) · [Tests and CI](#testing) · [Author](https://github.com/Zorroman)
+
+![AutoSocial dashboard with synthetic demo data](docs/screenshots/dashboard-desktop.png)
+
+*Screenshot from a local demo environment with synthetic data.*
+
+### Project scope
+
+This is my own application, developed and operated with modern tools, including
+AI-assisted development. The project demonstrates API integration, asynchronous
+processing, media rendering and deployment on a small VPS. Publishing frequency
+is configurable and depends on content readiness, API quotas and available
+resources.
+
+The repository is available for portfolio review. Production is managed
+separately; a successful local run or CI check does not verify the live service.
+See the setup instructions and known limitations below.
 
 ## Table of contents
 
@@ -31,11 +45,8 @@ infrastructure state.
 > Screenshots below are from a local dev environment with a neutral demo user and
 > synthetic fixtures — not production data.
 
-There is no hosted public demo. The live system runs `PRIVATE_ADMIN_MODE=true`
-(single-admin allowlist, no public signup) because it's a real, automated
-YouTube channel with real billing and API cost exposure, not a sandboxed
-showcase — opening it up would mean either a separate, disposable environment
-or accepting that risk on the production one. What's here instead:
+The production dashboard is private. For review, use the local demo setup with
+mock providers and synthetic data, or start with these materials:
 
 - **Screenshots** — dashboard, video project detail, Operations, and the Create
   Hub, desktop and mobile: [`docs/screenshots/`](docs/screenshots/).
@@ -189,10 +200,14 @@ never make a real (billed) API call by accident.
 USE_MOCK_PROVIDERS=true SYNC_JOBS=true python -m pytest tests/ -q
 ```
 
-282 tests, all AI/YouTube calls mocked — the suite never spends money or touches a
-real YouTube channel. Runs in CI on every push/PR (see
+The test suite uses mocked AI/YouTube calls. Runs in CI on every push/PR (see
 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)), alongside a `ruff`
 lint job and a gitleaks secret-scan.
+
+Current results are visible in [GitHub Actions](https://github.com/Zorroman/autosocial.tech/actions).
+At the 25 November 2026 review, Python tests, lint, secret scanning and Compose
+validation passed in the latest scheduled run; the full-stack checks failed at
+backend startup, before browser tests could run.
 
 CI also builds the Docker Compose stack, brings it up for real (Postgres, Redis,
 worker, backend, Caddy), and runs a real Playwright suite against it — real login,
