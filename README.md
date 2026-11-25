@@ -205,9 +205,10 @@ The test suite uses mocked AI/YouTube calls. Runs in CI on every push/PR (see
 lint job and a gitleaks secret-scan.
 
 Current results are visible in [GitHub Actions](https://github.com/Zorroman/autosocial.tech/actions).
-At the 25 November 2026 review, Python tests, lint, secret scanning and Compose
-validation passed in the latest scheduled run; the full-stack checks failed at
-backend startup, before browser tests could run.
+The workflow covers Python tests, lint, secret scanning, Compose validation and
+a full-stack browser smoke test. Unqualified PostgreSQL URLs explicitly use the
+psycopg2 driver installed by this project, avoiding reliance on SQLAlchemy's
+changing default.
 
 CI also builds the Docker Compose stack, brings it up for real (Postgres, Redis,
 worker, backend, Caddy), and runs a real Playwright suite against it — real login,
